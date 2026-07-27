@@ -1,0 +1,1 @@
+from autoforge.cli.registry import app
