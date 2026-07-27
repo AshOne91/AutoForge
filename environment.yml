@@ -1,0 +1,22 @@
+name: autoforge
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.12
+  - pip
+
+  - pip:
+      - typer
+      - rich
+      - pydantic
+      - pyyaml
+      - jinja2
+      - gitpython
+      - watchdog
+      - fastapi
+      - uvicorn
+      - pytest
+      - black
+      - ruff

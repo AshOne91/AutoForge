@@ -1,0 +1,23 @@
+[project]
+name = "autoforge"
+version = "0.1.0"
+
+requires-python = ">=3.12"
+
+dependencies = [
+    "typer",
+    "rich",
+    "pydantic",
+    "pyyaml",
+    "jinja2",
+    "gitpython",
+    "watchdog",
+    "fastapi",
+    "uvicorn",
+]
+
+[tool.black]
+line-length = 100
+
+[tool.ruff]
+line-length = 100
