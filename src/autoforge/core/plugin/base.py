@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from autoforge.core.context.plugin_context import PluginContext
 from autoforge.core.plugin.metadata import PluginMetadata
 
+from autoforge.models.plugin_result import PluginResult
 
 class Plugin(ABC):
 
@@ -20,7 +21,7 @@ class Plugin(ABC):
         """
 
     @abstractmethod
-    def execute(self, context: PluginContext):
+    def execute(self, context: PluginContext) -> PluginResult:
         """
         실행
         """

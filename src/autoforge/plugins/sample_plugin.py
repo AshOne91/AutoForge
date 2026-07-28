@@ -2,6 +2,7 @@ from autoforge.core.context.plugin_context import PluginContext
 from autoforge.core.plugin.base import Plugin
 from autoforge.core.plugin.metadata import PluginMetadata
 
+from autoforge.models.plugin_result import PluginResult
 
 class SamplePlugin(Plugin):
 
@@ -17,5 +18,9 @@ class SamplePlugin(Plugin):
     def initialize(self):
         print("Plugin initialized")
 
-    def execute(self, context: PluginContext):
+    def execute(self, context: PluginContext) -> PluginResult:
         print("Plugin executed")
+        return PluginResult(
+        success=True,
+        message="Sample Plugin executed."
+        )

@@ -13,4 +13,12 @@ print(manager.list_plugins())
 
 context = PluginContext(config=config)
 
-manager.execute("Sample Plugin", context)
+result = manager.execute("Sample Plugin", context)
+
+print(result.success)
+print(result.message)
+print(manager.exists("Sample Plugin"))
+
+manager.unregister("Sample Plugin")
+
+print(manager.exists("Sample Plugin"))

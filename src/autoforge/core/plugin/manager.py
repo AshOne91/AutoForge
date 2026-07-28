@@ -1,37 +1,35 @@
-from autoforge.core.context.plugin_context import PluginContext
 from autoforge.core.plugin.base import Plugin
 
 
 class PluginManager:
-    """Plugin 등록 및 실행을 담당"""
 
     def __init__(self):
         self._plugins: dict[str, Plugin] = {}
 
     def register(self, plugin: Plugin):
-        """Plugin 등록"""
-
         name = plugin.metadata.name
 
         if name in self._plugins:
             raise ValueError(f"Plugin '{name}' already registered.")
 
+        plugin.initialize()
         self._plugins[name] = plugin
 
     def get(self, name: str) -> Plugin:
-        """Plugin 조회"""
-
         return self._plugins[name]
 
-    def execute(self, name: str, context: PluginContext):
-        """Plugin 실행"""
-
+    def execute(self, name: str, context):
         plugin = self.get(name)
+        return plugin.execute(context)
 
-        plugin.initialize()
-        plugin.execute(context)
-
-    def list_plugins(self) -> list[str]:
-        """등록된 Plugin 이름 목록"""
-
+    def list_plugins(self):
         return sorted(self._plugins.keys())
+
+    def exists(self, name: str) -> bool:
+        return name in self._plugins
+
+    def unregister(self, name: str):
+        if not self.exists(name):
+            return
+
+        del self._plugins[name]
