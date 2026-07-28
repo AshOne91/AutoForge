@@ -7,6 +7,4 @@ app = typer.Typer()
 
 @app.callback(invoke_without_command=True)
 def version():
-
-    typer.echo(config.settings.project.name)
-    typer.echo(config.settings.project.version)
+    typer.echo(f"{config.project.name} v{config.project.version}")
