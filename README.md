@@ -2,11 +2,23 @@
 
 > Event-Driven Development Automation Platform
 
-## Architecture
+---
 
-See
+# AutoForge
 
-docs/architecture/system_design.md
+AI-powered automation platform.
+
+---
+
+## Documentation
+
+docs/
+
+architecture/
+
+development/
+
+release/
 
 ## Vision
 
