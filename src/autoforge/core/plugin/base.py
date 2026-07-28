@@ -1,25 +1,26 @@
 from abc import ABC, abstractmethod
 
+from autoforge.core.execution.context import PluginContext
+from autoforge.core.plugin.metadata import PluginMetadata
+
 
 class Plugin(ABC):
-    """
-    모든 AutoForge Plugin의 부모 클래스
-    """
 
     @property
     @abstractmethod
-    def name(self) -> str:
-        """Plugin 이름"""
-
-    @property
-    @abstractmethod
-    def version(self) -> str:
-        """Plugin 버전"""
+    def metadata(self) -> PluginMetadata:
+        """
+        플러그인 정보
+        """
 
     @abstractmethod
     def initialize(self):
-        """Plugin 초기화"""
+        """
+        초기화
+        """
 
     @abstractmethod
-    def execute(self):
-        """Plugin 실행"""
+    def execute(self, context: PluginContext):
+        """
+        실행
+        """
