@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from autoforge.core.execution.context import PluginContext
+from autoforge.core.context.plugin_context import PluginContext
 from autoforge.core.plugin.metadata import PluginMetadata
 
 

@@ -1,5 +1,5 @@
 from autoforge.core.config import config
-from autoforge.core.execution.context import PluginContext
+from autoforge.core.context.plugin_context import PluginContext
 from autoforge.core.plugin.manager import PluginManager
 
 from autoforge.plugins.sample_plugin import SamplePlugin
