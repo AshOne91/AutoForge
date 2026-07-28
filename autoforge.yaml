@@ -1,0 +1,15 @@
+project:
+  name: AutoForge
+  version: "0.1.0"
+
+workspace:
+  output: "./output"
+
+logging:
+  level: INFO
+
+plugins:
+  enabled:
+    - csv
+    - entity
+    - sql
