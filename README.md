@@ -2,6 +2,12 @@
 
 > Event-Driven Development Automation Platform
 
+## Architecture
+
+See
+
+docs/architecture/system_design.md
+
 ## Vision
 
 AutoForge는 Git 이벤트를 기반으로 코드 생성, 빌드, 테스트, 배포를 자동화하는 플랫폼입니다.
