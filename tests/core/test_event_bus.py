@@ -5,7 +5,7 @@ from autoforge.core.event.event_bus import EventBus
 from autoforge.core.event.handler import EventHandler
 
 
-class TestEvent(Event):
+class SampleEvent(Event):
     pass
 
 
@@ -28,17 +28,17 @@ async def main():
     bus = EventBus()
 
     bus.subscribe(
-        TestEvent,
+        SampleEvent,
         PrintHandler(),
     )
 
     bus.subscribe(
-        TestEvent,
+        SampleEvent,
         LoggerHandler(),
     )
 
     await bus.publish(
-        TestEvent()
+        SampleEvent()
     )
 
 

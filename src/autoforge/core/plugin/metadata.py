@@ -1,13 +1,18 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
-@dataclass(frozen=True)
+@dataclass(slots=True)
 class PluginMetadata:
     """
-    플러그인의 기본 정보
+    Plugin Manifest
     """
 
     name: str
+
     version: str
-    description: str
-    author: str
+
+    description: str = ""
+
+    author: str = ""
+
+    dependencies: list[str] = field(default_factory=list) 

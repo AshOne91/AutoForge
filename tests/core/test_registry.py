@@ -9,7 +9,7 @@ print(registry.get("hello"))
 
 print(registry.exists("hello"))
 
-print(registry.list())
+print(registry.names())
 
 registry.unregister("hello")
 

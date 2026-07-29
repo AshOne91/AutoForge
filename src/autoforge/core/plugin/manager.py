@@ -1,35 +1,34 @@
 from autoforge.core.plugin.base import Plugin
+from autoforge.core.registry.registry import Registry
 
 
 class PluginManager:
 
     def __init__(self):
-        self._plugins: dict[str, Plugin] = {}
+        self._registry = Registry[Plugin]()
 
-    def register(self, plugin: Plugin):
+    def register(self, plugin: Plugin) -> None:
         name = plugin.metadata.name
 
-        if name in self._plugins:
-            raise ValueError(f"Plugin '{name}' already registered.")
+        if self._registry.exists(name):
+            raise ValueError(
+                f"Plugin '{name}' already registered."
+            )
 
-        plugin.initialize()
-        self._plugins[name] = plugin
+        self._registry.register(name, plugin)
 
     def get(self, name: str) -> Plugin:
-        return self._plugins[name]
+        return self._registry.get(name)
 
     def execute(self, name: str, context):
         plugin = self.get(name)
         return plugin.execute(context)
 
-    def list_plugins(self):
-        return sorted(self._plugins.keys())
-
+    def list_registry(self) -> list[str]:
+        return self._registry.names()
+    
     def exists(self, name: str) -> bool:
-        return name in self._plugins
+        return self._registry.exists(name)
 
-    def unregister(self, name: str):
-        if not self.exists(name):
-            return
-
-        del self._plugins[name]
+    def unregister(self, name: str) -> None:
+        self._registry.unregister(name)

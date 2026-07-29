@@ -1,23 +1,14 @@
-from typing import Generic, TypeVar
-
+from typing import Generic, Iterator, TypeVar
 
 T = TypeVar("T")
 
 
 class Registry(Generic[T]):
-    """
-    공통 Registry
-
-    Plugin
-    Task
-    Pipeline
-    등을 등록한다.
-    """
 
     def __init__(self):
         self._items: dict[str, T] = {}
 
-    def register(self, name: str, item: T):
+    def register(self, name: str, item: T) -> None:
 
         if name in self._items:
             raise ValueError(
@@ -26,7 +17,7 @@ class Registry(Generic[T]):
 
         self._items[name] = item
 
-    def unregister(self, name: str):
+    def unregister(self, name: str) -> None:
 
         self._items.pop(name, None)
 
@@ -41,10 +32,26 @@ class Registry(Generic[T]):
 
         return name in self._items
 
-    def list(self) -> list[str]:
+    def names(self) -> list[str]:
 
         return sorted(self._items.keys())
 
-    def clear(self):
+    def values(self) -> list[T]:
+
+        return list(self._items.values())
+
+    def clear(self) -> None:
 
         self._items.clear()
+
+    def __len__(self):
+
+        return len(self._items)
+
+    def __contains__(self, name):
+
+        return name in self._items
+
+    def __iter__(self) -> Iterator[T]:
+
+        return iter(self._items.values())
