@@ -14,13 +14,16 @@
 - GenerationPlan과 GenerationManifest 모델
 - 명세와 파일 내용 Hash 계산
 - Workspace 상대경로 검증과 경로 이탈 방지
-- 전체 테스트 60개 통과 기준선
+- 제네릭 Generator Protocol
+- 최소 FastAPI Project Generator 렌더링과 Dry-run
+- Workspace 상태 기반 생성 계획 충돌 판정
+- 전체 테스트 78개 통과 기준선
 
 ## 진행 중
 
 - 문서 정합성 정리
 - 패키지와 코딩 스타일 정리
-- 첫 번째 FastAPI Project Generator 준비
+- Workspace 파일 적용과 Manifest 기록 준비
 
 ## 존재하지만 미완성
 
@@ -33,7 +36,6 @@ PluginLoader는 빈 파일이며 사용되지 않는다. Pipeline은 추상 클�
 
 - GenerationJob
 - Workspace 파일 적용과 Manifest 저장
-- FastAPI 프로젝트 Generator
 - 생성 프로젝트 검증 Pipeline
 - Build 및 Git 서비스
 - Webhook 서비스

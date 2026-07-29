@@ -21,7 +21,8 @@
 
 ## 2단계 - 첫 번째 수직 Generator
 
-- [ ] 최소 FastAPI Project Generator
+- [x] 최소 FastAPI Project Generator 렌더링과 Dry-run
+- [ ] 최소 FastAPI Project Generator Workspace 적용
 - [ ] Tutorial Module Generator
 - [ ] Pydantic Model 및 Request/Response Generator
 - [ ] Router Generator
@@ -33,7 +34,7 @@
 
 - [x] Workspace 경로 안전 경계
 - [ ] 격리된 Workspace 생성과 수명주기
-- [ ] Dry-run과 충돌 탐지
+- [x] Dry-run과 충돌 탐지
 - [ ] 결정적 반복 생성
 - [ ] Import 및 pytest Validator
 - [ ] lint와 Package Build Validator

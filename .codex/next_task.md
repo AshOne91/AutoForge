@@ -2,9 +2,9 @@
 
 ## 현재 목표
 
-검증된 ProjectSpec을 결정적인 GenerationPlan으로 변환하는 첫 번째 최소
-FastAPI Project Generator를 구현한다. 먼저 실제 파일을 쓰지 않는 계획
-생성으로 출력 구조와 소유권 계약을 검증한다.
+충돌 판정이 끝난 GenerationPlan과 렌더링 결과를 Workspace에 안전하게
+적용하고 GenerationManifest를 만든다. 충돌이 하나라도 있으면 쓰기 전에
+전체 적용을 중단한다.
 
 ## 근거 문서
 
@@ -14,16 +14,15 @@ FastAPI Project Generator를 구현한다. 먼저 실제 파일을 쓰지 않는
 
 ## 다음 구현 범위
 
-1. Generator의 최소 입력과 출력 Protocol 정의
-2. 최소 FastAPI 프로젝트 파일 목록 정의
-3. ProjectSpec에서 GenerationPlan 생성
-4. 생성 내용의 결정적 Hash 계산
-5. 같은 명세가 같은 계획을 만드는지 pytest 검증
-6. 실제 파일 적용 전 Dry-run 결과 검증
+1. 계획과 렌더링 결과의 경로 및 Hash 일치 검증
+2. CONFLICT가 있으면 파일 쓰기 전 전체 중단
+3. CREATE 파일의 부모 디렉터리 생성과 UTF-8 쓰기
+4. KEEP과 SKIP 파일 보존
+5. 파일별 결과를 GenerationManifest로 변환
+6. 생성된 최소 FastAPI 프로젝트의 pytest 실행 준비
 
 ## 이번 범위에서 구현하지 않음
 
-- 실제 Workspace 파일 쓰기
 - Template 렌더링
 - Tutorial Module Generator
 - PluginLoader
