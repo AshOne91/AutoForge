@@ -3,20 +3,7 @@ from pathlib import PurePosixPath
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-
-def validate_relative_file_path(value: object) -> PurePosixPath:
-    path = PurePosixPath(str(value))
-    if path.is_absolute():
-        raise ValueError("생성 파일 경로는 상대 경로여야 합니다.")
-    if path.parts and ":" in path.parts[0]:
-        raise ValueError("생성 파일 경로에는 드라이브를 지정할 수 없습니다.")
-    if not path.parts or path == PurePosixPath("."):
-        raise ValueError("생성 파일 경로는 비어 있을 수 없습니다.")
-    if ".." in path.parts:
-        raise ValueError("생성 파일 경로에는 '..'을 사용할 수 없습니다.")
-    if "\\" in str(value):
-        raise ValueError("생성 파일 경로에는 역슬래시를 사용할 수 없습니다.")
-    return path
+from autoforge.core.workspace import validate_workspace_relative_path
 
 
 def validate_sha256(value: str) -> str:
@@ -68,7 +55,7 @@ class PlannedFile(GenerationModel):
     @field_validator("relative_path", mode="before")
     @classmethod
     def validate_relative_path(cls, value: object) -> PurePosixPath:
-        return validate_relative_file_path(value)
+        return validate_workspace_relative_path(value)
 
     @field_validator("specification_hash", "expected_content_hash")
     @classmethod
@@ -122,7 +109,7 @@ class ManifestFile(GenerationModel):
     error: str | None = None
 
     _validate_relative_path = field_validator("relative_path", mode="before")(
-        validate_relative_file_path
+        validate_workspace_relative_path
     )
     _validate_hash = field_validator(
         "specification_hash",
