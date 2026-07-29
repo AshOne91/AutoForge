@@ -1,3 +1,4 @@
+from autoforge.core.generation.generator import Generator
 from autoforge.core.generation.hashing import content_hash, specification_hash
 from autoforge.core.generation.models import (
     FileOwnership,
@@ -14,6 +15,7 @@ __all__ = [
     "FileResultStatus",
     "GenerationManifest",
     "GenerationPlan",
+    "Generator",
     "ManifestFile",
     "PlannedAction",
     "PlannedFile",
