@@ -206,8 +206,6 @@ class ModuleSpec(StrictSpecModel):
             field_type.kind is FieldTypeKind.MODEL
             and field_type.reference not in known_models
         ):
-            raise ValueError(
-                f"정의되지 않은 Model 참조입니다: {field_type.reference}"
-            )
+            raise ValueError(f"정의되지 않은 Model 참조입니다: {field_type.reference}")
         if field_type.item is not None:
             cls._validate_type_references(field_type.item, known_models)

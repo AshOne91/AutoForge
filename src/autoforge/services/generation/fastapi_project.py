@@ -44,14 +44,10 @@ class FastAPIProjectGenerator:
                 description=project.description,
                 package_name=package_name,
             ),
-            package_root / "__init__.py": (
-                f'__version__ = "{project.version}"\n'
-            ),
+            package_root / "__init__.py": (f'__version__ = "{project.version}"\n'),
             package_root / "main.py": self._render_main(package_name),
             package_root / "application" / "__init__.py": "",
-            package_root
-            / "application"
-            / "app_factory.py": self._render_app_factory(
+            package_root / "application" / "app_factory.py": self._render_app_factory(
                 package_name=package_name,
                 project_name=project.name,
                 version=project.version,
@@ -103,7 +99,7 @@ class FastAPIProjectGenerator:
         description: str,
     ) -> str:
         return (
-            '[build-system]\n'
+            "[build-system]\n"
             'requires = ["setuptools>=68"]\n'
             'build-backend = "setuptools.build_meta"\n'
             "\n"
@@ -118,7 +114,7 @@ class FastAPIProjectGenerator:
             'test = ["httpx", "pytest"]\n'
             "\n"
             "[tool.setuptools]\n"
-            'package-dir = {\"\" = \"src\"}\n'
+            'package-dir = {"" = "src"}\n'
             "\n"
             "[tool.setuptools.packages.find]\n"
             'where = ["src"]\n'

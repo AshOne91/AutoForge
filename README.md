@@ -31,9 +31,11 @@ AutoForge는 참고 프로젝트의 포팅이 아니라 재설계 프로젝트�
 - 공통 Type System
 - GenerationPlan과 GenerationManifest 계약
 - Workspace 경로 안전 경계
-- 전체 테스트 60개 통과 기준선
+- 최소 FastAPI Project 메모리 렌더링과 Dry-run
+- Workspace 상태 기반 충돌 판정
+- 전체 테스트 86개 통과 기준선
 
-FastAPI 프로젝트 Generator는 아직 구현하지 않았다.
+실제 Workspace 파일 적용과 Manifest 저장은 다음 구현 단계다.
 
 ## 첫 번째 MVP
 
@@ -46,9 +48,10 @@ FastAPI 프로젝트 Generator는 아직 구현하지 않았다.
 
 ## 문서
 
+- `docs/PROJECT_GUIDE_2026-07-29.md`
 - `docs/architecture/system_design.md`
 - `docs/architecture/generation_contract.md`
 - `docs/architecture/specification_design.md`
 - `docs/architecture/plugin_system.md`
-- `.codex/PROJECT_CONTEXT.md`
-- `.codex/ROADMAP.md`
+- `.codex/project_context.md`
+- `.codex/roadmap.md`

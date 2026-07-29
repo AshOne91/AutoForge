@@ -1,25 +1,29 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class ProjectConfig(BaseModel):
+class ConfigModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class ProjectConfig(ConfigModel):
     name: str
     version: str
 
 
-class WorkspaceConfig(BaseModel):
+class WorkspaceConfig(ConfigModel):
     output: str
 
 
-class LoggingConfig(BaseModel):
+class LoggingConfig(ConfigModel):
     level: str
 
 
-class PluginConfig(BaseModel):
-    enabled: list[str]
+class PluginConfig(ConfigModel):
+    enabled: list[str] = Field(default_factory=list)
 
 
-class Settings(BaseModel):
+class Settings(ConfigModel):
     project: ProjectConfig
     workspace: WorkspaceConfig
     logging: LoggingConfig
-    plugins: PluginConfig
+    plugins: PluginConfig = Field(default_factory=PluginConfig)

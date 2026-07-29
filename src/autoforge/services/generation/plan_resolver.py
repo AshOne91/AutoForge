@@ -17,8 +17,7 @@ class GenerationPlanResolver:
         workspace: Workspace,
     ) -> GenerationPlan:
         resolved_files = [
-            self._resolve_file(planned_file, workspace)
-            for planned_file in plan.files
+            self._resolve_file(planned_file, workspace) for planned_file in plan.files
         ]
         return plan.model_copy(update={"files": resolved_files})
 

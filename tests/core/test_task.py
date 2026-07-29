@@ -5,7 +5,6 @@ from autoforge.core.task.task import Task
 
 
 class HelloTask(Task):
-
     def __init__(self) -> None:
         self.executed = False
 

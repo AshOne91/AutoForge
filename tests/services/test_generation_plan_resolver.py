@@ -62,9 +62,7 @@ def test_identical_generated_file_is_kept(tmp_path: Path) -> None:
     target = tmp_path / "src" / "game_server" / "main.py"
     target.parent.mkdir(parents=True)
     target.write_text(content, encoding="utf-8")
-    original = generation_plan(
-        planned_file("src/game_server/main.py", content=content)
-    )
+    original = generation_plan(planned_file("src/game_server/main.py", content=content))
 
     resolved = GenerationPlanResolver().resolve(original, Workspace(tmp_path))
 

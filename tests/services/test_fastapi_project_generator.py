@@ -55,12 +55,14 @@ def test_render_uses_project_information() -> None:
         project_specification(name="Tutorial Server")
     )
 
-    assert 'title="Tutorial Server"' in files[
-        PurePosixPath("src/game_server/application/app_factory.py")
-    ]
-    assert "from game_server.application" in files[
-        PurePosixPath("src/game_server/main.py")
-    ]
+    assert (
+        'title="Tutorial Server"'
+        in files[PurePosixPath("src/game_server/application/app_factory.py")]
+    )
+    assert (
+        "from game_server.application"
+        in files[PurePosixPath("src/game_server/main.py")]
+    )
     assert 'pip install -e ".[test]"' in files[PurePosixPath("README.md")]
     assert "uvicorn game_server.main:app" in files[PurePosixPath("README.md")]
 
@@ -92,10 +94,7 @@ def test_plan_matches_rendered_content_hashes() -> None:
 
 def test_readme_is_scaffolded_and_other_files_are_generated() -> None:
     plan = FastAPIProjectGenerator().plan(project_specification())
-    ownership = {
-        file.relative_path: file.ownership
-        for file in plan.files
-    }
+    ownership = {file.relative_path: file.ownership for file in plan.files}
 
     assert ownership[PurePosixPath("README.md")] is FileOwnership.SCAFFOLDED
     assert all(
@@ -117,9 +116,7 @@ def test_project_name_changes_related_content_hash() -> None:
     generator = FastAPIProjectGenerator()
     first_plan = generator.plan(project_specification(name="First Server"))
     second_plan = generator.plan(project_specification(name="Second Server"))
-    app_factory_path = PurePosixPath(
-        "src/game_server/application/app_factory.py"
-    )
+    app_factory_path = PurePosixPath("src/game_server/application/app_factory.py")
 
     first_file = next(
         file for file in first_plan.files if file.relative_path == app_factory_path

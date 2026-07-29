@@ -31,9 +31,7 @@ class Workspace:
         try:
             candidate.relative_to(self.root)
         except ValueError as error:
-            raise ValueError(
-                "해석된 경로가 Workspace 외부를 가리킵니다."
-            ) from error
+            raise ValueError("해석된 경로가 Workspace 외부를 가리킵니다.") from error
         return candidate
 
     def contains(self, path: Path) -> bool:

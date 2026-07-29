@@ -2,16 +2,13 @@ from collections.abc import Iterator
 
 
 class Registry[T]:
-
     def __init__(self) -> None:
         self._items: dict[str, T] = {}
 
     def register(self, name: str, item: T) -> None:
 
         if name in self._items:
-            raise ValueError(
-                f"'{name}' is already registered."
-            )
+            raise ValueError(f"'{name}' is already registered.")
 
         self._items[name] = item
 

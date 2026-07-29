@@ -1,6 +1,6 @@
 import pytest
 
-from autoforge.core.config import config
+from autoforge.core.config import ConfigManager, Settings
 from autoforge.core.context.plugin_context import PluginContext
 from autoforge.core.plugin.base import Plugin
 from autoforge.core.plugin.manager import PluginManager
@@ -8,8 +8,18 @@ from autoforge.core.plugin.metadata import PluginMetadata
 from autoforge.models.plugin_result import PluginResult
 
 
-class StubPlugin(Plugin):
+def config_manager() -> ConfigManager:
+    settings = Settings.model_validate(
+        {
+            "project": {"name": "AutoForge", "version": "0.1.0"},
+            "workspace": {"output": "./output"},
+            "logging": {"level": "INFO"},
+        }
+    )
+    return ConfigManager(settings)
 
+
+class StubPlugin(Plugin):
     def __init__(self, name: str) -> None:
         self._metadata = PluginMetadata(name=name, version="0.1.0")
         self.executed_context: PluginContext | None = None
@@ -36,7 +46,7 @@ def test_register_execute_and_unregister_plugin() -> None:
     assert manager.get("sample") is plugin
     assert manager.exists("sample")
 
-    context = PluginContext(config=config)
+    context = PluginContext(config=config_manager())
     result = manager.execute("sample", context)
 
     assert result.success

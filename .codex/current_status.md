@@ -17,7 +17,10 @@
 - 제네릭 Generator Protocol
 - 최소 FastAPI Project Generator 렌더링과 Dry-run
 - Workspace 상태 기반 생성 계획 충돌 판정
-- 전체 테스트 78개 통과 기준선
+- 명시적 Config 주입과 전역 Config 제거
+- 프로젝트 디렉터리 밖에서 동작하는 version CLI
+- 미구현 CLI의 명확한 실패 상태
+- 전체 테스트 86개 통과 기준선
 
 ## 진행 중
 
@@ -30,7 +33,8 @@
 - CLI 명령
 - Plugin Framework
 - Pipeline 추상화
-PluginLoader는 빈 파일이며 사용되지 않는다. Pipeline은 추상 클래스 자리표시자뿐이므로 Plugin Framework는 아직 완성으로 보지 않는다.
+PluginLoader는 구현 예정 모듈이며 아직 공개 API가 없다. Pipeline은 추상
+클래스 자리표시자뿐이므로 Plugin Framework는 아직 완성으로 보지 않는다.
 
 ## 시작하지 않음
 
@@ -48,3 +52,5 @@ PluginLoader는 빈 파일이며 사용되지 않는다. Pipeline은 추상 클�
 미래 단계용 빈 디렉터리는 미리 유지하지 않는다. 각 단계에 진입할 때
 Roadmap과 다음 작업 문서를 확인하고 필요한 패키지와 테스트 디렉터리를
 구현과 함께 생성한다.
+
+전체 인수인계 문서는 `docs/PROJECT_GUIDE_2026-07-29.md`를 참고한다.

@@ -15,4 +15,4 @@ class PluginMetadata:
 
     author: str = ""
 
-    dependencies: list[str] = field(default_factory=list) 
+    dependencies: list[str] = field(default_factory=list)

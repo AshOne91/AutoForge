@@ -2,7 +2,6 @@ from autoforge.core.task.task import Task
 
 
 class TaskManager:
-
     def __init__(self):
         self._tasks: dict[str, Task] = {}
 

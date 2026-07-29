@@ -6,7 +6,6 @@ from autoforge.models.plugin_result import PluginResult
 
 
 class Plugin(ABC):
-
     @property
     @abstractmethod
     def metadata(self) -> PluginMetadata:

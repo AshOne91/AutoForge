@@ -62,11 +62,6 @@ class EventBus:
         if not handlers:
             return
 
-        tasks = [
-            asyncio.create_task(
-                handler.handle(event)
-            )
-            for handler in handlers
-        ]
+        tasks = [asyncio.create_task(handler.handle(event)) for handler in handlers]
 
         await asyncio.gather(*tasks)

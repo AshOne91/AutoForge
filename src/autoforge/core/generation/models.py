@@ -64,11 +64,11 @@ class PlannedFile(GenerationModel):
 
     @model_validator(mode="after")
     def validate_ownership_action(self) -> "PlannedFile":
-        if (
-            self.ownership is FileOwnership.USER_OWNED
-            and self.action
-            not in {PlannedAction.KEEP, PlannedAction.SKIP, PlannedAction.CONFLICT}
-        ):
+        if self.ownership is FileOwnership.USER_OWNED and self.action not in {
+            PlannedAction.KEEP,
+            PlannedAction.SKIP,
+            PlannedAction.CONFLICT,
+        }:
             raise ValueError("USER_OWNED 파일은 생성하거나 교체할 수 없습니다.")
         if (
             self.action is PlannedAction.REPLACE_GENERATED

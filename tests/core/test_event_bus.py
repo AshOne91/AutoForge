@@ -10,7 +10,6 @@ class SampleEvent(Event):
 
 
 class RecordingHandler(EventHandler):
-
     def __init__(self) -> None:
         self.events: list[Event] = []
 

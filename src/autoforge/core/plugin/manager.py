@@ -5,7 +5,6 @@ from autoforge.models.plugin_result import PluginResult
 
 
 class PluginManager:
-
     def __init__(self) -> None:
         self._registry = Registry[Plugin]()
 
@@ -13,9 +12,7 @@ class PluginManager:
         name = plugin.metadata.name
 
         if self._registry.exists(name):
-            raise ValueError(
-                f"Plugin '{name}' already registered."
-            )
+            raise ValueError(f"Plugin '{name}' already registered.")
 
         self._registry.register(name, plugin)
 

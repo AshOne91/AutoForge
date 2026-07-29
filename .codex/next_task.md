@@ -1,5 +1,7 @@
 # 다음 작업
 
+전체 배경과 현재 구조는 `docs/PROJECT_GUIDE_2026-07-29.md`를 먼저 읽는다.
+
 ## 현재 목표
 
 충돌 판정이 끝난 GenerationPlan과 렌더링 결과를 Workspace에 안전하게
@@ -43,5 +45,5 @@
 구체적인 코드 파일과 테스트 계획을 먼저 제시하고 사용자 승인을 받은 후에만 구현한다.
 
 현재 비어 있는 미래 기능 디렉터리는 제거된 상태다. Plugin, Database, Git,
-Webhook 단계에 진입할 때 `.codex/ROADMAP.md`의 해당 체크 항목에 따라 소스와
+Webhook 단계에 진입할 때 `.codex/roadmap.md`의 해당 체크 항목에 따라 소스와
 테스트 디렉터리를 구현 파일과 함께 다시 생성한다.

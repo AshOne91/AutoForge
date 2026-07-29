@@ -7,5 +7,4 @@ class Task(ABC):
     """
 
     @abstractmethod
-    async def execute(self):
-        ...
+    async def execute(self): ...
