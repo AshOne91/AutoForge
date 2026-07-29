@@ -27,7 +27,11 @@ AutoForge는 참고 프로젝트의 포팅이 아니라 재설계 프로젝트�
 - Typer CLI 기본 구조
 - 설정, Registry, EventBus, Task, PluginManager 기반
 - 기존 테스트의 pytest 마이그레이션 완료
-- 생성 계약과 안전 정책 정의 진행 중
+- ProjectSpec과 ModuleSpec 검증 모델
+- 공통 Type System
+- GenerationPlan과 GenerationManifest 계약
+- Workspace 경로 안전 경계
+- 전체 테스트 60개 통과 기준선
 
 FastAPI 프로젝트 Generator는 아직 구현하지 않았다.
 

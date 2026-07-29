@@ -1,9 +1,7 @@
-from typing import Generic, Iterator, TypeVar
-
-T = TypeVar("T")
+from collections.abc import Iterator
 
 
-class Registry(Generic[T]):
+class Registry[T]:
 
     def __init__(self) -> None:
         self._items: dict[str, T] = {}

@@ -9,27 +9,30 @@
 - Event와 비동기 EventBus 기본 구조
 - Task와 TaskManager 기본 구조
 - 기존 테스트의 pytest 마이그레이션
-- 전체 테스트 11개 통과 기준선
+- ProjectSpec과 ModuleSpec 검증 모델
+- 첫 MVP 공통 Type System
+- GenerationPlan과 GenerationManifest 모델
+- 명세와 파일 내용 Hash 계산
+- Workspace 상대경로 검증과 경로 이탈 방지
+- 전체 테스트 60개 통과 기준선
 
 ## 진행 중
 
 - 문서 정합성 정리
-- 생성 계약 정의
 - 패키지와 코딩 스타일 정리
+- 첫 번째 FastAPI Project Generator 준비
 
 ## 존재하지만 미완성
 
 - CLI 명령
 - Plugin Framework
 - Pipeline 추상화
-- Sample Plugin
-
 PluginLoader는 빈 파일이며 사용되지 않는다. Pipeline은 추상 클래스 자리표시자뿐이므로 Plugin Framework는 아직 완성으로 보지 않는다.
 
 ## 시작하지 않음
 
-- ProjectSpec과 GenerationJob
-- Workspace와 파일 Manifest
+- GenerationJob
+- Workspace 파일 적용과 Manifest 저장
 - FastAPI 프로젝트 Generator
 - 생성 프로젝트 검증 Pipeline
 - Build 및 Git 서비스
@@ -39,3 +42,7 @@ PluginLoader는 빈 파일이며 사용되지 않는다. Pipeline은 추상 클�
 ## 현재 제약
 
 로컬 생성과 검증이 안정되기 전에 Webhook, Git 자동화, AI를 구현하지 않는다. 동작하는 Generator로 확장 계약을 확인하기 전에는 PluginLoader를 구현하지 않는다.
+
+미래 단계용 빈 디렉터리는 미리 유지하지 않는다. 각 단계에 진입할 때
+Roadmap과 다음 작업 문서를 확인하고 필요한 패키지와 테스트 디렉터리를
+구현과 함께 생성한다.

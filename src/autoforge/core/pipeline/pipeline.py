@@ -7,8 +7,8 @@ class Pipeline(ABC):
     """
 
     @abstractmethod
-    def run(self):
+    def run(self) -> None:
         """
         Pipeline 실행
         """
-        pass
+        ...

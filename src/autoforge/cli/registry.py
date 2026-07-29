@@ -1,8 +1,8 @@
 import typer
 
-from autoforge.cli.commands.version import app as version_app
-from autoforge.cli.commands.plugin import app as plugin_app
 from autoforge.cli.commands.generate import app as generate_app
+from autoforge.cli.commands.plugin import app as plugin_app
+from autoforge.cli.commands.version import app as version_app
 
 app = typer.Typer(
     help="AutoForge Development Automation Platform",

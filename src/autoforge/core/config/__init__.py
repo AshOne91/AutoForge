@@ -5,6 +5,6 @@ from .settings import Settings
 __all__ = [
     "ConfigLoader",
     "ConfigManager",
-    "config",
     "Settings",
+    "config",
 ]
