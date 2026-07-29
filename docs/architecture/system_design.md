@@ -1,111 +1,160 @@
-# AutoForge System Architecture
+# AutoForge 시스템 설계
 
-## Goal
+## 목적
 
-AutoForge is an automation platform that receives Git events,
-executes pipelines,
-generates source code,
-builds projects,
-and automatically commits changes.
+AutoForge는 선언형 ProjectSpec을 바탕으로 모듈형 FastAPI 웹서버 프로젝트를 생성한다. 생성 프로젝트를 로컬에서 검증하고, 이후 동일한 과정을 GitHub 이벤트로 실행해 검증된 변경을 Pull Request로 전달한다.
 
----
+AutoForge는 생성 및 자동화 도구이고 생성된 FastAPI 프로젝트는 별도의 결과물이다.
 
-## Flow
+AutoForge의 최종 구조는 세 축을 함께 유지한다.
 
-GitHub
+```text
+반복 코드 생성
+  + Plugin, Metadata, EventBus, Pipeline 기반 확장
+  + Git 이벤트 및 CI/CD 자동화
+```
 
-↓
+## 참고 아키텍처
 
-Webhook
+- `common-tool`: 명령 중심 생성 과정과 설정 기반 모델
+- `gameserver`: Application, Domain, Service, Tool 책임 분리
+- `base_server`: FastAPI Application, Router, Domain, Service, 설정, 테스트, Docker 구조
 
-↓
+참고 프로젝트를 복사하지 않고 유용한 책임 경계만 유지한다.
 
-Event Dispatcher
+`common-tool`이 생성하던 Application, Template, Packet, Protocol, DB 및
+Controller의 반복 코드는 AutoForge의 Project, Module, Schema, Router,
+Repository Generator로 재설계한다.
 
-↓
+## 로컬 MVP 흐름
 
-Pipeline
-
-↓
-
-Plugin Manager
-
-↓
-
-Plugin
-
-↓
-
-Workspace
-
-↓
-
-Git Commit
-
-↓
-
-Git Push
-
-↓
-
-Pull Request
-
----
-
-## Core Modules
-
+```text
 CLI
+  → ProjectSpec 로딩 및 검증
+  → GenerationJob 생성
+  → 격리된 Workspace 준비
+  → 생성 계획 작성
+  → 파일 생성
+  → 파일 Manifest 작성
+  → 생성 프로젝트 검증
+  → 성공 또는 실패 결과 보고
+```
 
-Configuration
+첫 구현은 GitHub, Webhook, Redis, Database, AI 없이 동작해야 한다.
 
-Plugin Framework
+## 생성될 기본 서버 구조
 
-Pipeline Engine
+```text
+generated-project/
+├── src/project_name/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── config.py
+│   ├── routers/
+│   │   ├── __init__.py
+│   │   └── health.py
+│   ├── domain/__init__.py
+│   └── services/__init__.py
+├── tests/test_health.py
+├── pyproject.toml
+├── README.md
+└── Dockerfile
+```
 
-Task Scheduler
+Dockerfile 생성 여부는 ProjectSpec으로 선택할 수 있다.
 
-Event Dispatcher
+## 핵심 개념
 
----
+### ProjectSpec
 
-## Services
+생성할 서버를 설명하는 검증 및 버전 관리 가능한 명세다. 프로젝트 정보, 패키지 이름, Framework 옵션, 모듈, 선택적 Infrastructure 설정을 포함한다.
 
-Webhook Service
+### GenerationJob
 
-Generator Service
+ProjectSpec을 한 번 적용하는 작업이다. 작업 ID, 입력 출처, 상태, Workspace, 시각 정보, 구조화된 결과를 가진다. 향후 Webhook은 HTTP 요청 안에서 Generator를 실행하지 않고 GenerationJob을 생성한다.
 
-Git Service
+### Workspace
 
-Build Service
+작업이 파일을 생성하거나 수정할 수 있는 유일한 영역이다. 경로 이탈을 방지하고 동시 작업을 격리한다.
 
-Template Service
+### 생성 계획과 파일 Manifest
 
----
+생성 계획은 실제 쓰기 전 디렉터리와 파일의 미리보기다. Dry-run은 계획만 반환한다. Manifest는 각 파일을 생성, 변경, 동일, 건너뜀, 충돌 상태로 기록한다.
 
-## Infrastructure
+### Generator
 
-Logging
+검증된 ProjectSpec을 생성 계획으로 변환하고 Workspace에 적용한다. Commit, Push, Pull Request, Webhook을 처리하지 않는다.
 
-Filesystem
+### 검증 Pipeline
 
-Database
+Import, pytest, lint, 패키지·빌드 검사를 순서대로 실행한다. 실패 시 모든 Git 반영을 차단한다.
 
-Docker
+## 생성 안전 정책
 
-Redis
+- 모든 출력 경로를 Workspace 하위로 제한한다.
+- 잘못된 프로젝트·패키지·모듈 이름은 쓰기 전에 거부한다.
+- 사용자 관리 파일을 조용히 덮어쓰지 않는다.
+- 생성 파일과 수동 관리 파일을 구분한다.
+- 실제 변경 전 Dry-run을 지원한다.
+- 같은 명세의 반복 생성 결과가 결정적이어야 한다.
+- 부분 실패를 명확히 보고한다.
+- 비밀정보를 파일이나 명령 인자로 노출하지 않는다.
+- 외부 프로세스에 제한 시간을 적용한다.
 
-Message Queue
+## 향후 Git 자동화
 
----
+```text
+GitHub 이벤트
+  → 인증 및 중복 제거
+  → GenerationJob
+  → 격리된 저장소 Checkout
+  → 생성 및 검증
+  → 작업 브랜치
+  → Commit → Push → Pull Request
+```
 
-## Future
+Webhook은 작업 접수 후 응답하며 기본 브랜치에 직접 Push하지 않는다.
 
-AI Generator
+## Plugin 전략
 
-Multi Repository
+첫 FastAPI Generator는 일반 구현으로 작성한다. 실제 확장 지점이 확인된 이후 Project Blueprint, 모듈 Generator, 선택적 Service, 검증 작업을 Plugin으로 제공한다. Plugin은 Git에 직접 접근할 수 없고 PluginLoader는 계약 검증 이후 구현한다.
 
-Plugin Marketplace
+Plugin은 최종 아키텍처의 핵심 확장 단위다. Generator, Validator, Builder,
+Git Provider, CI/CD, Deployment 기능을 Plugin으로 확장할 수 있다.
 
-Dashboard
+Plugin Metadata는 ID, 버전, API 버전, 유형, Capability, 의존성, 지원 명세
+버전, 권한을 선언한다.
 
-Cloud Runner
+## EventBus와 Pipeline
+
+Pipeline은 Task의 실행 순서와 실패 정책을 제어한다.
+
+```text
+ValidateSpec
+→ ResolvePlugins
+→ PrepareWorkspace
+→ PlanGeneration
+→ Generate
+→ Validate
+→ Test
+→ Build
+→ Delivery
+```
+
+EventBus는 Job, Plugin, 생성 파일, 검증, Build, Git 작업에서 발생한 사건을
+Logging, Audit, Metrics, 상태 추적 Handler에 전달한다. EventBus가 Pipeline의
+순서를 대신하지 않는다.
+
+## 상세 문서
+
+- `generation_contract.md`: 파일 소유권, 반복 생성, Manifest, 검증 계약
+- `specification_design.md`: Project, Application, Module, API, Model, DB 명세
+
+## 첫 번째 MVP 제외 범위
+
+- `base_server`의 모든 기능 재현
+- 금융, 채팅, AI 전용 Domain
+- Database 자동 구축
+- GitHub Webhook과 Git 자동화
+- 분산 작업 실행
+- AI가 작성한 운영 코드
