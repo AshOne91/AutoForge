@@ -5,7 +5,7 @@ T = TypeVar("T")
 
 class Registry(Generic[T]):
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._items: dict[str, T] = {}
 
     def register(self, name: str, item: T) -> None:
@@ -44,11 +44,11 @@ class Registry(Generic[T]):
 
         self._items.clear()
 
-    def __len__(self):
+    def __len__(self) -> int:
 
         return len(self._items)
 
-    def __contains__(self, name):
+    def __contains__(self, name: str) -> bool:
 
         return name in self._items
 

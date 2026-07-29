@@ -9,37 +9,26 @@ class SampleEvent(Event):
     pass
 
 
-class PrintHandler(EventHandler):
+class RecordingHandler(EventHandler):
 
-    async def handle(self, event):
+    def __init__(self) -> None:
+        self.events: list[Event] = []
 
-        print("Print Handler")
-
-
-class LoggerHandler(EventHandler):
-
-    async def handle(self, event):
-
-        print("Logger Handler")
+    async def handle(self, event: Event) -> None:
+        self.events.append(event)
 
 
-async def main():
-
+def test_publish_event_to_subscribed_handlers() -> None:
     bus = EventBus()
+    first_handler = RecordingHandler()
+    second_handler = RecordingHandler()
+    event = SampleEvent()
 
-    bus.subscribe(
-        SampleEvent,
-        PrintHandler(),
-    )
+    bus.subscribe(SampleEvent, first_handler)
+    bus.subscribe(SampleEvent, second_handler)
 
-    bus.subscribe(
-        SampleEvent,
-        LoggerHandler(),
-    )
+    asyncio.run(bus.publish(event))
 
-    await bus.publish(
-        SampleEvent()
-    )
-
-
-asyncio.run(main())
+    assert first_handler.events == [event]
+    assert second_handler.events == [event]
+    assert bus.handlers(SampleEvent) == [first_handler, second_handler]

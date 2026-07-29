@@ -6,20 +6,22 @@ from autoforge.core.task.task import Task
 
 class HelloTask(Task):
 
-    async def execute(self):
-        print("Hello AutoForge")
+    def __init__(self) -> None:
+        self.executed = False
+
+    async def execute(self) -> str:
+        self.executed = True
+        return "Hello AutoForge"
 
 
-async def main():
-
+def test_register_and_execute_task() -> None:
     manager = TaskManager()
+    task = HelloTask()
 
-    manager.register(
-        "hello",
-        HelloTask(),
-    )
+    manager.register("hello", task)
 
-    await manager.execute("hello")
+    result = asyncio.run(manager.execute("hello"))
 
-
-asyncio.run(main())
+    assert result == "Hello AutoForge"
+    assert task.executed
+    assert manager.get("hello") is task

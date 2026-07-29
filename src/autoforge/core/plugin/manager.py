@@ -1,10 +1,12 @@
+from autoforge.core.context.plugin_context import PluginContext
 from autoforge.core.plugin.base import Plugin
 from autoforge.core.registry.registry import Registry
+from autoforge.models.plugin_result import PluginResult
 
 
 class PluginManager:
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._registry = Registry[Plugin]()
 
     def register(self, plugin: Plugin) -> None:
@@ -20,13 +22,20 @@ class PluginManager:
     def get(self, name: str) -> Plugin:
         return self._registry.get(name)
 
-    def execute(self, name: str, context):
-        plugin = self.get(name)
+    def execute(
+        self,
+        name: str,
+        context: PluginContext,
+    ) -> PluginResult:
+        plugin = self._registry.get(name)
         return plugin.execute(context)
 
-    def list_registry(self) -> list[str]:
+    def list_plugins(self) -> list[str]:
         return self._registry.names()
-    
+
+    def list_registry(self) -> list[str]:
+        return self.list_plugins()
+
     def exists(self, name: str) -> bool:
         return self._registry.exists(name)
 
