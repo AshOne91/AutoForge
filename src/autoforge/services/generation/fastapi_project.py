@@ -192,12 +192,12 @@ class FastAPIProjectGenerator:
         package_name: str,
         module_names: list[str],
     ) -> str:
-        imports = ["from fastapi import APIRouter"]
+        package_imports: list[str] = []
         aliases: list[str] = []
         for module_name in module_names:
             alias = f"{module_name}_router"
             aliases.append(alias)
-            imports.append(
+            package_imports.append(
                 f"from {package_name}.modules.{module_name}.generated.router "
                 f"import router as {alias}"
             )
@@ -209,7 +209,11 @@ class FastAPIProjectGenerator:
             declaration = (
                 f"MODULE_ROUTERS: tuple[APIRouter, ...] = (\n{router_items})\n"
             )
-        return "\n".join(imports) + "\n\n" + declaration + "\n"
+        sections = ["from fastapi import APIRouter"]
+        if package_imports:
+            sections.append("\n".join(package_imports))
+        sections.append(declaration.rstrip())
+        return "\n\n".join(sections) + "\n"
 
     @staticmethod
     def _render_health_router() -> str:

@@ -266,15 +266,16 @@ ProjectSpec
   → 메모리 GenerationManifest 반환
 ```
 
-아직 구현되지 않은 범위:
+검증까지 구현된 범위:
 
 ```text
 생성된 프로젝트
   → ProjectValidator
   → 별도 Python 프로세스 Import 검증
   → 별도 pytest 프로세스 검증
+  → Ruff lint 검증
+  → wheel Package Build
   → stdout, stderr, 종료 코드, Timeout 결과
-  ⇢ Build
   ⇢ Git 반영
 ```
 
@@ -503,11 +504,13 @@ Event를 여러 비동기 Handler에 전달한다. 실행 순서를 제어하지
 Task 기본 계약과 TaskManager는 존재한다. Pipeline은 자리표시자 계약만
 있으며 실행 순서, 재시도, Timeout과 실패 정책은 아직 구현되지 않았다.
 
-현재 `ProjectValidator`는 Pipeline을 확정하지 않고 다음 두 단계만 순서대로
+현재 `ProjectValidator`는 Pipeline을 확정하지 않고 다음 네 단계를 순서대로
 실행한다.
 
 1. 생성 패키지의 `main` 모듈 Import
 2. 생성 프로젝트의 pytest
+3. 생성 프로젝트의 Ruff 검사
+4. 격리된 `.autoforge/dist` 경로에 wheel Package Build
 
 `AsyncioProcessRunner`는 shell을 사용하지 않고 인자 튜플로 프로세스를
 실행하며 Workspace를 실행 디렉터리로 고정한다. 종료 코드, stdout, stderr,
@@ -921,7 +924,8 @@ ProjectSpec.application.modules
 
 위 수직 기능과 Tutorial Module의 Model, Schema, Router, Handler Scaffold,
 Application Registry 및 사용자 코드 보존 시나리오는 구현과 테스트가
-완료됐다. 현재 다음 작업은 생성 프로젝트의 lint와 Package Build Validator다.
+완료됐다. 생성 프로젝트의 lint와 Package Build Validator도 구현됐다.
+현재 다음 작업은 작업별 격리 Workspace 생성과 수명주기다.
 
 PluginLoader, Git, Webhook과 CI/CD는 위 수직 기능이 실제로 통과한 뒤
 구현한다.

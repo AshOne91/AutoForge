@@ -194,10 +194,12 @@ class FastAPIModuleGenerator:
             self._render_router_endpoint(endpoint)
             for endpoint in specification.endpoints
         ]
-        return self._join_sections(
-            imports,
-            [router_declaration, *endpoints],
-        )
+        import_section = "\n".join(imports)
+        endpoint_section = "\n\n\n".join(endpoints)
+        rendered = f"{import_section}\n\n{router_declaration}"
+        if endpoint_section:
+            rendered += f"\n\n\n{endpoint_section}"
+        return f"{rendered}\n"
 
     def _render_router_endpoint(self, endpoint: EndpointSpec) -> str:
         response_type = self._response_type(endpoint)

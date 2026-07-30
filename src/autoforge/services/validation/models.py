@@ -32,6 +32,8 @@ class ProcessRunner(Protocol):
 class ValidationStep(StrEnum):
     IMPORT = "import"
     PYTEST = "pytest"
+    RUFF = "ruff"
+    PACKAGE_BUILD = "package_build"
 
 
 @dataclass(frozen=True, slots=True)

@@ -21,6 +21,7 @@
 - GenerationManifest의 결정적 JSON 저장과 검증된 로딩
 - 비동기 외부 프로세스 실행과 Timeout 처리
 - 생성 프로젝트 Import 및 pytest 검증
+- 생성 프로젝트 Ruff 및 wheel Package Build 검증
 - 공통 Type의 Python/Pydantic Type 변환
 - ModuleSpec 기반 Pydantic Model 및 Request/Response Schema 생성
 - ModuleSpec 기반 FastAPI Router와 Handler Scaffold 생성
@@ -36,13 +37,13 @@
 - 명시적 Config 주입과 전역 Config 제거
 - 프로젝트 디렉터리 밖에서 동작하는 version CLI
 - 미구현 CLI의 명확한 실패 상태
-- 전체 테스트 154개 통과 기준선
+- 전체 테스트 157개 통과 기준선
 
 ## 진행 중
 
 - 문서 정합성 정리
 - 패키지와 코딩 스타일 정리
-- lint와 Package Build Validator 준비
+- 격리된 Workspace 생성과 수명주기 준비
 
 ## 존재하지만 미완성
 
@@ -55,7 +56,6 @@ PluginLoader는 구현 예정 모듈이며 아직 공개 API가 없다. Pipeline
 ## 시작하지 않음
 
 - GenerationJob 실행 조정 Service
-- lint와 Package Build 검증
 - Build 및 Git 서비스
 - Webhook 서비스
 - AI 생성

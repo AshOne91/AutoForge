@@ -4,8 +4,8 @@
 
 ## 현재 목표
 
-생성된 Python 프로젝트를 대상으로 lint와 Package Build를 실행하는
-Validator 계약을 작은 단위로 구현한다.
+생성 작업마다 독립적인 임시 Workspace를 만들고 정리하는 수명주기 계약을
+작은 단위로 구현한다.
 
 ## 근거 문서
 
@@ -15,12 +15,12 @@ Validator 계약을 작은 단위로 구현한다.
 
 ## 다음 구현 범위
 
-1. 기존 ProjectValidator와 ProcessRunner 계약 재검토
-2. Validator 결과 모델과 실패 정보의 최소 계약 정의
-3. 생성 프로젝트 대상 Ruff 검사 실행
-4. Python package build 실행
-5. 실행 파일 부재, 실패 Exit Code와 Timeout 테스트
-6. 기존 Import 및 pytest 검증 회귀 테스트
+1. 기존 Workspace 경로 안전 계약 재검토
+2. 격리 Workspace 생성 위치와 이름 검증
+3. async context manager 기반 생성과 정리
+4. 정상 종료와 예외 종료 시 정리
+5. 명시적으로 보존하는 실패 진단 정책
+6. Workspace 밖 경로 접근 방지 회귀 테스트
 
 ## 이번 범위에서 구현하지 않음
 

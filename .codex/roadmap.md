@@ -37,7 +37,7 @@
 - [x] Dry-run과 충돌 탐지
 - [x] 결정적 CREATE와 KEEP/SKIP 보존
 - [x] Import 및 pytest Validator
-- [ ] lint와 Package Build Validator
+- [x] lint와 Package Build Validator
 - [x] 구조화된 Job 결과 계약
 
 ## 4단계 - Plugin 확장 구조

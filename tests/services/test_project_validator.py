@@ -49,7 +49,7 @@ def process_result(*, exit_code: int = 0) -> ProcessResult:
 
 @pytest.mark.anyio
 async def test_validator_runs_import_then_pytest(tmp_path: Path) -> None:
-    runner = StubProcessRunner([process_result(), process_result()])
+    runner = StubProcessRunner([process_result() for _ in range(4)])
     workspace = Workspace(tmp_path)
 
     result = await ProjectValidator(
@@ -72,9 +72,23 @@ async def test_validator_runs_import_then_pytest(tmp_path: Path) -> None:
     assert [step.step for step in result.steps] == [
         ValidationStep.IMPORT,
         ValidationStep.PYTEST,
+        ValidationStep.RUFF,
+        ValidationStep.PACKAGE_BUILD,
     ]
     assert runner.commands[1] == ("python", "-m", "pytest")
-    assert runner.working_directories == [workspace.root, workspace.root]
+    assert runner.commands[2] == ("python", "-m", "ruff", "check", ".")
+    assert runner.commands[3] == (
+        "python",
+        "-m",
+        "pip",
+        "wheel",
+        "--no-deps",
+        "--no-build-isolation",
+        "--wheel-dir",
+        ".autoforge/dist",
+        ".",
+    )
+    assert runner.working_directories == [workspace.root] * 4
 
 
 @pytest.mark.anyio
@@ -90,6 +104,51 @@ async def test_validator_stops_after_import_failure(tmp_path: Path) -> None:
     assert len(result.steps) == 1
     assert result.steps[0].step is ValidationStep.IMPORT
     assert len(runner.commands) == 1
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("failed_step_index", "expected_steps"),
+    [
+        (1, [ValidationStep.IMPORT, ValidationStep.PYTEST]),
+        (
+            2,
+            [
+                ValidationStep.IMPORT,
+                ValidationStep.PYTEST,
+                ValidationStep.RUFF,
+            ],
+        ),
+        (
+            3,
+            [
+                ValidationStep.IMPORT,
+                ValidationStep.PYTEST,
+                ValidationStep.RUFF,
+                ValidationStep.PACKAGE_BUILD,
+            ],
+        ),
+    ],
+)
+async def test_validator_stops_after_step_failure(
+    tmp_path: Path,
+    failed_step_index: int,
+    expected_steps: list[ValidationStep],
+) -> None:
+    results = [
+        process_result(exit_code=1 if index == failed_step_index else 0)
+        for index in range(failed_step_index + 1)
+    ]
+    runner = StubProcessRunner(results)
+
+    result = await ProjectValidator(runner).validate(
+        package_name="game_server",
+        workspace=Workspace(tmp_path),
+    )
+
+    assert not result.succeeded
+    assert [step.step for step in result.steps] == expected_steps
+    assert len(runner.commands) == len(expected_steps)
 
 
 @pytest.mark.anyio
@@ -140,8 +199,11 @@ async def test_generated_fastapi_project_passes_real_validation(
     assert [step.step for step in result.steps] == [
         ValidationStep.IMPORT,
         ValidationStep.PYTEST,
+        ValidationStep.RUFF,
+        ValidationStep.PACKAGE_BUILD,
     ]
     assert "1 passed" in result.steps[1].process.stdout
+    assert (workspace.root / ".autoforge" / "dist").is_dir()
 
 
 def test_validation_result_requires_successful_steps() -> None:
