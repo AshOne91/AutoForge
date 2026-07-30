@@ -5,6 +5,7 @@ from autoforge.core.job.models import (
     GenerationUnit,
     GenerationUnitKind,
     GenerationUnitManifest,
+    ManifestDocumentKind,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "GenerationUnit",
     "GenerationUnitKind",
     "GenerationUnitManifest",
+    "ManifestDocumentKind",
 ]

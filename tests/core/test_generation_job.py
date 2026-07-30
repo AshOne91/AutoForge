@@ -15,6 +15,7 @@ from autoforge.core.job import (
     GenerationUnit,
     GenerationUnitKind,
     GenerationUnitManifest,
+    ManifestDocumentKind,
 )
 
 PROJECT_HASH = content_hash("project specification")
@@ -83,6 +84,7 @@ def job_manifest(job_id: str = "job-001") -> GenerationJobManifest:
 def test_job_manifest_preserves_each_specification_result() -> None:
     result = job_manifest()
 
+    assert result.document_kind is ManifestDocumentKind.GENERATION_JOB
     assert result.format_version == "1"
     assert len(result.units) == 2
     assert result.units[0].manifest.specification_hash == PROJECT_HASH

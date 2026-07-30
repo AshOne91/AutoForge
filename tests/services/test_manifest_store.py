@@ -10,6 +10,11 @@ from autoforge.core.generation import (
     ManifestFile,
     content_hash,
 )
+from autoforge.core.job import (
+    GenerationJobManifest,
+    GenerationUnitKind,
+    GenerationUnitManifest,
+)
 from autoforge.core.workspace import Workspace
 from autoforge.services.generation import (
     MANIFEST_RELATIVE_PATH,
@@ -36,6 +41,19 @@ def manifest() -> GenerationManifest:
                 specification_hash=SPECIFICATION_HASH,
                 content_hash=CONTENT_HASH,
                 source="project:게임서버",
+            )
+        ],
+    )
+
+
+def job_manifest() -> GenerationJobManifest:
+    return GenerationJobManifest(
+        job_id="job-001",
+        units=[
+            GenerationUnitManifest(
+                unit_id="project:game_server",
+                kind=GenerationUnitKind.PROJECT,
+                manifest=manifest(),
             )
         ],
     )
@@ -80,6 +98,76 @@ def test_save_replaces_existing_manifest(tmp_path: Path) -> None:
 
     assert store.load().job_id == "job-002"
     assert not (tmp_path / ".autoforge" / "manifest.json.tmp").exists()
+
+
+def test_save_and_load_job_manifest_round_trip(tmp_path: Path) -> None:
+    store = ManifestStore(Workspace(tmp_path))
+    original = job_manifest()
+
+    store.save_job(original)
+
+    assert store.load_job() == original
+    assert store.load_any() == original
+
+
+def test_save_job_manifest_is_deterministic_versioned_json(tmp_path: Path) -> None:
+    store = ManifestStore(Workspace(tmp_path))
+    original = job_manifest()
+
+    store.save_job(original)
+    first = store.path.read_bytes()
+    store.save_job(original)
+
+    assert store.path.read_bytes() == first
+    assert json.loads(first)["document_kind"] == "generation_job"
+    assert json.loads(first)["format_version"] == "1"
+
+
+def test_load_any_preserves_legacy_manifest_compatibility(tmp_path: Path) -> None:
+    store = ManifestStore(Workspace(tmp_path))
+    store.save(manifest())
+
+    loaded = store.load_any()
+
+    assert isinstance(loaded, GenerationManifest)
+    assert loaded == manifest()
+
+
+def test_typed_loaders_reject_other_manifest_kind(tmp_path: Path) -> None:
+    store = ManifestStore(Workspace(tmp_path))
+    store.save_job(job_manifest())
+
+    with pytest.raises(ManifestStoreError, match="기존 GenerationManifest"):
+        store.load()
+
+    store.save(manifest())
+    with pytest.raises(ManifestStoreError, match="GenerationJobManifest"):
+        store.load_job()
+
+
+@pytest.mark.parametrize(
+    "updates",
+    [
+        {"format_version": "999"},
+        {"document_kind": "unknown"},
+        {"document_kind": None},
+    ],
+)
+def test_load_rejects_unknown_or_mixed_job_manifest(
+    tmp_path: Path,
+    updates: dict[str, str | None],
+) -> None:
+    target = tmp_path / ".autoforge" / "manifest.json"
+    target.parent.mkdir()
+    data = job_manifest().model_dump(mode="json")
+    if updates.get("document_kind", ...) is None:
+        data.pop("document_kind")
+    else:
+        data.update(updates)
+    target.write_text(json.dumps(data), encoding="utf-8")
+
+    with pytest.raises(ManifestStoreError, match="유효하지"):
+        ManifestStore(Workspace(tmp_path)).load_any()
 
 
 @pytest.mark.parametrize(

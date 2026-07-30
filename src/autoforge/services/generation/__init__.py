@@ -6,6 +6,7 @@ from autoforge.services.generation.manifest_store import (
     MANIFEST_RELATIVE_PATH,
     ManifestStore,
     ManifestStoreError,
+    StoredManifest,
 )
 from autoforge.services.generation.plan_applier import (
     GenerationPlanApplier,
@@ -24,4 +25,5 @@ __all__ = [
     "ManifestStore",
     "ManifestStoreError",
     "PydanticTypeRenderer",
+    "StoredManifest",
 ]

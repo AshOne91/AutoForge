@@ -24,6 +24,10 @@ class GenerationJobStatus(StrEnum):
     FAILED = "failed"
 
 
+class ManifestDocumentKind(StrEnum):
+    GENERATION_JOB = "generation_job"
+
+
 class GenerationUnit(JobModel):
     unit_id: str = Field(min_length=1)
     kind: GenerationUnitKind
@@ -43,6 +47,9 @@ class GenerationUnitManifest(JobModel):
 
 
 class GenerationJobManifest(JobModel):
+    document_kind: Literal[ManifestDocumentKind.GENERATION_JOB] = (
+        ManifestDocumentKind.GENERATION_JOB
+    )
     format_version: Literal["1"] = "1"
     job_id: str = Field(min_length=1)
     units: list[GenerationUnitManifest] = Field(min_length=1)

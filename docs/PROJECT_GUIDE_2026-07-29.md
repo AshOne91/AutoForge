@@ -919,8 +919,9 @@ ProjectSpec.application.modules
   → 손상 및 알 수 없는 버전 거부
 ```
 
-그다음 Tutorial Module의 Model, Schema, Router와 Handler Scaffold를 생성해
-사용자 코드 보존 시나리오를 검증한다.
+위 수직 기능과 Tutorial Module의 Model, Schema, Router, Handler Scaffold,
+Application Registry 및 사용자 코드 보존 시나리오는 구현과 테스트가
+완료됐다. 현재 다음 작업은 생성 프로젝트의 lint와 Package Build Validator다.
 
 PluginLoader, Git, Webhook과 CI/CD는 위 수직 기능이 실제로 통과한 뒤
 구현한다.

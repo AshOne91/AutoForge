@@ -31,16 +31,18 @@
 - Project와 Tutorial Module 조합 및 실제 Endpoint 검증
 - GenerationJob과 Project/Module Unit 집계 모델
 - 복수 Manifest의 Job ID, Specification과 파일 경로 중복 검증
+- 버전형 GenerationJobManifest의 결정적 JSON 저장과 검증된 로딩
+- 기존 GenerationManifest JSON 로딩 호환성
 - 명시적 Config 주입과 전역 Config 제거
 - 프로젝트 디렉터리 밖에서 동작하는 version CLI
 - 미구현 CLI의 명확한 실패 상태
-- 전체 테스트 147개 통과 기준선
+- 전체 테스트 154개 통과 기준선
 
 ## 진행 중
 
 - 문서 정합성 정리
 - 패키지와 코딩 스타일 정리
-- 버전형 GenerationJobManifest 저장 준비
+- lint와 Package Build Validator 준비
 
 ## 존재하지만 미완성
 

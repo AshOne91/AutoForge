@@ -4,8 +4,8 @@
 
 ## 현재 목표
 
-기존 GenerationManifest JSON 호환성을 유지하면서 GenerationJobManifest를
-버전이 있는 형식으로 저장하고 로딩한다.
+생성된 Python 프로젝트를 대상으로 lint와 Package Build를 실행하는
+Validator 계약을 작은 단위로 구현한다.
 
 ## 근거 문서
 
@@ -15,12 +15,12 @@
 
 ## 다음 구현 범위
 
-1. Manifest 문서 종류와 format_version 식별자 정의
-2. GenerationJobManifest의 결정적 JSON 저장
-3. 기존 GenerationManifest JSON 로딩 호환성 유지
-4. 알 수 없는 format_version 거부
-5. 손상되거나 혼합된 Job Manifest 거부
-6. 저장소 API의 반환 타입과 마이그레이션 테스트
+1. 기존 ProjectValidator와 ProcessRunner 계약 재검토
+2. Validator 결과 모델과 실패 정보의 최소 계약 정의
+3. 생성 프로젝트 대상 Ruff 검사 실행
+4. Python package build 실행
+5. 실행 파일 부재, 실패 Exit Code와 Timeout 테스트
+6. 기존 Import 및 pytest 검증 회귀 테스트
 
 ## 이번 범위에서 구현하지 않음
 
