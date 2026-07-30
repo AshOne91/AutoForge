@@ -226,7 +226,7 @@ AutoForge/
 │   │   └── workspace/
 │   ├── infrastructure/             외부 시스템 Adapter 예정
 │   ├── models/                     기존 공통 결과 모델
-│   ├── plugins/                    기본 Plugin 구현 예정
+│   ├── plugins/                    기본 Plugin Catalog 조립
 │   └── services/
 │       └── generation/             Generator와 계획 해석 Service
 ├── tests/
@@ -552,17 +552,17 @@ Module Generator가 실제 Metadata와 결합되어 Generator ID로 조회된다
 Ruff와 wheel Build 동작을 유지하며 Metadata에 파일 읽기·쓰기와 Process
 실행 권한을 선언한다.
 
+`BuiltinPluginCatalog`는 기본 Project/Module Generator와 Project Validator
+Registry를 Application 계층에 한 번에 전달한다. package name과
+ProcessRunner를 명시적으로 주입하고 호출마다 새 Registry를 만들기 때문에
+테스트나 여러 생성 작업 사이에서 전역 상태가 공유되지 않는다.
+
 ### PluginLoader
 
-아직 구현되지 않았다. 첫 Generator와 Validator 계약을 실제 기능으로 검증한
-뒤 다음을 구현한다.
-
-- Plugin 검색
-- Metadata 호환성
-- Capability
-- 의존성
-- 권한
-- 실패 격리
+Plugin 검색, Metadata 호환성, Capability, 의존성 정렬, 권한 선언과 명시적인
+trusted 로딩까지 구현되어 있다. Built-in Catalog가 기본 구현을 조립하는
+경로와 외부 PluginLoader의 발견·로딩 경로는 의도적으로 분리한다. OS 수준
+Sandbox와 실패 격리는 아직 구현되지 않았다.
 
 ### EventBus
 
@@ -931,6 +931,8 @@ python -m ruff format --check src tests
 - 복수 Manifest의 Job ID, Specification과 파일 경로 검증
 - 명시적인 Config 주입
 - 프로젝트 밖에서 동작하는 version CLI
+- Generator 및 Validator Plugin Registry
+- Built-in Generator/Validator Plugin Catalog
 
 부분 구현:
 
@@ -994,9 +996,11 @@ ProjectSpec.application.modules
 위 수직 기능과 Tutorial Module의 Model, Schema, Router, Handler Scaffold,
 Application Registry 및 사용자 코드 보존 시나리오는 구현과 테스트가
 완료됐다. 생성 프로젝트의 lint와 Package Build Validator도 구현됐다.
-작업별 격리 Workspace 생성과 수명주기도 구현됐다. 현재 다음 작업은
-Built-in Generator와 Validator Registry를 하나의 명시적 Catalog로 조합해
-Application 계층에서 주입받을 수 있게 하는 것이다.
+작업별 격리 Workspace 생성과 수명주기도 구현됐다. Built-in Generator와
+Validator Registry를 하나의 명시적 Catalog로 조합해 Application 계층에서
+주입받을 수 있게 하는 작업도 완료됐다. 다음 단계는 Plugin Framework의
+구현·문서 일치 여부를 점검한 뒤 DatabaseSpec과 Repository 계약의 최소
+경계를 설계하는 것이다.
 
 PluginLoader, Git, Webhook과 CI/CD는 위 수직 기능이 실제로 통과한 뒤
 구현한다.

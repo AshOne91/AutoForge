@@ -62,6 +62,33 @@ Module Generator는 각각 Metadata와 결합되어 실제 Registry에 등록된
 Import, pytest, Ruff와 wheel Build를 그대로 실행한다. Metadata에는 파일
 읽기·쓰기와 Process 실행 권한을 선언한다.
 
+`BuiltinPluginCatalog`는 FastAPI Project/Module Generator Registry와
+Project Validator Registry를 하나의 불변 조립 결과로 제공한다. 생성할
+package name, ProcessRunner, Python 실행 경로와 Timeout은 Catalog 생성 시
+명시적으로 주입하며 전역 Catalog나 공유 Registry를 만들지 않는다.
+
+Built-in Catalog는 AutoForge가 함께 배포하는 구현을 조립하는 책임만 가진다.
+PluginLoader는 외부 디렉터리의 Manifest 발견, 의존성 정렬과 명시적인 trusted
+로딩을 담당하므로 두 경로는 서로 대체하거나 자동으로 연결되지 않는다.
+
+`BuiltinPluginCatalog`는 FastAPI Project/Module Generator Registry와
+Project Validator Registry를 하나의 불변 조립 결과로 제공한다. 생성할
+package name, ProcessRunner, Python 실행 경로와 Timeout은 Catalog 생성 시
+명시적으로 주입하며 전역 Catalog나 공유 Registry를 만들지 않는다.
+
+Built-in Catalog는 AutoForge가 함께 배포하는 구현을 조립하는 책임만 가진다.
+PluginLoader는 외부 디렉터리의 Manifest 발견, 의존성 정렬과 명시적인 trusted
+로딩을 담당하므로 두 경로는 서로 대체하거나 자동으로 연결되지 않는다.
+
+`BuiltinPluginCatalog`는 FastAPI Project/Module Generator Registry와
+Project Validator Registry를 하나의 불변 조립 결과로 제공한다. 생성할
+package name, ProcessRunner, Python 실행 경로와 Timeout은 Catalog 생성 시
+명시적으로 주입하며 전역 Catalog나 공유 Registry를 만들지 않는다.
+
+Built-in Catalog는 AutoForge가 함께 배포하는 구현을 조립하는 책임만 가진다.
+PluginLoader는 외부 디렉터리의 Manifest 발견, 의존성 정렬과 명시적인 trusted
+로딩을 담당하므로 두 경로는 서로 대체하거나 자동으로 연결되지 않는다.
+
 ## 책임
 
 - Plugin은 다른 Plugin을 직접 수정하지 않는다.
@@ -72,5 +99,4 @@ Import, pytest, Ruff와 wheel Build를 그대로 실행한다. Metadata에는 �
 
 ## 후속 구현
 
-- Built-in Plugin Catalog
 - 격리와 실패 처리

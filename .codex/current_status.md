@@ -21,6 +21,7 @@
 - FastAPI Project/Module Generator의 실제 Plugin 등록
 - 요청·결과 타입별 async Validator Plugin Registry
 - ProjectValidator의 실제 Plugin 등록과 권한 선언
+- Built-in Generator/Validator Plugin Catalog와 명시적 의존성 주입
 - Event와 비동기 EventBus 기본 구조
 - Task와 TaskManager 기본 구조
 - 기존 테스트의 pytest 마이그레이션
@@ -54,13 +55,13 @@
 - 명시적 Config 주입과 전역 Config 제거
 - 프로젝트 디렉터리 밖에서 동작하는 version CLI
 - 미구현 CLI의 명확한 실패 상태
-- 전체 테스트 220개 통과 기준선
+- 전체 테스트 224개 통과 기준선
 
 ## 진행 중
 
 - 문서 정합성 정리
 - 패키지와 코딩 스타일 정리
-- Built-in Generator/Validator Plugin Catalog 준비
+- Plugin Framework 4단계 완료 검토
 
 ## 존재하지만 미완성
 
@@ -68,7 +69,7 @@
 - Plugin Framework
 - Pipeline 추상화
 PluginLoader는 발견, 의존성 정렬과 명시적 trusted 로딩까지 구현됐다.
-Permission의 OS 수준 Sandbox 강제와 Built-in Plugin Catalog는 아직 없다.
+Permission의 OS 수준 Sandbox 강제는 아직 없다.
 Pipeline도 추상 클래스 자리표시자뿐이므로 Plugin Framework는 아직 완성으로
 보지 않는다.
 

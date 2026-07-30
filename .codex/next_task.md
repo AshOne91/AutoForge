@@ -4,8 +4,9 @@
 
 ## 현재 목표
 
-Built-in Generator와 Validator Registry를 하나의 명시적 Plugin Catalog로
-조합해 Application 계층이 기본 기능을 한 번에 주입받을 수 있게 한다.
+Plugin 확장 구조 4단계의 구현과 문서가 일치하는지 검토하고, 다음 데이터 및
+서비스 생성 단계에 들어가기 전 DatabaseSpec과 Repository 계약의 최소 경계를
+설계한다.
 
 ## 근거 문서
 
@@ -15,16 +16,17 @@ Built-in Generator와 Validator Registry를 하나의 명시적 Plugin Catalog�
 
 ## 다음 구현 범위
 
-1. `src/autoforge/plugins/` 실제 구현 패키지 구성
-2. FastAPI Project/Module Generator Registry 조합
-3. ProjectValidator Registry 조합
-4. package name과 ProcessRunner 명시적 주입
-5. 전역 mutable Catalog 금지
-6. 기본 Catalog의 ID·Metadata·타입 회귀 테스트
-7. 외부 PluginLoader와 Built-in Catalog 책임 분리 문서화
+1. Plugin Framework 구현과 Roadmap 상태 대조
+2. `DatabaseSpec`이 표현할 최소 정보 조사
+3. Repository Generator가 소유할 파일과 사용자 코드 경계 정의
+4. SQLAlchemy와 Alembic 의존성을 도입하기 전 추상 계약 작성
+5. `kis-auto-trading`에 필요한 기능과 범용 기능 구분
+6. 구현 전 구체적인 코드·테스트 파일 계획 제시
 
 ## 이번 범위에서 구현하지 않음
 
+- Database 구현 코드
+- SQLAlchemy 및 Alembic Plugin
 - Template 렌더링
 - GenerationJob 실행기
 - 권한의 OS 수준 Sandbox 강제

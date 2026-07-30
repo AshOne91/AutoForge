@@ -47,7 +47,7 @@
 - [x] PluginLoader 구현
 - [x] Generator 및 Validator Plugin 등록
 - [x] Plugin 의존성과 권한 정책
-- [ ] `plugins/` 구현 및 테스트 디렉터리 생성
+- [x] `plugins/` Built-in Catalog 구현 및 테스트 디렉터리 생성
 
 ## 5단계 - 데이터 및 서비스 생성
 
