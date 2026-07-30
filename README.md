@@ -42,9 +42,10 @@ AutoForge는 참고 프로젝트의 포팅이 아니라 재설계 프로젝트�
 - Endpoint 추가 재생성 시 Handler 보존
 - Application Module Registry와 Tutorial Endpoint 연결
 - GenerationJob과 복수 Manifest 집계 계약
-- 전체 테스트 147개 통과 기준선
+- Generator/Validator Plugin Registry와 Built-in Plugin Catalog
+- 전체 테스트 224개 통과 기준선
 
-버전형 GenerationJobManifest 저장이 다음 구현 단계다.
+다음 단계는 DatabaseSpec과 Repository 계약의 최소 경계 설계다.
 
 ## 첫 번째 MVP
 
@@ -57,6 +58,8 @@ AutoForge는 참고 프로젝트의 포팅이 아니라 재설계 프로젝트�
 
 ## 문서
 
+- `docs/study/README.md`: Python·웹·FastAPI부터 시작하는 완전 입문 시리즈
+- `docs/AUTOFORGE_STUDY_GUIDE_2026-07-30.md`: 코드, 아키텍처와 FastAPI 학습 가이드
 - `docs/PROJECT_GUIDE_2026-07-29.md`
 - `docs/architecture/system_design.md`
 - `docs/architecture/generation_contract.md`

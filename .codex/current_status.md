@@ -22,6 +22,8 @@
 - 요청·결과 타입별 async Validator Plugin Registry
 - ProjectValidator의 실제 Plugin 등록과 권한 선언
 - Built-in Generator/Validator Plugin Catalog와 명시적 의존성 주입
+- 코드·아키텍처·FastAPI 학습 가이드 작성
+- Python·웹·FastAPI·AutoForge 4권 완전 입문 학습 시리즈 작성
 - Event와 비동기 EventBus 기본 구조
 - Task와 TaskManager 기본 구조
 - 기존 테스트의 pytest 마이그레이션
