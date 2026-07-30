@@ -4,8 +4,8 @@
 
 ## 현재 목표
 
-ProjectSpec의 활성 Module 목록을 FastAPI Application에 연결하는 GENERATED
-Module Registry를 구현한다.
+기존 GenerationManifest JSON 호환성을 유지하면서 GenerationJobManifest를
+버전이 있는 형식으로 저장하고 로딩한다.
 
 ## 근거 문서
 
@@ -15,17 +15,17 @@ Module Registry를 구현한다.
 
 ## 다음 구현 범위
 
-1. `application/generated/module_registry.py` 렌더링
-2. ProjectSpec Module 목록의 결정적 Router Import
-3. Application Factory와 Module Registry 연결
-4. Module이 없는 프로젝트의 빈 Registry 처리
-5. Project와 Module Generator 결과 조합
-6. Tutorial Endpoint를 TestClient로 호출하는 통합 테스트
+1. Manifest 문서 종류와 format_version 식별자 정의
+2. GenerationJobManifest의 결정적 JSON 저장
+3. 기존 GenerationManifest JSON 로딩 호환성 유지
+4. 알 수 없는 format_version 거부
+5. 손상되거나 혼합된 Job Manifest 거부
+6. 저장소 API의 반환 타입과 마이그레이션 테스트
 
 ## 이번 범위에서 구현하지 않음
 
 - Template 렌더링
-- Manifest 병합과 GenerationJob
+- GenerationJob 실행기
 - PluginLoader
 - Webhook
 - Git Commit, Push, Pull Request

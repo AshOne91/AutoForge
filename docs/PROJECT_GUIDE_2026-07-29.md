@@ -853,6 +853,10 @@ python -m ruff format --check src tests
 - 동일 명세 재실행 시 사용자 Handler 보존
 - Manifest 기반 GENERATED 파일 안전 교체
 - Endpoint 추가 시 Router 갱신과 Handler 보존
+- Application Module Registry 생성
+- Project와 Tutorial Module 조합 및 실제 Endpoint 호출 검증
+- GenerationJob과 Project/Module Unit 집계 계약
+- 복수 Manifest의 Job ID, Specification과 파일 경로 검증
 - 명시적인 Config 주입
 - 프로젝트 밖에서 동작하는 version CLI
 
@@ -909,10 +913,10 @@ python -m ruff format --check src tests
 
 ```text
 ProjectSpec.application.modules
-  → Module Router를 결정적으로 Import
-  → application/generated/module_registry.py
-  → Application Factory에 Router 등록
-  → Tutorial Endpoint 통합 테스트
+  → 버전이 있는 GenerationJobManifest JSON
+  → 기존 GenerationManifest 로딩 호환
+  → 문서 종류와 format_version 판별
+  → 손상 및 알 수 없는 버전 거부
 ```
 
 그다음 Tutorial Module의 Model, Schema, Router와 Handler Scaffold를 생성해

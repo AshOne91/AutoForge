@@ -27,7 +27,7 @@
 - [x] Pydantic Model 및 Request/Response Generator
 - [x] Router Generator
 - [x] Handler Scaffold Generator
-- [ ] Application Module Registry Generator
+- [x] Application Module Registry Generator
 - [x] 생성 테스트와 사용자 코드 보존 테스트
 
 ## 3단계 - Workspace와 검증 Pipeline
@@ -38,7 +38,7 @@
 - [x] 결정적 CREATE와 KEEP/SKIP 보존
 - [x] Import 및 pytest Validator
 - [ ] lint와 Package Build Validator
-- [ ] 구조화된 Job 결과
+- [x] 구조화된 Job 결과 계약
 
 ## 4단계 - Plugin 확장 구조
 

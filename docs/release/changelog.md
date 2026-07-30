@@ -32,3 +32,10 @@
 - 이전 Manifest와 현재 파일 Hash가 일치하는 GENERATED 파일만 안전하게
   교체하고 CHANGED 결과를 기록한다.
 - Endpoint 추가 재생성에서 Router를 갱신하면서 사용자 Handler를 보존한다.
+- ProjectSpec의 Module 목록에서 Application Module Registry를 생성한다.
+- Project와 Tutorial Module을 조합하고 실제 FastAPI Endpoint 호출까지
+  검증하는 수직 통합 테스트를 추가했다.
+- GenerationJob, Project/Module Unit과 복수 Manifest 집계 모델을 추가했다.
+- Job ID, Unit, Specification과 파일 경로 중복을 상위 계약에서 검증한다.
+- 공통 `modules/__init__.py`는 Project Generator가 한 번만 생성하도록
+  파일 소유권을 정리했다.

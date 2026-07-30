@@ -15,6 +15,7 @@ def project_specification(
     *,
     name: str = "Game Server",
     description: str = "모듈형 FastAPI 게임 서버",
+    modules: list[str] | None = None,
 ) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
@@ -24,7 +25,7 @@ def project_specification(
             version="0.1.0",
             description=description,
         ),
-        application=ApplicationSpec(),
+        application=ApplicationSpec(modules=modules or []),
     )
 
 
@@ -42,8 +43,11 @@ def test_render_returns_minimum_fastapi_project_files() -> None:
         PurePosixPath("README.md"),
         PurePosixPath("src/game_server/__init__.py"),
         PurePosixPath("src/game_server/main.py"),
+        PurePosixPath("src/game_server/modules/__init__.py"),
         PurePosixPath("src/game_server/application/__init__.py"),
         PurePosixPath("src/game_server/application/app_factory.py"),
+        PurePosixPath("src/game_server/application/generated/__init__.py"),
+        PurePosixPath("src/game_server/application/generated/module_registry.py"),
         PurePosixPath("src/game_server/routers/__init__.py"),
         PurePosixPath("src/game_server/routers/health.py"),
         PurePosixPath("tests/test_health.py"),
@@ -65,6 +69,43 @@ def test_render_uses_project_information() -> None:
     )
     assert 'pip install -e ".[test]"' in files[PurePosixPath("README.md")]
     assert "uvicorn game_server.main:app" in files[PurePosixPath("README.md")]
+
+
+def test_render_empty_module_registry() -> None:
+    files = FastAPIProjectGenerator().render(project_specification())
+    registry = files[
+        PurePosixPath("src/game_server/application/generated/module_registry.py")
+    ]
+
+    assert "MODULE_ROUTERS: tuple[APIRouter, ...] = ()" in registry
+
+
+def test_render_module_registry_in_declared_order() -> None:
+    files = FastAPIProjectGenerator().render(
+        project_specification(modules=["tutorial", "item"])
+    )
+    registry = files[
+        PurePosixPath("src/game_server/application/generated/module_registry.py")
+    ]
+
+    tutorial_import = (
+        "from game_server.modules.tutorial.generated.router "
+        "import router as tutorial_router"
+    )
+    item_import = (
+        "from game_server.modules.item.generated.router import router as item_router"
+    )
+    assert registry.index(tutorial_import) < registry.index(item_import)
+    assert "    tutorial_router,\n    item_router,\n" in registry
+
+
+def test_app_factory_registers_module_routers() -> None:
+    files = FastAPIProjectGenerator().render(project_specification())
+    app_factory = files[PurePosixPath("src/game_server/application/app_factory.py")]
+
+    assert "import MODULE_ROUTERS" in app_factory
+    assert "for router in MODULE_ROUTERS:" in app_factory
+    assert "app.include_router(router)" in app_factory
 
 
 def test_rendered_python_and_toml_are_valid() -> None:

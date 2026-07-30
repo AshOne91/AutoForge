@@ -51,7 +51,6 @@ class FastAPIModuleGenerator:
         )
         generated_root = module_root / "generated"
         return {
-            module_root.parent / "__init__.py": "",
             module_root / "__init__.py": "",
             module_root / "handlers.py": self._render_handlers(specification),
             generated_root / "__init__.py": "",

@@ -73,6 +73,12 @@ Dockerfile 생성 여부는 ProjectSpec으로 선택할 수 있다.
 
 ProjectSpec을 한 번 적용하는 작업이다. 작업 ID, 입력 출처, 상태, Workspace, 시각 정보, 구조화된 결과를 가진다. 향후 Webhook은 HTTP 요청 안에서 Generator를 실행하지 않고 GenerationJob을 생성한다.
 
+현재 GenerationJob 계약은 Project와 Module을 `GenerationUnit`으로 구분한다.
+각 Unit은 기존 GenerationManifest를 그대로 보존하며 상위
+GenerationJobManifest가 Job ID, Unit ID, Specification 버전·Hash와 전체
+파일 경로 중복을 검증한다. Job 실행 조정과 상태 전이는 후속 Service가
+담당한다.
+
 ### Workspace
 
 작업이 파일을 생성하거나 수정할 수 있는 유일한 영역이다. 경로 이탈을 방지하고 동시 작업을 격리한다.
@@ -80,6 +86,10 @@ ProjectSpec을 한 번 적용하는 작업이다. 작업 ID, 입력 출처, 상�
 ### 생성 계획과 파일 Manifest
 
 생성 계획은 실제 쓰기 전 디렉터리와 파일의 미리보기다. Dry-run은 계획만 반환한다. Manifest는 각 파일을 생성, 변경, 동일, 건너뜀, 충돌 상태로 기록한다.
+
+Application Module Registry는 ProjectSpec에 선언된 Module Router를 생성 코드로
+연결한다. `application/generated/module_registry.py`가 Router 튜플을 제공하고
+Application Factory가 Health Router 이후 선언 순서대로 등록한다.
 
 ### Generator
 

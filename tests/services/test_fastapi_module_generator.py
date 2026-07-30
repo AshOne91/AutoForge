@@ -102,7 +102,6 @@ def test_render_returns_generated_model_and_schema_files() -> None:
     files = FastAPIModuleGenerator("game_server").render(tutorial_specification())
 
     assert set(files) == {
-        PurePosixPath("src/game_server/modules/__init__.py"),
         PurePosixPath("src/game_server/modules/tutorial/__init__.py"),
         PurePosixPath("src/game_server/modules/tutorial/handlers.py"),
         PurePosixPath("src/game_server/modules/tutorial/generated/__init__.py"),

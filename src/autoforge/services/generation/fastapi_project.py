@@ -45,8 +45,17 @@ class FastAPIProjectGenerator:
                 package_name=package_name,
             ),
             package_root / "__init__.py": (f'__version__ = "{project.version}"\n'),
+            package_root / "modules" / "__init__.py": "",
             package_root / "main.py": self._render_main(package_name),
             package_root / "application" / "__init__.py": "",
+            package_root / "application" / "generated" / "__init__.py": "",
+            package_root
+            / "application"
+            / "generated"
+            / "module_registry.py": self._render_module_registry(
+                package_name=package_name,
+                module_names=specification.application.modules,
+            ),
             package_root / "application" / "app_factory.py": self._render_app_factory(
                 package_name=package_name,
                 project_name=project.name,
@@ -164,14 +173,43 @@ class FastAPIProjectGenerator:
         return (
             "from fastapi import FastAPI\n"
             "\n"
+            f"from {package_name}.application.generated.module_registry "
+            "import MODULE_ROUTERS\n"
             f"from {package_name}.routers.health import router as health_router\n"
             "\n"
             "\n"
             "def create_app() -> FastAPI:\n"
             f"    app = FastAPI(title={title_literal}, version={version_literal})\n"
             "    app.include_router(health_router)\n"
+            "    for router in MODULE_ROUTERS:\n"
+            "        app.include_router(router)\n"
             "    return app\n"
         )
+
+    @staticmethod
+    def _render_module_registry(
+        *,
+        package_name: str,
+        module_names: list[str],
+    ) -> str:
+        imports = ["from fastapi import APIRouter"]
+        aliases: list[str] = []
+        for module_name in module_names:
+            alias = f"{module_name}_router"
+            aliases.append(alias)
+            imports.append(
+                f"from {package_name}.modules.{module_name}.generated.router "
+                f"import router as {alias}"
+            )
+
+        if not aliases:
+            declaration = "MODULE_ROUTERS: tuple[APIRouter, ...] = ()"
+        else:
+            router_items = "".join(f"    {alias},\n" for alias in aliases)
+            declaration = (
+                f"MODULE_ROUTERS: tuple[APIRouter, ...] = (\n{router_items})\n"
+            )
+        return "\n".join(imports) + "\n\n" + declaration + "\n"
 
     @staticmethod
     def _render_health_router() -> str:

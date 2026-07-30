@@ -40,9 +40,11 @@ AutoForge는 참고 프로젝트의 포팅이 아니라 재설계 프로젝트�
 - FastAPI Router와 사용자 보존 Handler Scaffold 생성
 - Manifest 기반 GENERATED 파일 안전 교체
 - Endpoint 추가 재생성 시 Handler 보존
-- 전체 테스트 134개 통과 기준선
+- Application Module Registry와 Tutorial Endpoint 연결
+- GenerationJob과 복수 Manifest 집계 계약
+- 전체 테스트 147개 통과 기준선
 
-Application Module Registry가 다음 구현 단계다.
+버전형 GenerationJobManifest 저장이 다음 구현 단계다.
 
 ## 첫 번째 MVP
 

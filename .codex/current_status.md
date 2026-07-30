@@ -27,16 +27,20 @@
 - 동일 명세 재실행 시 사용자 Handler 보존
 - Manifest 기반 GENERATED 파일 안전 교체
 - Endpoint 추가 재생성 시 Router 갱신과 Handler 보존
+- Application Module Registry 생성
+- Project와 Tutorial Module 조합 및 실제 Endpoint 검증
+- GenerationJob과 Project/Module Unit 집계 모델
+- 복수 Manifest의 Job ID, Specification과 파일 경로 중복 검증
 - 명시적 Config 주입과 전역 Config 제거
 - 프로젝트 디렉터리 밖에서 동작하는 version CLI
 - 미구현 CLI의 명확한 실패 상태
-- 전체 테스트 134개 통과 기준선
+- 전체 테스트 147개 통과 기준선
 
 ## 진행 중
 
 - 문서 정합성 정리
 - 패키지와 코딩 스타일 정리
-- Application Module Registry 준비
+- 버전형 GenerationJobManifest 저장 준비
 
 ## 존재하지만 미완성
 
@@ -48,7 +52,7 @@ PluginLoader는 구현 예정 모듈이며 아직 공개 API가 없다. Pipeline
 
 ## 시작하지 않음
 
-- GenerationJob
+- GenerationJob 실행 조정 Service
 - lint와 Package Build 검증
 - Build 및 Git 서비스
 - Webhook 서비스
