@@ -80,6 +80,70 @@ class PluginLoader:
             )
         return tuple(candidates)
 
+    def resolve_load_order(
+        self,
+        candidates: tuple[PluginCandidate, ...] | None = None,
+    ) -> tuple[PluginCandidate, ...]:
+        discovered = self.discover() if candidates is None else candidates
+        candidates_by_id: dict[str, PluginCandidate] = {}
+        for candidate in discovered:
+            plugin_id = candidate.metadata.name
+            if plugin_id in candidates_by_id:
+                raise PluginLoaderError(f"중복 Plugin ID가 발견되었습니다: {plugin_id}")
+            candidates_by_id[plugin_id] = candidate
+
+        dependencies_by_id: dict[str, tuple[str, ...]] = {}
+        for plugin_id, candidate in candidates_by_id.items():
+            metadata = candidate.metadata
+            dependency_ids = [
+                *metadata.dependencies,
+                *(requirement.plugin_id for requirement in metadata.requirements),
+            ]
+            for dependency_id in dependency_ids:
+                dependency = candidates_by_id.get(dependency_id)
+                if dependency is None:
+                    raise PluginLoaderError(
+                        f"Plugin 의존성을 찾을 수 없습니다: "
+                        f"{plugin_id} -> {dependency_id}"
+                    )
+            for requirement in metadata.requirements:
+                actual_version = candidates_by_id[
+                    requirement.plugin_id
+                ].metadata.version
+                if actual_version != requirement.required_version:
+                    raise PluginLoaderError(
+                        f"Plugin 의존성 버전이 일치하지 않습니다: "
+                        f"{plugin_id} -> {requirement.plugin_id} "
+                        f"(필요 {requirement.required_version}, 실제 {actual_version})"
+                    )
+            dependencies_by_id[plugin_id] = tuple(sorted(dependency_ids))
+
+        ordered: list[PluginCandidate] = []
+        states: dict[str, int] = {}
+        path: list[str] = []
+
+        def visit(plugin_id: str) -> None:
+            state = states.get(plugin_id, 0)
+            if state == 2:
+                return
+            if state == 1:
+                cycle_start = path.index(plugin_id)
+                cycle = [*path[cycle_start:], plugin_id]
+                raise PluginLoaderError(
+                    f"Plugin 순환 의존성이 발견되었습니다: {' -> '.join(cycle)}"
+                )
+            states[plugin_id] = 1
+            path.append(plugin_id)
+            for dependency_id in dependencies_by_id[plugin_id]:
+                visit(dependency_id)
+            path.pop()
+            states[plugin_id] = 2
+            ordered.append(candidates_by_id[plugin_id])
+
+        for plugin_id in sorted(candidates_by_id):
+            visit(plugin_id)
+        return tuple(ordered)
+
     def _validate_root(self) -> Path:
         if self._plugin_directory.is_symlink():
             raise PluginLoaderError(

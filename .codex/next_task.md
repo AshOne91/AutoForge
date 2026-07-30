@@ -4,8 +4,8 @@
 
 ## 현재 목표
 
-발견된 Plugin 후보의 버전 의존성 그래프를 검증하고 결정적인 로드 순서를
-계산한다.
+Plugin Manifest에 명시적인 Entrypoint 계약을 추가하고, 발견과 분리된
+신뢰된 로딩 API로 PluginManager에 등록한다.
 
 ## 근거 문서
 
@@ -15,19 +15,19 @@
 
 ## 다음 구현 범위
 
-1. 기존 문자열 dependencies와 버전형 requirements 통합 해석
-2. 누락된 의존 Plugin 거부
-3. 요구 버전과 발견 버전 불일치 거부
-4. 자기 의존과 순환 의존성 거부
-5. 의존성이 먼저 오는 결정적인 정렬
-6. 정렬 단계에서도 Plugin 코드를 Import하거나 실행하지 않음
+1. `module:factory` 형식의 Entrypoint 문법과 검증 정의
+2. 발견 API는 계속 코드를 실행하지 않음
+3. 명시적 trusted 로딩 API에서만 Import와 Factory 호출
+4. 반환 객체의 Plugin 계약과 Metadata 일치 검증
+5. 의존성 순서에 따른 PluginManager 등록
+6. 중간 실패 시 부분 등록 방지 또는 명확한 Rollback
 7. 기존 발견·Generator Plugin·PluginManager 회귀 테스트
 
 ## 이번 범위에서 구현하지 않음
 
 - Template 렌더링
 - GenerationJob 실행기
-- Plugin 코드 Import와 실행
+- 권한의 OS 수준 Sandbox 강제
 - Webhook
 - Git Commit, Push, Pull Request
 - CI/CD 실행

@@ -17,6 +17,9 @@ def write_manifest(
     *,
     plugin_id: str,
     api_version: str = "1",
+    dependencies: list[str] | None = None,
+    requirements: list[dict[str, str]] | None = None,
+    version: str = "0.1.0",
 ) -> Path:
     directory = plugin_root / directory_name
     directory.mkdir(parents=True)
@@ -25,16 +28,12 @@ def write_manifest(
         json.dumps(
             {
                 "name": plugin_id,
-                "version": "0.1.0",
+                "version": version,
                 "api_version": api_version,
                 "capabilities": ["generator"],
                 "supported_specification_versions": ["1"],
-                "requirements": [
-                    {
-                        "plugin_id": "autoforge.generator.container",
-                        "required_version": "0.1.0",
-                    }
-                ],
+                "dependencies": dependencies or [],
+                "requirements": requirements or [],
                 "permissions": ["filesystem_read"],
             }
         ),
@@ -46,7 +45,17 @@ def write_manifest(
 def test_loader_discovers_metadata_in_directory_order(tmp_path: Path) -> None:
     plugin_root = tmp_path / "plugins"
     write_manifest(plugin_root, "second", plugin_id="plugin.second")
-    write_manifest(plugin_root, "first", plugin_id="plugin.first")
+    write_manifest(
+        plugin_root,
+        "first",
+        plugin_id="plugin.first",
+        requirements=[
+            {
+                "plugin_id": "autoforge.generator.container",
+                "required_version": "0.1.0",
+            }
+        ],
+    )
     (plugin_root / "README.md").write_text("ignored", encoding="utf-8")
     (plugin_root / "without-manifest").mkdir()
 
@@ -65,6 +74,89 @@ def test_loader_discovers_metadata_in_directory_order(tmp_path: Path) -> None:
     assert candidates[0].metadata.requirements[0].required_version == "0.1.0"
 
 
+def test_loader_resolves_dependencies_before_dependents(tmp_path: Path) -> None:
+    plugin_root = tmp_path / "plugins"
+    write_manifest(
+        plugin_root, "app", plugin_id="plugin.app", dependencies=["plugin.api"]
+    )
+    write_manifest(
+        plugin_root,
+        "api",
+        plugin_id="plugin.api",
+        requirements=[
+            {
+                "plugin_id": "plugin.storage",
+                "required_version": "2.0.0",
+            }
+        ],
+    )
+    write_manifest(
+        plugin_root,
+        "storage",
+        plugin_id="plugin.storage",
+        version="2.0.0",
+    )
+
+    ordered = PluginLoader(plugin_root).resolve_load_order()
+
+    assert [candidate.metadata.name for candidate in ordered] == [
+        "plugin.storage",
+        "plugin.api",
+        "plugin.app",
+    ]
+
+
+def test_loader_rejects_missing_dependency(tmp_path: Path) -> None:
+    plugin_root = tmp_path / "plugins"
+    write_manifest(
+        plugin_root,
+        "app",
+        plugin_id="plugin.app",
+        dependencies=["plugin.missing"],
+    )
+
+    with pytest.raises(PluginLoaderError, match="찾을 수 없습니다"):
+        PluginLoader(plugin_root).resolve_load_order()
+
+
+def test_loader_rejects_dependency_version_mismatch(tmp_path: Path) -> None:
+    plugin_root = tmp_path / "plugins"
+    write_manifest(
+        plugin_root,
+        "app",
+        plugin_id="plugin.app",
+        requirements=[
+            {
+                "plugin_id": "plugin.api",
+                "required_version": "2.0.0",
+            }
+        ],
+    )
+    write_manifest(plugin_root, "api", plugin_id="plugin.api", version="1.0.0")
+
+    with pytest.raises(PluginLoaderError, match="버전이 일치하지"):
+        PluginLoader(plugin_root).resolve_load_order()
+
+
+def test_loader_rejects_circular_dependency(tmp_path: Path) -> None:
+    plugin_root = tmp_path / "plugins"
+    write_manifest(
+        plugin_root,
+        "first",
+        plugin_id="plugin.first",
+        dependencies=["plugin.second"],
+    )
+    write_manifest(
+        plugin_root,
+        "second",
+        plugin_id="plugin.second",
+        dependencies=["plugin.first"],
+    )
+
+    with pytest.raises(PluginLoaderError, match="순환 의존성"):
+        PluginLoader(plugin_root).resolve_load_order()
+
+
 def test_loader_does_not_import_plugin_code(tmp_path: Path) -> None:
     plugin_root = tmp_path / "plugins"
     manifest_path = write_manifest(
@@ -78,7 +170,8 @@ def test_loader_does_not_import_plugin_code(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    PluginLoader(plugin_root).discover()
+    loader = PluginLoader(plugin_root)
+    loader.resolve_load_order(loader.discover())
 
     assert not marker.exists()
 

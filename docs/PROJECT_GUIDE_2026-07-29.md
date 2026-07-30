@@ -533,6 +533,10 @@ Network 같은 외부 접근 권한이다. 자기 의존, 중복 의존성·권�
 없는 필드·API 버전과 중복 Plugin ID를 거부한다. 이 발견 단계는 Plugin
 Python 코드를 Import하거나 실행하지 않는다.
 
+발견 후에는 기존 문자열 의존성과 버전형 의존성을 함께 해석한다. 누락,
+정확한 버전 불일치와 순환을 거부하고 의존 Plugin이 먼저 오는 결정적인
+순서를 계산한다. 의존성 정렬 단계도 Python 코드를 실행하지 않는다.
+
 ### PluginLoader
 
 아직 구현되지 않았다. 첫 Generator와 Validator 계약을 실제 기능으로 검증한
@@ -976,8 +980,8 @@ ProjectSpec.application.modules
 Application Registry 및 사용자 코드 보존 시나리오는 구현과 테스트가
 완료됐다. 생성 프로젝트의 lint와 Package Build Validator도 구현됐다.
 작업별 격리 Workspace 생성과 수명주기도 구현됐다. 현재 다음 작업은
-발견된 Plugin의 버전 의존성 그래프를 검증하고 결정적인 로드 순서를
-계산하는 것이다. 이 단계에서도 Plugin 코드는 Import하거나 실행하지 않는다.
+명시적인 Entrypoint 계약과 발견에서 분리된 trusted 로딩 API를 정의하는
+것이다. Plugin 검색만으로 외부 코드가 자동 실행되지 않는 원칙은 유지한다.
 
 PluginLoader, Git, Webhook과 CI/CD는 위 수직 기능이 실제로 통과한 뒤
 구현한다.

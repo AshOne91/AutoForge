@@ -38,6 +38,11 @@ Adapter는 렌더링과 계획 전에 이 선언을 검증한다. 기존 범용
 `PluginDependency(plugin_id, required_version)`로 정확한 의존 버전을
 선언한다. 자기 의존, 중복 의존성과 중복 권한은 Metadata 생성 시 거부한다.
 
+PluginLoader는 발견된 전체 후보에서 기존 문자열 의존성과 버전형 의존성을
+함께 해석한다. 누락된 Plugin, 정확한 버전 불일치와 순환 의존성을 거부하고
+의존 Plugin이 먼저 오는 결정적인 순서를 반환한다. 이 과정도 Plugin 코드를
+실행하지 않는다.
+
 ## 책임
 
 - Plugin은 다른 Plugin을 직접 수정하지 않는다.
@@ -48,7 +53,6 @@ Adapter는 렌더링과 계획 전에 이 선언을 검증한다. 기존 범용
 
 ## 후속 구현
 
-- Plugin 의존성 그래프와 결정적 로드 순서
 - 검증된 Entrypoint Import와 PluginManager 등록
 - Generator 및 Validator Plugin
 - 격리와 실패 처리
