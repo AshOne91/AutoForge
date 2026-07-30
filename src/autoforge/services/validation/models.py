@@ -3,6 +3,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Protocol
 
+from autoforge.core.workspace import Workspace
+
 
 @dataclass(frozen=True, slots=True)
 class ProcessResult:
@@ -53,3 +55,9 @@ class ProjectValidationResult:
     @property
     def succeeded(self) -> bool:
         return bool(self.steps) and all(step.succeeded for step in self.steps)
+
+
+@dataclass(frozen=True, slots=True)
+class ProjectValidationRequest:
+    package_name: str
+    workspace: Workspace

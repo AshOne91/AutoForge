@@ -4,8 +4,8 @@
 
 ## 현재 목표
 
-Validator Plugin을 async typed Registry에 등록하고 현재 ProjectValidator를
-Metadata와 함께 조회·실행할 수 있게 한다.
+Built-in Generator와 Validator Registry를 하나의 명시적 Plugin Catalog로
+조합해 Application 계층이 기본 기능을 한 번에 주입받을 수 있게 한다.
 
 ## 근거 문서
 
@@ -15,13 +15,13 @@ Metadata와 함께 조회·실행할 수 있게 한다.
 
 ## 다음 구현 범위
 
-1. Generator typed Registry에서 검증된 패턴 재사용
-2. 범용 PluginManager의 execute 계약은 변경하지 않음
-3. Validator ID·버전과 async 실행 계약 정의
-4. ProjectValidator Adapter와 Metadata 구성
-5. 중복 Validator ID와 Metadata 불일치 거부
-6. Import·pytest·Ruff·Build 검증 회귀 테스트
-7. PluginLoader와 기존 PluginManager 회귀 테스트
+1. `src/autoforge/plugins/` 실제 구현 패키지 구성
+2. FastAPI Project/Module Generator Registry 조합
+3. ProjectValidator Registry 조합
+4. package name과 ProcessRunner 명시적 주입
+5. 전역 mutable Catalog 금지
+6. 기본 Catalog의 ID·Metadata·타입 회귀 테스트
+7. 외부 PluginLoader와 Built-in Catalog 책임 분리 문서화
 
 ## 이번 범위에서 구현하지 않음
 

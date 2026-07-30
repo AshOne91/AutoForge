@@ -17,6 +17,10 @@ from autoforge.core.plugin.metadata import (
     PluginPermission,
     validate_plugin_api_version,
 )
+from autoforge.core.plugin.validator import (
+    ValidatorPluginAdapter,
+    ValidatorPluginRegistry,
+)
 
 __all__ = [
     "CURRENT_PLUGIN_API_VERSION",
@@ -31,5 +35,7 @@ __all__ = [
     "PluginLoaderError",
     "PluginMetadata",
     "PluginPermission",
+    "ValidatorPluginAdapter",
+    "ValidatorPluginRegistry",
     "validate_plugin_api_version",
 ]

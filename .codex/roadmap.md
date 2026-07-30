@@ -45,7 +45,7 @@
 - [x] Generator 계약을 Plugin API로 확정
 - [x] Plugin Metadata와 Capability 검증
 - [x] PluginLoader 구현
-- [ ] Generator 및 Validator Plugin 등록
+- [x] Generator 및 Validator Plugin 등록
 - [x] Plugin 의존성과 권한 정책
 - [ ] `plugins/` 구현 및 테스트 디렉터리 생성
 

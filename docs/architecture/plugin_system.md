@@ -57,6 +57,11 @@ Generator ID 기반 등록·조회·목록을 제공한다. ProjectSpec과 Modul
 Registry를 분리하므로 호출 시 명세 타입이 유지된다. FastAPI Project와
 Module Generator는 각각 Metadata와 결합되어 실제 Registry에 등록된다.
 
+`ValidatorPluginRegistry[RequestT, ResultT]`는 비동기 Validator의 요청과 결과
+타입을 함께 보존한다. 현재 ProjectValidator는 별도 Request Adapter를 통해
+Import, pytest, Ruff와 wheel Build를 그대로 실행한다. Metadata에는 파일
+읽기·쓰기와 Process 실행 권한을 선언한다.
+
 ## 책임
 
 - Plugin은 다른 Plugin을 직접 수정하지 않는다.
@@ -67,5 +72,5 @@ Module Generator는 각각 Metadata와 결합되어 실제 Registry에 등록된
 
 ## 후속 구현
 
-- Validator Plugin typed Registry
+- Built-in Plugin Catalog
 - 격리와 실패 처리

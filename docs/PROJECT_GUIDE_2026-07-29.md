@@ -547,6 +547,11 @@ Plugin용이며 OS 수준 Sandbox를 제공하지 않는다.
 Registry를 분리해 명세 타입을 보존한다. 현재 FastAPI Project Generator와
 Module Generator가 실제 Metadata와 결합되어 Generator ID로 조회된다.
 
+`ValidatorPluginRegistry[RequestT, ResultT]`는 비동기 요청·결과 타입을
+보존한다. ProjectValidator는 Request Adapter를 통해 기존 Import, pytest,
+Ruff와 wheel Build 동작을 유지하며 Metadata에 파일 읽기·쓰기와 Process
+실행 권한을 선언한다.
+
 ### PluginLoader
 
 아직 구현되지 않았다. 첫 Generator와 Validator 계약을 실제 기능으로 검증한
@@ -990,8 +995,8 @@ ProjectSpec.application.modules
 Application Registry 및 사용자 코드 보존 시나리오는 구현과 테스트가
 완료됐다. 생성 프로젝트의 lint와 Package Build Validator도 구현됐다.
 작업별 격리 Workspace 생성과 수명주기도 구현됐다. 현재 다음 작업은
-ProjectValidator를 async typed Validator Registry에 등록해 Import, pytest,
-Ruff와 Build 검증도 Plugin 선택 경계로 연결하는 것이다.
+Built-in Generator와 Validator Registry를 하나의 명시적 Catalog로 조합해
+Application 계층에서 주입받을 수 있게 하는 것이다.
 
 PluginLoader, Git, Webhook과 CI/CD는 위 수직 기능이 실제로 통과한 뒤
 구현한다.
