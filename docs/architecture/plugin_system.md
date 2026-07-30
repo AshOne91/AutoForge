@@ -12,8 +12,9 @@ Plugin
 
 현재는 Plugin 기반 클래스, Metadata, Manager와 Registry만 구현되어 있다.
 기존 Generator를 변경하지 않고 Metadata와 결합하는
-`GeneratorPluginAdapter`가 구현되어 있다. PluginLoader는 아직 구현되지
-않았으며 Sample Plugin도 제공하지 않는다.
+`GeneratorPluginAdapter`가 구현되어 있다. PluginLoader는 지정된 루트 바로
+아래의 `plugin.json`을 결정적인 순서로 발견하고 Metadata를 검증한다.
+발견 단계에서는 Plugin Python 코드를 Import하거나 실행하지 않는다.
 
 Generator Plugin Metadata는 다음을 선언한다.
 
@@ -22,10 +23,20 @@ Generator Plugin Metadata는 다음을 선언한다.
 - Plugin API 버전
 - `generator` Capability
 - 지원 Specification 버전
+- 버전이 있는 Plugin 의존성
+- 파일 읽기·쓰기, Process 실행과 Network 접근 권한
 
 Adapter는 렌더링과 계획 전에 이 선언을 검증한다. 기존 범용
 `Plugin.execute(context)` 계약은 호환성을 위해 유지하며 Generator에 억지로
 적용하지 않는다.
+
+현재 지원하는 Plugin API 버전은 `1`이다. Capability는 Plugin이 제공하는
+기능이고 Permission은 Plugin 실행에 필요한 외부 자원 접근 권한이다.
+두 개념을 섞지 않는다.
+
+기존 `dependencies: list[str]`는 공개 API 호환성을 위해 유지한다. 새 Plugin은
+`PluginDependency(plugin_id, required_version)`로 정확한 의존 버전을
+선언한다. 자기 의존, 중복 의존성과 중복 권한은 Metadata 생성 시 거부한다.
 
 ## 책임
 
@@ -37,8 +48,7 @@ Adapter는 렌더링과 계획 전에 이 선언을 검증한다. 기존 범용
 
 ## 후속 구현
 
-- API 호환 버전 정책
-- Plugin 의존성과 권한 검증
-- PluginLoader
+- Plugin 의존성 그래프와 결정적 로드 순서
+- 검증된 Entrypoint Import와 PluginManager 등록
 - Generator 및 Validator Plugin
 - 격리와 실패 처리

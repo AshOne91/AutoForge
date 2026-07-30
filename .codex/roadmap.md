@@ -46,7 +46,7 @@
 - [x] Plugin Metadata와 Capability 검증
 - [ ] PluginLoader 구현
 - [ ] Generator 및 Validator Plugin 등록
-- [ ] Plugin 의존성과 권한 정책
+- [x] Plugin 의존성과 권한 정책
 - [ ] `plugins/` 구현 및 테스트 디렉터리 생성
 
 ## 5단계 - 데이터 및 서비스 생성

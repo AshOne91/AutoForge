@@ -1,5 +1,6 @@
 from autoforge.core.context.plugin_context import PluginContext
 from autoforge.core.plugin.base import Plugin
+from autoforge.core.plugin.metadata import validate_plugin_api_version
 from autoforge.core.registry.registry import Registry
 from autoforge.models.plugin_result import PluginResult
 
@@ -9,6 +10,7 @@ class PluginManager:
         self._registry = Registry[Plugin]()
 
     def register(self, plugin: Plugin) -> None:
+        validate_plugin_api_version(plugin.metadata)
         name = plugin.metadata.name
 
         if self._registry.exists(name):

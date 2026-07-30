@@ -86,6 +86,14 @@ def test_adapter_rejects_unsupported_specification_version() -> None:
         adapter.render(project_specification())
 
 
+def test_adapter_rejects_unsupported_plugin_api_version() -> None:
+    with pytest.raises(ValueError, match="Plugin API"):
+        GeneratorPluginAdapter(
+            FastAPIProjectGenerator(),
+            generator_metadata(api_version="999"),
+        )
+
+
 def test_metadata_rejects_duplicate_capability() -> None:
     with pytest.raises(ValueError, match="Capability"):
         generator_metadata(

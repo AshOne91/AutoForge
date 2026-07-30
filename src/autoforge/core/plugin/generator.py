@@ -2,7 +2,11 @@ from collections.abc import Mapping
 from pathlib import PurePosixPath
 
 from autoforge.core.generation import GenerationPlan, Generator
-from autoforge.core.plugin.metadata import PluginCapability, PluginMetadata
+from autoforge.core.plugin.metadata import (
+    PluginCapability,
+    PluginMetadata,
+    validate_plugin_api_version,
+)
 
 
 class GeneratorPluginAdapter[SpecificationT]:
@@ -13,6 +17,7 @@ class GeneratorPluginAdapter[SpecificationT]:
         generator: Generator[SpecificationT],
         metadata: PluginMetadata,
     ) -> None:
+        validate_plugin_api_version(metadata)
         if PluginCapability.GENERATOR not in metadata.capabilities:
             raise ValueError("Generator Plugin에는 generator Capability가 필요합니다.")
         if not metadata.supported_specification_versions:

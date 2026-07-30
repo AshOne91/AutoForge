@@ -8,6 +8,11 @@
 - PluginManager 안정화
 - 기존 Generator를 보존하는 Generator Plugin Adapter
 - Plugin ID·버전·Capability·지원 Specification 버전 정합성 검증
+- Plugin API v1 호환성 검증
+- 버전형 Plugin 의존성과 외부 자원 접근 권한 정책
+- Plugin 디렉터리 자동 발견과 plugin.json 검증
+- 발견 과정의 Symlink 이탈·중복 ID·손상 Manifest 거부
+- Plugin 코드를 실행하지 않는 Metadata 발견 단계
 - Event와 비동기 EventBus 기본 구조
 - Task와 TaskManager 기본 구조
 - 기존 테스트의 pytest 마이그레이션
@@ -41,21 +46,22 @@
 - 명시적 Config 주입과 전역 Config 제거
 - 프로젝트 디렉터리 밖에서 동작하는 version CLI
 - 미구현 CLI의 명확한 실패 상태
-- 전체 테스트 176개 통과 기준선
+- 전체 테스트 195개 통과 기준선
 
 ## 진행 중
 
 - 문서 정합성 정리
 - 패키지와 코딩 스타일 정리
-- Plugin Metadata 호환성·의존성·권한 정책 준비
+- Plugin 의존성 그래프와 결정적 로드 순서 준비
 
 ## 존재하지만 미완성
 
 - CLI 명령
 - Plugin Framework
 - Pipeline 추상화
-PluginLoader는 구현 예정 모듈이며 아직 공개 API가 없다. Pipeline은 추상
-클래스 자리표시자뿐이므로 Plugin Framework는 아직 완성으로 보지 않는다.
+PluginLoader는 Metadata 발견까지만 부분 구현됐으며 Python Entrypoint Import와
+Manager 등록은 아직 없다. Pipeline은 추상 클래스 자리표시자뿐이므로 Plugin
+Framework는 아직 완성으로 보지 않는다.
 
 ## 시작하지 않음
 
@@ -66,7 +72,9 @@ PluginLoader는 구현 예정 모듈이며 아직 공개 API가 없다. Pipeline
 
 ## 현재 제약
 
-로컬 생성과 검증이 안정되기 전에 Webhook, Git 자동화, AI를 구현하지 않는다. 동작하는 Generator로 확장 계약을 확인하기 전에는 PluginLoader를 구현하지 않는다.
+로컬 생성과 검증이 안정되기 전에 Webhook, Git 자동화, AI를 구현하지 않는다.
+의존성 그래프와 Entrypoint 정책을 검증하기 전에는 발견한 Plugin 코드를
+Import하거나 실행하지 않는다.
 
 미래 단계용 빈 디렉터리는 미리 유지하지 않는다. 각 단계에 진입할 때
 Roadmap과 다음 작업 문서를 확인하고 필요한 패키지와 테스트 디렉터리를

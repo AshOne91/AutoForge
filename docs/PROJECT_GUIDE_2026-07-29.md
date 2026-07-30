@@ -523,6 +523,16 @@ Hash가 모두 일치할 때만 허용한다. 적용 직전에도 현재 파일 
 Specification 버전을 Metadata와 연결하고, 선언과 실제 Generator가
 일치하는지 검증한다.
 
+Plugin API v1은 버전이 있는 Plugin 의존성과 외부 자원 접근 권한도
+Metadata로 선언한다. Capability는 제공 기능, Permission은 파일·Process·
+Network 같은 외부 접근 권한이다. 자기 의존, 중복 의존성·권한과 지원하지
+않는 API 버전은 등록 또는 Adapter 결합 전에 거부한다.
+
+`PluginLoader`는 명시된 Plugin 루트 바로 아래 디렉터리의 `plugin.json`을
+이름순으로 발견한다. 루트 밖을 가리키는 Symlink, 손상된 Manifest, 알 수
+없는 필드·API 버전과 중복 Plugin ID를 거부한다. 이 발견 단계는 Plugin
+Python 코드를 Import하거나 실행하지 않는다.
+
 ### PluginLoader
 
 아직 구현되지 않았다. 첫 Generator와 Validator 계약을 실제 기능으로 검증한
@@ -966,7 +976,8 @@ ProjectSpec.application.modules
 Application Registry 및 사용자 코드 보존 시나리오는 구현과 테스트가
 완료됐다. 생성 프로젝트의 lint와 Package Build Validator도 구현됐다.
 작업별 격리 Workspace 생성과 수명주기도 구현됐다. 현재 다음 작업은
-Plugin Metadata의 API 호환성, 의존성과 권한 정책을 확정하는 것이다.
+발견된 Plugin의 버전 의존성 그래프를 검증하고 결정적인 로드 순서를
+계산하는 것이다. 이 단계에서도 Plugin 코드는 Import하거나 실행하지 않는다.
 
 PluginLoader, Git, Webhook과 CI/CD는 위 수직 기능이 실제로 통과한 뒤
 구현한다.

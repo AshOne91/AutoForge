@@ -20,8 +20,12 @@ def config_manager() -> ConfigManager:
 
 
 class StubPlugin(Plugin):
-    def __init__(self, name: str) -> None:
-        self._metadata = PluginMetadata(name=name, version="0.1.0")
+    def __init__(self, name: str, *, api_version: str = "1") -> None:
+        self._metadata = PluginMetadata(
+            name=name,
+            version="0.1.0",
+            api_version=api_version,
+        )
         self.executed_context: PluginContext | None = None
 
     @property
@@ -80,3 +84,10 @@ def test_list_plugins_returns_sorted_names() -> None:
 
     assert manager.list_plugins() == ["first", "second"]
     assert manager.list_registry() == ["first", "second"]
+
+
+def test_register_rejects_unsupported_plugin_api_version() -> None:
+    manager = PluginManager()
+
+    with pytest.raises(ValueError, match="Plugin API"):
+        manager.register(StubPlugin("future", api_version="999"))

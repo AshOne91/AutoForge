@@ -4,7 +4,8 @@
 
 ## 현재 목표
 
-Plugin Metadata의 API 호환성, 의존성과 권한 정책을 작은 범위로 확정한다.
+발견된 Plugin 후보의 버전 의존성 그래프를 검증하고 결정적인 로드 순서를
+계산한다.
 
 ## 근거 문서
 
@@ -14,18 +15,19 @@ Plugin Metadata의 API 호환성, 의존성과 권한 정책을 작은 범위로
 
 ## 다음 구현 범위
 
-1. 현재 Plugin API 버전과 호환 범위 정의
-2. 의존 Plugin ID와 버전 요구사항의 최소 표현 정의
-3. 파일, Process, Network 등 권한과 실행 Capability 분리
-4. 자기 의존, 중복 의존성과 중복 권한 거부
-5. 지원하지 않는 API 버전 거부
-6. 기존 Generator Plugin과 PluginManager 회귀 테스트
+1. 기존 문자열 dependencies와 버전형 requirements 통합 해석
+2. 누락된 의존 Plugin 거부
+3. 요구 버전과 발견 버전 불일치 거부
+4. 자기 의존과 순환 의존성 거부
+5. 의존성이 먼저 오는 결정적인 정렬
+6. 정렬 단계에서도 Plugin 코드를 Import하거나 실행하지 않음
+7. 기존 발견·Generator Plugin·PluginManager 회귀 테스트
 
 ## 이번 범위에서 구현하지 않음
 
 - Template 렌더링
 - GenerationJob 실행기
-- PluginLoader
+- Plugin 코드 Import와 실행
 - Webhook
 - Git Commit, Push, Pull Request
 - CI/CD 실행
