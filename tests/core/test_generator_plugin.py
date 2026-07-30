@@ -3,6 +3,7 @@ import pytest
 from autoforge.core.generation import Generator
 from autoforge.core.plugin import (
     GeneratorPluginAdapter,
+    GeneratorPluginRegistry,
     PluginCapability,
     PluginMetadata,
 )
@@ -100,5 +101,37 @@ def test_metadata_rejects_duplicate_capability() -> None:
             capabilities=(
                 PluginCapability.GENERATOR,
                 PluginCapability.GENERATOR,
+            )
+        )
+
+
+def test_typed_registry_registers_and_retrieves_generator_plugin() -> None:
+    registry = GeneratorPluginRegistry[ProjectSpec]()
+    plugin = GeneratorPluginAdapter(
+        FastAPIProjectGenerator(),
+        generator_metadata(),
+    )
+
+    registry.register(plugin)
+
+    assert registry.get(plugin.generator_id) is plugin
+    assert registry.exists(plugin.generator_id)
+    assert registry.names() == [plugin.generator_id]
+
+
+def test_typed_registry_rejects_duplicate_generator_id() -> None:
+    registry = GeneratorPluginRegistry[ProjectSpec]()
+    registry.register(
+        GeneratorPluginAdapter(
+            FastAPIProjectGenerator(),
+            generator_metadata(),
+        )
+    )
+
+    with pytest.raises(ValueError, match="already registered"):
+        registry.register(
+            GeneratorPluginAdapter(
+                FastAPIProjectGenerator(),
+                generator_metadata(),
             )
         )

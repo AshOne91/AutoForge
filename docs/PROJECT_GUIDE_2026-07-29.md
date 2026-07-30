@@ -543,6 +543,10 @@ Factory의 Plugin 계약과 Manifest Metadata 전체 일치를 확인하고 모�
 등록 실패 시 이번 호출의 등록분을 Rollback한다. 이 API는 신뢰한 로컬
 Plugin용이며 OS 수준 Sandbox를 제공하지 않는다.
 
+`GeneratorPluginRegistry[SpecificationT]`는 ProjectSpec과 ModuleSpec용
+Registry를 분리해 명세 타입을 보존한다. 현재 FastAPI Project Generator와
+Module Generator가 실제 Metadata와 결합되어 Generator ID로 조회된다.
+
 ### PluginLoader
 
 아직 구현되지 않았다. 첫 Generator와 Validator 계약을 실제 기능으로 검증한
@@ -986,8 +990,8 @@ ProjectSpec.application.modules
 Application Registry 및 사용자 코드 보존 시나리오는 구현과 테스트가
 완료됐다. 생성 프로젝트의 lint와 Package Build Validator도 구현됐다.
 작업별 격리 Workspace 생성과 수명주기도 구현됐다. 현재 다음 작업은
-Generator Plugin을 typed Registry에 등록하고 실제 Project/Module Generator를
-Metadata와 함께 선택할 수 있게 하는 것이다.
+ProjectValidator를 async typed Validator Registry에 등록해 Import, pytest,
+Ruff와 Build 검증도 Plugin 선택 경계로 연결하는 것이다.
 
 PluginLoader, Git, Webhook과 CI/CD는 위 수직 기능이 실제로 통과한 뒤
 구현한다.

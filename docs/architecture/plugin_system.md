@@ -52,6 +52,11 @@ Metadata가 Manifest와 완전히 일치하는지 확인한다. 모든 Factory�
 Permission은 현재 선언과 중복 검증만 제공한다. `load_trusted()`는 신뢰한
 로컬 Plugin을 위한 API이며 OS 수준 Sandbox를 제공하지 않는다.
 
+`GeneratorPluginRegistry[SpecificationT]`는 기존 범용 Registry를 조합해
+Generator ID 기반 등록·조회·목록을 제공한다. ProjectSpec과 ModuleSpec
+Registry를 분리하므로 호출 시 명세 타입이 유지된다. FastAPI Project와
+Module Generator는 각각 Metadata와 결합되어 실제 Registry에 등록된다.
+
 ## 책임
 
 - Plugin은 다른 Plugin을 직접 수정하지 않는다.
@@ -62,5 +67,5 @@ Permission은 현재 선언과 중복 검증만 제공한다. `load_trusted()`�
 
 ## 후속 구현
 
-- Generator 및 Validator Plugin
+- Validator Plugin typed Registry
 - 격리와 실패 처리

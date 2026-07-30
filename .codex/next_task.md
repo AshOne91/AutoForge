@@ -4,8 +4,8 @@
 
 ## 현재 목표
 
-Generator Plugin을 타입이 보존되는 Registry에 등록하고 실제 Project/Module
-Generator를 Metadata와 함께 조회할 수 있게 한다.
+Validator Plugin을 async typed Registry에 등록하고 현재 ProjectValidator를
+Metadata와 함께 조회·실행할 수 있게 한다.
 
 ## 근거 문서
 
@@ -15,12 +15,12 @@ Generator를 Metadata와 함께 조회할 수 있게 한다.
 
 ## 다음 구현 범위
 
-1. 기존 Registry와 GeneratorPluginAdapter 재사용
+1. Generator typed Registry에서 검증된 패턴 재사용
 2. 범용 PluginManager의 execute 계약은 변경하지 않음
-3. Generator ID 기반 typed 등록·조회·목록 계약
-4. FastAPI Project/Module Generator Adapter 구성
-5. 중복 Generator ID와 Metadata 불일치 거부
-6. ProjectSpec/ModuleSpec 타입 안전성 회귀 테스트
+3. Validator ID·버전과 async 실행 계약 정의
+4. ProjectValidator Adapter와 Metadata 구성
+5. 중복 Validator ID와 Metadata 불일치 거부
+6. Import·pytest·Ruff·Build 검증 회귀 테스트
 7. PluginLoader와 기존 PluginManager 회귀 테스트
 
 ## 이번 범위에서 구현하지 않음

@@ -7,6 +7,7 @@ from autoforge.core.plugin.metadata import (
     PluginMetadata,
     validate_plugin_api_version,
 )
+from autoforge.core.registry.registry import Registry
 
 
 class GeneratorPluginAdapter[SpecificationT]:
@@ -60,3 +61,25 @@ class GeneratorPluginAdapter[SpecificationT]:
             raise ValueError(
                 f"지원하지 않는 Specification 버전입니다: {specification_version}"
             )
+
+
+class GeneratorPluginRegistry[SpecificationT]:
+    """Specification 타입별 Generator Plugin 저장소."""
+
+    def __init__(self) -> None:
+        self._registry = Registry[GeneratorPluginAdapter[SpecificationT]]()
+
+    def register(self, plugin: GeneratorPluginAdapter[SpecificationT]) -> None:
+        self._registry.register(plugin.generator_id, plugin)
+
+    def get(self, generator_id: str) -> GeneratorPluginAdapter[SpecificationT]:
+        return self._registry.get(generator_id)
+
+    def exists(self, generator_id: str) -> bool:
+        return self._registry.exists(generator_id)
+
+    def names(self) -> list[str]:
+        return self._registry.names()
+
+    def unregister(self, generator_id: str) -> None:
+        self._registry.unregister(generator_id)

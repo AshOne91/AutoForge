@@ -1,5 +1,8 @@
 from autoforge.core.plugin.base import Plugin
-from autoforge.core.plugin.generator import GeneratorPluginAdapter
+from autoforge.core.plugin.generator import (
+    GeneratorPluginAdapter,
+    GeneratorPluginRegistry,
+)
 from autoforge.core.plugin.loader import (
     PLUGIN_MANIFEST_FILENAME,
     PluginCandidate,
@@ -19,6 +22,7 @@ __all__ = [
     "CURRENT_PLUGIN_API_VERSION",
     "PLUGIN_MANIFEST_FILENAME",
     "GeneratorPluginAdapter",
+    "GeneratorPluginRegistry",
     "Plugin",
     "PluginCandidate",
     "PluginCapability",

@@ -13,10 +13,15 @@ from autoforge.services.generation.plan_applier import (
     GenerationPlanApplyError,
 )
 from autoforge.services.generation.plan_resolver import GenerationPlanResolver
+from autoforge.services.generation.plugin_registry import (
+    FastAPIGeneratorPlugins,
+    create_fastapi_generator_plugins,
+)
 from autoforge.services.generation.pydantic_types import PydanticTypeRenderer
 
 __all__ = [
     "MANIFEST_RELATIVE_PATH",
+    "FastAPIGeneratorPlugins",
     "FastAPIModuleGenerator",
     "FastAPIProjectGenerator",
     "GenerationPlanApplier",
@@ -26,4 +31,5 @@ __all__ = [
     "ManifestStoreError",
     "PydanticTypeRenderer",
     "StoredManifest",
+    "create_fastapi_generator_plugins",
 ]
