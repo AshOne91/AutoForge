@@ -4,9 +4,8 @@
 
 ## 현재 목표
 
-충돌 판정이 끝난 GenerationPlan과 렌더링 결과를 Workspace에 안전하게
-적용하고 GenerationManifest를 만든다. 충돌이 하나라도 있으면 쓰기 전에
-전체 적용을 중단한다.
+생성된 최소 FastAPI 프로젝트를 외부 프로세스로 검증할 수 있는 최소
+Validator 계약과 실행 결과 모델을 준비한다.
 
 ## 근거 문서
 
@@ -16,12 +15,12 @@
 
 ## 다음 구현 범위
 
-1. 계획과 렌더링 결과의 경로 및 Hash 일치 검증
-2. CONFLICT가 있으면 파일 쓰기 전 전체 중단
-3. CREATE 파일의 부모 디렉터리 생성과 UTF-8 쓰기
-4. KEEP과 SKIP 파일 보존
-5. 파일별 결과를 GenerationManifest로 변환
-6. 생성된 최소 FastAPI 프로젝트의 pytest 실행 준비
+1. 외부 프로세스 명령과 결과의 구조화된 모델 정의
+2. Workspace를 실행 디렉터리로 제한
+3. Timeout과 비정상 종료 처리
+4. 생성 프로젝트 Import 검증
+5. 생성 프로젝트 pytest 검증
+6. 검증 실패 시 후속 적용과 Git 작업 금지 계약 유지
 
 ## 이번 범위에서 구현하지 않음
 

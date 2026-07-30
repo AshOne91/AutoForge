@@ -33,9 +33,11 @@ AutoForge는 참고 프로젝트의 포팅이 아니라 재설계 프로젝트�
 - Workspace 경로 안전 경계
 - 최소 FastAPI Project 메모리 렌더링과 Dry-run
 - Workspace 상태 기반 충돌 판정
-- 전체 테스트 86개 통과 기준선
+- 안전한 Workspace 적용과 GenerationManifest 생성
+- Manifest의 결정적 JSON 저장과 검증된 로딩
+- 전체 테스트 104개 통과 기준선
 
-실제 Workspace 파일 적용과 Manifest 저장은 다음 구현 단계다.
+생성 프로젝트의 Import와 pytest 검증은 다음 구현 단계다.
 
 ## 첫 번째 MVP
 

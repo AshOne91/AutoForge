@@ -14,3 +14,8 @@
 - 프로젝트 디렉터리 밖에서도 version CLI가 동작하도록 수정했다.
 - 미구현 CLI 명령이 성공처럼 종료되지 않도록 수정했다.
 - 2026-07-29 기준 통합 프로젝트 가이드를 추가했다.
+- 계획과 렌더링 결과를 재검증한 뒤 Workspace에 적용하는 서비스를 추가했다.
+- 충돌 시 쓰기 전 전체 중단하고 CREATE, KEEP, SKIP 결과 Manifest를 생성한다.
+- 생성 파일을 플랫폼과 무관한 UTF-8 바이트로 기록해 Hash 결정성을 보장한다.
+- GenerationManifest를 `.autoforge/manifest.json`에 결정적으로 저장하고
+  Pydantic 모델로 검증해 로딩하는 저장소를 추가했다.

@@ -17,16 +17,18 @@
 - 제네릭 Generator Protocol
 - 최소 FastAPI Project Generator 렌더링과 Dry-run
 - Workspace 상태 기반 생성 계획 충돌 판정
+- GenerationPlan의 안전한 Workspace 적용과 메모리 Manifest 생성
+- GenerationManifest의 결정적 JSON 저장과 검증된 로딩
 - 명시적 Config 주입과 전역 Config 제거
 - 프로젝트 디렉터리 밖에서 동작하는 version CLI
 - 미구현 CLI의 명확한 실패 상태
-- 전체 테스트 86개 통과 기준선
+- 전체 테스트 104개 통과 기준선
 
 ## 진행 중
 
 - 문서 정합성 정리
 - 패키지와 코딩 스타일 정리
-- Workspace 파일 적용과 Manifest 기록 준비
+- 생성 프로젝트 Import와 pytest 검증 준비
 
 ## 존재하지만 미완성
 
@@ -39,7 +41,6 @@ PluginLoader는 구현 예정 모듈이며 아직 공개 API가 없다. Pipeline
 ## 시작하지 않음
 
 - GenerationJob
-- Workspace 파일 적용과 Manifest 저장
 - 생성 프로젝트 검증 Pipeline
 - Build 및 Git 서비스
 - Webhook 서비스

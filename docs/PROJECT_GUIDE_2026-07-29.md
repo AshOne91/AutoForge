@@ -1,6 +1,7 @@
 # AutoForge 프로젝트 가이드
 
 - 기준일: 2026-07-29
+- 최종 갱신일: 2026-07-30
 - 프로젝트 버전: 0.1.0
 - Python: 3.12 이상
 - 문서 대상: 프로젝트 개발자, 리뷰어, 후속 작업을 수행하는 AI Agent
@@ -259,15 +260,17 @@ ProjectSpec
   → GenerationPlanResolver.resolve()
   → Workspace의 기존 파일과 비교
   → CREATE / KEEP / SKIP / CONFLICT 확정
+  → GenerationPlanApplier.apply()
+  → 계획과 렌더링 결과 재검증
+  → 충돌이 없으면 CREATE 파일 적용
+  → 메모리 GenerationManifest 반환
 ```
 
 아직 구현되지 않은 범위:
 
 ```text
-확정된 계획
-  ⇢ 실제 파일 적용
-  ⇢ GenerationManifest 저장
-  ⇢ 생성 프로젝트 pytest
+생성된 프로젝트
+  ⇢ Import 및 pytest 검증
   ⇢ Build
   ⇢ Git 반영
 ```
@@ -399,8 +402,10 @@ CONFLICT
 
 ### GenerationManifest
 
-실제 실행 결과를 기록하는 모델은 구현되어 있지만 파일 저장은 아직
-구현되지 않았다.
+실제 실행 결과를 기록하는 모델과 Workspace 적용 결과를 Manifest로 변환하는
+기능이 구현되어 있다. `ManifestStore`는 결과를
+`.autoforge/manifest.json`에 결정적인 UTF-8 JSON으로 저장하고, 로딩할 때
+Pydantic 모델로 다시 검증한다.
 
 기록 상태:
 
@@ -445,6 +450,20 @@ src\windows\style.py
 | 파일 위치에 디렉터리 존재 | CONFLICT |
 
 Resolver는 파일을 쓰거나 삭제하지 않는다.
+
+`GenerationPlanApplier`는 Resolver 이후 다음을 다시 검증한다.
+
+- 계획과 렌더링 경로의 완전한 일치
+- 명세 Hash와 파일별 명세 Hash의 일치
+- 렌더링 내용과 예상 Content Hash의 일치
+- CONFLICT가 하나라도 있으면 쓰기 전 전체 중단
+- 계획 이후 Workspace가 변경되지 않았는지 확인
+- CREATE 파일의 결정적인 UTF-8 바이트 기록
+- KEEP과 SKIP 파일 보존
+- 파일별 결과를 메모리 GenerationManifest로 반환
+
+`REPLACE_GENERATED`는 안전한 이전 Hash 계약이 정의되기 전까지 적용하지
+않는다.
 
 ## 13. Plugin, Registry, EventBus, Task와 Pipeline
 
@@ -807,6 +826,9 @@ python -m ruff format --check src tests
 - 최소 FastAPI Project 메모리 렌더링
 - Dry-run GenerationPlan
 - Workspace 상태 기반 KEEP/SKIP/CONFLICT 판정
+- GenerationPlan의 안전한 Workspace 적용
+- CREATE, KEEP, SKIP 결과의 메모리 Manifest 생성
+- Manifest의 결정적 JSON 저장과 검증된 로딩
 - 명시적인 Config 주입
 - 프로젝트 밖에서 동작하는 version CLI
 
@@ -820,8 +842,6 @@ python -m ruff format --check src tests
 
 구현 예정:
 
-- 실제 Workspace 파일 적용
-- Manifest JSON 저장과 로딩
 - 생성 프로젝트 Import와 pytest 검증
 - Tutorial Module Generator
 - Request/Response와 Router Generator
@@ -867,13 +887,12 @@ python -m ruff format --check src tests
 현재 다음 작업은 다음과 같다.
 
 ```text
-Resolved GenerationPlan
-  → 계획과 렌더링 결과 Hash 재검증
-  → 충돌이 하나라도 있으면 전체 중단
-  → CREATE 파일을 Workspace에 적용
-  → KEEP/SKIP 보존
-  → GenerationManifest 생성
-  → 생성 프로젝트 pytest 준비
+생성된 최소 FastAPI 프로젝트
+  → Workspace를 실행 디렉터리로 고정
+  → 구조화된 외부 프로세스 결과
+  → Python Import 검증
+  → pytest 검증
+  → Timeout과 실패 상태 기록
 ```
 
 그다음 Tutorial Module의 Model, Schema, Router와 Handler Scaffold를 생성해
