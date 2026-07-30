@@ -15,6 +15,8 @@
 - Plugin 코드를 실행하지 않는 Metadata 발견 단계
 - Plugin 누락·버전 불일치·순환 의존성 검증
 - 의존성이 먼저 오는 결정적 Plugin 로드 순서
+- 명시적 trusted Entrypoint Import와 Factory 계약 검증
+- PluginManager 의존성 순서 등록과 실패 Rollback
 - Event와 비동기 EventBus 기본 구조
 - Task와 TaskManager 기본 구조
 - 기존 테스트의 pytest 마이그레이션
@@ -48,22 +50,23 @@
 - 명시적 Config 주입과 전역 Config 제거
 - 프로젝트 디렉터리 밖에서 동작하는 version CLI
 - 미구현 CLI의 명확한 실패 상태
-- 전체 테스트 199개 통과 기준선
+- 전체 테스트 205개 통과 기준선
 
 ## 진행 중
 
 - 문서 정합성 정리
 - 패키지와 코딩 스타일 정리
-- 신뢰된 Plugin Entrypoint 로딩과 Manager 등록 준비
+- Generator Plugin typed Registry와 실제 Generator 등록 준비
 
 ## 존재하지만 미완성
 
 - CLI 명령
 - Plugin Framework
 - Pipeline 추상화
-PluginLoader는 Metadata 발견까지만 부분 구현됐으며 Python Entrypoint Import와
-Manager 등록은 아직 없다. Pipeline은 추상 클래스 자리표시자뿐이므로 Plugin
-Framework는 아직 완성으로 보지 않는다.
+PluginLoader는 발견, 의존성 정렬과 명시적 trusted 로딩까지 구현됐다.
+Permission의 OS 수준 Sandbox 강제와 Generator/Validator typed 등록은 아직
+없다. Pipeline도 추상 클래스 자리표시자뿐이므로 Plugin Framework는 아직
+완성으로 보지 않는다.
 
 ## 시작하지 않음
 
@@ -75,8 +78,8 @@ Framework는 아직 완성으로 보지 않는다.
 ## 현재 제약
 
 로컬 생성과 검증이 안정되기 전에 Webhook, Git 자동화, AI를 구현하지 않는다.
-의존성 그래프와 Entrypoint 정책을 검증하기 전에는 발견한 Plugin 코드를
-Import하거나 실행하지 않는다.
+Plugin 발견과 실행은 분리한다. 신뢰 여부가 확인되지 않은 Plugin에는
+`load_trusted()`를 호출하지 않는다.
 
 미래 단계용 빈 디렉터리는 미리 유지하지 않는다. 각 단계에 진입할 때
 Roadmap과 다음 작업 문서를 확인하고 필요한 패키지와 테스트 디렉터리를

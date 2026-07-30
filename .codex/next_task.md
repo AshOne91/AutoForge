@@ -4,8 +4,8 @@
 
 ## 현재 목표
 
-Plugin Manifest에 명시적인 Entrypoint 계약을 추가하고, 발견과 분리된
-신뢰된 로딩 API로 PluginManager에 등록한다.
+Generator Plugin을 타입이 보존되는 Registry에 등록하고 실제 Project/Module
+Generator를 Metadata와 함께 조회할 수 있게 한다.
 
 ## 근거 문서
 
@@ -15,13 +15,13 @@ Plugin Manifest에 명시적인 Entrypoint 계약을 추가하고, 발견과 분
 
 ## 다음 구현 범위
 
-1. `module:factory` 형식의 Entrypoint 문법과 검증 정의
-2. 발견 API는 계속 코드를 실행하지 않음
-3. 명시적 trusted 로딩 API에서만 Import와 Factory 호출
-4. 반환 객체의 Plugin 계약과 Metadata 일치 검증
-5. 의존성 순서에 따른 PluginManager 등록
-6. 중간 실패 시 부분 등록 방지 또는 명확한 Rollback
-7. 기존 발견·Generator Plugin·PluginManager 회귀 테스트
+1. 기존 Registry와 GeneratorPluginAdapter 재사용
+2. 범용 PluginManager의 execute 계약은 변경하지 않음
+3. Generator ID 기반 typed 등록·조회·목록 계약
+4. FastAPI Project/Module Generator Adapter 구성
+5. 중복 Generator ID와 Metadata 불일치 거부
+6. ProjectSpec/ModuleSpec 타입 안전성 회귀 테스트
+7. PluginLoader와 기존 PluginManager 회귀 테스트
 
 ## 이번 범위에서 구현하지 않음
 

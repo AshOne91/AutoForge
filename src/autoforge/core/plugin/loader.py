@@ -1,8 +1,14 @@
 import json
+import re
+from collections.abc import Callable
 from dataclasses import dataclass
+from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
-from typing import Final
+from types import ModuleType
+from typing import Final, cast
 
+from autoforge.core.plugin.base import Plugin
+from autoforge.core.plugin.manager import PluginManager
 from autoforge.core.plugin.metadata import (
     PluginCapability,
     PluginDependency,
@@ -12,6 +18,9 @@ from autoforge.core.plugin.metadata import (
 )
 
 PLUGIN_MANIFEST_FILENAME: Final = "plugin.json"
+ENTRYPOINT_PATTERN: Final = re.compile(
+    r"[A-Za-z_][A-Za-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*"
+)
 PLUGIN_METADATA_FIELDS: Final = frozenset(
     {
         "name",
@@ -24,6 +33,7 @@ PLUGIN_METADATA_FIELDS: Final = frozenset(
         "supported_specification_versions",
         "requirements",
         "permissions",
+        "entrypoint",
     }
 )
 
@@ -144,6 +154,109 @@ class PluginLoader:
             visit(plugin_id)
         return tuple(ordered)
 
+    def load_trusted(
+        self,
+        plugin_manager: PluginManager,
+    ) -> tuple[Plugin, ...]:
+        """검증된 후보의 Entrypoint를 명시적으로 실행하고 일괄 등록한다."""
+        ordered_candidates = self.resolve_load_order()
+        plugins = tuple(
+            self._instantiate_trusted(candidate) for candidate in ordered_candidates
+        )
+        for plugin in plugins:
+            if plugin_manager.exists(plugin.metadata.name):
+                raise PluginLoaderError(
+                    f"PluginManager에 이미 등록된 ID입니다: {plugin.metadata.name}"
+                )
+
+        registered_ids: list[str] = []
+        try:
+            for plugin in plugins:
+                plugin_manager.register(plugin)
+                registered_ids.append(plugin.metadata.name)
+        except Exception as error:
+            for plugin_id in reversed(registered_ids):
+                plugin_manager.unregister(plugin_id)
+            raise PluginLoaderError("Plugin 일괄 등록에 실패했습니다.") from error
+        return plugins
+
+    def _instantiate_trusted(self, candidate: PluginCandidate) -> Plugin:
+        entrypoint = candidate.metadata.entrypoint
+        if entrypoint is None or ENTRYPOINT_PATTERN.fullmatch(entrypoint) is None:
+            raise PluginLoaderError(
+                f"Plugin Entrypoint가 유효하지 않습니다: {candidate.manifest_path}"
+            )
+        module_name, factory_name = entrypoint.split(":", maxsplit=1)
+        module_path = self._resolve_module_path(candidate, module_name)
+        module = self._execute_module(candidate, module_name, module_path)
+        factory = getattr(module, factory_name, None)
+        if not callable(factory):
+            raise PluginLoaderError(f"Plugin Factory를 찾을 수 없습니다: {entrypoint}")
+        try:
+            plugin = cast(Callable[[], object], factory)()
+        except Exception as error:
+            raise PluginLoaderError(
+                f"Plugin Factory 실행에 실패했습니다: {entrypoint}"
+            ) from error
+        if not isinstance(plugin, Plugin):
+            raise PluginLoaderError(
+                f"Plugin Factory가 Plugin을 반환하지 않았습니다: {entrypoint}"
+            )
+        if plugin.metadata != candidate.metadata:
+            raise PluginLoaderError(
+                f"Plugin Metadata가 Manifest와 일치하지 않습니다: "
+                f"{candidate.metadata.name}"
+            )
+        return plugin
+
+    def _resolve_module_path(
+        self,
+        candidate: PluginCandidate,
+        module_name: str,
+    ) -> Path:
+        module_parts = module_name.split(".")
+        module_file = candidate.directory.joinpath(*module_parts).with_suffix(".py")
+        package_file = candidate.directory.joinpath(
+            *module_parts,
+            "__init__.py",
+        )
+        matches = [path for path in (module_file, package_file) if path.is_file()]
+        if len(matches) != 1:
+            raise PluginLoaderError(
+                f"Plugin Entrypoint 모듈을 찾을 수 없습니다: {module_name}"
+            )
+        module_path = matches[0]
+        if module_path.is_symlink():
+            raise PluginLoaderError(
+                f"Plugin Entrypoint 모듈은 Symlink일 수 없습니다: {module_path}"
+            )
+        self._validate_inside_root(candidate.directory, module_path)
+        return module_path.resolve()
+
+    @staticmethod
+    def _execute_module(
+        candidate: PluginCandidate,
+        module_name: str,
+        module_path: Path,
+    ) -> ModuleType:
+        import_name = (
+            f"_autoforge_plugin_{candidate.metadata.name.replace('.', '_')}_"
+            f"{module_name.replace('.', '_')}"
+        )
+        spec = spec_from_file_location(import_name, module_path)
+        if spec is None or spec.loader is None:
+            raise PluginLoaderError(
+                f"Plugin Entrypoint 모듈을 로드할 수 없습니다: {module_path}"
+            )
+        module = module_from_spec(spec)
+        try:
+            spec.loader.exec_module(module)
+        except Exception as error:
+            raise PluginLoaderError(
+                f"Plugin Entrypoint Import에 실패했습니다: {module_path}"
+            ) from error
+        return module
+
     def _validate_root(self) -> Path:
         if self._plugin_directory.is_symlink():
             raise PluginLoaderError(
@@ -223,6 +336,7 @@ class PluginLoader:
                 PluginPermission(value)
                 for value in PluginLoader._string_list(document, "permissions")
             ),
+            entrypoint=PluginLoader._optional_entrypoint(document),
         )
 
     @staticmethod
@@ -265,4 +379,11 @@ class PluginLoader:
             not isinstance(item, str) for item in value
         ):
             raise TypeError(f"{key}는 문자열 배열이어야 합니다.")
+        return value
+
+    @staticmethod
+    def _optional_entrypoint(document: dict[str, object]) -> str | None:
+        value = document.get("entrypoint")
+        if value is not None and not isinstance(value, str):
+            raise TypeError("entrypoint는 문자열이어야 합니다.")
         return value

@@ -58,6 +58,8 @@ class PluginMetadata:
 
     permissions: tuple[PluginPermission, ...] = ()
 
+    entrypoint: str | None = None
+
     def __post_init__(self) -> None:
         if not self.name.strip():
             raise ValueError("Plugin 이름은 비어 있을 수 없습니다.")
@@ -82,6 +84,8 @@ class PluginMetadata:
             raise ValueError("의존 Plugin은 중복될 수 없습니다.")
         if len(self.permissions) != len(set(self.permissions)):
             raise ValueError("Plugin 권한은 중복될 수 없습니다.")
+        if self.entrypoint is not None and not self.entrypoint.strip():
+            raise ValueError("Plugin Entrypoint는 비어 있을 수 없습니다.")
 
 
 def validate_plugin_api_version(metadata: PluginMetadata) -> None:

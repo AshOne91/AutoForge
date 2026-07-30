@@ -537,6 +537,12 @@ Python 코드를 Import하거나 실행하지 않는다.
 정확한 버전 불일치와 순환을 거부하고 의존 Plugin이 먼저 오는 결정적인
 순서를 계산한다. 의존성 정렬 단계도 Python 코드를 실행하지 않는다.
 
+명시적인 `load_trusted()`만 `module:factory` Entrypoint를 Import한다.
+Factory의 Plugin 계약과 Manifest Metadata 전체 일치를 확인하고 모든
+인스턴스 생성이 성공한 뒤 의존성 순서로 PluginManager에 등록한다. 중간
+등록 실패 시 이번 호출의 등록분을 Rollback한다. 이 API는 신뢰한 로컬
+Plugin용이며 OS 수준 Sandbox를 제공하지 않는다.
+
 ### PluginLoader
 
 아직 구현되지 않았다. 첫 Generator와 Validator 계약을 실제 기능으로 검증한
@@ -980,8 +986,8 @@ ProjectSpec.application.modules
 Application Registry 및 사용자 코드 보존 시나리오는 구현과 테스트가
 완료됐다. 생성 프로젝트의 lint와 Package Build Validator도 구현됐다.
 작업별 격리 Workspace 생성과 수명주기도 구현됐다. 현재 다음 작업은
-명시적인 Entrypoint 계약과 발견에서 분리된 trusted 로딩 API를 정의하는
-것이다. Plugin 검색만으로 외부 코드가 자동 실행되지 않는 원칙은 유지한다.
+Generator Plugin을 typed Registry에 등록하고 실제 Project/Module Generator를
+Metadata와 함께 선택할 수 있게 하는 것이다.
 
 PluginLoader, Git, Webhook과 CI/CD는 위 수직 기능이 실제로 통과한 뒤
 구현한다.

@@ -43,6 +43,15 @@ PluginLoader는 발견된 전체 후보에서 기존 문자열 의존성과 버�
 의존 Plugin이 먼저 오는 결정적인 순서를 반환한다. 이 과정도 Plugin 코드를
 실행하지 않는다.
 
+`load_trusted()`는 발견·정렬과 분리된 명시적 실행 경계다. `module:factory`
+Entrypoint의 경로를 다시 검증하고 Factory가 `Plugin`을 반환하는지, 런타임
+Metadata가 Manifest와 완전히 일치하는지 확인한다. 모든 Factory가 성공한
+뒤에만 의존성 순서로 PluginManager에 등록하며 중간 등록 실패는 이번 호출의
+등록분을 Rollback한다.
+
+Permission은 현재 선언과 중복 검증만 제공한다. `load_trusted()`는 신뢰한
+로컬 Plugin을 위한 API이며 OS 수준 Sandbox를 제공하지 않는다.
+
 ## 책임
 
 - Plugin은 다른 Plugin을 직접 수정하지 않는다.
@@ -53,6 +62,5 @@ PluginLoader는 발견된 전체 후보에서 기존 문자열 의존성과 버�
 
 ## 후속 구현
 
-- 검증된 Entrypoint Import와 PluginManager 등록
 - Generator 및 Validator Plugin
 - 격리와 실패 처리
