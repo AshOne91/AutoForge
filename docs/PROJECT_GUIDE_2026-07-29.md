@@ -466,7 +466,9 @@ Resolver는 파일을 쓰거나 삭제하지 않는다.
 - 파일별 결과를 메모리 GenerationManifest로 반환
 
 `REPLACE_GENERATED`는 안전한 이전 Hash 계약이 정의되기 전까지 적용하지
-않는다.
+않았으나, 현재는 이전 Manifest의 Generator ID, source, 소유권과 Content
+Hash가 모두 일치할 때만 허용한다. 적용 직전에도 현재 파일 Hash를 다시
+확인하고 결과를 CHANGED로 기록한다.
 
 ## 13. Plugin, Registry, EventBus, Task와 Pipeline
 
@@ -849,6 +851,8 @@ python -m ruff format --check src tests
 - ModuleSpec 기반 Pydantic Model과 Request/Response Schema 생성
 - ModuleSpec 기반 FastAPI Router와 비동기 Handler Scaffold 생성
 - 동일 명세 재실행 시 사용자 Handler 보존
+- Manifest 기반 GENERATED 파일 안전 교체
+- Endpoint 추가 시 Router 갱신과 Handler 보존
 - 명시적인 Config 주입
 - 프로젝트 밖에서 동작하는 version CLI
 
@@ -863,7 +867,6 @@ python -m ruff format --check src tests
 구현 예정:
 
 - Tutorial Module Generator
-- Manifest 기반 GENERATED 파일 안전 교체
 - Application Module Registry
 - Database와 Repository Plugin
 - Git 자동화
@@ -905,12 +908,11 @@ python -m ruff format --check src tests
 현재 다음 작업은 다음과 같다.
 
 ```text
-이전 GenerationManifest
-  → GENERATED 파일의 이전 Content Hash 조회
-  → 현재 Workspace Hash와 비교
-  → 수정되지 않은 GENERATED 파일만 REPLACE_GENERATED
-  → Router와 Schema 갱신
-  → SCAFFOLDED Handler 보존
+ProjectSpec.application.modules
+  → Module Router를 결정적으로 Import
+  → application/generated/module_registry.py
+  → Application Factory에 Router 등록
+  → Tutorial Endpoint 통합 테스트
 ```
 
 그다음 Tutorial Module의 Model, Schema, Router와 Handler Scaffold를 생성해

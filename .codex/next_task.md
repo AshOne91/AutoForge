@@ -4,8 +4,8 @@
 
 ## 현재 목표
 
-이전 GenerationManifest와 현재 파일 Hash를 비교해 AutoForge가 마지막으로
-생성한 뒤 수정되지 않은 GENERATED 파일만 안전하게 교체한다.
+ProjectSpec의 활성 Module 목록을 FastAPI Application에 연결하는 GENERATED
+Module Registry를 구현한다.
 
 ## 근거 문서
 
@@ -15,17 +15,17 @@
 
 ## 다음 구현 범위
 
-1. 기존 Manifest의 GENERATED 파일 기록 조회
-2. Manifest Content Hash와 현재 파일 Hash 일치 검증
-3. 일치할 때만 REPLACE_GENERATED 계획 허용
-4. 계획 이후 변경을 막기 위한 적용 직전 이전 Hash 재검증
-5. 교체 결과를 CHANGED Manifest 상태로 기록
-6. Endpoint 추가 시 Router/Schema 교체와 Handler 보존 통합 테스트
+1. `application/generated/module_registry.py` 렌더링
+2. ProjectSpec Module 목록의 결정적 Router Import
+3. Application Factory와 Module Registry 연결
+4. Module이 없는 프로젝트의 빈 Registry 처리
+5. Project와 Module Generator 결과 조합
+6. Tutorial Endpoint를 TestClient로 호출하는 통합 테스트
 
 ## 이번 범위에서 구현하지 않음
 
 - Template 렌더링
-- Application Module Registry
+- Manifest 병합과 GenerationJob
 - PluginLoader
 - Webhook
 - Git Commit, Push, Pull Request

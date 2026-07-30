@@ -29,3 +29,6 @@
 - ModuleSpec에서 FastAPI Router와 비동기 Handler Scaffold를 생성한다.
 - Handler는 SCAFFOLDED 소유권으로 분리해 동일 명세 재실행에서 사용자 수정을
   보존한다.
+- 이전 Manifest와 현재 파일 Hash가 일치하는 GENERATED 파일만 안전하게
+  교체하고 CHANGED 결과를 기록한다.
+- Endpoint 추가 재생성에서 Router를 갱신하면서 사용자 Handler를 보존한다.

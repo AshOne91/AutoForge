@@ -120,9 +120,16 @@ class GenerationPlanApplier:
         relative_path = planned_file.relative_path.as_posix()
 
         if action is PlannedAction.REPLACE_GENERATED:
-            raise GenerationPlanApplyError(
-                f"안전한 교체 정책이 아직 정의되지 않았습니다: {relative_path}"
-            )
+            if not target.is_file():
+                raise GenerationPlanApplyError(
+                    f"교체할 GENERATED 파일을 찾을 수 없습니다: {relative_path}"
+                )
+            actual_hash = content_hash(target.read_bytes())
+            if actual_hash != planned_file.previous_content_hash:
+                raise GenerationPlanApplyError(
+                    f"GENERATED 파일이 계획 이후 변경되었습니다: {relative_path}"
+                )
+            return
         if action is PlannedAction.CREATE:
             if target.exists():
                 raise GenerationPlanApplyError(
@@ -172,6 +179,10 @@ class GenerationPlanApplier:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(rendered_content.encode("utf-8"))
             status = FileResultStatus.CREATED
+            result_hash = content_hash(target.read_bytes())
+        elif action is PlannedAction.REPLACE_GENERATED:
+            target.write_bytes(rendered_content.encode("utf-8"))
+            status = FileResultStatus.CHANGED
             result_hash = content_hash(target.read_bytes())
         elif action is PlannedAction.KEEP:
             status = (

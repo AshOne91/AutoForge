@@ -50,6 +50,7 @@ class PlannedFile(GenerationModel):
     action: PlannedAction
     specification_hash: str
     expected_content_hash: str
+    previous_content_hash: str | None = None
     source: str = Field(min_length=1)
 
     @field_validator("relative_path", mode="before")
@@ -57,10 +58,14 @@ class PlannedFile(GenerationModel):
     def validate_relative_path(cls, value: object) -> PurePosixPath:
         return validate_workspace_relative_path(value)
 
-    @field_validator("specification_hash", "expected_content_hash")
+    @field_validator(
+        "specification_hash",
+        "expected_content_hash",
+        "previous_content_hash",
+    )
     @classmethod
-    def validate_hash(cls, value: str) -> str:
-        return validate_sha256(value)
+    def validate_hash(cls, value: str | None) -> str | None:
+        return value if value is None else validate_sha256(value)
 
     @model_validator(mode="after")
     def validate_ownership_action(self) -> "PlannedFile":
@@ -75,6 +80,21 @@ class PlannedFile(GenerationModel):
             and self.ownership is not FileOwnership.GENERATED
         ):
             raise ValueError("GENERATED 파일만 교체할 수 있습니다.")
+        if (
+            self.action is PlannedAction.REPLACE_GENERATED
+            and self.previous_content_hash is None
+        ):
+            raise ValueError(
+                "GENERATED 파일 교체에는 previous_content_hash가 필요합니다."
+            )
+        if (
+            self.action is not PlannedAction.REPLACE_GENERATED
+            and self.previous_content_hash is not None
+        ):
+            raise ValueError(
+                "REPLACE_GENERATED가 아닌 작업에는 previous_content_hash를 "
+                "지정할 수 없습니다."
+            )
         return self
 
 

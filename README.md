@@ -38,9 +38,11 @@ AutoForge는 참고 프로젝트의 포팅이 아니라 재설계 프로젝트�
 - 생성 프로젝트 Import와 pytest 검증
 - Pydantic Model 및 Request/Response Schema 생성
 - FastAPI Router와 사용자 보존 Handler Scaffold 생성
-- 전체 테스트 127개 통과 기준선
+- Manifest 기반 GENERATED 파일 안전 교체
+- Endpoint 추가 재생성 시 Handler 보존
+- 전체 테스트 134개 통과 기준선
 
-Manifest 기반 GENERATED 파일 안전 교체가 다음 구현 단계다.
+Application Module Registry가 다음 구현 단계다.
 
 ## 첫 번째 MVP
 

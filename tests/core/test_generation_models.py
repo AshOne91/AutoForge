@@ -101,7 +101,18 @@ def test_only_generated_file_can_be_replaced() -> None:
         planned_file(
             ownership=FileOwnership.SCAFFOLDED,
             action=PlannedAction.REPLACE_GENERATED,
+            previous_content_hash=CONTENT_HASH,
         )
+
+
+def test_replace_generated_requires_previous_content_hash() -> None:
+    with pytest.raises(ValidationError, match="previous_content_hash"):
+        planned_file(action=PlannedAction.REPLACE_GENERATED)
+
+
+def test_non_replace_action_rejects_previous_content_hash() -> None:
+    with pytest.raises(ValidationError, match="previous_content_hash"):
+        planned_file(previous_content_hash=CONTENT_HASH)
 
 
 def test_manifest_accepts_file_results() -> None:

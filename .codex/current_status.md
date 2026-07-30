@@ -25,16 +25,18 @@
 - ModuleSpec 기반 Pydantic Model 및 Request/Response Schema 생성
 - ModuleSpec 기반 FastAPI Router와 Handler Scaffold 생성
 - 동일 명세 재실행 시 사용자 Handler 보존
+- Manifest 기반 GENERATED 파일 안전 교체
+- Endpoint 추가 재생성 시 Router 갱신과 Handler 보존
 - 명시적 Config 주입과 전역 Config 제거
 - 프로젝트 디렉터리 밖에서 동작하는 version CLI
 - 미구현 CLI의 명확한 실패 상태
-- 전체 테스트 127개 통과 기준선
+- 전체 테스트 134개 통과 기준선
 
 ## 진행 중
 
 - 문서 정합성 정리
 - 패키지와 코딩 스타일 정리
-- Manifest 기반 GENERATED 파일 안전 교체 준비
+- Application Module Registry 준비
 
 ## 존재하지만 미완성
 

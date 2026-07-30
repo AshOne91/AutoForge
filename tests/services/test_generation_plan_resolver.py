@@ -2,7 +2,10 @@ from pathlib import Path
 
 from autoforge.core.generation import (
     FileOwnership,
+    FileResultStatus,
+    GenerationManifest,
     GenerationPlan,
+    ManifestFile,
     PlannedAction,
     PlannedFile,
     content_hash,
@@ -37,6 +40,32 @@ def generation_plan(*files: PlannedFile) -> GenerationPlan:
         specification_version="1",
         specification_hash=SPECIFICATION_HASH,
         files=list(files),
+    )
+
+
+def generation_manifest(
+    relative_path: str,
+    content: str,
+    *,
+    generator_id: str = "autoforge.generator.fastapi.project",
+    ownership: FileOwnership = FileOwnership.GENERATED,
+) -> GenerationManifest:
+    return GenerationManifest(
+        job_id="previous-job",
+        specification_version="1",
+        specification_hash=SPECIFICATION_HASH,
+        files=[
+            ManifestFile(
+                relative_path=relative_path,
+                generator_id=generator_id,
+                generator_version="0.1.0",
+                ownership=ownership,
+                status=FileResultStatus.CREATED,
+                specification_hash=SPECIFICATION_HASH,
+                content_hash=content_hash(content),
+                source="project:game_server",
+            )
+        ],
     )
 
 
@@ -76,6 +105,63 @@ def test_modified_generated_file_is_a_conflict(tmp_path: Path) -> None:
     original = generation_plan(planned_file("src/game_server/main.py"))
 
     resolved = GenerationPlanResolver().resolve(original, Workspace(tmp_path))
+
+    assert resolved.files[0].action is PlannedAction.CONFLICT
+
+
+def test_manifest_owned_generated_file_can_be_replaced(tmp_path: Path) -> None:
+    previous_content = "previous generated content"
+    target = tmp_path / "src" / "game_server" / "main.py"
+    target.parent.mkdir(parents=True)
+    target.write_text(previous_content, encoding="utf-8")
+    original = generation_plan(
+        planned_file("src/game_server/main.py", content="new generated content")
+    )
+
+    resolved = GenerationPlanResolver().resolve(
+        original,
+        Workspace(tmp_path),
+        manifest=generation_manifest(
+            "src/game_server/main.py",
+            previous_content,
+        ),
+    )
+
+    assert resolved.files[0].action is PlannedAction.REPLACE_GENERATED
+    assert resolved.files[0].previous_content_hash == content_hash(previous_content)
+
+
+def test_manifest_hash_mismatch_remains_conflict(tmp_path: Path) -> None:
+    target = tmp_path / "main.py"
+    target.write_text("manual change", encoding="utf-8")
+    original = generation_plan(planned_file("main.py", content="new content"))
+
+    resolved = GenerationPlanResolver().resolve(
+        original,
+        Workspace(tmp_path),
+        manifest=generation_manifest("main.py", "previous generated content"),
+    )
+
+    assert resolved.files[0].action is PlannedAction.CONFLICT
+
+
+def test_manifest_from_different_generator_remains_conflict(
+    tmp_path: Path,
+) -> None:
+    previous_content = "previous generated content"
+    target = tmp_path / "main.py"
+    target.write_text(previous_content, encoding="utf-8")
+    original = generation_plan(planned_file("main.py", content="new content"))
+
+    resolved = GenerationPlanResolver().resolve(
+        original,
+        Workspace(tmp_path),
+        manifest=generation_manifest(
+            "main.py",
+            previous_content,
+            generator_id="other.generator",
+        ),
+    )
 
     assert resolved.files[0].action is PlannedAction.CONFLICT
 

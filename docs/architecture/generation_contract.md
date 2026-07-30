@@ -159,6 +159,7 @@ Generator는 파일을 쓰기 전에 GenerationPlan을 만든다.
 - 예정 작업
 - 명세 Hash
 - 예상 내용 Hash
+- 교체 대상의 이전 Content Hash
 - 의존 명세 또는 Module
 
 예정 작업은 다음 중 하나다.
@@ -200,6 +201,10 @@ Manifest 경로는 Workspace를 기준으로 한 상대 경로만 사용한다.
 10. 새 Manifest를 기록한다.
 
 강제 덮어쓰기 옵션은 기본값이 아니며 별도 승인과 명시적 옵션이 필요하다.
+
+`REPLACE_GENERATED`는 이전 Manifest가 같은 Generator와 source로 기록한
+GENERATED 파일에만 허용한다. 현재 파일 Hash가 Manifest Content Hash와
+일치해야 하며, 적용 직전에도 같은 이전 Hash를 다시 확인한다.
 
 ## 생성 과정의 Event
 

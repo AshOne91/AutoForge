@@ -29,6 +29,7 @@ def planned_file(
     ownership: FileOwnership = FileOwnership.GENERATED,
     action: PlannedAction = PlannedAction.CREATE,
     specification_hash: str = SPECIFICATION_HASH,
+    previous_content_hash: str | None = None,
 ) -> PlannedFile:
     return PlannedFile(
         relative_path=relative_path,
@@ -38,6 +39,7 @@ def planned_file(
         action=action,
         specification_hash=specification_hash,
         expected_content_hash=content_hash(content),
+        previous_content_hash=previous_content_hash,
         source="project:game_server",
     )
 
@@ -239,23 +241,44 @@ def test_create_aborts_when_parent_is_a_file(tmp_path: Path) -> None:
         apply(tmp_path, plan, rendered)
 
 
-def test_replace_generated_is_rejected_until_policy_is_defined(
-    tmp_path: Path,
-) -> None:
-    (tmp_path / "main.py").write_text("old\n", encoding="utf-8")
+def test_replace_generated_records_changed_manifest(tmp_path: Path) -> None:
+    previous_content = "old\n"
+    (tmp_path / "main.py").write_bytes(previous_content.encode())
     rendered = {PurePosixPath("main.py"): "new\n"}
     plan = generation_plan(
         planned_file(
             "main.py",
             "new\n",
             action=PlannedAction.REPLACE_GENERATED,
+            previous_content_hash=content_hash(previous_content),
         )
     )
 
-    with pytest.raises(GenerationPlanApplyError, match="교체 정책"):
+    manifest = apply(tmp_path, plan, rendered)
+
+    assert (tmp_path / "main.py").read_text(encoding="utf-8") == "new\n"
+    assert manifest.files[0].status is FileResultStatus.CHANGED
+    assert manifest.files[0].previous_content_hash == content_hash(previous_content)
+    assert manifest.files[0].content_hash == content_hash("new\n")
+
+
+def test_replace_aborts_if_file_changes_after_planning(tmp_path: Path) -> None:
+    previous_content = "old\n"
+    (tmp_path / "main.py").write_bytes(b"changed later\n")
+    rendered = {PurePosixPath("main.py"): "new\n"}
+    plan = generation_plan(
+        planned_file(
+            "main.py",
+            "new\n",
+            action=PlannedAction.REPLACE_GENERATED,
+            previous_content_hash=content_hash(previous_content),
+        )
+    )
+
+    with pytest.raises(GenerationPlanApplyError, match="계획 이후 변경"):
         apply(tmp_path, plan, rendered)
 
-    assert (tmp_path / "main.py").read_text(encoding="utf-8") == "old\n"
+    assert (tmp_path / "main.py").read_text(encoding="utf-8") == "changed later\n"
 
 
 def test_apply_minimum_fastapi_project_end_to_end(tmp_path: Path) -> None:

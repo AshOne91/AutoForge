@@ -297,3 +297,53 @@ def test_endpoint_addition_preserves_handler_but_conflicts_generated_files(
     assert actions["handlers.py"] is PlannedAction.KEEP
     assert actions["router.py"] is PlannedAction.CONFLICT
     assert handler_path.read_text(encoding="utf-8") == "# user implementation\n"
+
+
+def test_endpoint_addition_replaces_manifest_owned_files_and_preserves_handler(
+    tmp_path: Path,
+) -> None:
+    generator = FastAPIModuleGenerator("game_server")
+    original = tutorial_specification()
+    workspace = Workspace(tmp_path)
+    original_rendered = generator.render(original)
+    previous_manifest = GenerationPlanApplier().apply(
+        job_id="first-module-job",
+        plan=GenerationPlanResolver().resolve(
+            generator.plan(original),
+            workspace,
+        ),
+        rendered_files=original_rendered,
+        workspace=workspace,
+    )
+    handler_path = tmp_path / "src/game_server/modules/tutorial/handlers.py"
+    handler_path.write_text("# user implementation\n", encoding="utf-8")
+    added_endpoint = EndpointSpec(
+        name="reset_progress",
+        method=HttpMethod.DELETE,
+        path="/progress",
+        response=ResponseSpec(model="TutorialProgress"),
+        handler="reset_progress",
+    )
+    changed = original.model_copy(
+        update={"endpoints": [*original.endpoints, added_endpoint]}
+    )
+    changed_rendered = generator.render(changed)
+    resolved = GenerationPlanResolver().resolve(
+        generator.plan(changed),
+        workspace,
+        manifest=previous_manifest,
+    )
+
+    manifest = GenerationPlanApplier().apply(
+        job_id="second-module-job",
+        plan=resolved,
+        rendered_files=changed_rendered,
+        workspace=workspace,
+    )
+
+    router_path = tmp_path / "src/game_server/modules/tutorial/generated/router.py"
+    assert "@router.delete" in router_path.read_text(encoding="utf-8")
+    assert handler_path.read_text(encoding="utf-8") == "# user implementation\n"
+    results = {file.relative_path.name: file.status for file in manifest.files}
+    assert results["router.py"].value == "changed"
+    assert results["handlers.py"].value == "preserved"
