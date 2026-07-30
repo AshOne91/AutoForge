@@ -33,7 +33,7 @@
 ## 3단계 - Workspace와 검증 Pipeline
 
 - [x] Workspace 경로 안전 경계
-- [ ] 격리된 Workspace 생성과 수명주기
+- [x] 격리된 Workspace 생성과 수명주기
 - [x] Dry-run과 충돌 탐지
 - [x] 결정적 CREATE와 KEEP/SKIP 보존
 - [x] Import 및 pytest Validator
@@ -42,8 +42,8 @@
 
 ## 4단계 - Plugin 확장 구조
 
-- [ ] Generator 계약을 Plugin API로 확정
-- [ ] Plugin Metadata와 Capability 검증
+- [x] Generator 계약을 Plugin API로 확정
+- [x] Plugin Metadata와 Capability 검증
 - [ ] PluginLoader 구현
 - [ ] Generator 및 Validator Plugin 등록
 - [ ] Plugin 의존성과 권한 정책

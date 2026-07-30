@@ -17,8 +17,33 @@ AutoForge는 검증된 프로젝트 명세를 바탕으로 모듈형 FastAPI 웹
 - `common-tool`: 명령과 설정 기반 코드 생성 방식을 참고한다. AutoForge는 포팅이 아니라 재설계 프로젝트다.
 - `gameserver`: Application, 도메인 Template, Service, Tool의 책임 분리를 참고한다.
 - `base_server`: 생성될 FastAPI 애플리케이션의 Router, Domain, Service, 설정, 테스트, 컨테이너 구조를 참고한다.
+- `SKN12-FINAL-2TEAM`: 실제 서비스 기능, 이벤트, 큐와 Kubernetes 등 수작업
+  구현을 분석해 현대화할 기능 원본이다.
+- `kis-auto-trading`: SKN12의 기능을 현대적인 구조로 재구성할 첫 실제 생성
+  대상 프로젝트다.
 
 도메인 Template과 코드 렌더링 템플릿은 다른 개념으로 구분한다. 프로젝트 전용 금융, 채팅, AI 기능이나 전역 ServiceContainer 패턴은 그대로 복사하지 않는다.
+
+프로젝트 관계는 다음을 기준으로 한다.
+
+```text
+common-tool + gameserver
+  → 반복 코드 생성 방식의 원형
+
+SKN12-FINAL-2TEAM
+  → 실제 기능과 수작업 인프라 구현의 원형
+
+AutoForge
+  → 반복 구조를 Specification, Generator와 Plugin으로 자동화
+
+kis-auto-trading
+  → AutoForge로 현대화해 생성할 첫 실제 서비스
+```
+
+SKN12 코드를 그대로 복사하지 않는다. 반복 구조는 Generator, 기술 구현은
+Protocol과 Adapter 또는 Plugin, 프로젝트 고유 비즈니스 로직은 사용자 소유
+코드로 분리한다. 실제로 확인하지 않은 SKN12 기능은 구현된 사실처럼 문서화
+하지 않는다.
 
 ## 설계 원칙
 

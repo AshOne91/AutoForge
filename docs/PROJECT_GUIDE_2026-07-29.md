@@ -146,6 +146,35 @@ CI/CD 구성의 실제 사례를 참고한다.
 AutoForge가 생성할 서버는 `base_server`의 유용한 책임 경계를 유지하면서
 더 작고 모듈형이며 반복 생성에 안전해야 한다.
 
+### 3.4 SKN12-FINAL-2TEAM과 kis-auto-trading
+
+사용자가 확정한 제품 관계는 다음과 같다.
+
+```text
+common-tool + game-server
+  → 반복 코드 생성 방식의 원형
+
+SKN12-FINAL-2TEAM
+  → 서비스 기능과 수작업 이벤트, 큐, Kubernetes 구현의 원형
+
+AutoForge
+  → 반복 구조를 명세 기반으로 생성하고 검증하는 플랫폼
+
+kis-auto-trading
+  → SKN12 기능을 현대적인 구조로 재구성할 첫 실제 생성 대상
+```
+
+AutoForge는 SKN12를 파일 단위로 복사하지 않는다.
+
+- 반복되는 구조와 연결 코드는 Specification과 Generator로 만든다.
+- 이벤트, 큐, 배포 기술은 Protocol, Adapter와 Plugin 경계로 현대화한다.
+- 매매 전략처럼 프로젝트 고유한 비즈니스 로직은 사용자 소유 코드로 둔다.
+- 생성 코드와 사용자 코드는 파일 소유권으로 분리한다.
+- 실제 코드를 확인하지 않은 기능은 구현 사실로 가정하지 않는다.
+
+향후 설계의 실용성은 `SKN12 → AutoForge → kis-auto-trading` 수직 흐름으로
+검증한다.
+
 ## 4. 왜 C#을 Python으로 단순 포팅하지 않는가
 
 목표는 기존 C# 코드의 문법 변환이 아니다.
@@ -244,7 +273,8 @@ AutoForge/
 ### Infrastructure
 
 파일시스템, 외부 Process, Git Provider, Webhook, Database처럼 외부 환경과
-직접 통신하는 Adapter가 위치한다. 현재는 구현 전이다.
+직접 통신하는 Adapter가 위치한다. 현재 비동기 외부 Process Runner와
+작업별 격리 Workspace Manager가 구현되어 있다.
 
 ## 7. 현재 실행 흐름
 
@@ -441,6 +471,11 @@ src\windows\style.py
 
 `Workspace.resolve()`는 해석된 경로가 root 밖으로 나가면 예외를 발생시킨다.
 
+`IsolatedWorkspaceManager`는 작업 이름을 검증한 뒤 지정된 base 디렉터리
+아래에 충돌하지 않는 임시 Workspace를 만든다. `async with` 범위가 끝나면
+정상·예외 여부와 관계없이 자동 정리한다. 실패 자료를 조사해야 할 때만
+`preserve_on_error=True`로 명시해 실패 Workspace를 보존한다.
+
 현재 Resolver 정책:
 
 | 상태 | 결과 |
@@ -482,6 +517,11 @@ Hash가 모두 일치할 때만 허용한다. 적용 직전에도 현재 파일 
 
 현재 Plugin 등록, 조회, 실행과 해제를 담당한다. 내부 저장소로 Registry를
 사용한다.
+
+기존 Project/Module Generator는 렌더링 계약을 유지한다.
+`GeneratorPluginAdapter`가 Plugin ID·버전·API 버전·Capability·지원
+Specification 버전을 Metadata와 연결하고, 선언과 실제 Generator가
+일치하는지 검증한다.
 
 ### PluginLoader
 
@@ -925,7 +965,8 @@ ProjectSpec.application.modules
 위 수직 기능과 Tutorial Module의 Model, Schema, Router, Handler Scaffold,
 Application Registry 및 사용자 코드 보존 시나리오는 구현과 테스트가
 완료됐다. 생성 프로젝트의 lint와 Package Build Validator도 구현됐다.
-현재 다음 작업은 작업별 격리 Workspace 생성과 수명주기다.
+작업별 격리 Workspace 생성과 수명주기도 구현됐다. 현재 다음 작업은
+Plugin Metadata의 API 호환성, 의존성과 권한 정책을 확정하는 것이다.
 
 PluginLoader, Git, Webhook과 CI/CD는 위 수직 기능이 실제로 통과한 뒤
 구현한다.

@@ -6,6 +6,8 @@
 - Registry 안정화
 - Plugin 기반 클래스와 Metadata
 - PluginManager 안정화
+- 기존 Generator를 보존하는 Generator Plugin Adapter
+- Plugin ID·버전·Capability·지원 Specification 버전 정합성 검증
 - Event와 비동기 EventBus 기본 구조
 - Task와 TaskManager 기본 구조
 - 기존 테스트의 pytest 마이그레이션
@@ -14,6 +16,8 @@
 - GenerationPlan과 GenerationManifest 모델
 - 명세와 파일 내용 Hash 계산
 - Workspace 상대경로 검증과 경로 이탈 방지
+- 작업별 격리 Workspace 생성과 자동 정리
+- 실패 진단용 격리 Workspace 명시적 보존 정책
 - 제네릭 Generator Protocol
 - 최소 FastAPI Project Generator 렌더링과 Dry-run
 - Workspace 상태 기반 생성 계획 충돌 판정
@@ -37,13 +41,13 @@
 - 명시적 Config 주입과 전역 Config 제거
 - 프로젝트 디렉터리 밖에서 동작하는 version CLI
 - 미구현 CLI의 명확한 실패 상태
-- 전체 테스트 157개 통과 기준선
+- 전체 테스트 176개 통과 기준선
 
 ## 진행 중
 
 - 문서 정합성 정리
 - 패키지와 코딩 스타일 정리
-- 격리된 Workspace 생성과 수명주기 준비
+- Plugin Metadata 호환성·의존성·권한 정책 준비
 
 ## 존재하지만 미완성
 
