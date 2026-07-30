@@ -1,31 +1,47 @@
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
 
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.hypothesis/
+.tox/
+.nox/
 
 .vscode/
+.idea/
+.obsidian/
 
 dist/
 build/
+site/
+*.egg
+*.egg-info/
+*.whl
+pip-wheel-metadata/
 
 .env
+.env.*
+!.env.example
+!.env.*.example
 
 .venv/
+venv/
+env/
 
 .coverage
-
+.coverage.*
+coverage.xml
 htmlcov/
 
-.idea/
-
-*.egg-info/
-
 *.db
+*.sqlite
+*.sqlite3
 
 logs/
+*.log
 
 output/
+
+# AutoForge가 생성 프로젝트에 기록하는 로컬 작업 산출물
+.autoforge/

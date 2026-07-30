@@ -38,5 +38,8 @@ Webhook의 HTTP 요청 안에서 코드 생성, 빌드, Commit을 직접 실행�
 - 모든 출력은 Workspace 내부에만 생성한다.
 - Manifest는 생성, 변경, 동일, 건너뜀, 충돌 파일을 기록한다.
 - 검증 실패 시 Git 반영을 금지한다.
-- EventBus는 내부 사건을 알리고 Pipeline은 실행 순서를 제어한다.
+- EventBus는 주요 컴포넌트의 중앙 통신 수단이며 업무 로직은 가지지 않는다.
+- Handler는 Event를 Application 동작에 연결하고 결과 Event를 발행한다.
+- Pipeline은 Job 내부 Task 실행 순서와 실패·재시도·Timeout 정책을 제어한다.
+- Handler 등록 순서나 Event 연쇄만으로 Pipeline 순서를 표현하지 않는다.
 - Plugin은 검증된 생성 기능을 확장하며 첫 Generator의 필수 요소가 아니다.

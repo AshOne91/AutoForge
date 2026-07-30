@@ -218,8 +218,11 @@ Generator와 Pipeline은 다음 Event를 발행할 수 있다.
 - GenerationCompleted
 - GenerationFailed
 
-Event는 상태 알림, Logging, Audit, Metrics에 사용한다. EventBus가 실행 순서를
-제어하지는 않는다.
+Event는 상태 알림과 Logging, Audit, Metrics뿐 아니라 AutoForge 주요
+컴포넌트 사이의 통신 경계에도 사용한다. EventBus는 업무 로직이나 실행
+순서를 제어하지 않는다. Pipeline이 Task 순서와 실패 정책을 소유하고
+Application Handler가 처리 결과를 Event로 발행한다. 상세 경계는
+`event_driven_architecture.md`를 따른다.
 
 ## 검증 조건
 

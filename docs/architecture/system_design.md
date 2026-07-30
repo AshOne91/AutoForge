@@ -137,7 +137,13 @@ Plugin Metadata는 ID, 버전, API 버전, 유형, Capability, 의존성, 지원
 
 ## EventBus와 Pipeline
 
-Pipeline은 Task의 실행 순서와 실패 정책을 제어한다.
+EventBus는 AutoForge 주요 컴포넌트 사이의 중앙 통신 메커니즘이다. Webhook,
+Pipeline, Task, Plugin, Generator, Git과 Notification의 주요 상태 변화는
+Event로 표현한다. EventBus 자체는 이 컴포넌트의 내부 구조나 업무 규칙을
+알지 않으며 Generic Event의 구독, 구독 해제와 비동기 전달만 담당한다.
+
+Pipeline은 하나의 Job 안에서 Task의 실행 순서와 실패·재시도·Timeout 정책을
+제어한다.
 
 ```text
 ValidateSpec
@@ -151,14 +157,22 @@ ValidateSpec
 → Delivery
 ```
 
-EventBus는 Job, Plugin, 생성 파일, 검증, Build, Git 작업에서 발생한 사건을
-Logging, Audit, Metrics, 상태 추적 Handler에 전달한다. EventBus가 Pipeline의
-순서를 대신하지 않는다.
+Handler는 Event를 Application Service 동작에 연결하고 처리 결과를 다시
+Event로 발행한다. Logging, Audit, Metrics와 상태 추적도 Handler로 연결한다.
+Handler 등록 순서나 Event 연쇄만으로 Pipeline 순서를 숨기지 않는다.
+EventBus는 중앙 통신 수단이지만 중앙 업무 실행기는 아니다.
+
+Command는 실행 요청이고 Event는 이미 발생한 사실이다. 현재 EventBus는
+Event만 다루며 Command 전달 API는 첫 GenerationPipeline 구현 전에 별도로
+결정한다.
+
+상세 결정은 `event_driven_architecture.md`를 따른다.
 
 ## 상세 문서
 
 - `generation_contract.md`: 파일 소유권, 반복 생성, Manifest, 검증 계약
 - `specification_design.md`: Project, Application, Module, API, Model, DB 명세
+- `event_driven_architecture.md`: EventBus, Handler, Pipeline과 Transport 경계
 
 ## 첫 번째 MVP 제외 범위
 

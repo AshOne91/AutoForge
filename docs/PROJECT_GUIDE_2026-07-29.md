@@ -566,12 +566,24 @@ Sandbox와 실패 격리는 아직 구현되지 않았다.
 
 ### EventBus
 
-Event를 여러 비동기 Handler에 전달한다. 실행 순서를 제어하지 않는다.
+EventBus는 AutoForge 주요 컴포넌트 사이의 중앙 통신 메커니즘이다. Event를
+여러 비동기 Handler에 전달하지만 Git, Plugin, Generator와 Pipeline의 내부
+구조나 업무 규칙을 알지 않는다.
+
+Handler가 Event를 Application Service에 연결하고 처리 결과를 새 Event로
+발행한다. EventBus는 중앙 통신 수단이지만 중앙 실행기는 아니다.
 
 ### Task와 Pipeline
 
 Task 기본 계약과 TaskManager는 존재한다. Pipeline은 자리표시자 계약만
 있으며 실행 순서, 재시도, Timeout과 실패 정책은 아직 구현되지 않았다.
+장기적으로 Pipeline이 Job 내부의 Task 순서와 실패 정책을 명시적으로
+소유한다. Handler 등록 순서나 Event 연쇄만으로 업무 순서를 숨기지 않는다.
+
+Command는 실행 요청, Event는 이미 발생한 사실로 의미를 구분한다. 현재
+EventBus는 Event만 다루므로 Command 전달 방식은 첫 GenerationPipeline
+구현 전에 별도로 결정한다. 상세 결정은
+`docs/architecture/event_driven_architecture.md`를 따른다.
 
 현재 `ProjectValidator`는 Pipeline을 확정하지 않고 다음 네 단계를 순서대로
 실행한다.
@@ -1017,6 +1029,7 @@ PluginLoader, Git, Webhook과 CI/CD는 위 수직 기능이 실제로 통과한 
 - `docs/architecture/generation_contract.md`
 - `docs/architecture/specification_design.md`
 - `docs/architecture/plugin_system.md`
+- `docs/architecture/event_driven_architecture.md`
 
 이 문서와 실제 코드가 충돌하면 테스트와 현재 코드를 사실 기준으로 삼고,
 문서 불일치를 같은 변경 단위에서 수정한다.

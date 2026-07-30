@@ -65,5 +65,6 @@ AutoForge는 참고 프로젝트의 포팅이 아니라 재설계 프로젝트�
 - `docs/architecture/generation_contract.md`
 - `docs/architecture/specification_design.md`
 - `docs/architecture/plugin_system.md`
+- `docs/architecture/event_driven_architecture.md`
 - `.codex/project_context.md`
 - `.codex/roadmap.md`

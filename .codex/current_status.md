@@ -25,6 +25,7 @@
 - 코드·아키텍처·FastAPI 학습 가이드 작성
 - Python·웹·FastAPI·AutoForge 4권 완전 입문 학습 시리즈 작성
 - Event와 비동기 EventBus 기본 구조
+- EventBus 중심 장기 통신 아키텍처와 Pipeline 책임 경계 확정
 - Task와 TaskManager 기본 구조
 - 기존 테스트의 pytest 마이그레이션
 - ProjectSpec과 ModuleSpec 검증 모델

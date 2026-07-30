@@ -60,6 +60,7 @@
 
 ## 6단계 - Event와 자동화 Pipeline
 
+- [x] EventBus, Handler, Pipeline 및 외부 Transport 책임 경계 설계
 - [ ] Job 및 Generation Event 정의
 - [ ] Logging, Audit, Metrics Handler
 - [ ] Generation Pipeline
