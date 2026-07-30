@@ -270,7 +270,10 @@ ProjectSpec
 
 ```text
 생성된 프로젝트
-  ⇢ Import 및 pytest 검증
+  → ProjectValidator
+  → 별도 Python 프로세스 Import 검증
+  → 별도 pytest 프로세스 검증
+  → stdout, stderr, 종료 코드, Timeout 결과
   ⇢ Build
   ⇢ Git 반영
 ```
@@ -497,6 +500,17 @@ Event를 여러 비동기 Handler에 전달한다. 실행 순서를 제어하지
 
 Task 기본 계약과 TaskManager는 존재한다. Pipeline은 자리표시자 계약만
 있으며 실행 순서, 재시도, Timeout과 실패 정책은 아직 구현되지 않았다.
+
+현재 `ProjectValidator`는 Pipeline을 확정하지 않고 다음 두 단계만 순서대로
+실행한다.
+
+1. 생성 패키지의 `main` 모듈 Import
+2. 생성 프로젝트의 pytest
+
+`AsyncioProcessRunner`는 shell을 사용하지 않고 인자 튜플로 프로세스를
+실행하며 Workspace를 실행 디렉터리로 고정한다. 종료 코드, stdout, stderr,
+실행 시간과 Timeout 여부를 구조화된 결과로 반환한다. Import가 실패하면
+pytest를 실행하지 않는다.
 
 ## 14. 생성되는 최소 FastAPI 프로젝트
 
@@ -829,6 +843,12 @@ python -m ruff format --check src tests
 - GenerationPlan의 안전한 Workspace 적용
 - CREATE, KEEP, SKIP 결과의 메모리 Manifest 생성
 - Manifest의 결정적 JSON 저장과 검증된 로딩
+- 비동기 외부 프로세스 실행과 Timeout 처리
+- 생성 FastAPI 프로젝트의 실제 Import와 pytest 검증
+- 공통 FieldType의 Python/Pydantic Type 변환
+- ModuleSpec 기반 Pydantic Model과 Request/Response Schema 생성
+- ModuleSpec 기반 FastAPI Router와 비동기 Handler Scaffold 생성
+- 동일 명세 재실행 시 사용자 Handler 보존
 - 명시적인 Config 주입
 - 프로젝트 밖에서 동작하는 version CLI
 
@@ -842,10 +862,8 @@ python -m ruff format --check src tests
 
 구현 예정:
 
-- 생성 프로젝트 Import와 pytest 검증
 - Tutorial Module Generator
-- Request/Response와 Router Generator
-- Handler Scaffold
+- Manifest 기반 GENERATED 파일 안전 교체
 - Application Module Registry
 - Database와 Repository Plugin
 - Git 자동화
@@ -887,12 +905,12 @@ python -m ruff format --check src tests
 현재 다음 작업은 다음과 같다.
 
 ```text
-생성된 최소 FastAPI 프로젝트
-  → Workspace를 실행 디렉터리로 고정
-  → 구조화된 외부 프로세스 결과
-  → Python Import 검증
-  → pytest 검증
-  → Timeout과 실패 상태 기록
+이전 GenerationManifest
+  → GENERATED 파일의 이전 Content Hash 조회
+  → 현재 Workspace Hash와 비교
+  → 수정되지 않은 GENERATED 파일만 REPLACE_GENERATED
+  → Router와 Schema 갱신
+  → SCAFFOLDED Handler 보존
 ```
 
 그다음 Tutorial Module의 Model, Schema, Router와 Handler Scaffold를 생성해

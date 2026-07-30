@@ -111,7 +111,7 @@ class FastAPIProjectGenerator:
             'dependencies = ["fastapi", "uvicorn"]\n'
             "\n"
             "[project.optional-dependencies]\n"
-            'test = ["httpx", "pytest"]\n'
+            'test = ["httpx2", "pytest"]\n'
             "\n"
             "[tool.setuptools]\n"
             'package-dir = {"" = "src"}\n'

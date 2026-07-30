@@ -77,6 +77,10 @@ def test_rendered_python_and_toml_are_valid() -> None:
     pyproject = tomllib.loads(files[PurePosixPath("pyproject.toml")])
     assert pyproject["project"]["name"] == "game_server"
     assert pyproject["project"]["requires-python"] == ">=3.12"
+    assert pyproject["project"]["optional-dependencies"]["test"] == [
+        "httpx2",
+        "pytest",
+    ]
 
 
 def test_plan_matches_rendered_content_hashes() -> None:

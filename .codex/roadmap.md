@@ -24,9 +24,9 @@
 - [x] 최소 FastAPI Project Generator 렌더링과 Dry-run
 - [x] 최소 FastAPI Project Generator Workspace 적용
 - [ ] Tutorial Module Generator
-- [ ] Pydantic Model 및 Request/Response Generator
-- [ ] Router Generator
-- [ ] Handler Scaffold Generator
+- [x] Pydantic Model 및 Request/Response Generator
+- [x] Router Generator
+- [x] Handler Scaffold Generator
 - [ ] Application Module Registry Generator
 - [ ] 생성 테스트와 사용자 코드 보존 테스트
 
@@ -36,7 +36,7 @@
 - [ ] 격리된 Workspace 생성과 수명주기
 - [x] Dry-run과 충돌 탐지
 - [x] 결정적 CREATE와 KEEP/SKIP 보존
-- [ ] Import 및 pytest Validator
+- [x] Import 및 pytest Validator
 - [ ] lint와 Package Build Validator
 - [ ] 구조화된 Job 결과
 

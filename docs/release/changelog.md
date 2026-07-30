@@ -19,3 +19,13 @@
 - 생성 파일을 플랫폼과 무관한 UTF-8 바이트로 기록해 Hash 결정성을 보장한다.
 - GenerationManifest를 `.autoforge/manifest.json`에 결정적으로 저장하고
   Pydantic 모델로 검증해 로딩하는 저장소를 추가했다.
+- shell을 사용하지 않는 비동기 외부 프로세스 실행과 Timeout 처리를 추가했다.
+- 생성된 FastAPI 프로젝트의 Import와 pytest를 실제 별도 프로세스로 검증한다.
+- Starlette 1.3.1 TestClient 요구사항에 맞춰 테스트 의존성을 `httpx2`로
+  명시했다.
+- 공통 FieldType을 Python 3.12 타입 표현으로 변환하는 Renderer를 추가했다.
+- ModuleSpec에서 Pydantic Model과 Endpoint Request/Response Schema를
+  결정적으로 생성한다.
+- ModuleSpec에서 FastAPI Router와 비동기 Handler Scaffold를 생성한다.
+- Handler는 SCAFFOLDED 소유권으로 분리해 동일 명세 재실행에서 사용자 수정을
+  보존한다.
