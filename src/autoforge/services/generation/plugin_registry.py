@@ -27,6 +27,13 @@ from autoforge.services.generation.repository import (
     REPOSITORY_GENERATOR_VERSION,
     RepositoryGenerator,
 )
+from autoforge.services.generation.sqlalchemy import (
+    SQLALCHEMY_GENERATOR_VERSION,
+    SQLALCHEMY_MODEL_GENERATOR_ID,
+    SQLALCHEMY_PROJECT_GENERATOR_ID,
+    SQLAlchemyInfrastructureGenerator,
+    SQLAlchemyModelGenerator,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +53,18 @@ def create_fastapi_generator_plugins(
                 name=GENERATOR_ID,
                 version=GENERATOR_VERSION,
                 description="FastAPI 프로젝트 구조 Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
+    project_registry.register(
+        GeneratorPluginAdapter(
+            SQLAlchemyInfrastructureGenerator(),
+            PluginMetadata(
+                name=SQLALCHEMY_PROJECT_GENERATOR_ID,
+                version=SQLALCHEMY_GENERATOR_VERSION,
+                description="SQLAlchemy async database infrastructure Generator",
                 capabilities=(PluginCapability.GENERATOR,),
                 supported_specification_versions=("1",),
             ),
@@ -84,6 +103,18 @@ def create_fastapi_generator_plugins(
                 name=POSTGRESQL_DDL_GENERATOR_ID,
                 version=POSTGRESQL_DDL_GENERATOR_VERSION,
                 description="PostgreSQL global/sharded DDL Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
+    module_registry.register(
+        GeneratorPluginAdapter(
+            SQLAlchemyModelGenerator(package_name),
+            PluginMetadata(
+                name=SQLALCHEMY_MODEL_GENERATOR_ID,
+                version=SQLALCHEMY_GENERATOR_VERSION,
+                description="SQLAlchemy 2.x annotated model Generator",
                 capabilities=(PluginCapability.GENERATOR,),
                 supported_specification_versions=("1",),
             ),

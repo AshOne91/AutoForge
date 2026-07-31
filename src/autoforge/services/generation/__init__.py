@@ -20,6 +20,14 @@ from autoforge.services.generation.plugin_registry import (
 from autoforge.services.generation.postgresql_ddl import PostgreSQLDDLGenerator
 from autoforge.services.generation.pydantic_types import PydanticTypeRenderer
 from autoforge.services.generation.repository import RepositoryGenerator
+from autoforge.services.generation.runner import (
+    GenerationRunner,
+    GenerationRunnerError,
+)
+from autoforge.services.generation.sqlalchemy import (
+    SQLAlchemyInfrastructureGenerator,
+    SQLAlchemyModelGenerator,
+)
 
 __all__ = [
     "MANIFEST_RELATIVE_PATH",
@@ -29,11 +37,15 @@ __all__ = [
     "GenerationPlanApplier",
     "GenerationPlanApplyError",
     "GenerationPlanResolver",
+    "GenerationRunner",
+    "GenerationRunnerError",
     "ManifestStore",
     "ManifestStoreError",
     "PostgreSQLDDLGenerator",
     "PydanticTypeRenderer",
     "RepositoryGenerator",
+    "SQLAlchemyInfrastructureGenerator",
+    "SQLAlchemyModelGenerator",
     "StoredManifest",
     "create_fastapi_generator_plugins",
 ]

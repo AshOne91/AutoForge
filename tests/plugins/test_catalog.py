@@ -11,6 +11,10 @@ from autoforge.services.generation.postgresql_ddl import (
     POSTGRESQL_DDL_GENERATOR_ID,
 )
 from autoforge.services.generation.repository import REPOSITORY_GENERATOR_ID
+from autoforge.services.generation.sqlalchemy import (
+    SQLALCHEMY_MODEL_GENERATOR_ID,
+    SQLALCHEMY_PROJECT_GENERATOR_ID,
+)
 from autoforge.services.validation import (
     PROJECT_VALIDATOR_ID,
     ProcessResult,
@@ -45,11 +49,15 @@ class StubProcessRunner:
 def test_builtin_catalog_contains_expected_plugins() -> None:
     catalog = create_builtin_plugin_catalog("sample_server", StubProcessRunner())
 
-    assert catalog.generators.project.names() == [GENERATOR_ID]
+    assert catalog.generators.project.names() == [
+        GENERATOR_ID,
+        SQLALCHEMY_PROJECT_GENERATOR_ID,
+    ]
     assert catalog.generators.module.names() == [
         MODULE_GENERATOR_ID,
         POSTGRESQL_DDL_GENERATOR_ID,
         REPOSITORY_GENERATOR_ID,
+        SQLALCHEMY_MODEL_GENERATOR_ID,
     ]
     assert catalog.project_validators.names() == [PROJECT_VALIDATOR_ID]
 

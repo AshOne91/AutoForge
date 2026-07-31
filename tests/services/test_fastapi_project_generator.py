@@ -118,10 +118,14 @@ def test_rendered_python_and_toml_are_valid() -> None:
     pyproject = tomllib.loads(files[PurePosixPath("pyproject.toml")])
     assert pyproject["project"]["name"] == "game_server"
     assert pyproject["project"]["requires-python"] == ">=3.12"
+    assert "sqlalchemy>=2.0,<3" in pyproject["project"]["dependencies"]
+    assert "asyncpg>=0.30,<1" in pyproject["project"]["dependencies"]
+    assert "alembic>=1.18,<2" in pyproject["project"]["dependencies"]
     assert pyproject["project"]["optional-dependencies"]["test"] == [
         "httpx2",
         "pytest",
     ]
+    assert pyproject["tool"]["pytest"]["ini_options"]["testpaths"] == ["tests"]
 
 
 def test_plan_matches_rendered_content_hashes() -> None:

@@ -51,6 +51,10 @@
 - Repository Generator의 Module Plugin Catalog 등록
 - PostgreSQL Global/Shard DDL Generator의 Module Plugin Catalog 등록
 - kis-auto-trading 로그인(Global)과 개인정보(Shard) 명세 및 재현 SQL 검증
+- SQLAlchemy async Base, Session Registry와 ShardRouter Generator
+- ModuleSpec 기반 SQLAlchemy 2.x Record Model Generator
+- AsyncSession 주입형 SQLAlchemy Repository Adapter와 Domain/Record 변환 Generator
+- kis-auto-trading Identity/Account 실제 명세 SQLAlchemy 렌더링 검증
 - kis-auto-trading UserProfileRepository 실제 렌더링 검증
 - ModuleSpec 기반 Pydantic Model 및 Request/Response Schema 생성
 - ModuleSpec 기반 FastAPI Router와 Handler Scaffold 생성

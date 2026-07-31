@@ -243,6 +243,70 @@ SQL에는 스키마만 저장한다. DSN, 비밀번호, Token과 운영 데이�
 기록하지 않는다. 여러 Application Replica가 동시에 실행할 수 있으므로 Migration은
 서버 시작 시 실행하지 않고 전용 로컬 설정 명령이나 CI/CD Job이 적용한다.
 
+## SQLAlchemy async Generator
+
+SQLAlchemy 기능은 Project와 Module Generator로 분리한다.
+
+```text
+Project Specification
+  → infrastructure/database/base.py
+  → infrastructure/database/routing.py
+  → infrastructure/database/session.py
+
+Module Specification
+  → modules/<module>/generated/sqlalchemy_models.py
+```
+
+Project Generator는 하나의 `DeclarativeBase`, `ShardRouter` Protocol과
+`AsyncSessionRegistry`를 생성한다. Session은 요청 또는 작업 단위 Transaction을
+열며 `expire_on_commit=False`를 사용한다. 등록되지 않은 Global/Shard Engine은
+`ShardRoutingError`를 발생시키고 다른 DB로 대체하지 않는다.
+
+Module Generator는 SQLAlchemy 2.x `Mapped`와 `mapped_column` 형식의 Record Model을
+생성한다. Pydantic Domain Model과 ORM Record를 같은 클래스로 합치지 않는다.
+Repository Adapter가 두 모델 사이를 변환하며 Application은 SQLAlchemy를 직접
+참조하지 않는다.
+
+같은 Module Generator는 `sqlalchemy_repositories.py`도 생성한다. Adapter는
+`AsyncSession`을 생성하거나 commit하지 않고 생성자 주입으로만 받는다.
+`find_by_id`는 Record를 Domain Model로 변환하고 `save`는 Domain Model을 Record로
+변환해 `merge`한다. commit과 rollback은 바깥쪽 request/job Transaction이 소유한다.
+
+같은 Module Generator는 `sqlalchemy_repositories.py`도 생성한다. Adapter는
+`AsyncSession`을 생성하거나 commit하지 않고 생성자 주입으로만 받는다.
+`find_by_id`는 Record를 Domain Model로 변환하고 `save`는 Domain Model을 Record로
+변환해 `merge`한다. commit과 rollback은 바깥쪽 request/job Transaction이 소유한다.
+
+SQLAlchemy와 asyncpg 의존성은 SQLAlchemy Plugin을 선택한 Project Blueprint가
+소유한다. 여러 Generator가 동일한 `pyproject.toml`을 덮어쓰지 않는다.
+
+## SQLAlchemy async Generator
+
+SQLAlchemy 기능은 Project와 Module Generator로 분리한다.
+
+```text
+Project Specification
+  → infrastructure/database/base.py
+  → infrastructure/database/routing.py
+  → infrastructure/database/session.py
+
+Module Specification
+  → modules/<module>/generated/sqlalchemy_models.py
+```
+
+Project Generator는 하나의 `DeclarativeBase`, `ShardRouter` Protocol과
+`AsyncSessionRegistry`를 생성한다. Session은 요청 또는 작업 단위 Transaction을
+열며 `expire_on_commit=False`를 사용한다. 등록되지 않은 Global/Shard Engine은
+`ShardRoutingError`를 발생시키고 다른 DB로 대체하지 않는다.
+
+Module Generator는 SQLAlchemy 2.x `Mapped`와 `mapped_column` 형식의 Record Model을
+생성한다. Pydantic Domain Model과 ORM Record를 같은 클래스로 합치지 않는다.
+Repository Adapter가 두 모델 사이를 변환하며 Application은 SQLAlchemy를 직접
+참조하지 않는다.
+
+SQLAlchemy와 asyncpg 의존성은 SQLAlchemy Plugin을 선택한 Project Blueprint가
+소유한다. 여러 Generator가 동일한 `pyproject.toml`을 덮어쓰지 않는다.
+
 ## Repository Generator
 
 기술 중립 Repository Generator는 `ModuleSpec.database.repositories`에서 다음

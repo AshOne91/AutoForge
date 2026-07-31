@@ -12,8 +12,11 @@ DatabaseSpec과 Repository 최소 명세 계약은 구현되었고
 
 PostgreSQL DDL Generator로 로그인 Global DB와 개인정보 Shard DB의 분리된 SQL을
 생성하고 kis-auto-trading 명세로 검증했다. 다음 목표는 SQLAlchemy async
-Model/Repository Adapter, request-scoped Session과 ShardRouter Protocol의 경계를
-구현하는 것이다. Alembic은 저장된 SQL 이력의 적용 순서와 실행 상태를 관리한다.
+Model Generator, request-scoped Session과 ShardRouter Protocol을 구현했다.
+SQLAlchemy Repository Adapter와 Domain/Record 변환 Generator까지 구현했다.
+다음 목표는 여러 Project/Module Generator 결과를 하나의 GenerationPlan으로
+조립하고 Manifest와 함께 대상 저장소에 적용하는 Generation Runner와 CLI다.
+그 다음 Alembic 실행 환경을 생성하여 저장된 SQL의 적용 순서와 상태를 관리한다.
 
 Repository와 DB 기반 이후 Redis Service와 RabbitMQ Transport를 필수 서비스로
 구현한다. Redis는 cache/coordination, RabbitMQ는 Queue/Worker 책임을 가지며

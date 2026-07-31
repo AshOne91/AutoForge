@@ -1,13 +1,90 @@
+from pathlib import Path
+from typing import Annotated
+from uuid import uuid4
+
 import typer
+import yaml
+
+from autoforge.core.job import (
+    GenerationJobManifest,
+    GenerationUnitKind,
+    GenerationUnitManifest,
+)
+from autoforge.core.specification import ModuleSpec, ProjectSpec
+from autoforge.core.workspace import Workspace
+from autoforge.services.generation import GenerationRunner, ManifestStore
+from autoforge.services.generation.manifest_store import ManifestStoreError
+from autoforge.services.generation.plugin_registry import (
+    create_fastapi_generator_plugins,
+)
 
 app = typer.Typer()
 
 
 @app.callback(invoke_without_command=True)
-def generate() -> None:
-    """프로젝트 생성 명령의 현재 구현 상태를 알린다."""
-    typer.echo(
-        "generate 명령은 Workspace 적용 단계 이후 제공됩니다.",
-        err=True,
+def generate(
+    project: Annotated[Path, typer.Option(exists=True)] = Path("autoforge.yaml"),
+    specifications: Annotated[Path, typer.Option(exists=True)] = Path(
+        "specifications"
+    ),
+    output: Annotated[Path, typer.Option()] = Path("."),
+) -> None:
+    """명세를 검증하고 등록된 Generator 결과를 대상 Workspace에 적용한다."""
+    project_spec = ProjectSpec.model_validate(_load_yaml(project))
+    module_specs = [ModuleSpec.model_validate(_load_yaml(path)) for path in sorted(specifications.glob("*.yaml"))]
+    declared = set(project_spec.application.modules)
+    discovered = {spec.module.name for spec in module_specs}
+    if declared != discovered:
+        raise typer.BadParameter(
+            "Module 명세가 Project 선언과 일치하지 않습니다: "
+            f"declared={sorted(declared)}, discovered={sorted(discovered)}"
+        )
+
+    output.mkdir(parents=True, exist_ok=True)
+    workspace = Workspace(output.resolve())
+    store = ManifestStore(workspace)
+    previous = _load_previous_job(store)
+    previous_units = (
+        {(unit.unit_id, unit.kind): unit.manifest for unit in previous.units}
+        if previous is not None
+        else {}
     )
-    raise typer.Exit(code=1)
+    plugins = create_fastapi_generator_plugins(project_spec.project.package_name)
+    job_id = str(uuid4())
+    units: list[GenerationUnitManifest] = []
+
+    project_manifest = GenerationRunner[ProjectSpec]().run(
+        job_id=job_id,
+        specification=project_spec,
+        generators=[plugins.project.get(name) for name in plugins.project.names()],
+        workspace=workspace,
+        manifest=previous_units.get(("project", GenerationUnitKind.PROJECT)),
+    )
+    units.append(GenerationUnitManifest(unit_id="project", kind=GenerationUnitKind.PROJECT, manifest=project_manifest))
+
+    for module_spec in module_specs:
+        unit_id = f"module:{module_spec.module.name}"
+        manifest = GenerationRunner[ModuleSpec]().run(
+            job_id=job_id,
+            specification=module_spec,
+            generators=[plugins.module.get(name) for name in plugins.module.names()],
+            workspace=workspace,
+            manifest=previous_units.get((unit_id, GenerationUnitKind.MODULE)),
+        )
+        units.append(GenerationUnitManifest(unit_id=unit_id, kind=GenerationUnitKind.MODULE, manifest=manifest))
+
+    store.save_job(GenerationJobManifest(job_id=job_id, units=units))
+    typer.echo(f"Generated {len(units)} units in {workspace.root}")
+
+
+def _load_yaml(path: Path) -> object:
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def _load_previous_job(store: ManifestStore) -> GenerationJobManifest | None:
+    if not store.path.is_file():
+        return None
+    try:
+        return store.load_job()
+    except ManifestStoreError as error:
+        raise typer.BadParameter(str(error)) from error

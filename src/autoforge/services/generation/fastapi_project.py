@@ -117,7 +117,13 @@ class FastAPIProjectGenerator:
             f"version = {json.dumps(version, ensure_ascii=False)}\n"
             f"description = {json.dumps(description, ensure_ascii=False)}\n"
             'requires-python = ">=3.12"\n'
-            'dependencies = ["fastapi", "uvicorn"]\n'
+            'dependencies = [\n'
+            '    "alembic>=1.18,<2",\n'
+            '    "asyncpg>=0.30,<1",\n'
+            '    "fastapi",\n'
+            '    "sqlalchemy>=2.0,<3",\n'
+            '    "uvicorn",\n'
+            ']\n'
             "\n"
             "[project.optional-dependencies]\n"
             'test = ["httpx2", "pytest"]\n'
@@ -130,6 +136,7 @@ class FastAPIProjectGenerator:
             "\n"
             "[tool.pytest.ini_options]\n"
             'pythonpath = ["src"]\n'
+            'testpaths = ["tests"]\n'
         )
 
     @staticmethod
@@ -235,11 +242,10 @@ class FastAPIProjectGenerator:
             "\n"
             f"from {package_name}.main import app\n"
             "\n"
-            "client = TestClient(app)\n"
-            "\n"
             "\n"
             "def test_health() -> None:\n"
-            '    response = client.get("/health")\n'
+            "    with TestClient(app) as client:\n"
+            '        response = client.get("/health")\n'
             "\n"
             "    assert response.status_code == 200\n"
             '    assert response.json() == {"status": "ok"}\n'

@@ -14,16 +14,24 @@ from autoforge.services.generation.postgresql_ddl import (
     POSTGRESQL_DDL_GENERATOR_ID,
 )
 from autoforge.services.generation.repository import REPOSITORY_GENERATOR_ID
+from autoforge.services.generation.sqlalchemy import (
+    SQLALCHEMY_MODEL_GENERATOR_ID,
+    SQLALCHEMY_PROJECT_GENERATOR_ID,
+)
 
 
 def test_fastapi_generator_plugins_register_real_generators() -> None:
     plugins = create_fastapi_generator_plugins("game_server")
 
-    assert plugins.project.names() == [GENERATOR_ID]
+    assert plugins.project.names() == [
+        GENERATOR_ID,
+        SQLALCHEMY_PROJECT_GENERATOR_ID,
+    ]
     assert plugins.module.names() == [
         MODULE_GENERATOR_ID,
         POSTGRESQL_DDL_GENERATOR_ID,
         REPOSITORY_GENERATOR_ID,
+        SQLALCHEMY_MODEL_GENERATOR_ID,
     ]
 
 
