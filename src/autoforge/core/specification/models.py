@@ -112,6 +112,165 @@ class ModelSpec(StrictSpecModel):
         return self
 
 
+class ColumnSpec(StrictSpecModel):
+    name: str
+    type: FieldType
+    primary_key: bool = False
+    nullable: bool = False
+    default: object | None = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        return validate_python_name(value)
+
+    @model_validator(mode="after")
+    def validate_column(self) -> ColumnSpec:
+        unsupported_kinds = {
+            FieldTypeKind.LIST,
+            FieldTypeKind.MODEL,
+            FieldTypeKind.OPTIONAL,
+        }
+        if self.type.kind in unsupported_kinds:
+            raise ValueError(
+                "Database Column은 list, model 또는 optional Type을 "
+                "직접 사용할 수 없습니다."
+            )
+        if self.primary_key and self.nullable:
+            raise ValueError("Primary Key Column은 nullable일 수 없습니다.")
+        return self
+
+
+class TableSpec(StrictSpecModel):
+    name: str
+    columns: list[ColumnSpec] = Field(min_length=1)
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        return validate_python_name(value)
+
+    @model_validator(mode="after")
+    def validate_columns(self) -> TableSpec:
+        names = [column.name for column in self.columns]
+        if len(names) != len(set(names)):
+            raise ValueError(f"Table '{self.name}'의 Column 이름은 중복될 수 없습니다.")
+        if not any(column.primary_key for column in self.columns):
+            raise ValueError(f"Table '{self.name}'에는 Primary Key가 필요합니다.")
+        return self
+
+
+class RepositorySpec(StrictSpecModel):
+    name: str
+    aggregate: str
+    table: str
+    operations: list[str] = Field(min_length=1)
+
+    @field_validator("name", "aggregate")
+    @classmethod
+    def validate_class_names(cls, value: str) -> str:
+        return validate_class_name(value)
+
+    @field_validator("table")
+    @classmethod
+    def validate_table_name(cls, value: str) -> str:
+        return validate_python_name(value)
+
+    @field_validator("operations")
+    @classmethod
+    def validate_operations(cls, values: list[str]) -> list[str]:
+        validated = [validate_python_name(value) for value in values]
+        if len(validated) != len(set(validated)):
+            raise ValueError("Repository Operation 이름은 중복될 수 없습니다.")
+        return validated
+
+
+class DataPlacementMode(StrEnum):
+    GLOBAL = "global"
+    SHARDED = "sharded"
+
+
+class DataPlacementSpec(StrictSpecModel):
+    table: str
+    store: str
+    mode: DataPlacementMode = DataPlacementMode.GLOBAL
+    partition_key: str | None = None
+    unresolved_policy: Literal["error"] = "error"
+
+    @field_validator("table", "store")
+    @classmethod
+    def validate_names(cls, value: str) -> str:
+        return validate_python_name(value)
+
+    @field_validator("partition_key")
+    @classmethod
+    def validate_partition_key(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return validate_python_name(value)
+
+    @model_validator(mode="after")
+    def validate_routing(self) -> DataPlacementSpec:
+        if (
+            self.mode is DataPlacementMode.SHARDED
+            and self.partition_key is None
+        ):
+            raise ValueError("Sharded Data Placement에는 partition_key가 필요합니다.")
+        return self
+
+
+class DatabaseSpec(StrictSpecModel):
+    provider: Literal["agnostic"] = "agnostic"
+    tables: list[TableSpec] = Field(default_factory=list)
+    repositories: list[RepositorySpec] = Field(default_factory=list)
+    placements: list[DataPlacementSpec] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_database(self) -> DatabaseSpec:
+        self._validate_unique_names(
+            [table.name for table in self.tables],
+            "Database Table",
+        )
+        self._validate_unique_names(
+            [repository.name for repository in self.repositories],
+            "Repository",
+        )
+        self._validate_unique_names(
+            [placement.table for placement in self.placements],
+            "Data Placement Table",
+        )
+
+        tables = {table.name: table for table in self.tables}
+        for repository in self.repositories:
+            if repository.table not in tables:
+                raise ValueError(
+                    f"Repository '{repository.name}'이 참조하는 Table이 없습니다: "
+                    f"{repository.table}"
+                )
+
+        for placement in self.placements:
+            table = tables.get(placement.table)
+            if table is None:
+                raise ValueError(
+                    f"Data Placement가 참조하는 Table이 없습니다: {placement.table}"
+                )
+            column_names = {column.name for column in table.columns}
+            if (
+                placement.partition_key is not None
+                and placement.partition_key not in column_names
+            ):
+                raise ValueError(
+                    f"Table '{placement.table}'에 partition_key Column이 없습니다: "
+                    f"{placement.partition_key}"
+                )
+        return self
+
+    @staticmethod
+    def _validate_unique_names(names: list[str], label: str) -> None:
+        if len(names) != len(set(names)):
+            raise ValueError(f"{label} 이름은 중복될 수 없습니다.")
+
+
 class SchemaSpec(StrictSpecModel):
     fields: list[FieldSpec] = Field(default_factory=list)
 
@@ -164,6 +323,7 @@ class ModuleSpec(StrictSpecModel):
     module: ModuleInfo
     models: list[ModelSpec] = Field(default_factory=list)
     endpoints: list[EndpointSpec] = Field(default_factory=list)
+    database: DatabaseSpec | None = None
 
     @model_validator(mode="after")
     def validate_module(self) -> ModuleSpec:
@@ -176,6 +336,13 @@ class ModuleSpec(StrictSpecModel):
             raise ValueError("Module Endpoint 이름은 중복될 수 없습니다.")
 
         known_models = set(model_names)
+        if self.database is not None:
+            for repository in self.database.repositories:
+                if repository.aggregate not in known_models:
+                    raise ValueError(
+                        f"Repository '{repository.name}'이 참조하는 Aggregate "
+                        f"Model이 없습니다: {repository.aggregate}"
+                    )
         for model in self.models:
             for field in model.fields:
                 self._validate_type_references(field.type, known_models)

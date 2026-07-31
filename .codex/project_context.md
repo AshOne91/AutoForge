@@ -45,6 +45,20 @@ Protocol과 Adapter 또는 Plugin, 프로젝트 고유 비즈니스 로직은 �
 코드로 분리한다. 실제로 확인하지 않은 SKN12 기능은 구현된 사실처럼 문서화
 하지 않는다.
 
+## 이중 저장소 개발 원칙
+
+AutoForge와 `C:\kis-auto-trading`은 독립 Git 저장소로 유지하면서 함께 개발한다.
+
+- AutoForge는 명세, Generator, Plugin, Manifest와 검증을 소유한다.
+- kis-auto-trading은 실제 명세, 생성 결과와 거래 업무 로직을 소유한다.
+- AutoForge의 범용 기능은 kis-auto-trading에 실제 적용하여 완료를 검증한다.
+- kis-auto-trading의 반복 골격을 먼저 수작업으로 확장하지 않는다.
+- 두 저장소의 테스트, commit과 push는 각각 분리한다.
+
+Database 설계는 `common-tool`의 생성 범위, `game-server`의 수평 확장,
+SKN12 `base_server`의 FastAPI async DB 수명주기를 참고한다. 상세 결정은
+`docs/architecture/database_generation.md`를 따른다.
+
 ## 설계 원칙
 
 - 프로젝트 명세 기반

@@ -75,6 +75,13 @@ DB Schema 명세에서 저장 계층 코드를 생성한다.
 첫 구현에서는 DB 공급자를 강제하지 않는다. SQLAlchemy, Alembic, MySQL
 전용 SQL 등은 계약 검증 후 Plugin으로 확장한다.
 
+Database 생성의 Schema, Repository, Data Placement, Runtime Topology,
+Transaction/Outbox 경계는 `database_generation.md`에서 정의한다.
+
+Database 기능은 `kis-auto-trading`의 실제 Module 명세로 함께 검증한다.
+실제 프로젝트에서 먼저 수작업으로 반복 골격을 늘린 뒤 Generator가 따라가는
+방식은 사용하지 않는다.
+
 ## 생성 파일 소유권
 
 Python에는 C#의 `partial class`가 없으므로 파일 단위로 소유권을 분리한다.

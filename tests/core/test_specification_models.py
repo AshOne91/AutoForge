@@ -3,6 +3,10 @@ from pydantic import ValidationError
 
 from autoforge.core.specification import (
     ApplicationSpec,
+    ColumnSpec,
+    DatabaseSpec,
+    DataPlacementMode,
+    DataPlacementSpec,
     EndpointSpec,
     FieldSpec,
     FieldType,
@@ -13,8 +17,10 @@ from autoforge.core.specification import (
     ModuleSpec,
     ProjectInfo,
     ProjectSpec,
+    RepositorySpec,
     ResponseSpec,
     SchemaSpec,
+    TableSpec,
 )
 
 
@@ -178,4 +184,176 @@ def test_module_spec_rejects_unknown_model_reference() -> None:
                 route_prefix="/api/tutorial",
             ),
             endpoints=[endpoint],
+        )
+
+
+def test_create_database_spec_for_global_account_profile() -> None:
+    database = DatabaseSpec(
+        tables=[
+            TableSpec(
+                name="user_profiles",
+                columns=[
+                    ColumnSpec(
+                        name="user_id",
+                        type=FieldType(kind=FieldTypeKind.UUID),
+                        primary_key=True,
+                    ),
+                    ColumnSpec(
+                        name="risk_tolerance",
+                        type=FieldType(kind=FieldTypeKind.STRING),
+                    ),
+                ],
+            )
+        ],
+        repositories=[
+            RepositorySpec(
+                name="UserProfileRepository",
+                aggregate="UserProfile",
+                table="user_profiles",
+                operations=["find_by_id", "save"],
+            )
+        ],
+        placements=[
+            DataPlacementSpec(
+                table="user_profiles",
+                store="identity",
+                mode=DataPlacementMode.GLOBAL,
+                partition_key="user_id",
+            )
+        ],
+    )
+
+    spec = ModuleSpec(
+        spec_version="1",
+        module=ModuleInfo(
+            name="account",
+            display_name="Account",
+            route_prefix="/api/account",
+        ),
+        models=[ModelSpec(name="UserProfile")],
+        database=database,
+    )
+
+    assert spec.database is not None
+    assert spec.database.provider == "agnostic"
+    assert spec.database.repositories[0].operations == ["find_by_id", "save"]
+    assert spec.database.placements[0].unresolved_policy == "error"
+
+
+def test_table_rejects_missing_primary_key_and_duplicate_columns() -> None:
+    column = ColumnSpec(
+        name="user_id",
+        type=FieldType(kind=FieldTypeKind.UUID),
+    )
+
+    with pytest.raises(ValidationError, match="Primary Key"):
+        TableSpec(name="user_profiles", columns=[column])
+
+    with pytest.raises(ValidationError, match="Column 이름은 중복"):
+        TableSpec(
+            name="user_profiles",
+            columns=[
+                column.model_copy(update={"primary_key": True}),
+                column.model_copy(update={"primary_key": True}),
+            ],
+        )
+
+
+def test_column_rejects_nullable_primary_key_and_nested_types() -> None:
+    with pytest.raises(ValidationError, match="nullable"):
+        ColumnSpec(
+            name="user_id",
+            type=FieldType(kind=FieldTypeKind.UUID),
+            primary_key=True,
+            nullable=True,
+        )
+
+    with pytest.raises(ValidationError, match="직접 사용할 수 없습니다"):
+        ColumnSpec(
+            name="roles",
+            type=FieldType(
+                kind=FieldTypeKind.LIST,
+                item=FieldType(kind=FieldTypeKind.STRING),
+            ),
+        )
+
+
+def test_sharded_placement_requires_valid_partition_key() -> None:
+    with pytest.raises(ValidationError, match="partition_key가 필요"):
+        DataPlacementSpec(
+            table="orders",
+            store="trading",
+            mode=DataPlacementMode.SHARDED,
+        )
+
+    with pytest.raises(ValidationError, match="partition_key Column이 없습니다"):
+        DatabaseSpec(
+            tables=[
+                TableSpec(
+                    name="orders",
+                    columns=[
+                        ColumnSpec(
+                            name="order_id",
+                            type=FieldType(kind=FieldTypeKind.UUID),
+                            primary_key=True,
+                        )
+                    ],
+                )
+            ],
+            placements=[
+                DataPlacementSpec(
+                    table="orders",
+                    store="trading",
+                    mode=DataPlacementMode.SHARDED,
+                    partition_key="user_id",
+                )
+            ],
+        )
+
+
+def test_database_rejects_unknown_repository_table_and_aggregate() -> None:
+    with pytest.raises(ValidationError, match="참조하는 Table이 없습니다"):
+        DatabaseSpec(
+            repositories=[
+                RepositorySpec(
+                    name="UserProfileRepository",
+                    aggregate="UserProfile",
+                    table="user_profiles",
+                    operations=["save"],
+                )
+            ]
+        )
+
+    valid_database = DatabaseSpec(
+        tables=[
+            TableSpec(
+                name="user_profiles",
+                columns=[
+                    ColumnSpec(
+                        name="user_id",
+                        type=FieldType(kind=FieldTypeKind.UUID),
+                        primary_key=True,
+                    )
+                ],
+            )
+        ],
+        repositories=[
+            RepositorySpec(
+                name="UserProfileRepository",
+                aggregate="UserProfile",
+                table="user_profiles",
+                operations=["save"],
+            )
+        ],
+    )
+
+    with pytest.raises(ValidationError, match="Aggregate Model이 없습니다"):
+        ModuleSpec(
+            spec_version="1",
+            module=ModuleInfo(
+                name="account",
+                display_name="Account",
+                route_prefix="/api/account",
+            ),
+            database=valid_database,
         )

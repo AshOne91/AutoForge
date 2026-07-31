@@ -227,6 +227,19 @@ Model, Router, Handler의 반복 생성을 검증한다.
 - DB별 DDL
 - Fake Repository
 
+Database 관련 정보는 다음 책임으로 분리한다.
+
+- Schema Specification: 테이블, 필드, 키, 인덱스, 관계
+- Repository Specification: Application이 요구하는 저장 동작
+- Data Placement Specification: Global 또는 Shard 배치와 partition key
+- Runtime Database Configuration: 환경별 DSN Secret 참조와 연결 풀
+
+Schema 명세에는 host, password 같은 운영 접속 정보를 넣지 않는다. Shard
+라우팅이 실패하면 Global DB로 자동 대체하지 않으며, 명시적인 오류 정책을
+사용한다.
+
+상세 경계와 첫 실제 검증 대상은 `database_generation.md`를 따른다.
+
 ## Plugin Metadata와 명세 호환성
 
 Plugin은 지원하는 명세 버전과 기능을 Metadata로 선언한다.

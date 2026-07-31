@@ -51,7 +51,10 @@
 
 ## 5단계 - 데이터 및 서비스 생성
 
-- [ ] DatabaseSpec과 Repository 계약
+- [x] DatabaseSpec과 Repository 최소 명세 계약
+- [x] 참고 프로젝트 기반 Database 생성 책임과 경계 문서화
+- [x] kis-auto-trading Account/Profile 명세로 계약 검증
+- [ ] Repository Protocol과 Fake Repository Generator
 - [ ] SQLAlchemy 및 Alembic Plugin
 - [ ] DB별 DDL Plugin
 - [ ] Cache, Queue, WebSocket Service Blueprint

@@ -1,5 +1,9 @@
 from autoforge.core.specification.models import (
     ApplicationSpec,
+    ColumnSpec,
+    DatabaseSpec,
+    DataPlacementMode,
+    DataPlacementSpec,
     EndpointSpec,
     FieldSpec,
     HttpMethod,
@@ -8,13 +12,19 @@ from autoforge.core.specification.models import (
     ModuleSpec,
     ProjectInfo,
     ProjectSpec,
+    RepositorySpec,
     ResponseSpec,
     SchemaSpec,
+    TableSpec,
 )
 from autoforge.core.specification.types import FieldType, FieldTypeKind
 
 __all__ = [
     "ApplicationSpec",
+    "ColumnSpec",
+    "DatabaseSpec",
+    "DataPlacementMode",
+    "DataPlacementSpec",
     "EndpointSpec",
     "FieldSpec",
     "FieldType",
@@ -25,6 +35,8 @@ __all__ = [
     "ModuleSpec",
     "ProjectInfo",
     "ProjectSpec",
+    "RepositorySpec",
     "ResponseSpec",
     "SchemaSpec",
+    "TableSpec",
 ]
