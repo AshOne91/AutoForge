@@ -7,9 +7,12 @@
 DatabaseSpec과 Repository 최소 명세 계약은 구현되었고
 `C:\kis-auto-trading\specifications\account.yaml`로 검증되었다.
 
-다음 목표는 기술 중립 Repository Protocol과 테스트용 Fake Repository를
-GenerationPlan으로 만드는 최소 Generator를 설계하는 것이다. 생성 파일의
-소유권과 반복 생성 안전 정책은 기존 Generation Contract를 그대로 사용한다.
+기술 중립 Repository Protocol과 테스트용 Fake Repository Generator는
+구현되었고 kis-auto-trading Account/Profile 명세로 렌더링을 검증했다.
+
+다음 목표는 SQLAlchemy async Model/Repository Adapter와 Alembic migration의
+Plugin 경계를 설계하는 것이다. 먼저 실제 DB에 접속하지 않는 생성 계약과
+파일 소유권을 확정한다.
 
 Repository와 DB 기반 이후 Redis Service와 RabbitMQ Transport를 필수 서비스로
 구현한다. Redis는 cache/coordination, RabbitMQ는 Queue/Worker 책임을 가지며
@@ -23,11 +26,11 @@ Repository와 DB 기반 이후 Redis Service와 RabbitMQ Transport를 필수 서
 
 ## 다음 구현 범위
 
-1. Repository Protocol과 Fake Repository의 생성 경로 및 소유권 확정
-2. Repository operation을 Python Protocol method로 변환하는 최소 규칙 확정
-3. `UserProfileRepository` 생성 결과와 type hint 검증
-4. 기존 Module Generator와 별도 Generator로 유지할지 조합 경계 확인
-5. kis-auto-trading Account/Profile 명세의 dry-run GenerationPlan 검증
+1. SQLAlchemy async Adapter가 소유할 GENERATED/SCAFFOLDED 파일 확정
+2. 기술 중립 FieldType을 SQLAlchemy Column type으로 변환하는 규칙 정의
+3. Unit of Work와 request-scoped transaction 경계 정의
+4. Alembic migration의 create-only 소유권과 반복 생성 정책 확정
+5. kis-auto-trading UserProfile 저장 계층 생성 결과 계획
 6. 구현 전 구체적인 코드·테스트 파일 계획 제시
 
 ## 이번 범위에서 구현하지 않음

@@ -7,6 +7,7 @@ from autoforge.infrastructure.process import AsyncioProcessRunner
 from autoforge.plugins import create_builtin_plugin_catalog
 from autoforge.services.generation.fastapi_module import MODULE_GENERATOR_ID
 from autoforge.services.generation.fastapi_project import GENERATOR_ID
+from autoforge.services.generation.repository import REPOSITORY_GENERATOR_ID
 from autoforge.services.validation import (
     PROJECT_VALIDATOR_ID,
     ProcessResult,
@@ -42,7 +43,10 @@ def test_builtin_catalog_contains_expected_plugins() -> None:
     catalog = create_builtin_plugin_catalog("sample_server", StubProcessRunner())
 
     assert catalog.generators.project.names() == [GENERATOR_ID]
-    assert catalog.generators.module.names() == [MODULE_GENERATOR_ID]
+    assert catalog.generators.module.names() == [
+        MODULE_GENERATOR_ID,
+        REPOSITORY_GENERATOR_ID,
+    ]
     assert catalog.project_validators.names() == [PROJECT_VALIDATOR_ID]
 
 

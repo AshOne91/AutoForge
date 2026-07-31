@@ -10,13 +10,17 @@ from autoforge.core.specification import (
 from autoforge.services.generation import create_fastapi_generator_plugins
 from autoforge.services.generation.fastapi_module import MODULE_GENERATOR_ID
 from autoforge.services.generation.fastapi_project import GENERATOR_ID
+from autoforge.services.generation.repository import REPOSITORY_GENERATOR_ID
 
 
 def test_fastapi_generator_plugins_register_real_generators() -> None:
     plugins = create_fastapi_generator_plugins("game_server")
 
     assert plugins.project.names() == [GENERATOR_ID]
-    assert plugins.module.names() == [MODULE_GENERATOR_ID]
+    assert plugins.module.names() == [
+        MODULE_GENERATOR_ID,
+        REPOSITORY_GENERATOR_ID,
+    ]
 
 
 def test_project_generator_plugin_preserves_project_spec_type() -> None:

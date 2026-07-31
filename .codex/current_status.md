@@ -47,6 +47,9 @@
 - 기술 중립 DatabaseSpec, Table/Column과 DataPlacement 최소 계약
 - Repository 명세와 Module Aggregate/Table 참조 무결성 검증
 - kis-auto-trading Account/Profile 실제 명세 검증
+- Repository Protocol과 Fake Repository Generator
+- Repository Generator의 Module Plugin Catalog 등록
+- kis-auto-trading UserProfileRepository 실제 렌더링 검증
 - ModuleSpec 기반 Pydantic Model 및 Request/Response Schema 생성
 - ModuleSpec 기반 FastAPI Router와 Handler Scaffold 생성
 - 동일 명세 재실행 시 사용자 Handler 보존

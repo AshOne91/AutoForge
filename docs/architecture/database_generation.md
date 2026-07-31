@@ -225,6 +225,30 @@ UserProfile Model, API, Repository와 global placement를 함께 검증한다.
 이 단계의 `provider`는 `agnostic`만 허용한다. SQLAlchemy, Alembic과 실제 DB
 접속은 후속 Plugin에서 구현한다.
 
+## Repository Generator
+
+기술 중립 Repository Generator는 `ModuleSpec.database.repositories`에서 다음
+GENERATED 파일을 만든다.
+
+```text
+modules/<module>/generated/repository.py
+modules/<module>/generated/fake_repository.py
+```
+
+- Repository Protocol은 Application이 의존할 async method를 선언한다.
+- Fake Repository는 메모리 저장소를 사용해 Domain/Application 테스트를 지원한다.
+- Primary Key Column type에서 `find_by_id` 인자 type을 결정한다.
+- Aggregate Model의 Primary Key field로 Fake 저장 key를 결정한다.
+- 첫 구현은 `find_by_id`, `save`와 단일 Primary Key만 지원한다.
+- SQLAlchemy, Redis와 RabbitMQ 의존성을 포함하지 않는다.
+
+Repository Generator는 FastAPI Module Generator와 같은 Module Plugin Registry에
+별도 Plugin으로 등록한다. API 생성과 저장 계약 생성의 책임을 합치지 않는다.
+
+`C:\kis-auto-trading\specifications\account.yaml`에서
+`UserProfileRepository`와 `FakeUserProfileRepository` 출력의 Python 문법을
+실제로 검증했다.
+
 ## 현재 구현된 최소 계약
 
 첫 수직 검증을 위해 다음 명세 모델을 구현했다.

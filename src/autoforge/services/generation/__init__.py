@@ -18,6 +18,7 @@ from autoforge.services.generation.plugin_registry import (
     create_fastapi_generator_plugins,
 )
 from autoforge.services.generation.pydantic_types import PydanticTypeRenderer
+from autoforge.services.generation.repository import RepositoryGenerator
 
 __all__ = [
     "MANIFEST_RELATIVE_PATH",
@@ -30,6 +31,7 @@ __all__ = [
     "ManifestStore",
     "ManifestStoreError",
     "PydanticTypeRenderer",
+    "RepositoryGenerator",
     "StoredManifest",
     "create_fastapi_generator_plugins",
 ]

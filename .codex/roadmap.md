@@ -54,7 +54,7 @@
 - [x] DatabaseSpec과 Repository 최소 명세 계약
 - [x] 참고 프로젝트 기반 Database 생성 책임과 경계 문서화
 - [x] kis-auto-trading Account/Profile 명세로 계약 검증
-- [ ] Repository Protocol과 Fake Repository Generator
+- [x] Repository Protocol과 Fake Repository Generator
 - [ ] SQLAlchemy 및 Alembic Plugin
 - [ ] DB별 DDL Plugin
 - [ ] 필수 Redis Service Blueprint와 Adapter

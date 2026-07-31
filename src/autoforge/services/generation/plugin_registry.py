@@ -17,6 +17,11 @@ from autoforge.services.generation.fastapi_project import (
     GENERATOR_VERSION,
     FastAPIProjectGenerator,
 )
+from autoforge.services.generation.repository import (
+    REPOSITORY_GENERATOR_ID,
+    REPOSITORY_GENERATOR_VERSION,
+    RepositoryGenerator,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +55,18 @@ def create_fastapi_generator_plugins(
                 name=MODULE_GENERATOR_ID,
                 version=MODULE_GENERATOR_VERSION,
                 description="FastAPI 도메인 Module Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
+    module_registry.register(
+        GeneratorPluginAdapter(
+            RepositoryGenerator(package_name),
+            PluginMetadata(
+                name=REPOSITORY_GENERATOR_ID,
+                version=REPOSITORY_GENERATOR_VERSION,
+                description="기술 중립 Repository Protocol과 Fake Generator",
                 capabilities=(PluginCapability.GENERATOR,),
                 supported_specification_versions=("1",),
             ),
