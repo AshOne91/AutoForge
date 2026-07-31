@@ -145,9 +145,8 @@ class SQLAlchemyInfrastructureGenerator:
             "    ) -> AsyncIterator[AsyncSession]:\n"
             "        engine = self._engine_for(target)\n"
             "        factory = async_sessionmaker(engine, expire_on_commit=False)\n"
-            "        async with factory() as session:\n"
-            "            async with session.begin():\n"
-            "                yield session\n"
+            "        async with factory() as session, session.begin():\n"
+            "            yield session\n"
             "\n"
             "    def _engine_for(self, target: ShardTarget) -> AsyncEngine:\n"
             "        if target.is_global:\n"
@@ -243,9 +242,11 @@ class SQLAlchemyModelGenerator:
             sqlalchemy_imports.add("text")
         imports = ["from __future__ import annotations", ""]
         if FieldTypeKind.DATETIME in kinds:
-            imports.extend(("from datetime import datetime", ""))
+            imports.append("from datetime import datetime")
         if FieldTypeKind.UUID in kinds:
-            imports.extend(("from uuid import UUID", ""))
+            imports.append("from uuid import UUID")
+        if FieldTypeKind.DATETIME in kinds or FieldTypeKind.UUID in kinds:
+            imports.append("")
         imports.append(
             f"from sqlalchemy import {', '.join(sorted(sqlalchemy_imports))}"
         )
@@ -281,17 +282,32 @@ class SQLAlchemyModelGenerator:
             for column in table_by_name[repository.table].columns
             if column.primary_key
         }
+        query_kinds = {
+            column.type.kind
+            for repository in specification.database.repositories
+            for query in repository.queries
+            for column in table_by_name[repository.table].columns
+            if column.name == query.column
+        }
+        key_kinds.update(query_kinds)
         imports: list[str] = []
         if FieldTypeKind.DATETIME in key_kinds:
-            imports.extend(("from datetime import datetime", ""))
+            imports.append("from datetime import datetime")
         if FieldTypeKind.UUID in key_kinds:
-            imports.extend(("from uuid import UUID", ""))
+            imports.append("from uuid import UUID")
+        if FieldTypeKind.DATETIME in key_kinds or FieldTypeKind.UUID in key_kinds:
+            imports.append("")
+        if any(
+            repository.queries
+            for repository in specification.database.repositories
+        ):
+            imports.append("from sqlalchemy import select")
         imports.extend(
             (
                 "from sqlalchemy.ext.asyncio import AsyncSession",
                 "",
-                f"from {module_path}.models import {', '.join(aggregates)}",
-                f"from {module_path}.sqlalchemy_models import {', '.join(record_names)}",
+                _from_import(f"{module_path}.models", aggregates),
+                _from_import(f"{module_path}.sqlalchemy_models", record_names),
             )
         )
         classes = [
@@ -360,6 +376,27 @@ class SQLAlchemyModelGenerator:
                         "        await self._session.merge(record)",
                     )
                 )
+        columns = {column.name: column for column in table.columns}
+        for query in repository.queries:
+            column = columns[query.column]
+            query_type = _PYTHON_TYPES[column.type.kind]
+            lines.extend(
+                (
+                    "",
+                    f"    async def {query.name}(",
+                    f"        self, {column.name}: {query_type},",
+                    f"    ) -> {aggregate} | None:",
+                    "        result = await self._session.execute(",
+                    f"            select({record_name}).where(",
+                    f"                {record_name}.{column.name} == {column.name}",
+                    "            )",
+                    "        )",
+                    "        record = result.scalar_one_or_none()",
+                    "        if record is None:",
+                    "            return None",
+                    f"        return {aggregate}(\n{domain_assignments}\n        )",
+                )
+            )
         return "\n".join(lines)
 
     def _render_table(self, table: TableSpec, record_name: str) -> str:
@@ -405,6 +442,14 @@ def _sqlalchemy_import(kind: FieldTypeKind) -> str:
             f"Unsupported SQLAlchemy column type: {kind.value}"
         ) from error
     return rendered.split("(", maxsplit=1)[0]
+
+
+def _from_import(module: str, names: list[str]) -> str:
+    single_line = f"from {module} import {', '.join(names)}"
+    if len(single_line) <= 88:
+        return single_line
+    items = "".join(f"    {name},\n" for name in names)
+    return f"from {module} import (\n{items})"
 
 
 def _sql_default(value: object) -> str:

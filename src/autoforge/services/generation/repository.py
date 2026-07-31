@@ -134,13 +134,33 @@ class RepositoryGenerator:
         imports = ["from typing import Protocol"]
         imports.extend(
             self._type_renderer.imports_for(
-                [primary_keys[repository.name].type for repository in repositories]
+                [
+                    column.type
+                    for repository in repositories
+                    for column in self._repository_input_columns(
+                        repository,
+                        next(
+                            table
+                            for table in specification.database.tables
+                            if table.name == repository.table
+                        ),
+                        primary_keys[repository.name],
+                    )
+                ]
             )
         )
         imports.append("")
         imports.append(self._model_import(specification, repositories))
         classes = [
-            self._render_protocol(repository, primary_keys[repository.name])
+            self._render_protocol(
+                repository,
+                primary_keys[repository.name],
+                next(
+                    table
+                    for table in specification.database.tables
+                    if table.name == repository.table
+                ),
+            )
             for repository in repositories
         ]
         return "\n".join(imports) + "\n\n\n" + "\n\n\n".join(classes) + "\n"
@@ -149,6 +169,7 @@ class RepositoryGenerator:
         self,
         repository: RepositorySpec,
         primary_key: ColumnSpec,
+        table: TableSpec,
     ) -> str:
         lines = [f"class {repository.name}(Protocol):"]
         for operation in repository.operations:
@@ -169,6 +190,17 @@ class RepositoryGenerator:
                         "    ) -> None: ...",
                     ]
                 )
+        columns = {column.name: column for column in table.columns}
+        for query in repository.queries:
+            column = columns[query.column]
+            query_type = self._type_renderer.render(column.type)
+            lines.extend(
+                [
+                    f"    async def {query.name}(",
+                    f"        self, {column.name}: {query_type},",
+                    f"    ) -> {repository.aggregate} | None: ...",
+                ]
+            )
         return "\n".join(lines)
 
     def _render_fakes(
@@ -181,14 +213,33 @@ class RepositoryGenerator:
         imports = list(
             self._type_renderer.imports_for(
                 [
-                    primary_keys[repository.name].type
+                    column.type
                     for repository in repositories
+                    for column in self._repository_input_columns(
+                        repository,
+                        next(
+                            table
+                            for table in specification.database.tables
+                            if table.name == repository.table
+                        ),
+                        primary_keys[repository.name],
+                    )
                 ]
             )
         )
+        if imports:
+            imports.append("")
         imports.append(self._model_import(specification, repositories))
         classes = [
-            self._render_fake(repository, primary_keys[repository.name])
+            self._render_fake(
+                repository,
+                primary_keys[repository.name],
+                next(
+                    table
+                    for table in specification.database.tables
+                    if table.name == repository.table
+                ),
+            )
             for repository in repositories
         ]
         return "\n".join(imports) + "\n\n\n" + "\n\n\n".join(classes) + "\n"
@@ -197,6 +248,7 @@ class RepositoryGenerator:
         self,
         repository: RepositorySpec,
         primary_key: ColumnSpec,
+        table: TableSpec,
     ) -> str:
         key_type = self._type_renderer.render(primary_key.type)
         lines = [
@@ -225,7 +277,35 @@ class RepositoryGenerator:
                         f"        self._items[aggregate.{primary_key.name}] = aggregate",
                     ]
                 )
+        columns = {column.name: column for column in table.columns}
+        for query in repository.queries:
+            column = columns[query.column]
+            query_type = self._type_renderer.render(column.type)
+            lines.extend(
+                [
+                    "",
+                    f"    async def {query.name}(",
+                    f"        self, {column.name}: {query_type},",
+                    f"    ) -> {repository.aggregate} | None:",
+                    "        return next(",
+                    "            (item for item in self._items.values()",
+                    f"             if item.{column.name} == {column.name}),",
+                    "            None,",
+                    "        )",
+                ]
+            )
         return "\n".join(lines)
+
+    @staticmethod
+    def _repository_input_columns(
+        repository: RepositorySpec,
+        table: TableSpec,
+        primary_key: ColumnSpec,
+    ) -> list[ColumnSpec]:
+        columns = {column.name: column for column in table.columns}
+        inputs = [primary_key]
+        inputs.extend(columns[query.column] for query in repository.queries)
+        return inputs
 
     def _model_import(
         self,

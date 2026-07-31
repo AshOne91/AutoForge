@@ -88,14 +88,8 @@ def test_render_module_registry_in_declared_order() -> None:
         PurePosixPath("src/game_server/application/generated/module_registry.py")
     ]
 
-    tutorial_import = (
-        "from game_server.modules.tutorial.generated.router "
-        "import router as tutorial_router"
-    )
-    item_import = (
-        "from game_server.modules.item.generated.router import router as item_router"
-    )
-    assert registry.index(tutorial_import) < registry.index(item_import)
+    router_tuple = registry.split("MODULE_ROUTERS", maxsplit=1)[1]
+    assert router_tuple.index("tutorial_router") < router_tuple.index("item_router")
     assert "    tutorial_router,\n    item_router,\n" in registry
 
 

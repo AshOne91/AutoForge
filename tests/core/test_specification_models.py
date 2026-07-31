@@ -17,9 +17,11 @@ from autoforge.core.specification import (
     ModuleSpec,
     ProjectInfo,
     ProjectSpec,
+    RepositoryQuerySpec,
     RepositorySpec,
     ResponseSpec,
     SchemaSpec,
+    ServiceSpec,
     TableSpec,
 )
 
@@ -38,6 +40,29 @@ def test_create_minimal_project_spec() -> None:
     assert spec.project.package_name == "game_server"
     assert spec.application.framework == "fastapi"
     assert spec.application.modules == ["tutorial"]
+
+
+def test_application_service_requires_positive_ttl_and_unique_name() -> None:
+    service = ServiceSpec(
+        name="session",
+        kind="redis_session",
+        namespace="kis_session",
+        ttl_seconds=3600,
+    )
+    application = ApplicationSpec(services=[service])
+
+    assert application.services == [service]
+
+    with pytest.raises(ValidationError, match="greater than 0"):
+        ServiceSpec(
+            name="session",
+            kind="redis_session",
+            namespace="kis_session",
+            ttl_seconds=0,
+        )
+
+    with pytest.raises(ValidationError, match="Service 이름은 중복"):
+        ApplicationSpec(services=[service, service])
 
 
 def test_create_tutorial_module_spec() -> None:
@@ -368,4 +393,76 @@ def test_database_rejects_unknown_repository_table_and_aggregate() -> None:
                 route_prefix="/api/account",
             ),
             database=valid_database,
+        )
+
+
+def test_repository_query_requires_unique_existing_column() -> None:
+    table = TableSpec(
+        name="login_accounts",
+        columns=[
+            ColumnSpec(
+                name="user_id",
+                type=FieldType(kind=FieldTypeKind.UUID),
+                primary_key=True,
+            ),
+            ColumnSpec(
+                name="email",
+                type=FieldType(kind=FieldTypeKind.STRING),
+                unique=True,
+            ),
+            ColumnSpec(
+                name="password_hash",
+                type=FieldType(kind=FieldTypeKind.STRING),
+            ),
+        ],
+    )
+
+    with pytest.raises(ValidationError, match="참조하는 Column이 없습니다"):
+        DatabaseSpec(
+            tables=[table],
+            repositories=[
+                RepositorySpec(
+                    name="LoginAccountRepository",
+                    aggregate="LoginAccount",
+                    table="login_accounts",
+                    operations=["save"],
+                    queries=[
+                        RepositoryQuerySpec(
+                            name="find_by_email",
+                            column="missing_email",
+                        )
+                    ],
+                )
+            ],
+        )
+
+    with pytest.raises(ValidationError, match="unique Column"):
+        DatabaseSpec(
+            tables=[table],
+            repositories=[
+                RepositorySpec(
+                    name="LoginAccountRepository",
+                    aggregate="LoginAccount",
+                    table="login_accounts",
+                    operations=["save"],
+                    queries=[
+                        RepositoryQuerySpec(
+                            name="find_by_password_hash",
+                            column="password_hash",
+                        )
+                    ],
+                )
+            ],
+        )
+
+    with pytest.raises(ValidationError, match="Query 이름은 중복"):
+        RepositorySpec(
+            name="LoginAccountRepository",
+            aggregate="LoginAccount",
+            table="login_accounts",
+            operations=["save"],
+            queries=[
+                RepositoryQuerySpec(name="find_by_email", column="email"),
+                RepositoryQuerySpec(name="find_by_email", column="email"),
+            ],
         )

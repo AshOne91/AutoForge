@@ -1,0 +1,165 @@
+import ast
+import sys
+from pathlib import Path, PurePosixPath
+
+import pytest
+
+from autoforge.core.generation import FileOwnership, Generator
+from autoforge.core.specification import (
+    ApplicationSpec,
+    ProjectInfo,
+    ProjectSpec,
+    ServiceSpec,
+)
+from autoforge.core.workspace import Workspace
+from autoforge.infrastructure.process import AsyncioProcessRunner
+from autoforge.services.generation import (
+    FastAPIProjectGenerator,
+    GenerationPlanApplier,
+    GenerationPlanResolver,
+    SessionStoreGenerator,
+)
+
+
+def project_specification(*, with_session: bool = True) -> ProjectSpec:
+    services = []
+    if with_session:
+        services.append(
+            ServiceSpec(
+                name="session",
+                kind="redis_session",
+                namespace="kis_session",
+                ttl_seconds=3600,
+            )
+        )
+    return ProjectSpec(
+        spec_version="1",
+        project=ProjectInfo(
+            name="KIS Auto Trading",
+            package_name="kis_auto_trading",
+            version="0.1.0",
+        ),
+        application=ApplicationSpec(services=services),
+    )
+
+
+def test_session_store_generator_satisfies_protocol() -> None:
+    generator: Generator[ProjectSpec] = SessionStoreGenerator()
+
+    assert isinstance(generator, Generator)
+
+
+def test_render_produces_protocol_fake_and_redis_adapter() -> None:
+    files = SessionStoreGenerator().render(project_specification())
+    root = PurePosixPath(
+        "src/kis_auto_trading/infrastructure/session_store"
+    )
+
+    assert set(files) == {
+        root / "__init__.py",
+        root / "protocol.py",
+        root / "fake.py",
+        root / "redis.py",
+    }
+    for content in files.values():
+        ast.parse(content)
+
+    protocol = files[root / "protocol.py"]
+    fake = files[root / "fake.py"]
+    redis = files[root / "redis.py"]
+    assert "class SessionStore(Protocol):" in protocol
+    assert "async def revoke_user_sessions" in protocol
+    assert "class FakeSessionStore:" in fake
+    assert '_namespace = "kis_session"' in redis
+    assert "_ttl_seconds = 3600" in redis
+    assert "pipeline(transaction=True)" in redis
+    assert "except RedisError as error:" in redis
+    assert "SessionStoreError" in redis
+
+
+def test_without_session_service_produces_no_files() -> None:
+    generator = SessionStoreGenerator()
+    specification = project_specification(with_session=False)
+
+    assert generator.render(specification) == {}
+    assert generator.plan(specification).files == []
+
+
+def test_plan_marks_all_session_files_generated() -> None:
+    plan = SessionStoreGenerator().plan(project_specification())
+
+    assert len(plan.files) == 4
+    assert all(file.ownership is FileOwnership.GENERATED for file in plan.files)
+
+
+def test_project_dependencies_include_redis_only_when_selected() -> None:
+    generator = FastAPIProjectGenerator()
+
+    with_redis = generator.render(project_specification())[
+        PurePosixPath("pyproject.toml")
+    ]
+    without_redis = generator.render(
+        project_specification(with_session=False)
+    )[PurePosixPath("pyproject.toml")]
+
+    assert '"redis>=5,<7"' in with_redis
+    assert '"redis>=5,<7"' not in without_redis
+
+
+@pytest.mark.anyio
+async def test_generated_fake_honors_ttl_and_revocation(tmp_path: Path) -> None:
+    specification = project_specification()
+    generator = SessionStoreGenerator()
+    workspace = Workspace(tmp_path)
+    project_generator = FastAPIProjectGenerator()
+    project_rendered = project_generator.render(specification)
+    project_plan = GenerationPlanResolver().resolve(
+        project_generator.plan(specification), workspace
+    )
+    GenerationPlanApplier().apply(
+        job_id="project-job",
+        plan=project_plan,
+        rendered_files=project_rendered,
+        workspace=workspace,
+    )
+    rendered = generator.render(specification)
+    plan = GenerationPlanResolver().resolve(
+        generator.plan(specification), workspace
+    )
+    GenerationPlanApplier().apply(
+        job_id="session-store-job",
+        plan=plan,
+        rendered_files=rendered,
+        workspace=workspace,
+    )
+    code = (
+        "import asyncio\n"
+        "import sys\n"
+        "sys.path.insert(0, 'src')\n"
+        "from kis_auto_trading.infrastructure.session_store import (\n"
+        "    FakeSessionStore, SessionData,\n"
+        ")\n"
+        "now = [10.0]\n"
+        "store = FakeSessionStore(5, clock=lambda: now[0])\n"
+        "session = SessionData('s1', 'u1', {'role': 'user'})\n"
+        "\n"
+        "async def verify():\n"
+        "    await store.create(session)\n"
+        "    assert await store.get('s1') == session\n"
+        "    assert await store.refresh('s1') is True\n"
+        "    now[0] = 16.0\n"
+        "    assert await store.get('s1') is None\n"
+        "    await store.create(SessionData('s2', 'u1', {}))\n"
+        "    await store.create(SessionData('s3', 'u1', {}))\n"
+        "    assert await store.revoke_user_sessions('u1') == 2\n"
+        "    assert await store.get('s2') is None\n"
+        "\n"
+        "asyncio.run(verify())\n"
+    )
+    result = await AsyncioProcessRunner().run(
+        (sys.executable, "-c", code),
+        cwd=workspace.root,
+        timeout_seconds=10,
+    )
+
+    assert result.succeeded, result.stderr

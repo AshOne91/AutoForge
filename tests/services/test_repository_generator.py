@@ -16,6 +16,7 @@ from autoforge.core.specification import (
     ModelSpec,
     ModuleInfo,
     ModuleSpec,
+    RepositoryQuerySpec,
     RepositorySpec,
     TableSpec,
 )
@@ -177,6 +178,32 @@ def test_rejects_unsupported_operation_and_composite_primary_key() -> None:
 
     with pytest.raises(ValueError, match="단일 Primary Key"):
         RepositoryGenerator("kis_auto_trading").render(composite)
+
+
+def test_render_unique_query_in_protocol_and_fake() -> None:
+    specification = account_specification()
+    assert specification.database is not None
+    table = specification.database.tables[0]
+    table.columns[1].unique = True
+    repository = specification.database.repositories[0]
+    repository.queries.append(
+        RepositoryQuerySpec(
+            name="find_by_risk_tolerance",
+            column="risk_tolerance",
+        )
+    )
+
+    files = RepositoryGenerator("kis_auto_trading").render(specification)
+    protocol = files[PurePosixPath(
+        "src/kis_auto_trading/modules/account/generated/repository.py"
+    )]
+    fake = files[PurePosixPath(
+        "src/kis_auto_trading/modules/account/generated/fake_repository.py"
+    )]
+
+    assert "async def find_by_risk_tolerance(" in protocol
+    assert "risk_tolerance: str" in protocol
+    assert "if item.risk_tolerance == risk_tolerance" in fake
 
 
 @pytest.mark.anyio

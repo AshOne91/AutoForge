@@ -38,6 +38,10 @@ class FastAPIProjectGenerator:
                 package_name=package_name,
                 version=project.version,
                 description=project.description,
+                include_redis=any(
+                    service.kind == "redis_session"
+                    for service in specification.application.services
+                ),
             ),
             PurePosixPath("README.md"): self._render_readme(
                 project_name=project.name,
@@ -106,7 +110,9 @@ class FastAPIProjectGenerator:
         package_name: str,
         version: str,
         description: str,
+        include_redis: bool,
     ) -> str:
+        redis_dependency = '    "redis>=5,<7",\n' if include_redis else ""
         return (
             "[build-system]\n"
             'requires = ["setuptools>=68"]\n'
@@ -121,6 +127,7 @@ class FastAPIProjectGenerator:
             '    "alembic>=1.18,<2",\n'
             '    "asyncpg>=0.30,<1",\n'
             '    "fastapi",\n'
+            f"{redis_dependency}"
             '    "sqlalchemy>=2.0,<3",\n'
             '    "uvicorn",\n'
             ']\n'
@@ -204,6 +211,8 @@ class FastAPIProjectGenerator:
         for module_name in module_names:
             alias = f"{module_name}_router"
             aliases.append(alias)
+        for module_name in sorted(module_names):
+            alias = f"{module_name}_router"
             package_imports.append(
                 f"from {package_name}.modules.{module_name}.generated.router "
                 f"import router as {alias}"

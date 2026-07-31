@@ -12,9 +12,11 @@ from autoforge.core.specification.models import (
     ModuleSpec,
     ProjectInfo,
     ProjectSpec,
+    RepositoryQuerySpec,
     RepositorySpec,
     ResponseSpec,
     SchemaSpec,
+    ServiceSpec,
     TableSpec,
 )
 from autoforge.core.specification.types import FieldType, FieldTypeKind
@@ -35,8 +37,10 @@ __all__ = [
     "ModuleSpec",
     "ProjectInfo",
     "ProjectSpec",
+    "RepositoryQuerySpec",
     "RepositorySpec",
     "ResponseSpec",
     "SchemaSpec",
+    "ServiceSpec",
     "TableSpec",
 ]

@@ -85,7 +85,15 @@ repositories:
     operations:
       - find_by_id
       - save
+    queries:
+      - name: find_by_email
+        column: email
 ```
+
+`queries`는 로그인처럼 Primary Key가 아닌 고유 식별자로 Aggregate 하나를 찾을 때
+사용한다. 조회 대상은 실제 Table에 존재하며 `unique` 또는 Primary Key인 Column만
+허용한다. 이를 통해 임의 문자열 operation을 해석하지 않고 명세 검증 단계에서
+오타와 다건 조회 위험을 차단한다. 목록·검색·페이지네이션은 별도 계약으로 다룬다.
 
 ### Data Placement Specification
 
@@ -321,7 +329,7 @@ modules/<module>/generated/fake_repository.py
 - Fake Repository는 메모리 저장소를 사용해 Domain/Application 테스트를 지원한다.
 - Primary Key Column type에서 `find_by_id` 인자 type을 결정한다.
 - Aggregate Model의 Primary Key field로 Fake 저장 key를 결정한다.
-- 첫 구현은 `find_by_id`, `save`와 단일 Primary Key만 지원한다.
+- 첫 구현은 `find_by_id`, `save`, 고유 Column 단건 조회와 단일 Primary Key만 지원한다.
 - SQLAlchemy, Redis와 RabbitMQ 의존성을 포함하지 않는다.
 
 Repository Generator는 FastAPI Module Generator와 같은 Module Plugin Registry에

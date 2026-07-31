@@ -49,9 +49,22 @@ class ProjectInfo(StrictSpecModel):
         return validate_semantic_version(value)
 
 
+class ServiceSpec(StrictSpecModel):
+    name: str
+    kind: Literal["redis_session"]
+    namespace: str
+    ttl_seconds: int = Field(gt=0)
+
+    @field_validator("name", "namespace")
+    @classmethod
+    def validate_names(cls, value: str) -> str:
+        return validate_python_name(value)
+
+
 class ApplicationSpec(StrictSpecModel):
     framework: Literal["fastapi"] = "fastapi"
     modules: list[str] = Field(default_factory=list)
+    services: list[ServiceSpec] = Field(default_factory=list)
 
     @field_validator("modules")
     @classmethod
@@ -60,6 +73,13 @@ class ApplicationSpec(StrictSpecModel):
         if len(validated) != len(set(validated)):
             raise ValueError("Application Module 이름은 중복될 수 없습니다.")
         return validated
+
+    @model_validator(mode="after")
+    def validate_services(self) -> ApplicationSpec:
+        names = [service.name for service in self.services]
+        if len(names) != len(set(names)):
+            raise ValueError("Application Service 이름은 중복될 수 없습니다.")
+        return self
 
 
 class ProjectSpec(StrictSpecModel):
@@ -162,11 +182,22 @@ class TableSpec(StrictSpecModel):
         return self
 
 
+class RepositoryQuerySpec(StrictSpecModel):
+    name: str
+    column: str
+
+    @field_validator("name", "column")
+    @classmethod
+    def validate_names(cls, value: str) -> str:
+        return validate_python_name(value)
+
+
 class RepositorySpec(StrictSpecModel):
     name: str
     aggregate: str
     table: str
     operations: list[str] = Field(min_length=1)
+    queries: list[RepositoryQuerySpec] = Field(default_factory=list)
 
     @field_validator("name", "aggregate")
     @classmethod
@@ -185,6 +216,13 @@ class RepositorySpec(StrictSpecModel):
         if len(validated) != len(set(validated)):
             raise ValueError("Repository Operation 이름은 중복될 수 없습니다.")
         return validated
+
+    @model_validator(mode="after")
+    def validate_queries(self) -> RepositorySpec:
+        names = [query.name for query in self.queries]
+        if len(names) != len(set(names)):
+            raise ValueError("Repository Query 이름은 중복될 수 없습니다.")
+        return self
 
 
 class DataPlacementMode(StrEnum):
@@ -249,6 +287,20 @@ class DatabaseSpec(StrictSpecModel):
                     f"Repository '{repository.name}'이 참조하는 Table이 없습니다: "
                     f"{repository.table}"
                 )
+            table = tables[repository.table]
+            columns = {column.name: column for column in table.columns}
+            for query in repository.queries:
+                column = columns.get(query.column)
+                if column is None:
+                    raise ValueError(
+                        f"Repository '{repository.name}' Query '{query.name}'이 "
+                        f"참조하는 Column이 없습니다: {query.column}"
+                    )
+                if not (column.unique or column.primary_key):
+                    raise ValueError(
+                        f"Repository '{repository.name}' Query '{query.name}'은 "
+                        f"unique Column을 참조해야 합니다: {query.column}"
+                    )
 
         for placement in self.placements:
             table = tables.get(placement.table)

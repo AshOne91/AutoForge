@@ -15,6 +15,7 @@ from autoforge.core.specification import (
     ModuleSpec,
     ProjectInfo,
     ProjectSpec,
+    RepositoryQuerySpec,
     RepositorySpec,
     TableSpec,
 )
@@ -152,6 +153,28 @@ def test_model_generator_renders_sqlalchemy_2_record() -> None:
     assert "await self._session.merge(record)" in repository
     assert ".commit(" not in repository
     assert "return LoginAccount(" in repository
+    assert "from sqlalchemy import select" not in repository
+
+
+def test_model_generator_renders_unique_query() -> None:
+    specification = module_specification()
+    assert specification.database is not None
+    specification.database.repositories[0].queries.append(
+        RepositoryQuerySpec(name="find_by_email", column="email")
+    )
+
+    files = SQLAlchemyModelGenerator("kis_auto_trading").render(specification)
+    repository = files[PurePosixPath(
+        "src/kis_auto_trading/modules/identity/generated/"
+        "sqlalchemy_repositories.py"
+    )]
+
+    ast.parse(repository)
+    assert "async def find_by_email(" in repository
+    assert "email: str" in repository
+    assert "select(LoginAccountRecord).where(" in repository
+    assert "LoginAccountRecord.email == email" in repository
+    assert "result.scalar_one_or_none()" in repository
 
 
 def test_sqlalchemy_plans_mark_files_generated() -> None:

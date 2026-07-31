@@ -14,6 +14,7 @@ from autoforge.services.generation.postgresql_ddl import (
     POSTGRESQL_DDL_GENERATOR_ID,
 )
 from autoforge.services.generation.repository import REPOSITORY_GENERATOR_ID
+from autoforge.services.generation.session_store import SESSION_STORE_GENERATOR_ID
 from autoforge.services.generation.sqlalchemy import (
     SQLALCHEMY_MODEL_GENERATOR_ID,
     SQLALCHEMY_PROJECT_GENERATOR_ID,
@@ -25,6 +26,7 @@ def test_fastapi_generator_plugins_register_real_generators() -> None:
 
     assert plugins.project.names() == [
         GENERATOR_ID,
+        SESSION_STORE_GENERATOR_ID,
         SQLALCHEMY_PROJECT_GENERATOR_ID,
     ]
     assert plugins.module.names() == [

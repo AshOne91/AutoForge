@@ -19,6 +19,9 @@ game-server
 SKN12 base_server
   → AutoForge가 있었다면 생성·조립했을 FastAPI 서비스의 롤모델
 
+JavaBaseWebServer
+  → C# 구조를 Spring Boot, MySQL과 Redis로 옮긴 서비스 조립 참고 구현
+
 AutoForge
   → 반복 구조와 외부 서비스 연결을 명세에서 생성하고 검증하는 플랫폼
 
@@ -63,6 +66,22 @@ AutoForge는 실제 투자 판단, 주문 정책 또는 사용자별 위험 규�
 
 ## 참고 프로젝트별 채택 범위
 
+### 개념 대응표
+
+| common-tool/game-server | base_server | AutoForge 목표 |
+|---|---|---|
+| Infrastructure Config | 수작업 Model/Protocol 설정 | 버전이 있는 Specification |
+| Application | FastAPI application/main | Composition Root 생성 |
+| Template | Domain별 template package | 재사용 가능한 Module 계약 |
+| Packet/Protocol | Pydantic request와 Protocol | Transport별 Message/API 계약 |
+| Controller callback | Router → Protocol → TemplateImpl | Router/Consumer → Handler |
+| UserDB, DBLoad/DBSave | DatabaseService와 직접 Query | Repository/UoW와 DB Adapter |
+| Global/Game DB | Global/Shard pool | DataPlacement와 ShardRouter |
+| partial class | 사람이 수정하는 Impl | 파일 소유권과 보존 Manifest |
+
+이 표는 이름을 그대로 복사하기 위한 것이 아니다. 기존 구조가 해결한 책임을
+Python과 FastAPI에서 어떤 경계로 보존할지 판단하는 기준이다.
+
 ### common-tool
 
 가져올 것:
@@ -70,6 +89,8 @@ AutoForge는 실제 투자 판단, 주문 정책 또는 사용자별 위험 규�
 - 명세에서 Packet, Model, DB와 Application 연결을 생성하는 발상
 - 반복 가능한 결정적 출력
 - 테이블과 Load/Save 규칙을 한 출처에서 생성하는 방식
+- Protocol ID·방향·형식과 Application 연결까지 명세에서 파생하는 방식
+- 생성된 공통 코드와 사람이 구현할 callback 확장 지점의 분리
 
 버릴 것:
 
@@ -86,6 +107,9 @@ AutoForge는 실제 투자 판단, 주문 정책 또는 사용자별 위험 규�
 - Global/User/Log 데이터 역할
 - 사용자 키 기반 수평 배치
 - 서버 시작과 종료 수명주기
+- Template을 업무 모듈이자 런타임 구성 단위로 사용하는 방식
+- Master/Login/Game처럼 Application 역할별로 Module을 다르게 조립하는 방식
+- 사용자 Aggregate를 Template별로 로드하고 변경된 데이터만 저장하는 방식
 
 버릴 것:
 
@@ -104,6 +128,9 @@ AutoForge는 실제 투자 판단, 주문 정책 또는 사용자별 위험 규�
 - Redis namespace, TTL, Hash와 Rank 사용 경험
 - Queue, retry, DLQ, Outbox와 분산 lock이 필요하다는 요구사항
 - KIS API, WebSocket와 실시간 데이터 흐름
+- Router → Protocol → TemplateImpl로 이어지는 실제 업무 호출 경로
+- Global shard 설정과 사용자 shard mapping을 분리한 DB routing
+- 서비스 초기화 역순으로 종료하는 수명주기 의도
 
 교체할 것:
 
@@ -124,6 +151,45 @@ AutoForge는 실제 투자 판단, 주문 정책 또는 사용자별 위험 규�
 - 문서에만 있고 실제 코드로 확인되지 않은 기능
 - 임시 응답, mock business result와 운영상 위험한 기본값
 
+### JavaBaseWebServer
+
+가져올 것:
+
+- Application 시작 시 DB/Redis Pool과 Template을 명시적으로 조립하는 방식
+- Hikari/Jedis Pool을 Service Adapter 뒤에 두는 방식
+- 로그인 SessionInfo, TTL과 로그아웃 Session 폐기 흐름
+- 로컬/debug/운영 설정을 분리하려는 의도
+
+교체할 것:
+
+- 평문 JSON Secret → 환경변수와 Secret Provider
+- 넓은 ICacheClient → 역할별 작은 Protocol
+- 오류를 false/null/0으로 숨기는 처리 → 명시적 Adapter 오류
+- MySQL/JPA 고정 → Provider별 Plugin과 기술 중립 계약
+
+상세 분석은 `java_base_web_server_analysis.md`를 따른다.
+
+`base_server`의 Profile은 현재 Global DB procedure를 사용하고 Portfolio와 투자
+계좌는 Shard DB를 사용한다. 새 `kis-auto-trading`에서는 로그인 식별정보만
+Global에 두고 개인정보 Profile을 Shard에 두려는 목표가 있으므로, 이 차이는
+복사 과정에서 숨기지 않고 명시적인 배치 정책 변경으로 취급한다.
+
+## 생성 경계
+
+```text
+AutoForge GENERATED
+  Type, Schema, Router/Consumer wiring, ORM Record, Migration, 설정 골격
+
+AutoForge SCAFFOLDED
+  Handler, Repository Adapter 확장점, Service Adapter 확장점
+
+kis-auto-trading USER_OWNED
+  인증 정책, Portfolio/Order/AutoTrade 규칙, KIS 연동 정책, 위험 관리
+```
+
+기존 C#의 partial class가 제공한 안전한 확장 경계를 Python에서는 파일 소유권과
+Manifest로 대체한다. 반복 생성 시 SCAFFOLDED와 USER_OWNED 파일은 덮어쓰지 않는다.
+
 ## 필수 외부 서비스
 
 ### Redis
@@ -138,6 +204,7 @@ Redis는 `kis-auto-trading`의 필수 기반 Service다.
 - 실시간 데이터 보조
 
 Redis는 영속 업무 데이터의 원장이 아니며 RabbitMQ를 대신하지 않는다.
+구체적인 공통 규격과 첫 SessionStore 계약은 `redis_services.md`를 따른다.
 
 ### RabbitMQ
 

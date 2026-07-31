@@ -27,6 +27,11 @@ from autoforge.services.generation.repository import (
     REPOSITORY_GENERATOR_VERSION,
     RepositoryGenerator,
 )
+from autoforge.services.generation.session_store import (
+    SESSION_STORE_GENERATOR_ID,
+    SESSION_STORE_GENERATOR_VERSION,
+    SessionStoreGenerator,
+)
 from autoforge.services.generation.sqlalchemy import (
     SQLALCHEMY_GENERATOR_VERSION,
     SQLALCHEMY_MODEL_GENERATOR_ID,
@@ -65,6 +70,18 @@ def create_fastapi_generator_plugins(
                 name=SQLALCHEMY_PROJECT_GENERATOR_ID,
                 version=SQLALCHEMY_GENERATOR_VERSION,
                 description="SQLAlchemy async database infrastructure Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
+    project_registry.register(
+        GeneratorPluginAdapter(
+            SessionStoreGenerator(),
+            PluginMetadata(
+                name=SESSION_STORE_GENERATOR_ID,
+                version=SESSION_STORE_GENERATOR_VERSION,
+                description="SessionStore Protocol, Fake와 Redis Adapter Generator",
                 capabilities=(PluginCapability.GENERATOR,),
                 supported_specification_versions=("1",),
             ),

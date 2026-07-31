@@ -178,7 +178,9 @@ class FastAPIModuleGenerator:
         )
         if schema_names:
             imports.append(
-                f"from {module_path}.generated.schemas import {', '.join(schema_names)}"
+                self._render_from_import(
+                    f"{module_path}.generated.schemas", schema_names
+                )
             )
 
         prefix = json.dumps(
@@ -254,7 +256,7 @@ class FastAPIModuleGenerator:
             imports.append(f"from {module_path}.models import {', '.join(model_names)}")
         if schema_names:
             imports.append(
-                f"from {module_path}.schemas import {', '.join(schema_names)}"
+                self._render_from_import(f"{module_path}.schemas", schema_names)
             )
         handlers = [
             self._render_handler(endpoint) for endpoint in specification.endpoints
@@ -321,3 +323,11 @@ class FastAPIModuleGenerator:
     @staticmethod
     def _join_sections(imports: list[str], classes: list[str]) -> str:
         return "\n".join(imports) + "\n\n\n" + "\n\n\n".join(classes) + "\n"
+
+    @staticmethod
+    def _render_from_import(module: str, names: list[str]) -> str:
+        single_line = f"from {module} import {', '.join(names)}"
+        if len(single_line) <= 88:
+            return single_line
+        items = "".join(f"    {name},\n" for name in names)
+        return f"from {module} import (\n{items})"

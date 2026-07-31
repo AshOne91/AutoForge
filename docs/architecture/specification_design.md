@@ -16,9 +16,9 @@ ProjectSpec
 └── DeliverySpec
 ```
 
-첫 MVP에서는 ProjectSpec, ApplicationSpec, ModuleSpec, ModelSpec,
-EndpointSpec까지만 구현한다. 나머지는 스키마 위치만 정의하거나 후속
-버전으로 연기한다.
+현재 ProjectSpec, ApplicationSpec, ModuleSpec, ModelSpec, EndpointSpec과
+DatabaseSpec의 첫 수직 단면까지 구현되어 있다. ServiceSpec, ValidationSpec과
+DeliverySpec은 아직 명세 모델로 구현하지 않았다.
 
 ## ProjectSpec
 
@@ -67,6 +67,12 @@ services: []
 - Service 초기화 순서
 
 첫 MVP에서는 복잡한 Middleware와 외부 Service를 포함하지 않는다.
+
+현재 구현은 `framework`와 Module 목록만 지원한다. game-server 분석 결과,
+Application은 장기적으로 API, Worker, Scheduler 같은 실행 역할, 역할별 Module,
+Service와 Adapter, lifespan 초기화와 역순 종료를 조립하는 Composition Root여야
+한다. 이 요구를 현재 명세 버전에 즉시 추가하지 않고 실제 수직 흐름에서 필요한
+최소 계약부터 검증한다.
 
 ## ModuleSpec
 
@@ -134,6 +140,32 @@ MessageSpec
 
 WebSocket Packet과 Queue Message는 동일 Type System을 재사용하는 후속
 Generator로 확장한다.
+
+Protocol ID는 배포된 생산자와 소비자가 같은 동작을 식별하기 위한 안정적인
+계약이다. HTTP operation ID, WebSocket message type, Queue routing key와 내부
+Event type은 서로 다른 전송 방식에서도 동일한 업무 동작에서 파생될 수 있다.
+현재는 HTTP만 생성하며 MessageSpec은 아직 구현하지 않는다.
+
+## Module과 Template의 관계
+
+game-server의 Template은 렌더링 파일이 아니라 Account, Item, Shop 같은 업무
+모듈이다. AutoForge의 Module은 이 책임을 계승하되 정적 Context와 callback을
+그대로 옮기지 않는다.
+
+```text
+Module Specification
+  ├─ Domain Model
+  ├─ API/Message 계약
+  ├─ Persistence 계약
+  ├─ Service 의존성(후속)
+  └─ Lifecycle 요구(후속)
+
+Application Composition
+  └─ 선택한 Module, Transport와 Adapter를 연결
+```
+
+FastAPI Router는 입출력과 Transport 변환만 담당하고 업무 규칙은 Handler 또는
+Application Service가 담당한다. EventBus도 Module 업무를 직접 실행하지 않는다.
 
 ## 공통 Type System
 
@@ -215,8 +247,9 @@ database:
           default: 0
 ```
 
-첫 MVP에서는 Database 코드를 생성하지 않는다. 먼저 Type System,
-Model, Router, Handler의 반복 생성을 검증한다.
+현재 PostgreSQL Global/Shard DDL, 기술 중립 Repository/Fake, SQLAlchemy async
+기반 구조, ORM Record와 Repository Adapter까지 생성한다. Alembic 실행 환경과
+실제 DB 접속 통합은 아직 구현하지 않았다.
 
 향후 Database Plugin은 다음을 생성할 수 있다.
 
@@ -239,6 +272,30 @@ Schema 명세에는 host, password 같은 운영 접속 정보를 넣지 않는�
 사용한다.
 
 상세 경계와 첫 실제 검증 대상은 `database_generation.md`를 따른다.
+
+game-server의 UserDB/DBLoad/DBSave는 한 Table CRUD보다 넓은 사용자 Aggregate
+로드와 저장을 수행한다. 현재 Repository의 `find_by_id`와 `save`는 의도적으로
+작은 첫 계약이다. Aggregate 조립, Unit of Work와 변경 추적은 다음 원칙으로
+확장한다.
+
+- 실제 서비스 흐름에서 필요한 경우에만 계약을 추가한다.
+- Transaction은 Repository가 아니라 request/job Unit of Work가 소유한다.
+- Global과 Shard 작업을 암묵적으로 한 Transaction처럼 취급하지 않는다.
+- Shard routing 실패 시 Global로 대체하지 않는다.
+- 물리 Shard 수와 DSN은 운영 설정이며 업무 명세에 Secret으로 기록하지 않는다.
+
+## 현재 계약과 장기 확장 후보
+
+| 영역 | 현재 구현 | 장기 후보 |
+|---|---|---|
+| Application | FastAPI, Module 목록 | 실행 역할, Service/Module composition |
+| Interface | HTTP Endpoint | WebSocket, Queue Message, Event |
+| Persistence | Table, Repository, Placement | Aggregate load/save, 관계, UoW 정책 |
+| Runtime DB | async Session, ShardRouter | replica/read policy, topology reference |
+| External Service | 미구현 | Redis/RabbitMQ capability와 wiring |
+| Delivery | 미구현 | Docker, Kubernetes, CI/CD, Git |
+
+장기 후보는 구현 완료를 의미하지 않으며 현재 명세가 수용해야 할 방향만 기록한다.
 
 ## Plugin Metadata와 명세 호환성
 
