@@ -57,7 +57,10 @@
 - [ ] Repository Protocol과 Fake Repository Generator
 - [ ] SQLAlchemy 및 Alembic Plugin
 - [ ] DB별 DDL Plugin
-- [ ] Cache, Queue, WebSocket Service Blueprint
+- [ ] 필수 Redis Service Blueprint와 Adapter
+- [ ] 필수 RabbitMQ Transport와 Worker Blueprint
+- [ ] Transactional Outbox Relay
+- [ ] WebSocket 및 추가 Service Blueprint
 - [ ] CSV Data Table Generator
 - [ ] `infrastructure/database/` 구현 디렉터리 생성
 

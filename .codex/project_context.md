@@ -59,6 +59,15 @@ Database 설계는 `common-tool`의 생성 범위, `game-server`의 수평 확�
 SKN12 `base_server`의 FastAPI async DB 수명주기를 참고한다. 상세 결정은
 `docs/architecture/database_generation.md`를 따른다.
 
+SKN12 `base_server`는 AutoForge가 있었다면 생성·조립했을 롤모델 결과물로
+취급한다. 구조와 요구사항은 적극적으로 재사용하되 임시 구현, 전역 상태와
+직접 만든 범용 인프라는 현대적인 외부 서비스로 교체한다. 전체 채택 기준은
+`docs/architecture/reference_project_strategy.md`를 따른다.
+
+`kis-auto-trading`의 필수 기반 서비스는 관계형 Database, Redis와 RabbitMQ다.
+Redis는 cache와 coordination, RabbitMQ는 비동기 Queue와 외부 Event Transport를
+담당한다.
+
 ## 설계 원칙
 
 - 프로젝트 명세 기반

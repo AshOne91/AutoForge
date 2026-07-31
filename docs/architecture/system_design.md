@@ -22,6 +22,10 @@ AutoForge의 최종 구조는 세 축을 함께 유지한다.
 
 참고 프로젝트를 복사하지 않고 유용한 책임 경계만 유지한다.
 
+참고 프로젝트의 역할, 채택·교체·폐기 기준과 두 저장소의 책임은
+`reference_project_strategy.md`를 따른다. SKN12 `base_server`는 AutoForge가
+있었다면 생성·조립했을 실제 서비스의 롤모델로 사용한다.
+
 `common-tool`이 생성하던 Application, Template, Packet, Protocol, DB 및
 Controller의 반복 코드는 AutoForge의 Project, Module, Schema, Router,
 Repository Generator로 재설계한다.
@@ -40,7 +44,9 @@ CLI
   → 성공 또는 실패 결과 보고
 ```
 
-첫 구현은 GitHub, Webhook, Redis, Database, AI 없이 동작해야 한다.
+AutoForge Core와 명세 검증은 GitHub, Webhook, Redis, Database, RabbitMQ와
+AI 없이 동작해야 한다. 반면 `kis-auto-trading`의 생성 Blueprint에는 관계형
+Database, Redis와 RabbitMQ를 필수 Runtime Service로 포함한다.
 
 ## 생성될 기본 서버 구조
 

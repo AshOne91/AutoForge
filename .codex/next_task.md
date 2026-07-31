@@ -11,6 +11,10 @@ DatabaseSpec과 Repository 최소 명세 계약은 구현되었고
 GenerationPlan으로 만드는 최소 Generator를 설계하는 것이다. 생성 파일의
 소유권과 반복 생성 안전 정책은 기존 Generation Contract를 그대로 사용한다.
 
+Repository와 DB 기반 이후 Redis Service와 RabbitMQ Transport를 필수 서비스로
+구현한다. Redis는 cache/coordination, RabbitMQ는 Queue/Worker 책임을 가지며
+두 책임을 하나의 Service로 합치지 않는다.
+
 ## 근거 문서
 
 - `docs/architecture/generation_contract.md`

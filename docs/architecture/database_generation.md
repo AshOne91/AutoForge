@@ -18,6 +18,8 @@ AutoForge와 실제 적용 프로젝트인 `kis-auto-trading`에 어떻게 반�
 | SKN12 `base_server` | FastAPI lifespan, async DB pool, Global/Shard 연결, Outbox의 필요성 | 전역 ServiceContainer, 세션 내부에 숨은 라우팅, Global DB 자동 fallback |
 | `kis-auto-trading` | 실제 거래 서비스 요구사항과 생성 결과 검증 | 프로젝트 고유 투자 전략을 범용 Generator에 포함 |
 
+전체 참고 프로젝트 적용 기준은 `reference_project_strategy.md`를 따른다.
+
 ## 두 저장소의 책임
 
 ```text
@@ -131,6 +133,18 @@ FastAPI lifespan 종료
 
 Engine과 Pool은 Application 범위이고 Transaction과 Unit of Work는 요청 또는
 작업 범위다. 거대한 전역 ServiceContainer는 생성하지 않는다.
+
+## Redis와 RabbitMQ 경계
+
+Redis와 RabbitMQ는 `kis-auto-trading`의 필수 Service다.
+
+- Redis는 cache, TTL 상태, rate limit, idempotency와 분산 coordination을 담당한다.
+- RabbitMQ는 비동기 작업, ACK/NACK, retry, DLQ와 Worker 분산을 담당한다.
+- 관계형 DB는 업무 데이터의 원장이다.
+- Outbox는 DB 변경과 RabbitMQ 발행 사이의 신뢰성을 보완한다.
+- AutoForge EventBus는 프로세스 내부 이벤트 전달만 담당한다.
+
+Redis에 자체 Queue를 다시 구현하거나 RabbitMQ에 cache 책임을 넣지 않는다.
 
 ## 수평 확장과 샤딩
 
