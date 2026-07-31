@@ -17,6 +17,11 @@ from autoforge.services.generation.fastapi_project import (
     GENERATOR_VERSION,
     FastAPIProjectGenerator,
 )
+from autoforge.services.generation.postgresql_ddl import (
+    POSTGRESQL_DDL_GENERATOR_ID,
+    POSTGRESQL_DDL_GENERATOR_VERSION,
+    PostgreSQLDDLGenerator,
+)
 from autoforge.services.generation.repository import (
     REPOSITORY_GENERATOR_ID,
     REPOSITORY_GENERATOR_VERSION,
@@ -67,6 +72,18 @@ def create_fastapi_generator_plugins(
                 name=REPOSITORY_GENERATOR_ID,
                 version=REPOSITORY_GENERATOR_VERSION,
                 description="기술 중립 Repository Protocol과 Fake Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
+    module_registry.register(
+        GeneratorPluginAdapter(
+            PostgreSQLDDLGenerator(),
+            PluginMetadata(
+                name=POSTGRESQL_DDL_GENERATOR_ID,
+                version=POSTGRESQL_DDL_GENERATOR_VERSION,
+                description="PostgreSQL global/sharded DDL Generator",
                 capabilities=(PluginCapability.GENERATOR,),
                 supported_specification_versions=("1",),
             ),

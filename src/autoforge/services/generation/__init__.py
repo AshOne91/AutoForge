@@ -17,6 +17,7 @@ from autoforge.services.generation.plugin_registry import (
     FastAPIGeneratorPlugins,
     create_fastapi_generator_plugins,
 )
+from autoforge.services.generation.postgresql_ddl import PostgreSQLDDLGenerator
 from autoforge.services.generation.pydantic_types import PydanticTypeRenderer
 from autoforge.services.generation.repository import RepositoryGenerator
 
@@ -30,6 +31,7 @@ __all__ = [
     "GenerationPlanResolver",
     "ManifestStore",
     "ManifestStoreError",
+    "PostgreSQLDDLGenerator",
     "PydanticTypeRenderer",
     "RepositoryGenerator",
     "StoredManifest",

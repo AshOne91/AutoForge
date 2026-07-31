@@ -118,6 +118,8 @@ class ColumnSpec(StrictSpecModel):
     primary_key: bool = False
     nullable: bool = False
     default: object | None = None
+    unique: bool = False
+    index: bool = False
 
     @field_validator("name")
     @classmethod

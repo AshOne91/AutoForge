@@ -268,6 +268,18 @@ def test_column_rejects_nullable_primary_key_and_nested_types() -> None:
             nullable=True,
         )
 
+
+def test_column_supports_unique_and_index_constraints() -> None:
+    column = ColumnSpec(
+        name="email",
+        type=FieldType(kind=FieldTypeKind.STRING),
+        unique=True,
+        index=True,
+    )
+
+    assert column.unique is True
+    assert column.index is True
+
     with pytest.raises(ValidationError, match="직접 사용할 수 없습니다"):
         ColumnSpec(
             name="roles",

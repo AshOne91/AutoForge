@@ -22,9 +22,9 @@ from autoforge.core.specification.types import FieldType, FieldTypeKind
 __all__ = [
     "ApplicationSpec",
     "ColumnSpec",
-    "DatabaseSpec",
     "DataPlacementMode",
     "DataPlacementSpec",
+    "DatabaseSpec",
     "EndpointSpec",
     "FieldSpec",
     "FieldType",

@@ -219,11 +219,29 @@ Adapter를 생성한다. 이 순서로 기술 중립 계약을 먼저 검증한�
 `ModuleSpec.database`는 선택 항목이다. 기존 Module 명세의 public API는 유지하며
 Database가 필요한 Module만 계약을 선언한다.
 
-첫 실제 명세는 `C:\kis-auto-trading\specifications\account.yaml`이며
-UserProfile Model, API, Repository와 global placement를 함께 검증한다.
+첫 실제 명세는 `C:\kis-auto-trading\specifications\identity.yaml`과
+`account.yaml`이다. 로그인 인증정보는 Global, 개인정보 Profile은 `user_id`를
+partition key로 사용하는 Sharded 배치로 검증한다.
 
 이 단계의 `provider`는 `agnostic`만 허용한다. SQLAlchemy, Alembic과 실제 DB
 접속은 후속 Plugin에서 구현한다.
+
+## PostgreSQL DDL Generator
+
+`PostgreSQLDDLGenerator`는 명세의 배치에 따라 다음 결정적 SQL을 생성한다.
+
+```text
+database/global/0001_<module>.sql
+database/sharded/0001_<module>.sql
+```
+
+Global SQL은 Global DB에 한 번 적용하고 Sharded SQL은 모든 Shard DB에 같은
+순서로 적용한다. 배치가 없는 테이블은 잘못된 DB로 들어가지 않도록 생성을
+거부한다. Shard를 찾지 못한 경우에도 Global DB로 대체하지 않고 오류로 처리한다.
+
+SQL에는 스키마만 저장한다. DSN, 비밀번호, Token과 운영 데이터는 명세나 SQL에
+기록하지 않는다. 여러 Application Replica가 동시에 실행할 수 있으므로 Migration은
+서버 시작 시 실행하지 않고 전용 로컬 설정 명령이나 CI/CD Job이 적용한다.
 
 ## Repository Generator
 

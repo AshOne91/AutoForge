@@ -56,7 +56,8 @@
 - [x] kis-auto-trading Account/Profile 명세로 계약 검증
 - [x] Repository Protocol과 Fake Repository Generator
 - [ ] SQLAlchemy 및 Alembic Plugin
-- [ ] DB별 DDL Plugin
+- [x] PostgreSQL Global/Shard DDL Plugin
+- [ ] 추가 DB Provider DDL Plugin
 - [ ] 필수 Redis Service Blueprint와 Adapter
 - [ ] 필수 RabbitMQ Transport와 Worker Blueprint
 - [ ] Transactional Outbox Relay
