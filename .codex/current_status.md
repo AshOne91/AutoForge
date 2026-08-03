@@ -49,6 +49,9 @@
 - exclude 항목은 안전한 Workspace 상대 POSIX 경로만 허용하며 FastAPI Project
   Generator가 결정적인 `[tool.ruff]` 설정으로 렌더링한다.
 - 전체 테스트 기준선은 305개다.
+- wheel 검증이 만드는 `build/`, `dist/`와 `.autoforge/dist/`를 포함한 기본
+  `.gitignore`를 Project Generator의 SCAFFOLDED 파일로 추가했다. 기존 프로젝트의
+  사용자 `.gitignore`는 덮어쓰지 않는다.
 
 ## 2026-08-03 RabbitMQ/Transactional Outbox 완료
 

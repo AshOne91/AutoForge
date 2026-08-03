@@ -55,6 +55,7 @@ def test_render_returns_minimum_fastapi_project_files() -> None:
     files = FastAPIProjectGenerator().render(project_specification())
 
     assert set(files) == {
+        PurePosixPath(".gitignore"),
         PurePosixPath("pyproject.toml"),
         PurePosixPath("README.md"),
         PurePosixPath("src/game_server/__init__.py"),
@@ -85,6 +86,16 @@ def test_render_uses_project_information() -> None:
     )
     assert 'pip install -e ".[test]"' in files[PurePosixPath("README.md")]
     assert "uvicorn game_server.main:app" in files[PurePosixPath("README.md")]
+
+
+def test_render_gitignore_covers_validation_build_artifacts() -> None:
+    files = FastAPIProjectGenerator().render(project_specification())
+
+    gitignore = files[PurePosixPath(".gitignore")].splitlines()
+
+    assert "build/" in gitignore
+    assert "dist/" in gitignore
+    assert ".autoforge/dist/" in gitignore
 
 
 def test_render_pyproject_includes_declared_ruff_exclusions() -> None:
@@ -259,15 +270,16 @@ def test_plan_matches_rendered_content_hashes() -> None:
         assert planned_file.expected_content_hash == content_hash(content)
 
 
-def test_readme_is_scaffolded_and_other_files_are_generated() -> None:
+def test_user_maintained_project_files_are_scaffolded() -> None:
     plan = FastAPIProjectGenerator().plan(project_specification())
     ownership = {file.relative_path: file.ownership for file in plan.files}
 
     assert ownership[PurePosixPath("README.md")] is FileOwnership.SCAFFOLDED
+    assert ownership[PurePosixPath(".gitignore")] is FileOwnership.SCAFFOLDED
     assert all(
         value is FileOwnership.GENERATED
         for path, value in ownership.items()
-        if path != PurePosixPath("README.md")
+        if path not in {PurePosixPath(".gitignore"), PurePosixPath("README.md")}
     )
 
 

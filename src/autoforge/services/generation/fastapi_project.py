@@ -52,6 +52,7 @@ class FastAPIProjectGenerator:
         ]
 
         rendered = {
+            PurePosixPath(".gitignore"): self._render_gitignore(),
             PurePosixPath("pyproject.toml"): self._render_pyproject(
                 package_name=package_name,
                 version=project.version,
@@ -146,9 +147,28 @@ class FastAPIProjectGenerator:
 
     @staticmethod
     def _ownership(relative_path: PurePosixPath) -> FileOwnership:
-        if relative_path == PurePosixPath("README.md"):
+        if relative_path in {
+            PurePosixPath(".gitignore"),
+            PurePosixPath("README.md"),
+        }:
             return FileOwnership.SCAFFOLDED
         return FileOwnership.GENERATED
+
+    @staticmethod
+    def _render_gitignore() -> str:
+        return (
+            "__pycache__/\n"
+            "*.py[cod]\n"
+            "*.egg-info/\n"
+            ".pytest_cache/\n"
+            ".ruff_cache/\n"
+            ".venv/\n"
+            "venv/\n"
+            "build/\n"
+            "dist/\n"
+            ".autoforge/dist/\n"
+            "*.env\n"
+        )
 
     @staticmethod
     def _render_pyproject(
