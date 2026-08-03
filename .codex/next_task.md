@@ -91,11 +91,18 @@ transport이며 EventBus를 대체하지 않는다.
 
 다음:
 
+완료:
+
 1. GenerationJob submission에 repository/ref를 추가하고 claimed worker가 Job별
    IsolatedWorkspace에 checkout하도록 연결한다.
 2. checkout repository 내부에서만 Generation/Validation Pipeline을 실행한다.
 3. 실패 Workspace 보존 정책과 정리 후 원본 repository 불변성을 검증한다.
-4. 그 다음 검증 성공 결과에만 작업 branch와 commit을 허용한다.
+
+다음:
+
+1. 검증 성공 결과에만 작업 branch와 commit을 허용하는 계약을 설계한다.
+2. 생성기가 변경할 수 있는 경로 allowlist와 예상 밖 변경 거부 정책을 확정한다.
+3. author, commit message와 signing 정책을 infrastructure-independent 계약으로 분리한다.
 
 ## 후속 목표
 

@@ -4,6 +4,8 @@ from autoforge.core.job.models import (
     GenerationJob,
     GenerationJobManifest,
     GenerationJobStatus,
+    GenerationJobSubmission,
+    GenerationUnit,
 )
 
 _ALLOWED_TRANSITIONS: dict[GenerationJobStatus, frozenset[GenerationJobStatus]] = {
@@ -27,6 +29,30 @@ class InvalidJobTransitionError(ValueError):
 
 class GenerationJobStateMachine:
     """Create validated job snapshots without mutating the current snapshot."""
+
+    @staticmethod
+    def plan(
+        job: GenerationJob,
+        units: list[GenerationUnit],
+        *,
+        submission: GenerationJobSubmission | None = None,
+    ) -> GenerationJob:
+        if job.status is not GenerationJobStatus.PENDING:
+            raise InvalidJobTransitionError("Only a pending GenerationJob may be planned")
+        if job.units:
+            raise InvalidJobTransitionError("GenerationJob is already planned")
+        if not units:
+            raise InvalidJobTransitionError("GenerationJob planning requires units")
+        values = job.model_dump()
+        values["units"] = units
+        if submission is not None:
+            values["submission"] = submission
+        try:
+            return GenerationJob.model_validate(values)
+        except ValidationError as error_detail:
+            raise InvalidJobTransitionError(
+                "GenerationJob planning violates job invariants"
+            ) from error_detail
 
     @staticmethod
     def transition(

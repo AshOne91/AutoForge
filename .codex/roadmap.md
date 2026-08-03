@@ -96,7 +96,7 @@
 ## 7단계 - Git 자동화
 
 - [x] 안전한 Git Provider checkout 계약과 adapter
-- [ ] repository submission과 Job별 IsolatedWorkspace checkout 연결
+- [x] repository submission과 Job별 IsolatedWorkspace checkout 연결
 - [ ] 작업 브랜치 생성
 - [ ] 검증된 변경만 Commit
 - [ ] Push와 Pull Request

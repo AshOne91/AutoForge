@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from autoforge.application.generation import (
     GenerationSpecificationError,
@@ -33,6 +33,16 @@ class GenerationTriggerBody(BaseModel):
     project_path: str = Field(min_length=1, max_length=1024)
     specifications_path: str = Field(min_length=1, max_length=1024)
     output_path: str = Field(min_length=1, max_length=1024)
+    repository_url: str | None = Field(default=None, min_length=1, max_length=2048)
+    revision: str | None = Field(default=None, min_length=1, max_length=255)
+
+    @model_validator(mode="after")
+    def validate_repository_pair(self) -> "GenerationTriggerBody":
+        if (self.repository_url is None) != (self.revision is None):
+            raise ValueError(
+                "repository_url and revision must be provided together"
+            )
+        return self
 
 
 class GenerationJobResponse(BaseModel):
@@ -90,7 +100,7 @@ def create_control_plane_app(
             )
         except ValidationError as error:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Invalid request body",
             ) from error
         except GenerationSpecificationError as error:

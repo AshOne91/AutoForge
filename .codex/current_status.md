@@ -1,5 +1,21 @@
 # 현재 상태
 
+## 2026-08-03 원격 GenerationJob 격리 실행 완료
+
+- trigger submission에 repository URL과 revision 쌍을 추가했다. 원격 요청은 HTTP 처리
+  중 파일을 읽지 않고 unit이 없는 pending Job으로 원자적으로 저장한다.
+- worker가 Job별 IsolatedWorkspace에 exact commit을 checkout한 뒤 명세를 읽고 unit,
+  specification hash와 resolved commit SHA를 lease가 유지된 상태에서 확정한다.
+- 계획이 확정된 동일 checkout 안에서만 Generation/Validation Pipeline을 실행한다.
+  재실행 시에는 움직일 수 있는 branch 이름보다 저장된 commit SHA를 우선한다.
+- 성공 Workspace는 정리하고 실패 Workspace는 운영 설정에 따라 보존한다. Windows의
+  읽기 전용 Git object도 정리할 수 있다.
+- 실제 로컬 Git repository를 사용하는 성공·실패 테스트에서 원본 working tree가
+  변하지 않고, 성공 시 격리 공간 삭제와 실패 시 보존이 적용됨을 검증했다.
+- 전체 344개 테스트 통과, PostgreSQL 환경이 필요한 통합 테스트 5개 skip, Ruff 경고
+  0개와 CLI `AutoForge v0.1.0`을 확인했다.
+- branch, commit, push와 Pull Request는 아직 구현하지 않았다.
+
 ## 2026-08-03 안전한 Git checkout Provider 기반 완료
 
 - Core에 GitCheckoutRequest/Result와 infrastructure-independent GitProvider Protocol을

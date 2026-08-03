@@ -109,3 +109,25 @@ def test_state_machine_revalidates_manifest_before_success() -> None:
         GenerationJobStateMachine.transition(
             validating, GenerationJobStatus.SUCCEEDED
         )
+
+
+def test_unplanned_job_is_only_valid_while_pending() -> None:
+    pending = GenerationJob(job_id="remote-job")
+
+    assert pending.units == []
+    with pytest.raises(InvalidJobTransitionError, match="job invariants"):
+        GenerationJobStateMachine.transition(
+            pending, GenerationJobStatus.GENERATING
+        )
+
+
+def test_state_machine_plans_pending_job_once() -> None:
+    pending = GenerationJob(job_id="remote-job")
+    units = _pending_job().units
+
+    planned = GenerationJobStateMachine.plan(pending, units)
+
+    assert pending.units == []
+    assert planned.units == units
+    with pytest.raises(InvalidJobTransitionError, match="already planned"):
+        GenerationJobStateMachine.plan(planned, units)

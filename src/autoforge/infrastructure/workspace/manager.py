@@ -1,8 +1,10 @@
 import asyncio
+import os
 import re
 import shutil
+import stat
 import tempfile
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Final
@@ -14,7 +16,7 @@ MAX_WORKSPACE_NAME_LENGTH: Final = 64
 
 
 class IsolatedWorkspaceManager:
-    """작업별 임시 Workspace를 만들고 정책에 따라 정리한다."""
+    """작업별 임시 Workspace를 만들고 결과에 따라 정리한다."""
 
     def __init__(
         self,
@@ -45,7 +47,9 @@ class IsolatedWorkspaceManager:
         finally:
             if not (failed and self._preserve_on_error):
                 self._validate_cleanup_target(root)
-                await asyncio.to_thread(shutil.rmtree, root)
+                await asyncio.to_thread(
+                    shutil.rmtree, root, onexc=self._remove_read_only
+                )
 
     def _prepare_base_directory(self) -> None:
         if self._base_directory.exists() and not self._base_directory.is_dir():
@@ -77,3 +81,10 @@ class IsolatedWorkspaceManager:
                 "영문자, 숫자, 점, 밑줄과 하이픈이어야 합니다."
             )
         return workspace_name
+
+    @staticmethod
+    def _remove_read_only(
+        function: Callable[[str], object], path: str, _: BaseException
+    ) -> None:
+        os.chmod(path, stat.S_IWRITE)
+        function(path)

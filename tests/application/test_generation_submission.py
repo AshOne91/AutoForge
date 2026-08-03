@@ -136,3 +136,59 @@ def test_submission_rejects_paths_outside_roots(tmp_path: Path) -> None:
                 idempotency_key="delivery-1",
             )
         )
+
+
+def test_remote_submission_creates_unplanned_job_without_local_files(
+    tmp_path: Path,
+) -> None:
+    async def scenario() -> None:
+        output_root = tmp_path / "output"
+        output_root.mkdir()
+        service = GenerationSubmissionService(
+            source_root=tmp_path,
+            output_root=output_root,
+            job_store=InMemoryJobStore(),
+            event_bus=EventBus(),
+        )
+
+        result = await service.trigger(
+            GenerationTriggerRequest(
+                project_path="spec/project.yaml",
+                specifications_path="spec/modules",
+                output_path=".",
+                repository_url="https://github.com/example/service.git",
+                revision="main",
+            ),
+            idempotency_key="remote-delivery-1",
+        )
+
+        assert result.job.units == []
+        assert result.job.submission is not None
+        assert result.job.submission.repository is not None
+        assert result.job.submission.repository.revision == "main"
+
+    asyncio.run(scenario())
+
+
+def test_remote_submission_requires_repository_and_revision_pair(
+    tmp_path: Path,
+) -> None:
+    service = GenerationSubmissionService(
+        source_root=tmp_path,
+        output_root=tmp_path,
+        job_store=InMemoryJobStore(),
+        event_bus=EventBus(),
+    )
+
+    with pytest.raises(ValueError, match="provided together"):
+        asyncio.run(
+            service.trigger(
+                GenerationTriggerRequest(
+                    project_path="spec/project.yaml",
+                    specifications_path="spec/modules",
+                    output_path=".",
+                    repository_url="https://github.com/example/service.git",
+                ),
+                idempotency_key="remote-delivery-1",
+            )
+        )

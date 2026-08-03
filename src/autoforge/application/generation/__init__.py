@@ -6,6 +6,7 @@ from autoforge.application.generation.pipeline import (
     GenerationValidationError,
     build_generation_job,
 )
+from autoforge.application.generation.planning import GenerationPlanningService
 from autoforge.application.generation.submission import (
     GenerationSubmissionService,
     GenerationTriggerRequest,
@@ -25,6 +26,7 @@ __all__ = [
     "GenerationJobExecution",
     "GenerationJobPipeline",
     "GenerationJobRequest",
+    "GenerationPlanningService",
     "GenerationSpecificationError",
     "GenerationSubmissionService",
     "GenerationTriggerRequest",

@@ -1,3 +1,4 @@
+import re
 from enum import StrEnum
 from typing import Literal
 
@@ -5,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from autoforge.core.generation import GenerationManifest
 from autoforge.core.generation.models import validate_sha256
+from autoforge.core.git import GitCheckoutRequest
 from autoforge.core.workspace import validate_workspace_relative_path
 
 
@@ -45,11 +47,33 @@ class GenerationJobSubmission(JobModel):
     project_path: str
     specifications_path: str
     output_path: str
+    repository: GitCheckoutRequest | None = None
+    resolved_commit_sha: str | None = None
 
-    @field_validator("project_path", "specifications_path", "output_path")
+    @field_validator("project_path", "specifications_path")
     @classmethod
     def validate_relative_path(cls, value: str) -> str:
         return validate_workspace_relative_path(value).as_posix()
+
+    @field_validator("output_path")
+    @classmethod
+    def validate_output_path(cls, value: str) -> str:
+        if value == ".":
+            return value
+        return validate_workspace_relative_path(value).as_posix()
+
+    @field_validator("resolved_commit_sha")
+    @classmethod
+    def validate_resolved_commit(cls, value: str | None) -> str | None:
+        if value is not None and re.fullmatch(r"[0-9a-fA-F]{40}|[0-9a-fA-F]{64}", value) is None:
+            raise ValueError("resolved_commit_sha must be a full Git commit hash")
+        return value
+
+    @model_validator(mode="after")
+    def validate_repository_resolution(self) -> "GenerationJobSubmission":
+        if self.resolved_commit_sha is not None and self.repository is None:
+            raise ValueError("resolved_commit_sha requires a repository")
+        return self
 
 
 class GenerationUnitManifest(JobModel):
@@ -87,13 +111,15 @@ class GenerationJobManifest(JobModel):
 class GenerationJob(JobModel):
     job_id: str = Field(min_length=1)
     status: GenerationJobStatus = GenerationJobStatus.PENDING
-    units: list[GenerationUnit] = Field(min_length=1)
+    units: list[GenerationUnit] = Field(default_factory=list)
     submission: GenerationJobSubmission | None = None
     manifest: GenerationJobManifest | None = None
     error: str | None = None
 
     @model_validator(mode="after")
     def validate_job(self) -> "GenerationJob":
+        if self.status is not GenerationJobStatus.PENDING and not self.units:
+            raise ValueError("실행 중인 GenerationJob에는 Unit이 필요합니다.")
         unit_ids = [unit.unit_id for unit in self.units]
         if len(unit_ids) != len(set(unit_ids)):
             raise ValueError("GenerationJob의 unit_id는 중복될 수 없습니다.")

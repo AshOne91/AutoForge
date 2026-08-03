@@ -1,7 +1,7 @@
 # Git Automation Architecture
 
 - 확정일: 2026-08-03
-- 현재 범위: 안전한 repository 식별과 Job별 격리 checkout
+- 현재 범위: repository submission과 Job별 격리 checkout 실행
 
 ## 목적과 책임 경계
 
@@ -67,13 +67,18 @@ host의 system/global Git config와 대화형 credential prompt가 worker 동작
 ## 현재 구현과 남은 범위
 
 현재 `SubprocessGitProvider`는 안전한 clone, commit 해석, detached checkout과 clean
-working tree 검증을 구현한다. 실제 로컬 repository 통합 테스트에서 원본 저장소가
-변하지 않고 정확한 commit이 checkout되는 것을 검증했다.
+working tree 검증을 구현한다. 원격 GenerationJob은 HTTP 제출 시 로컬 파일을 읽지 않고
+미계획 pending 상태로 저장된다. worker가 Job별 Workspace에 checkout한 뒤에만 명세를
+읽고, 생성 unit과 명세 hash 및 확정 commit SHA를 lease로 원자적으로 저장한다. 이후
+동일 checkout 안에서 Generation/Validation Pipeline을 실행한다.
+
+성공한 Workspace는 삭제하고, 설정에 따라 실패 Workspace는 분석용으로 보존할 수 있다.
+Windows의 읽기 전용 Git object도 안전하게 정리한다. 실제 로컬 repository 통합
+테스트에서 성공·실패 모두 원본 저장소가 변하지 않으며 확정된 commit에서만 생성되는
+것을 검증했다.
 
 남은 범위:
 
-- GenerationJob submission의 repository/ref 계약
-- checkout Workspace를 claimed worker Pipeline에 연결
 - 검증 성공 후 작업 branch 생성과 변경 allowlist
 - author/signing 정책을 적용한 commit
 - credential Secret Provider, push와 Pull Request adapter

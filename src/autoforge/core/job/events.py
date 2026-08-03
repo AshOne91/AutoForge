@@ -9,6 +9,11 @@ class GenerationJobCreatedEvent(Event):
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
+class GenerationJobPlannedEvent(Event):
+    unit_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
 class GenerationStartedEvent(Event):
     unit_count: int
 

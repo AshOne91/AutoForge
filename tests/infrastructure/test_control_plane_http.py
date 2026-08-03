@@ -138,3 +138,32 @@ def test_trigger_rejects_key_reuse_missing_key_and_large_body(tmp_path: Path) ->
     assert invalid_specification.json()["detail"] == (
         "Generation specification is invalid"
     )
+
+
+def test_remote_trigger_is_accepted_without_local_specification(
+    tmp_path: Path,
+) -> None:
+    client = _client(tmp_path)
+    response = client.post(
+        "/v1/generation-jobs",
+        json={
+            "project_path": "spec/project.yaml",
+            "specifications_path": "spec/modules",
+            "output_path": ".",
+            "repository_url": "https://github.com/example/service.git",
+            "revision": "main",
+        },
+        headers=_headers("remote-delivery-1"),
+    )
+    missing_revision = client.post(
+        "/v1/generation-jobs",
+        json={
+            **_payload(),
+            "repository_url": "https://github.com/example/service.git",
+        },
+        headers=_headers("remote-delivery-2"),
+    )
+
+    assert response.status_code == 202
+    assert response.json()["job"]["units"] == []
+    assert missing_revision.status_code == 422

@@ -12,6 +12,8 @@ from autoforge.application.generation.pipeline import (
     GenerationJobPipeline,
     GenerationJobRequest,
 )
+from autoforge.application.generation.planning import GenerationPlanningService
+from autoforge.core.git import GitCheckoutRequest, GitProvider
 from autoforge.core.job import (
     GenerationJobStateMachine,
     GenerationJobStatus,
@@ -19,7 +21,7 @@ from autoforge.core.job import (
     JobLeaseConflictError,
     JobStore,
 )
-from autoforge.core.workspace import Workspace
+from autoforge.core.workspace import Workspace, WorkspaceManager
 
 logger = logging.getLogger(__name__)
 
@@ -86,10 +88,16 @@ class GenerationWorker:
         settings: GenerationWorkerSettings,
         job_store: JobStore,
         pipeline: GenerationJobPipeline,
+        git_provider: GitProvider | None = None,
+        workspace_manager: WorkspaceManager | None = None,
+        planning_service: GenerationPlanningService | None = None,
     ) -> None:
         self._settings = settings
         self._job_store = job_store
         self._pipeline = pipeline
+        self._git_provider = git_provider
+        self._workspace_manager = workspace_manager
+        self._planning_service = planning_service
         self._source = Workspace(settings.source_root)
         self._output = Workspace(settings.output_root)
 
@@ -101,8 +109,7 @@ class GenerationWorker:
         if lease is None:
             return None
         try:
-            request = self._request(lease)
-            execution = await self._execute_with_heartbeat(request, lease)
+            execution = await self._execute_with_heartbeat(lease)
         except asyncio.CancelledError:
             raise
         except Exception as error:
@@ -110,7 +117,7 @@ class GenerationWorker:
             raise
         return GenerationWorkerResult(lease=lease, execution=execution)
 
-    def _request(self, lease: JobLease) -> GenerationJobRequest:
+    def _local_request(self, lease: JobLease) -> GenerationJobRequest:
         submission = lease.job.submission
         if submission is None:
             raise ValueError("Claimed GenerationJob has no submission snapshot")
@@ -123,11 +130,9 @@ class GenerationWorker:
         )
 
     async def _execute_with_heartbeat(
-        self, request: GenerationJobRequest, lease: JobLease
+        self, lease: JobLease
     ) -> GenerationJobExecution:
-        pipeline_task = asyncio.create_task(
-            self._pipeline.run_claimed(request, lease)
-        )
+        pipeline_task = asyncio.create_task(self._execute_claimed(lease))
         heartbeat_task = asyncio.create_task(self._heartbeat(lease))
         try:
             done, _ = await asyncio.wait(
@@ -151,6 +156,59 @@ class GenerationWorker:
             heartbeat_task.cancel()
             with suppress(asyncio.CancelledError):
                 await heartbeat_task
+
+    async def _execute_claimed(self, lease: JobLease) -> GenerationJobExecution:
+        submission = lease.job.submission
+        if submission is None or submission.repository is None:
+            return await self._pipeline.run_claimed(
+                self._local_request(lease), lease
+            )
+        if (
+            self._git_provider is None
+            or self._workspace_manager is None
+            or self._planning_service is None
+        ):
+            raise RuntimeError(
+                "Git GenerationJob requires GitProvider, WorkspaceManager and planning service"
+            )
+        async with self._workspace_manager.create(lease.job.job_id) as workspace:
+            repository = submission.repository
+            checkout = await self._git_provider.checkout(
+                GitCheckoutRequest(
+                    repository.repository_url,
+                    submission.resolved_commit_sha or repository.revision,
+                    destination=repository.destination,
+                ),
+                workspace=workspace,
+            )
+            repository_workspace = Workspace(checkout.repository_path)
+            request = GenerationJobRequest(
+                project_path=repository_workspace.resolve(submission.project_path),
+                specifications_path=repository_workspace.resolve(
+                    submission.specifications_path
+                ),
+                output_path=(
+                    repository_workspace.root
+                    if submission.output_path == "."
+                    else repository_workspace.resolve(submission.output_path)
+                ),
+            )
+            if not lease.job.units:
+                resolved_submission = submission.model_copy(
+                    update={"resolved_commit_sha": checkout.commit_sha}
+                )
+                planned = await self._planning_service.plan(
+                    lease,
+                    request,
+                    submission=resolved_submission,
+                )
+                lease = JobLease(
+                    job=planned,
+                    worker_id=lease.worker_id,
+                    token=lease.token,
+                    expires_at=lease.expires_at,
+                )
+            return await self._pipeline.run_claimed(request, lease)
 
     async def _heartbeat(self, lease: JobLease) -> None:
         while True:
