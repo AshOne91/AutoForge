@@ -64,6 +64,7 @@ class FastAPIProjectGenerator:
                     service.kind == "rabbitmq"
                     for service in specification.application.services
                 ),
+                ruff_exclude=specification.tooling.ruff_exclude,
             ),
             PurePosixPath("README.md"): self._render_readme(
                 project_name=project.name,
@@ -157,11 +158,19 @@ class FastAPIProjectGenerator:
         description: str,
         include_redis: bool,
         include_rabbitmq: bool,
+        ruff_exclude: list[str],
     ) -> str:
         redis_dependency = '    "redis>=5,<7",\n' if include_redis else ""
         rabbitmq_dependency = (
             '    "aio-pika>=9.5,<10",\n' if include_rabbitmq else ""
         )
+        ruff_configuration = ""
+        if ruff_exclude:
+            ruff_configuration = (
+                "[tool.ruff]\n"
+                f"extend-exclude = {json.dumps(ruff_exclude, ensure_ascii=False)}\n"
+                "\n"
+            )
         return (
             "[build-system]\n"
             'requires = ["setuptools>=68"]\n'
@@ -195,6 +204,7 @@ class FastAPIProjectGenerator:
             'pythonpath = ["src"]\n'
             'testpaths = ["tests"]\n'
             "\n"
+            f"{ruff_configuration}"
             "[tool.ruff.lint.isort]\n"
             f'known-first-party = ["{package_name}"]\n'
         )

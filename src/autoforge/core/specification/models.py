@@ -18,6 +18,7 @@ from autoforge.core.specification.naming import (
     validate_semantic_version,
 )
 from autoforge.core.specification.types import FieldType, FieldTypeKind
+from autoforge.core.workspace import validate_workspace_relative_path
 
 
 class StrictSpecModel(BaseModel):
@@ -187,10 +188,25 @@ class ApplicationSpec(StrictSpecModel):
         return self
 
 
+class ToolingSpec(StrictSpecModel):
+    ruff_exclude: list[str] = Field(default_factory=list)
+
+    @field_validator("ruff_exclude")
+    @classmethod
+    def validate_ruff_exclude(cls, values: list[str]) -> list[str]:
+        normalized = [
+            validate_workspace_relative_path(value).as_posix() for value in values
+        ]
+        if len(normalized) != len(set(normalized)):
+            raise ValueError("tooling.ruff_exclude paths must be unique")
+        return normalized
+
+
 class ProjectSpec(StrictSpecModel):
     spec_version: Literal["1"]
     project: ProjectInfo
     application: ApplicationSpec
+    tooling: ToolingSpec = Field(default_factory=ToolingSpec)
 
 
 class ModuleInfo(StrictSpecModel):

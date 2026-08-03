@@ -44,6 +44,11 @@
   import 구역 공백 생성 오류를 수정했다.
 - 전체 Ruff, 299개 pytest와 `python -m autoforge.main version`을 통과했다.
 - 다음 단계는 logging/audit handler, PostgreSQL JobStore와 idempotent trigger다.
+- KIS 실사용 검증 중 GENERATED `pyproject.toml`의 프로젝트별 품질 도구 설정이
+  명세에 없음을 확인해 `ToolingSpec.ruff_exclude` 계약을 추가했다.
+- exclude 항목은 안전한 Workspace 상대 POSIX 경로만 허용하며 FastAPI Project
+  Generator가 결정적인 `[tool.ruff]` 설정으로 렌더링한다.
+- 전체 테스트 기준선은 305개다.
 
 ## 2026-08-03 RabbitMQ/Transactional Outbox 완료
 

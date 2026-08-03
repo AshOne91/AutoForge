@@ -21,6 +21,7 @@ from autoforge.core.specification.models import (
     SchemaSpec,
     ServiceSpec,
     TableSpec,
+    ToolingSpec,
 )
 from autoforge.core.specification.types import FieldType, FieldTypeKind
 
@@ -49,4 +50,5 @@ __all__ = [
     "SchemaSpec",
     "ServiceSpec",
     "TableSpec",
+    "ToolingSpec",
 ]

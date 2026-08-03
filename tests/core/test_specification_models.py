@@ -26,6 +26,7 @@ from autoforge.core.specification import (
     SchemaSpec,
     ServiceSpec,
     TableSpec,
+    ToolingSpec,
 )
 
 
@@ -43,6 +44,24 @@ def test_create_minimal_project_spec() -> None:
     assert spec.project.package_name == "game_server"
     assert spec.application.framework == "fastapi"
     assert spec.application.modules == ["tutorial"]
+    assert spec.tooling.ruff_exclude == []
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["../outside", "/absolute", "C:/windows", "nested\\windows"],
+)
+def test_tooling_rejects_unsafe_ruff_exclude_paths(path: str) -> None:
+    with pytest.raises(ValidationError):
+        ToolingSpec(ruff_exclude=[path])
+
+
+def test_tooling_normalizes_and_rejects_duplicate_ruff_exclude_paths() -> None:
+    tooling = ToolingSpec(ruff_exclude=["reference/base_server", "test.py"])
+
+    assert tooling.ruff_exclude == ["reference/base_server", "test.py"]
+    with pytest.raises(ValidationError, match="must be unique"):
+        ToolingSpec(ruff_exclude=["reference", "reference"])
 
 
 def test_application_service_requires_positive_ttl_and_unique_name() -> None:

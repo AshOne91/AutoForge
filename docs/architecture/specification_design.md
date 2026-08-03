@@ -43,6 +43,39 @@ generation:
   ci_provider: none
 ```
 
+### ToolingSpec (구현됨)
+
+생성 프로젝트의 재현 가능한 개발 도구 설정을 프로젝트 명세에 선언한다. 현재
+계약은 명시적으로 보존한 참고 자료를 위한 Ruff 제외 경로를 지원한다.
+
+```yaml
+tooling:
+  ruff_exclude:
+    - base_server
+    - test.py
+```
+
+Workspace 상대 POSIX 경로만 허용한다. 절대경로, 드라이브 경로, `..`, 역슬래시와
+중복 경로는 거부한다. `pyproject.toml`은 GENERATED 파일이므로 직접 수정하지 않고
+이 명세를 변경한 뒤 재생성한다.
+
+### ToolingSpec (implemented)
+
+Generated projects declare reproducible development-tool settings in the project
+specification. The current contract supports Ruff exclusions for explicitly preserved
+reference material.
+
+```yaml
+tooling:
+  ruff_exclude:
+    - base_server
+    - test.py
+```
+
+Only Workspace-relative POSIX paths are accepted. Absolute paths, drive paths, `..`,
+backslashes and duplicates are rejected. Because `pyproject.toml` is GENERATED, projects
+change this specification and regenerate instead of editing that file by hand.
+
 출력 경로는 ProjectSpec에 포함하지 않는다. 출력 위치는 CLI 또는
 GenerationJob이 지정한다.
 

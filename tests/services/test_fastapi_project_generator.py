@@ -14,6 +14,7 @@ from autoforge.core.specification import (
     ProjectInfo,
     ProjectSpec,
     ServiceSpec,
+    ToolingSpec,
 )
 from autoforge.services.generation import FastAPIProjectGenerator
 
@@ -25,6 +26,7 @@ def project_specification(
     modules: list[str] | None = None,
     services: list[ServiceSpec] | None = None,
     databases: list[DatabaseStoreSpec] | None = None,
+    ruff_exclude: list[str] | None = None,
 ) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
@@ -39,6 +41,7 @@ def project_specification(
             services=services or [],
             databases=databases or [],
         ),
+        tooling=ToolingSpec(ruff_exclude=ruff_exclude or []),
     )
 
 
@@ -82,6 +85,19 @@ def test_render_uses_project_information() -> None:
     )
     assert 'pip install -e ".[test]"' in files[PurePosixPath("README.md")]
     assert "uvicorn game_server.main:app" in files[PurePosixPath("README.md")]
+
+
+def test_render_pyproject_includes_declared_ruff_exclusions() -> None:
+    files = FastAPIProjectGenerator().render(
+        project_specification(ruff_exclude=["reference", "manual_probe.py"])
+    )
+
+    pyproject = tomllib.loads(files[PurePosixPath("pyproject.toml")])
+
+    assert pyproject["tool"]["ruff"]["extend-exclude"] == [
+        "reference",
+        "manual_probe.py",
+    ]
 
 
 def test_render_empty_module_registry() -> None:
