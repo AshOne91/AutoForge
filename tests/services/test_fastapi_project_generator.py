@@ -144,6 +144,25 @@ def test_session_service_generates_and_registers_lifespan() -> None:
     assert 'monkeypatch.setenv("GAME_REDIS_URL"' in health_test
 
 
+def test_cluster_session_service_generates_cluster_health_environment() -> None:
+    service = ServiceSpec(
+        name="session",
+        kind="redis_session",
+        namespace="game_session",
+        ttl_seconds=3600,
+        mode="cluster",
+        cluster_url_env="GAME_REDIS_CLUSTER_URL",
+    )
+
+    files = FastAPIProjectGenerator().render(
+        project_specification(services=[service])
+    )
+    health_test = files[PurePosixPath("tests/test_health.py")]
+
+    assert 'monkeypatch.setenv("GAME_REDIS_CLUSTER_URL"' in health_test
+    assert "redis://localhost:16379" in health_test
+
+
 def test_database_store_generates_and_registers_lifespan() -> None:
     database = DatabaseStoreSpec(
         name="identity",

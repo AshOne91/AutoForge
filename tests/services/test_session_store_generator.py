@@ -61,6 +61,23 @@ def sentinel_project_specification() -> ProjectSpec:
     )
 
 
+def cluster_project_specification() -> ProjectSpec:
+    specification = project_specification()
+    service = specification.application.services[0].model_copy(
+        update={
+            "mode": "cluster",
+            "cluster_url_env": "KIS_REDIS_CLUSTER_URL",
+        }
+    )
+    return specification.model_copy(
+        update={
+            "application": specification.application.model_copy(
+                update={"services": [service]}
+            )
+        }
+    )
+
+
 def test_session_store_generator_satisfies_protocol() -> None:
     generator: Generator[ProjectSpec] = SessionStoreGenerator()
 
@@ -88,6 +105,8 @@ def test_render_produces_protocol_fake_and_redis_adapter() -> None:
     redis = files[root / "redis.py"]
     provider = files[root / "provider.py"]
     assert "class SessionStore(Protocol):" in protocol
+    assert "def create_session_id(user_id: str) -> str:" in protocol
+    assert "def _session_routing_tag(session_id: str) -> str:" in protocol
     assert "async def revoke_user_sessions" in protocol
     assert "class FakeSessionStore:" in fake
     assert '_namespace = "kis_session"' in redis
@@ -95,6 +114,8 @@ def test_render_produces_protocol_fake_and_redis_adapter() -> None:
     assert "pipeline(transaction=True)" in redis
     assert "except RedisError as error:" in redis
     assert "SessionStoreError" in redis
+    assert "Redis | RedisCluster" in redis
+    assert 'f"{self._namespace}:{{{routing_tag}}}:session:' in redis
     assert 'REDIS_URL_ENV = "REDIS_URL"' in provider
     assert "async def session_store_lifespan(" in provider
     assert "Redis.from_url(redis_url, decode_responses=True)" in provider
@@ -126,6 +147,23 @@ def test_sentinel_provider_uses_declared_discovery_contract() -> None:
     assert "sentinel.master_for(" in provider
     assert "for sentinel_client in sentinel.sentinels:" in provider
     assert "async def get_current_session(" in provider
+
+
+def test_cluster_provider_uses_async_cluster_discovery_contract() -> None:
+    files = SessionStoreGenerator().render(cluster_project_specification())
+    provider = files[
+        PurePosixPath(
+            "src/kis_auto_trading/infrastructure/session_store/provider.py"
+        )
+    ]
+
+    ast.parse(provider)
+    assert 'REDIS_CLUSTER_URL_ENV = "KIS_REDIS_CLUSTER_URL"' in provider
+    assert "from redis.asyncio.cluster import RedisCluster" in provider
+    assert "RedisCluster.from_url(" in provider
+    assert "require_full_coverage=True" in provider
+    assert "await client.initialize()" not in provider
+    assert "await client.aclose()" in provider
 
 
 def test_plan_marks_all_session_files_generated() -> None:

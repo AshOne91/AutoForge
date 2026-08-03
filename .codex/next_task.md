@@ -30,8 +30,13 @@ Bearer current_session 의존성 생성과 kis-auto-trading Account/Profile의 �
 shard 저장을 완료했다. API 2가 저장한 Profile을 API 1이 조회하고, 세션에서 선택된
 shard에만 행이 존재하며 반대 shard에는 저장되지 않는 것을 Docker 환경에서 검증했다.
 
-다음 목표는 Redis Cluster 3 Primary + 3 Replica 연결 공급자와 통합 토폴로지를
-추가하되, 기존 SessionStore 업무 계약과 Handler 코드는 변경하지 않는 것이다.
+Redis Cluster async 연결 공급자와 3 Primary + 3 Replica 통합 토폴로지를 완료했다.
+사용자 단위 hash tag로 transaction key를 같은 slot에 배치하고, 16,384 slot coverage,
+담당 Primary 장애 후 Replica 승격, 기존 session 읽기·신규 쓰기와 volume 재기동을
+검증했다.
+
+다음 목표는 RabbitMQ Transport/Worker Blueprint와 Transactional Outbox를 구현하여
+DB transaction과 메시지 발행 사이의 유실 구간을 제거하는 것이다.
 
 Repository와 DB 기반 이후 Redis Service와 RabbitMQ Transport를 필수 서비스로
 구현한다. Redis는 cache/coordination, RabbitMQ는 Queue/Worker 책임을 가지며
@@ -45,12 +50,12 @@ Repository와 DB 기반 이후 Redis Service와 RabbitMQ Transport를 필수 서
 
 ## 다음 구현 범위
 
-1. redis-py Cluster async client와 현재 SessionStore adapter 호환성 확인
-2. Cluster endpoint 설정 명세와 standalone/sentinel/cluster 배타 검증
-3. Session key와 user-session set이 같은 slot을 쓰는 hash-tag 규칙 확정
-4. Redis Cluster 3 Primary + 3 Replica Compose 토폴로지 구성
-5. API 2대 세션 읽기·쓰기와 primary 장애 후 복구 검증
-6. 구현 전 구체적인 코드·테스트 파일 계획 제시
+1. 참고 프로젝트의 Queue/Event/재시도 책임과 현재 EventBus 경계 재확인
+2. RabbitMQ connection, exchange, queue, routing key 명세 계약 정의
+3. 생성되는 Transport/Publisher/Worker lifecycle과 ack/nack 정책 정의
+4. 업무 DB별 Outbox table과 같은 transaction에서 event 저장
+5. Outbox Relay의 중복 발행 대비 idempotency 계약과 재시도 검증
+6. KIS에서 Profile 변경 event를 실제 RabbitMQ worker가 소비하는 통합 검증
 
 ## 이번 범위에서 구현하지 않음
 

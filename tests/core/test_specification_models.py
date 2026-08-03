@@ -56,6 +56,12 @@ def test_application_service_requires_positive_ttl_and_unique_name() -> None:
 
     assert application.services == [service]
 
+    cluster_service = service.model_copy(
+        update={"mode": "cluster", "cluster_url_env": "SESSION_CLUSTER_URL"}
+    )
+    assert cluster_service.mode == "cluster"
+    assert cluster_service.cluster_url_env == "SESSION_CLUSTER_URL"
+
     with pytest.raises(ValidationError, match="greater than 0"):
         ServiceSpec(
             name="session",

@@ -65,7 +65,7 @@
 - [ ] 필수 Redis Service Blueprint와 Adapter
   - [x] Standalone 연결과 공통 SessionStore 계약
   - [x] Sentinel 연결 공급자와 Primary 자동 장애 전환 검증
-  - [ ] Cluster-aware 연결 확장 지점과 hash-tag 키 규칙
+  - [x] Cluster-aware 연결, 3 Primary+3 Replica 장애 전환과 hash-tag 키 규칙
   - [ ] AWS ElastiCache Multi-AZ/Cluster Mode 배포 설정 계약
 - [ ] 필수 RabbitMQ Transport와 Worker Blueprint
 - [ ] Transactional Outbox Relay

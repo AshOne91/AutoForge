@@ -10,7 +10,7 @@ from autoforge.core.generation import (
     content_hash,
     specification_hash,
 )
-from autoforge.core.specification import ProjectSpec
+from autoforge.core.specification import ProjectSpec, ServiceSpec
 
 GENERATOR_ID: Final = "autoforge.generator.fastapi.project"
 GENERATOR_VERSION: Final = "0.1.0"
@@ -89,15 +89,7 @@ class FastAPIProjectGenerator:
             PurePosixPath("tests", "test_health.py"): self._render_health_test(
                 package_name,
                 redis_env_values=[
-                    (
-                        service.sentinel_urls_env,
-                        "localhost:26379",
-                    )
-                    if service.mode == "sentinel"
-                    else (
-                        service.url_env,
-                        "redis://localhost:6379/0",
-                    )
+                    self._redis_test_environment(service)
                     for service in session_services
                 ],
                 database_env_names=database_env_names,
@@ -112,6 +104,14 @@ class FastAPIProjectGenerator:
                 has_session_store=has_session_store,
             )
         return rendered
+
+    @staticmethod
+    def _redis_test_environment(service: ServiceSpec) -> tuple[str, str]:
+        if service.mode == "sentinel":
+            return service.sentinel_urls_env, "localhost:26379"
+        if service.mode == "cluster":
+            return service.cluster_url_env, "redis://localhost:16379"
+        return service.url_env, "redis://localhost:6379/0"
 
     def plan(self, specification: ProjectSpec) -> GenerationPlan:
         rendered_files = self.render(specification)

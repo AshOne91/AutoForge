@@ -61,7 +61,11 @@ class ServiceSpec(StrictSpecModel):
     namespace: str
     ttl_seconds: int = Field(gt=0)
     url_env: str = Field(default="REDIS_URL", pattern=r"^[A-Z][A-Z0-9_]*$")
-    mode: Literal["standalone", "sentinel"] = "standalone"
+    mode: Literal["standalone", "sentinel", "cluster"] = "standalone"
+    cluster_url_env: str = Field(
+        default="REDIS_CLUSTER_URL",
+        pattern=r"^[A-Z][A-Z0-9_]*$",
+    )
     sentinel_urls_env: str = Field(
         default="REDIS_SENTINEL_URLS",
         pattern=r"^[A-Z][A-Z0-9_]*$",

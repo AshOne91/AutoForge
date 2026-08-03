@@ -79,7 +79,10 @@
 - Bearer current_session 의존성 생성을 추가했다.
 - kis-auto-trading Account/Profile을 실제 선택된 shard DB에 저장하고 API 2대 교차
   조회 및 반대 shard 미저장을 검증했다.
-- 다음 단계는 Redis Cluster 3 Primary + 3 Replica 생성·검증이다.
+- Redis Cluster async provider와 사용자 단위 hash-tag 세션 키 계약을 생성한다.
+- kis-auto-trading에서 3 Primary + 3 Replica, 전체 16,384 slot coverage, 담당
+  Primary 중지와 Replica 승격, 기존 읽기·신규 쓰기 및 volume 재기동을 검증했다.
+- 다음 단계는 RabbitMQ Transport와 Transactional Outbox다.
 - 문서 정합성 정리
 - 패키지와 코딩 스타일 정리
 - Plugin Framework 4단계 완료 검토

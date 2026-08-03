@@ -87,25 +87,57 @@ class SessionStoreGenerator:
     def _render_init() -> str:
         return (
             "from .fake import FakeSessionStore\n"
-            "from .protocol import SessionData, SessionStore, SessionStoreError\n"
+            "from .protocol import (\n"
+            "    SessionData,\n"
+            "    SessionStore,\n"
+            "    SessionStoreError,\n"
+            "    create_session_id,\n"
+            ")\n"
             "\n"
             "__all__ = [\n"
             '    "FakeSessionStore",\n'
             '    "SessionData",\n'
             '    "SessionStore",\n'
             '    "SessionStoreError",\n'
+            '    "create_session_id",\n'
             "]\n"
         )
 
     @staticmethod
     def _render_protocol() -> str:
         return (
+            "import base64\n"
+            "import secrets\n"
             "from dataclasses import dataclass\n"
             "from typing import Protocol\n"
             "\n"
             "\n"
             "class SessionStoreError(RuntimeError):\n"
             "    pass\n"
+            "\n"
+            "\n"
+            "def _user_routing_tag(user_id: str) -> str:\n"
+            "    if not user_id:\n"
+            '        raise ValueError("user_id must not be empty")\n'
+            "    return base64.urlsafe_b64encode(user_id.encode(\"utf-8\")).decode(\n"
+            '        "ascii"\n'
+            '    ).rstrip("=")\n'
+            "\n"
+            "\n"
+            "def _session_routing_tag(session_id: str) -> str:\n"
+            '    tag, separator, secret = session_id.partition(".")\n'
+            "    if not separator or not tag or not secret:\n"
+            "        raise ValueError(\n"
+            '            "session_id must be created by create_session_id"\n'
+            "        )\n"
+            "    return tag\n"
+            "\n"
+            "\n"
+            "def create_session_id(user_id: str) -> str:\n"
+            "    return (\n"
+            '        f"{_user_routing_tag(user_id)}."\n'
+            '        f"{secrets.token_urlsafe(32)}"\n'
+            "    )\n"
             "\n"
             "\n"
             "@dataclass(frozen=True, slots=True)\n"
@@ -200,19 +232,31 @@ class SessionStoreGenerator:
             "import json\n"
             "\n"
             "from redis.asyncio import Redis\n"
+            "from redis.asyncio.cluster import RedisCluster\n"
             "from redis.exceptions import RedisError\n"
             "\n"
-            "from .protocol import SessionData, SessionStoreError\n"
+            "from .protocol import (\n"
+            "    SessionData,\n"
+            "    SessionStoreError,\n"
+            "    _session_routing_tag,\n"
+            "    _user_routing_tag,\n"
+            ")\n"
             "\n"
             "\n"
             "class RedisSessionStore:\n"
             f"    _namespace = {namespace}\n"
             f"    _ttl_seconds = {service.ttl_seconds}\n"
             "\n"
-            "    def __init__(self, client: Redis) -> None:\n"
+            "    def __init__(self, client: Redis | RedisCluster) -> None:\n"
             "        self._client = client\n"
             "\n"
             "    async def create(self, session: SessionData) -> None:\n"
+            "        if _session_routing_tag(session.session_id) != _user_routing_tag(\n"
+            "            session.user_id\n"
+            "        ):\n"
+            "            raise SessionStoreError(\n"
+            '                "Session ID does not belong to the session user"\n'
+            "            )\n"
             "        payload = json.dumps(\n"
             "            {\"user_id\": session.user_id, \"data\": session.data},\n"
             "            separators=(\",\", \":\"),\n"
@@ -290,16 +334,20 @@ class SessionStoreGenerator:
             '            raise SessionStoreError("Redis user session revoke failed") from error\n'
             "\n"
             "    def _session_key(self, session_id: str) -> str:\n"
-            '        return f"{self._namespace}:session:{session_id}"\n'
+            "        routing_tag = _session_routing_tag(session_id)\n"
+            '        return f"{self._namespace}:{{{routing_tag}}}:session:{session_id}"\n'
             "\n"
             "    def _user_key(self, user_id: str) -> str:\n"
-            '        return f"{self._namespace}:user-sessions:{user_id}"\n'
+            "        routing_tag = _user_routing_tag(user_id)\n"
+            '        return f"{self._namespace}:{{{routing_tag}}}:user-sessions"\n'
         )
 
     @staticmethod
     def _render_provider(service: ServiceSpec) -> str:
         if service.mode == "sentinel":
             return SessionStoreGenerator._render_sentinel_provider(service)
+        if service.mode == "cluster":
+            return SessionStoreGenerator._render_cluster_provider(service)
         url_env = json.dumps(service.url_env)
         return (
             "import os\n"
@@ -327,6 +375,81 @@ class SessionStoreGenerator:
             '            f"Required environment variable is missing: {REDIS_URL_ENV}"\n'
             "        )\n"
             "    client = Redis.from_url(redis_url, decode_responses=True)\n"
+            "    app.state.session_store = RedisSessionStore(client)\n"
+            "    try:\n"
+            "        yield\n"
+            "    finally:\n"
+            "        del app.state.session_store\n"
+            "        await client.aclose()\n"
+            "\n"
+            "\n"
+            "def get_session_store(request: Request) -> SessionStore:\n"
+            "    try:\n"
+            "        return request.app.state.session_store\n"
+            "    except AttributeError as error:\n"
+            "        raise SessionStoreError(\n"
+            '            "SessionStore is not initialized"\n'
+            "        ) from error\n"
+            "\n"
+            "\n"
+            "bearer_scheme = HTTPBearer(auto_error=False)\n"
+            "\n"
+            "\n"
+            "async def get_current_session(\n"
+            "    credentials: Annotated[\n"
+            "        HTTPAuthorizationCredentials | None, Depends(bearer_scheme)\n"
+            "    ],\n"
+            "    session_store: Annotated[SessionStore, Depends(get_session_store)],\n"
+            ") -> SessionData:\n"
+            "    if credentials is None:\n"
+            "        raise HTTPException(\n"
+            "            status_code=status.HTTP_401_UNAUTHORIZED,\n"
+            '            detail="Bearer session is required",\n'
+            "        )\n"
+            "    session = await session_store.get(credentials.credentials)\n"
+            "    if session is None:\n"
+            "        raise HTTPException(\n"
+            "            status_code=status.HTTP_401_UNAUTHORIZED,\n"
+            '            detail="Invalid session",\n'
+            "        )\n"
+            "    return session\n"
+        )
+
+    @staticmethod
+    def _render_cluster_provider(service: ServiceSpec) -> str:
+        cluster_url_env = json.dumps(service.cluster_url_env)
+        return (
+            "import os\n"
+            "from collections.abc import AsyncIterator\n"
+            "from contextlib import asynccontextmanager\n"
+            "from typing import Annotated\n"
+            "\n"
+            "from fastapi import Depends, FastAPI, HTTPException, Request, status\n"
+            "from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer\n"
+            "from redis.asyncio.cluster import RedisCluster\n"
+            "\n"
+            "from .protocol import SessionData, SessionStore, SessionStoreError\n"
+            "from .redis import RedisSessionStore\n"
+            "\n"
+            f"REDIS_CLUSTER_URL_ENV = {cluster_url_env}\n"
+            "\n"
+            "\n"
+            "@asynccontextmanager\n"
+            "async def session_store_lifespan(\n"
+            "    app: FastAPI,\n"
+            ") -> AsyncIterator[None]:\n"
+            "    cluster_url = os.environ.get(REDIS_CLUSTER_URL_ENV)\n"
+            "    if not cluster_url:\n"
+            "        raise SessionStoreError(\n"
+            "            f\"Required environment variable is missing: \"\n"
+            "            f\"{REDIS_CLUSTER_URL_ENV}\"\n"
+            "        )\n"
+            "    client = RedisCluster.from_url(\n"
+            "        cluster_url,\n"
+            "        decode_responses=True,\n"
+            "        require_full_coverage=True,\n"
+            "        reinitialize_steps=1,\n"
+            "    )\n"
             "    app.state.session_store = RedisSessionStore(client)\n"
             "    try:\n"
             "        yield\n"
