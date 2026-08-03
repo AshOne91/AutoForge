@@ -155,11 +155,26 @@ class FastAPIModuleGenerator:
         module_name = specification.module.name
         module_path = f"{self._package_name}.modules.{module_name}"
         has_session_store = self._requires_session_store(specification)
-        fastapi_names = "APIRouter, Depends" if has_session_store else "APIRouter"
+        has_database_registry = self._requires_database_registry(specification)
+        has_dependencies = has_session_store or has_database_registry
+        fastapi_names = "APIRouter, Depends" if has_dependencies else "APIRouter"
         imports: list[str] = []
-        if has_session_store:
+        if has_dependencies:
             imports.extend(["from typing import Annotated", ""])
         imports.extend([f"from fastapi import {fastapi_names}", ""])
+        if has_database_registry:
+            imports.extend(
+                [
+                    self._render_from_import(
+                        f"{self._package_name}.infrastructure.database.provider",
+                        ["get_session_registry"],
+                    ),
+                    self._render_from_import(
+                        f"{self._package_name}.infrastructure.database.session",
+                        ["AsyncSessionRegistry"],
+                    ),
+                ]
+            )
         if has_session_store:
             imports.extend(
                 [
@@ -237,6 +252,15 @@ class FastAPIModuleGenerator:
                 "SessionStore, Depends(get_session_store)],"
             )
             arguments.append("session_store")
+        if (
+            EndpointDependency.DATABASE_SESSION_REGISTRY
+            in endpoint.dependencies
+        ):
+            parameters.append(
+                "    session_registry: Annotated["
+                "AsyncSessionRegistry, Depends(get_session_registry)],"
+            )
+            arguments.append("session_registry")
 
         if parameters:
             lines.append(f"async def {endpoint.name}(")
@@ -278,6 +302,11 @@ class FastAPIModuleGenerator:
                 f"from {self._package_name}.infrastructure.session_store.protocol "
                 "import SessionStore"
             )
+        if self._requires_database_registry(specification):
+            imports.append(
+                f"from {self._package_name}.infrastructure.database.session "
+                "import AsyncSessionRegistry"
+            )
         if model_names:
             imports.append(f"from {module_path}.models import {', '.join(model_names)}")
         if schema_names:
@@ -296,6 +325,11 @@ class FastAPIModuleGenerator:
             parameters.append(f"    request: {self._request_type(endpoint)},")
         if EndpointDependency.SESSION_STORE in endpoint.dependencies:
             parameters.append("    session_store: SessionStore,")
+        if (
+            EndpointDependency.DATABASE_SESSION_REGISTRY
+            in endpoint.dependencies
+        ):
+            parameters.append("    session_registry: AsyncSessionRegistry,")
         if parameters:
             signature = (
                 f"async def {endpoint.handler}(\n"
@@ -367,5 +401,13 @@ class FastAPIModuleGenerator:
     def _requires_session_store(specification: ModuleSpec) -> bool:
         return any(
             EndpointDependency.SESSION_STORE in endpoint.dependencies
+            for endpoint in specification.endpoints
+        )
+
+    @staticmethod
+    def _requires_database_registry(specification: ModuleSpec) -> bool:
+        return any(
+            EndpointDependency.DATABASE_SESSION_REGISTRY
+            in endpoint.dependencies
             for endpoint in specification.endpoints
         )

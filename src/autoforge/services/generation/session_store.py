@@ -298,6 +298,8 @@ class SessionStoreGenerator:
 
     @staticmethod
     def _render_provider(service: ServiceSpec) -> str:
+        if service.mode == "sentinel":
+            return SessionStoreGenerator._render_sentinel_provider(service)
         url_env = json.dumps(service.url_env)
         return (
             "import os\n"
@@ -329,6 +331,84 @@ class SessionStoreGenerator:
             "    finally:\n"
             "        del app.state.session_store\n"
             "        await client.aclose()\n"
+            "\n"
+            "\n"
+            "def get_session_store(request: Request) -> SessionStore:\n"
+            "    try:\n"
+            "        return request.app.state.session_store\n"
+            "    except AttributeError as error:\n"
+            "        raise SessionStoreError(\n"
+            '            "SessionStore is not initialized"\n'
+            "        ) from error\n"
+        )
+
+    @staticmethod
+    def _render_sentinel_provider(service: ServiceSpec) -> str:
+        sentinel_urls_env = json.dumps(service.sentinel_urls_env)
+        master_name = json.dumps(service.sentinel_master)
+        return (
+            "import os\n"
+            "from collections.abc import AsyncIterator\n"
+            "from contextlib import asynccontextmanager\n"
+            "\n"
+            "from fastapi import FastAPI, Request\n"
+            "from redis.asyncio.sentinel import Sentinel\n"
+            "\n"
+            "from .protocol import SessionStore, SessionStoreError\n"
+            "from .redis import RedisSessionStore\n"
+            "\n"
+            f"REDIS_SENTINEL_URLS_ENV = {sentinel_urls_env}\n"
+            f"REDIS_SENTINEL_MASTER = {master_name}\n"
+            "\n"
+            "\n"
+            "def _sentinel_endpoints(value: str) -> list[tuple[str, int]]:\n"
+            "    endpoints: list[tuple[str, int]] = []\n"
+            "    for item in value.split(','):\n"
+            "        host, separator, port_text = item.strip().rpartition(':')\n"
+            "        if not separator or not host:\n"
+            "            raise SessionStoreError(\n"
+            '                f"Invalid Redis Sentinel endpoint: {item!r}"\n'
+            "            )\n"
+            "        try:\n"
+            "            port = int(port_text)\n"
+            "        except ValueError as error:\n"
+            "            raise SessionStoreError(\n"
+            '                f"Invalid Redis Sentinel port: {item!r}"\n'
+            "            ) from error\n"
+            "        endpoints.append((host, port))\n"
+            "    if not endpoints:\n"
+            '        raise SessionStoreError("Redis Sentinel endpoints are empty")\n'
+            "    return endpoints\n"
+            "\n"
+            "\n"
+            "@asynccontextmanager\n"
+            "async def session_store_lifespan(\n"
+            "    app: FastAPI,\n"
+            ") -> AsyncIterator[None]:\n"
+            "    raw_urls = os.environ.get(REDIS_SENTINEL_URLS_ENV)\n"
+            "    if not raw_urls:\n"
+            "        raise SessionStoreError(\n"
+            "            f\"Required environment variable is missing: \"\n"
+            "            f\"{REDIS_SENTINEL_URLS_ENV}\"\n"
+            "        )\n"
+            "    sentinel = Sentinel(\n"
+            "        _sentinel_endpoints(raw_urls),\n"
+            "        socket_timeout=2,\n"
+            "        decode_responses=True,\n"
+            "    )\n"
+            "    client = sentinel.master_for(\n"
+            "        REDIS_SENTINEL_MASTER,\n"
+            "        socket_timeout=2,\n"
+            "        decode_responses=True,\n"
+            "    )\n"
+            "    app.state.session_store = RedisSessionStore(client)\n"
+            "    try:\n"
+            "        yield\n"
+            "    finally:\n"
+            "        del app.state.session_store\n"
+            "        await client.aclose()\n"
+            "        for sentinel_client in sentinel.sentinels:\n"
+            "            await sentinel_client.aclose()\n"
             "\n"
             "\n"
             "def get_session_store(request: Request) -> SessionStore:\n"

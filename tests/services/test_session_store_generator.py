@@ -43,6 +43,24 @@ def project_specification(*, with_session: bool = True) -> ProjectSpec:
     )
 
 
+def sentinel_project_specification() -> ProjectSpec:
+    specification = project_specification()
+    service = specification.application.services[0].model_copy(
+        update={
+            "mode": "sentinel",
+            "sentinel_urls_env": "KIS_REDIS_SENTINELS",
+            "sentinel_master": "kis-session",
+        }
+    )
+    return specification.model_copy(
+        update={
+            "application": specification.application.model_copy(
+                update={"services": [service]}
+            )
+        }
+    )
+
+
 def test_session_store_generator_satisfies_protocol() -> None:
     generator: Generator[ProjectSpec] = SessionStoreGenerator()
 
@@ -90,6 +108,20 @@ def test_without_session_service_produces_no_files() -> None:
 
     assert generator.render(specification) == {}
     assert generator.plan(specification).files == []
+
+
+def test_sentinel_provider_uses_declared_discovery_contract() -> None:
+    files = SessionStoreGenerator().render(sentinel_project_specification())
+    provider = files[PurePosixPath(
+        "src/kis_auto_trading/infrastructure/session_store/provider.py"
+    )]
+
+    ast.parse(provider)
+    assert 'REDIS_SENTINEL_URLS_ENV = "KIS_REDIS_SENTINELS"' in provider
+    assert 'REDIS_SENTINEL_MASTER = "kis-session"' in provider
+    assert "from redis.asyncio.sentinel import Sentinel" in provider
+    assert "sentinel.master_for(" in provider
+    assert "for sentinel_client in sentinel.sentinels:" in provider
 
 
 def test_plan_marks_all_session_files_generated() -> None:

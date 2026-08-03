@@ -34,6 +34,7 @@ class HttpMethod(StrEnum):
 
 class EndpointDependency(StrEnum):
     SESSION_STORE = "session_store"
+    DATABASE_SESSION_REGISTRY = "database_session_registry"
 
 
 class ProjectInfo(StrictSpecModel):
@@ -59,11 +60,24 @@ class ServiceSpec(StrictSpecModel):
     namespace: str
     ttl_seconds: int = Field(gt=0)
     url_env: str = Field(default="REDIS_URL", pattern=r"^[A-Z][A-Z0-9_]*$")
+    mode: Literal["standalone", "sentinel"] = "standalone"
+    sentinel_urls_env: str = Field(
+        default="REDIS_SENTINEL_URLS",
+        pattern=r"^[A-Z][A-Z0-9_]*$",
+    )
+    sentinel_master: str = "session-primary"
 
     @field_validator("name", "namespace")
     @classmethod
     def validate_names(cls, value: str) -> str:
         return validate_python_name(value)
+
+    @field_validator("sentinel_master")
+    @classmethod
+    def validate_sentinel_master(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("sentinel_master must not be empty")
+        return value
 
 
 class DatabaseShardSpec(StrictSpecModel):

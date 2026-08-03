@@ -11,12 +11,19 @@ DatabaseSpec과 Repository 최소 명세 계약은 구현되었고
 구현되었고 kis-auto-trading Account/Profile 명세로 렌더링을 검증했다.
 
 PostgreSQL DDL Generator로 로그인 Global DB와 개인정보 Shard DB의 분리된 SQL을
-생성하고 kis-auto-trading 명세로 검증했다. 다음 목표는 SQLAlchemy async
-Model Generator, request-scoped Session과 ShardRouter Protocol을 구현했다.
-SQLAlchemy Repository Adapter와 Domain/Record 변환 Generator까지 구현했다.
-다음 목표는 여러 Project/Module Generator 결과를 하나의 GenerationPlan으로
-조립하고 Manifest와 함께 대상 저장소에 적용하는 Generation Runner와 CLI다.
-그 다음 Alembic 실행 환경을 생성하여 저장된 SQL의 적용 순서와 상태를 관리한다.
+생성하고 kis-auto-trading 명세로 검증했다. SQLAlchemy async Model Generator,
+request-scoped Session, ShardRouter Protocol, Repository Adapter와 Domain/Record
+변환 Generator를 구현했다. 여러 Project/Module 결과를 조립해 Manifest와 함께
+대상 저장소에 적용하는 Generation Runner와 CLI도 구현하여 kis-auto-trading에
+실제 생성 결과를 적용했다.
+
+Redis Service Blueprint의 standalone과 Sentinel 연결 공급자를 구현했고,
+kis-auto-trading에서 Primary 중지, Replica 자동 승격, 기존 session 읽기와 신규
+session 쓰기를 실제 Docker 토폴로지로 검증했다. Cluster-aware 연결과 AWS managed
+환경 계약은 Redis 후속 범위로 유지한다.
+
+다음 목표는 Alembic 실행 환경을 생성하여 저장된 Global/Shard SQL의 적용 순서와
+상태를 관리하는 것이다.
 
 Repository와 DB 기반 이후 Redis Service와 RabbitMQ Transport를 필수 서비스로
 구현한다. Redis는 cache/coordination, RabbitMQ는 Queue/Worker 책임을 가지며
@@ -30,19 +37,19 @@ Repository와 DB 기반 이후 Redis Service와 RabbitMQ Transport를 필수 서
 
 ## 다음 구현 범위
 
-1. SQLAlchemy async Adapter가 소유할 GENERATED/SCAFFOLDED 파일 확정
-2. 기술 중립 FieldType을 SQLAlchemy Column type으로 변환하는 규칙 정의
-3. Unit of Work와 request-scoped transaction 경계 정의
-4. Alembic migration의 create-only 소유권과 반복 생성 정책 확정
-5. kis-auto-trading UserProfile 저장 계층 생성 결과 계획
+1. Alembic 실행 환경의 GENERATED/SCAFFOLDED 파일 소유권 확정
+2. Global DB와 모든 Shard DB에 동일 순서로 migration을 적용하는 계약 정의
+3. 기존 PostgreSQL DDL 산출물과 Alembic revision의 중복 책임 방지
+4. 반복 생성, migration 상태, 실패 시 중단 정책 확정
+5. kis-auto-trading 격리 Workspace에서 생성·import·pytest 검증
 6. 구현 전 구체적인 코드·테스트 파일 계획 제시
 
 ## 이번 범위에서 구현하지 않음
 
-- Database 구현 코드
-- SQLAlchemy 및 Alembic Plugin
-- Template 렌더링
-- GenerationJob 실행기
+- 추가 DB Provider
+- 로그인 업무 Handler와 인증 정책
+- Redis Sentinel/Cluster 구현
+- RabbitMQ와 Outbox
 - 권한의 OS 수준 Sandbox 강제
 - Webhook
 - Git Commit, Push, Pull Request

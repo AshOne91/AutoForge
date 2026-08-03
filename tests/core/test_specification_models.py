@@ -91,6 +91,13 @@ def test_endpoint_dependency_is_typed_unique_and_optional() -> None:
 
     assert endpoint.dependencies == [EndpointDependency.SESSION_STORE]
 
+    database_endpoint = EndpointSpec.model_validate(
+        {**endpoint_data, "dependencies": ["database_session_registry"]}
+    )
+    assert database_endpoint.dependencies == [
+        EndpointDependency.DATABASE_SESSION_REGISTRY
+    ]
+
     with pytest.raises(ValidationError, match="dependencies must be unique"):
         EndpointSpec.model_validate(
             {**endpoint_data, "dependencies": ["session_store", "session_store"]}

@@ -248,6 +248,36 @@ def test_session_store_dependency_is_injected_into_handler() -> None:
     assert "session_store: SessionStore," in handlers
 
 
+def test_database_session_registry_dependency_is_injected_into_handler() -> None:
+    specification = tutorial_specification()
+    dependent_endpoint = specification.endpoints[1].model_copy(
+        update={
+            "dependencies": [EndpointDependency.DATABASE_SESSION_REGISTRY]
+        }
+    )
+    specification = specification.model_copy(
+        update={"endpoints": [specification.endpoints[0], dependent_endpoint]}
+    )
+
+    files = FastAPIModuleGenerator("game_server").render(specification)
+    router = files[
+        PurePosixPath("src/game_server/modules/tutorial/generated/router.py")
+    ]
+    handlers = files[
+        PurePosixPath("src/game_server/modules/tutorial/handlers.py")
+    ]
+
+    ast.parse(router)
+    ast.parse(handlers)
+    assert "from fastapi import APIRouter, Depends" in router
+    assert (
+        "session_registry: Annotated[AsyncSessionRegistry, "
+        "Depends(get_session_registry)]" in router
+    )
+    assert "handlers.complete_step(request, session_registry)" in router
+    assert "session_registry: AsyncSessionRegistry," in handlers
+
+
 def test_same_specification_preserves_modified_handler(tmp_path: Path) -> None:
     generator = FastAPIModuleGenerator("game_server")
     specification = tutorial_specification()
