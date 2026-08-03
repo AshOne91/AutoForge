@@ -66,6 +66,7 @@ def test_render_generates_transport_outbox_relay_and_migration() -> None:
         PurePosixPath("src/kis_auto_trading/infrastructure/messaging/protocol.py"),
         PurePosixPath("src/kis_auto_trading/infrastructure/messaging/rabbitmq.py"),
         PurePosixPath("src/kis_auto_trading/infrastructure/outbox/__init__.py"),
+        PurePosixPath("src/kis_auto_trading/infrastructure/outbox/inbox.py"),
         PurePosixPath("src/kis_auto_trading/infrastructure/outbox/models.py"),
         PurePosixPath("src/kis_auto_trading/infrastructure/outbox/repository.py"),
         PurePosixPath("src/kis_auto_trading/infrastructure/outbox/relay.py"),
@@ -86,13 +87,22 @@ def test_render_generates_transport_outbox_relay_and_migration() -> None:
     relay = files[
         PurePosixPath("src/kis_auto_trading/infrastructure/outbox/relay.py")
     ]
+    inbox = files[
+        PurePosixPath("src/kis_auto_trading/infrastructure/outbox/inbox.py")
+    ]
     revision = files[
         PurePosixPath("migrations/account/versions/0002_outbox.py")
     ]
     assert "publisher_confirms=True" in rabbitmq
     assert "mandatory=True" in rabbitmq
+    assert "except CONNECTION_EXCEPTIONS as error" in rabbitmq
+    assert "raise MessagePublishError" in rabbitmq
     assert "message.process(requeue=False)" in rabbitmq
+    assert "message rejected after handler failure" in rabbitmq
     assert ".with_for_update(skip_locked=True)" in relay
+    assert "except MessagePublishError as error" in relay
+    assert "except Exception" not in relay
+    assert ".on_conflict_do_nothing(index_elements=['event_id'])" in inbox
     assert "af_account_outbox_0001" in revision
     assert "processed_messages" in revision
 

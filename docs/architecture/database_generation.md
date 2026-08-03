@@ -185,8 +185,11 @@ Redis에 자체 Queue를 다시 구현하거나 RabbitMQ에 cache 책임을 넣�
 ```
 
 EventBus는 프로세스 내부의 generic event 전달을 담당한다. Outbox와 Message
-Transport는 별도 Adapter와 Handler로 연결한다. 첫 MVP에서는 Outbox 실행기를
-만들지 않지만 Repository와 Unit of Work 계약이 이를 막지 않도록 한다.
+Transport는 별도 Adapter와 Handler로 연결한다. RabbitMQ Blueprint는 publisher
+confirm, durable exchange/queue, manual ACK와 dead-letter topology를 생성한다.
+Outbox Relay는 `FOR UPDATE SKIP LOCKED`로 여러 relay의 중복 선점을 막고,
+Inbox는 event ID unique claim으로 at-least-once 중복 전달을 안전하게 처리한다.
+업무 변경과 Outbox 기록은 반드시 같은 `AsyncSession` transaction에 둔다.
 
 ## 생성 파일 소유권
 

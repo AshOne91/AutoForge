@@ -1,5 +1,20 @@
 # 현재 상태
 
+## 2026-08-03 RabbitMQ/Transactional Outbox 완료
+
+- Project `ServiceSpec`에 RabbitMQ connection, exchange, queue, routing key,
+  dead-letter와 outbox store 계약을 추가했다.
+- Messaging Generator가 aio-pika publisher/consumer, Outbox writer/relay,
+  Processed Message Inbox, store별 immutable Alembic revision과 실행 script를 생성한다.
+- Publisher confirm, persistent message, mandatory routing, durable topology,
+  manual ACK, DLX/DLQ와 transport 오류만 재시도하는 경계를 적용했다.
+- KIS Profile 저장과 Outbox event 기록이 선택된 account shard의 같은 transaction에서
+  수행되는 것을 단위 테스트와 실제 PostgreSQL로 검증했다.
+- RabbitMQ 중단 중 API 저장과 pending Outbox 기록, 재시작 후 발행/소비,
+  동일 event 재발행 시 Inbox row 1개 유지, volume 기반 durable queue 복구를 검증했다.
+- 다음 단계는 기존 generic EventBus를 업무 로직 없이 유지하면서 Job Event와
+  Pipeline 실행 조정 계층을 구현하는 것이다.
+
 ## 완료
 
 - 설정 로딩 기본 구조

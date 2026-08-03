@@ -43,6 +43,7 @@ class MessagingGenerator:
             root / "messaging" / "protocol.py": self._render_protocol(),
             root / "messaging" / "rabbitmq.py": self._render_rabbitmq(service),
             root / "outbox" / "__init__.py": self._render_outbox_init(),
+            root / "outbox" / "inbox.py": self._render_inbox(package),
             root / "outbox" / "models.py": self._render_outbox_models(package),
             root / "outbox" / "repository.py": self._render_repository(package),
             root / "outbox" / "relay.py": self._render_relay(package),
@@ -112,12 +113,18 @@ class MessagingGenerator:
     @staticmethod
     def _render_messaging_init() -> str:
         return (
-            "from .protocol import EventMessage, MessageHandler, MessagePublisher\n"
+            "from .protocol import (\n"
+            "    EventMessage,\n"
+            "    MessageHandler,\n"
+            "    MessagePublisher,\n"
+            "    MessagePublishError,\n"
+            ")\n"
             "from .rabbitmq import RabbitMQConsumer, RabbitMQPublisher\n"
             "\n"
             "__all__ = [\n"
             '    "EventMessage",\n'
             '    "MessageHandler",\n'
+            '    "MessagePublishError",\n'
             '    "MessagePublisher",\n'
             '    "RabbitMQConsumer",\n'
             '    "RabbitMQPublisher",\n'
@@ -156,6 +163,10 @@ class MessagingGenerator:
             "    async def publish(self, message: EventMessage) -> None: ...\n"
             "\n"
             "\n"
+            "class MessagePublishError(RuntimeError):\n"
+            "    pass\n"
+            "\n"
+            "\n"
             "class MessageHandler(Protocol):\n"
             "    async def handle(self, message: EventMessage) -> None: ...\n"
         )
@@ -166,6 +177,7 @@ class MessagingGenerator:
             "from __future__ import annotations\n"
             "\n"
             "import json\n"
+            "import logging\n"
             "from datetime import datetime\n"
             "\n"
             "import aio_pika\n"
@@ -175,8 +187,11 @@ class MessagingGenerator:
             "    AbstractRobustExchange,\n"
             "    AbstractRobustQueue,\n"
             ")\n"
+            "from aio_pika.exceptions import CONNECTION_EXCEPTIONS\n"
             "\n"
-            "from .protocol import EventMessage, MessageHandler\n"
+            "from .protocol import EventMessage, MessageHandler, MessagePublishError\n"
+            "\n"
+            "logger = logging.getLogger(__name__)\n"
             "\n"
             f"EXCHANGE_NAME = {json.dumps(service.exchange)}\n"
             f"QUEUE_NAME = {json.dumps(service.queue)}\n"
@@ -239,17 +254,20 @@ class MessagingGenerator:
             "            separators=(',', ':'),\n"
             "            sort_keys=True,\n"
             "        ).encode('utf-8')\n"
-            "        await self._exchange.publish(\n"
-            "            aio_pika.Message(\n"
-            "                body=body,\n"
-            "                message_id=message.event_id,\n"
-            "                type=message.event_type,\n"
-            "                delivery_mode=aio_pika.DeliveryMode.PERSISTENT,\n"
-            "                content_type='application/json',\n"
-            "            ),\n"
-            "            routing_key=message.routing_key,\n"
-            "            mandatory=True,\n"
-            "        )\n"
+            "        try:\n"
+            "            await self._exchange.publish(\n"
+            "                aio_pika.Message(\n"
+            "                    body=body,\n"
+            "                    message_id=message.event_id,\n"
+            "                    type=message.event_type,\n"
+            "                    delivery_mode=aio_pika.DeliveryMode.PERSISTENT,\n"
+            "                    content_type='application/json',\n"
+            "                ),\n"
+            "                routing_key=message.routing_key,\n"
+            "                mandatory=True,\n"
+            "            )\n"
+            "        except CONNECTION_EXCEPTIONS as error:\n"
+            "            raise MessagePublishError(str(error)) from error\n"
             "\n"
             "\n"
             "class RabbitMQConsumer:\n"
@@ -260,20 +278,26 @@ class MessagingGenerator:
             "        _, queue = await declare_topology(self._connection)\n"
             "\n"
             "        async def process(message: AbstractIncomingMessage) -> None:\n"
-            "            async with message.process(requeue=False):\n"
-            "                decoded = json.loads(message.body.decode('utf-8'))\n"
-            "                await handler.handle(\n"
-            "                    EventMessage(\n"
-            "                        event_id=decoded['event_id'],\n"
-            "                        event_type=decoded['event_type'],\n"
-            "                        event_version=decoded['event_version'],\n"
-            "                        aggregate_id=decoded['aggregate_id'],\n"
-            "                        payload=decoded['payload'],\n"
-            "                        routing_key=decoded['routing_key'],\n"
-            "                        occurred_at=datetime.fromisoformat(\n"
-            "                            decoded['occurred_at']\n"
-            "                        ),\n"
+            "            try:\n"
+            "                async with message.process(requeue=False):\n"
+            "                    decoded = json.loads(message.body.decode('utf-8'))\n"
+            "                    await handler.handle(\n"
+            "                        EventMessage(\n"
+            "                            event_id=decoded['event_id'],\n"
+            "                            event_type=decoded['event_type'],\n"
+            "                            event_version=decoded['event_version'],\n"
+            "                            aggregate_id=decoded['aggregate_id'],\n"
+            "                            payload=decoded['payload'],\n"
+            "                            routing_key=decoded['routing_key'],\n"
+            "                            occurred_at=datetime.fromisoformat(\n"
+            "                                decoded['occurred_at']\n"
+            "                            ),\n"
+            "                        )\n"
             "                    )\n"
+            "            except Exception:\n"
+            "                logger.exception(\n"
+            "                    'message rejected after handler failure',\n"
+            "                    extra={'message_id': message.message_id},\n"
             "                )\n"
             "\n"
             "        await queue.consume(process, no_ack=False)\n"
@@ -282,10 +306,42 @@ class MessagingGenerator:
     @staticmethod
     def _render_outbox_init() -> str:
         return (
+            "from .inbox import ProcessedMessageInbox\n"
             "from .relay import OutboxRelay\n"
             "from .repository import OutboxWriter\n"
             "\n"
-            '__all__ = ["OutboxRelay", "OutboxWriter"]\n'
+            "__all__ = [\n"
+            '    "OutboxRelay",\n'
+            '    "OutboxWriter",\n'
+            '    "ProcessedMessageInbox",\n'
+            "]\n"
+        )
+
+    @staticmethod
+    def _render_inbox(package: str) -> str:
+        return (
+            "from datetime import UTC, datetime\n"
+            "\n"
+            "from sqlalchemy.dialects.postgresql import insert\n"
+            "from sqlalchemy.ext.asyncio import AsyncSession\n"
+            "\n"
+            f"from {package}.infrastructure.outbox.models import (\n"
+            "    ProcessedMessageRecord,\n"
+            ")\n"
+            "\n"
+            "\n"
+            "class ProcessedMessageInbox:\n"
+            "    def __init__(self, session: AsyncSession) -> None:\n"
+            "        self._session = session\n"
+            "\n"
+            "    async def claim(self, event_id: str) -> bool:\n"
+            "        statement = (\n"
+            "            insert(ProcessedMessageRecord)\n"
+            "            .values(event_id=event_id, processed_at=datetime.now(UTC))\n"
+            "            .on_conflict_do_nothing(index_elements=['event_id'])\n"
+            "        )\n"
+            "        result = await self._session.execute(statement)\n"
+            "        return result.rowcount == 1\n"
         )
 
     @staticmethod
@@ -368,6 +424,7 @@ class MessagingGenerator:
             f"from {package}.infrastructure.messaging.protocol import (\n"
             "    EventMessage,\n"
             "    MessagePublisher,\n"
+            "    MessagePublishError,\n"
             ")\n"
             f"from {package}.infrastructure.outbox.models import OutboxEventRecord\n"
             "\n"
@@ -405,7 +462,7 @@ class MessagingGenerator:
             "                        occurred_at=record.occurred_at,\n"
             "                    )\n"
             "                )\n"
-            "            except Exception as error:\n"
+            "            except MessagePublishError as error:\n"
             "                record.last_error = str(error)[:2000]\n"
             "                delay = min(60, 2 ** min(record.attempts, 6))\n"
             "                record.available_at = now + timedelta(seconds=delay)\n"
@@ -517,8 +574,8 @@ class MessagingGenerator:
         return (
             f'"""AutoForge transactional outbox for {store}."""\n'
             "\n"
-            "from alembic import op\n"
             "import sqlalchemy as sa\n"
+            "from alembic import op\n"
             "from sqlalchemy.dialects import postgresql\n"
             "\n"
             f"revision = {revision!r}\n"
