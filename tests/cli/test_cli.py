@@ -7,11 +7,16 @@ from pytest import MonkeyPatch
 from typer.testing import CliRunner
 
 from autoforge import __version__
+from autoforge.application.generation import (
+    GenerationJobPipeline,
+    GenerationValidationError,
+)
 from autoforge.cli.app import app
 from autoforge.cli.commands.generate import (
     _validate_database_placements,
     _validate_endpoint_dependencies,
 )
+from autoforge.core.pipeline import PipelineExecutionError
 from autoforge.core.specification import ModuleSpec, ProjectSpec
 
 runner = CliRunner()
@@ -103,6 +108,43 @@ def test_generate_rejects_session_dependency_without_service(tmp_path: Path) -> 
     )
     with pytest.raises(typer.BadParameter, match="requires a redis_session service"):
         _validate_endpoint_dependencies(project_spec, [module_spec])
+
+
+def test_generate_reports_pipeline_failure_without_internal_traceback(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    project = tmp_path / "autoforge.yaml"
+    specifications = tmp_path / "specifications"
+    specifications.mkdir()
+    project.write_text("{}", encoding="utf-8")
+
+    async def fail_pipeline(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        raise PipelineExecutionError(
+            "generation",
+            "validate_generated_project",
+            GenerationValidationError("validation failed at ruff"),
+        )
+
+    monkeypatch.setattr(GenerationJobPipeline, "run", fail_pipeline)
+
+    result = runner.invoke(
+        app,
+        [
+            "generate",
+            "--project",
+            str(project),
+            "--specifications",
+            str(specifications),
+            "--output",
+            str(tmp_path / "output"),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Error: validation failed at ruff" in result.output
+    assert "Traceback" not in result.output
 
 
 def test_current_session_dependency_requires_session_service() -> None:

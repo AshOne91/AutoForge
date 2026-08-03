@@ -53,7 +53,8 @@ def generate(
         if isinstance(cause, GenerationSpecificationError):
             raise typer.BadParameter(str(cause)) from cause
         detail = str(cause) if cause is not None else str(error)
-        raise typer.ClickException(detail) from error
+        typer.echo(f"Error: {detail}", err=True)
+        raise typer.Exit(code=1) from error
     typer.echo(
         f"Generated and validated {len(execution.job.units)} units "
         f"in {output.resolve()} (job_id={execution.job.job_id})"

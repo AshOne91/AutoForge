@@ -42,7 +42,7 @@
   얇은 adapter가 됐다. 기존 검증 helper 공개 경계는 호환 wrapper로 보존했다.
 - 실제 검증을 연결하면서 발견한 endpoint 없는 Router의 unused handlers import와
   import 구역 공백 생성 오류를 수정했다.
-- 전체 Ruff, 298개 pytest와 `python -m autoforge.main version`을 통과했다.
+- 전체 Ruff, 299개 pytest와 `python -m autoforge.main version`을 통과했다.
 - 다음 단계는 logging/audit handler, PostgreSQL JobStore와 idempotent trigger다.
 
 ## 2026-08-03 RabbitMQ/Transactional Outbox 완료
