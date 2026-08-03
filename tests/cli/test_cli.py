@@ -1,10 +1,15 @@
 from pathlib import Path
 
+import pytest
+import typer
+import yaml
 from pytest import MonkeyPatch
 from typer.testing import CliRunner
 
 from autoforge import __version__
 from autoforge.cli.app import app
+from autoforge.cli.commands.generate import _validate_endpoint_dependencies
+from autoforge.core.specification import ModuleSpec, ProjectSpec
 
 runner = CliRunner()
 
@@ -46,6 +51,54 @@ def test_generate_applies_specs_and_supports_repeated_run(tmp_path: Path) -> Non
     assert second.exit_code == 0, second.output
     assert (output / "src/sample/main.py").is_file()
     assert (output / ".autoforge/manifest.json").is_file()
+
+
+def test_generate_rejects_session_dependency_without_service(tmp_path: Path) -> None:
+    project = tmp_path / "autoforge.yaml"
+    specifications = tmp_path / "specifications"
+    output = tmp_path / "output"
+    specifications.mkdir()
+    project.write_text(
+        'spec_version: "1"\nproject:\n  name: Sample\n'
+        '  package_name: sample\n  version: "0.1.0"\n'
+        "application:\n  modules: [identity]\n",
+        encoding="utf-8",
+    )
+    (specifications / "identity.yaml").write_text(
+        'spec_version: "1"\nmodule:\n  name: identity\n'
+        "  display_name: Identity\n  route_prefix: /identity\n"
+        "endpoints:\n  - name: login\n    method: POST\n"
+        "    path: /login\n    response:\n      fields: []\n"
+        "    handler: login\n    dependencies: [session_store]\n",
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "generate",
+            "--project",
+            str(project),
+            "--specifications",
+            str(specifications),
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert not output.exists()
+
+    project_spec = ProjectSpec.model_validate(
+        yaml.safe_load(project.read_text(encoding="utf-8"))
+    )
+    module_spec = ModuleSpec.model_validate(
+        yaml.safe_load(
+            (specifications / "identity.yaml").read_text(encoding="utf-8")
+        )
+    )
+    with pytest.raises(typer.BadParameter, match="requires a redis_session service"):
+        _validate_endpoint_dependencies(project_spec, [module_spec])
 
 
 def test_plugin_reports_unavailable_command() -> None:

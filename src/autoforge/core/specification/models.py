@@ -32,6 +32,10 @@ class HttpMethod(StrEnum):
     DELETE = "DELETE"
 
 
+class EndpointDependency(StrEnum):
+    SESSION_STORE = "session_store"
+
+
 class ProjectInfo(StrictSpecModel):
     name: str = Field(min_length=1, max_length=100)
     package_name: str
@@ -62,10 +66,39 @@ class ServiceSpec(StrictSpecModel):
         return validate_python_name(value)
 
 
+class DatabaseShardSpec(StrictSpecModel):
+    shard_id: str = Field(min_length=1)
+    url_env: str = Field(pattern=r"^[A-Z][A-Z0-9_]*$")
+
+
+class DatabaseStoreSpec(StrictSpecModel):
+    name: str
+    global_url_env: str | None = Field(
+        default=None,
+        pattern=r"^[A-Z][A-Z0-9_]*$",
+    )
+    shards: list[DatabaseShardSpec] = Field(default_factory=list)
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        return validate_python_name(value)
+
+    @model_validator(mode="after")
+    def validate_connections(self) -> DatabaseStoreSpec:
+        if self.global_url_env is None and not self.shards:
+            raise ValueError("Database store requires a global URL or shard URLs.")
+        shard_ids = [shard.shard_id for shard in self.shards]
+        if len(shard_ids) != len(set(shard_ids)):
+            raise ValueError("Database shard IDs must be unique within a store.")
+        return self
+
+
 class ApplicationSpec(StrictSpecModel):
     framework: Literal["fastapi"] = "fastapi"
     modules: list[str] = Field(default_factory=list)
     services: list[ServiceSpec] = Field(default_factory=list)
+    databases: list[DatabaseStoreSpec] = Field(default_factory=list)
 
     @field_validator("modules")
     @classmethod
@@ -80,6 +113,9 @@ class ApplicationSpec(StrictSpecModel):
         names = [service.name for service in self.services]
         if len(names) != len(set(names)):
             raise ValueError("Application Service 이름은 중복될 수 없습니다.")
+        database_names = [database.name for database in self.databases]
+        if len(database_names) != len(set(database_names)):
+            raise ValueError("Application Database 이름은 중복될 수 없습니다.")
         return self
 
 
@@ -361,6 +397,7 @@ class EndpointSpec(StrictSpecModel):
     request: SchemaSpec | None = None
     response: ResponseSpec
     handler: str
+    dependencies: list[EndpointDependency] = Field(default_factory=list)
 
     @field_validator("name", "handler")
     @classmethod
@@ -371,6 +408,16 @@ class EndpointSpec(StrictSpecModel):
     @classmethod
     def validate_path(cls, value: str) -> str:
         return validate_http_path(value)
+
+    @field_validator("dependencies")
+    @classmethod
+    def validate_unique_dependencies(
+        cls,
+        values: list[EndpointDependency],
+    ) -> list[EndpointDependency]:
+        if len(values) != len(set(values)):
+            raise ValueError("Endpoint dependencies must be unique.")
+        return values
 
 
 class ModuleSpec(StrictSpecModel):

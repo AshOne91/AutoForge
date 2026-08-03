@@ -11,6 +11,7 @@ from autoforge.core.generation import (
     specification_hash,
 )
 from autoforge.core.specification import (
+    EndpointDependency,
     EndpointSpec,
     FieldSpec,
     FieldTypeKind,
@@ -153,11 +154,26 @@ class FastAPIModuleGenerator:
     def _render_router(self, specification: ModuleSpec) -> str:
         module_name = specification.module.name
         module_path = f"{self._package_name}.modules.{module_name}"
-        imports = [
-            "from fastapi import APIRouter",
-            "",
-            f"from {module_path} import handlers",
-        ]
+        has_session_store = self._requires_session_store(specification)
+        fastapi_names = "APIRouter, Depends" if has_session_store else "APIRouter"
+        imports: list[str] = []
+        if has_session_store:
+            imports.extend(["from typing import Annotated", ""])
+        imports.extend([f"from fastapi import {fastapi_names}", ""])
+        if has_session_store:
+            imports.extend(
+                [
+                    self._render_from_import(
+                        f"{self._package_name}.infrastructure.session_store.protocol",
+                        ["SessionStore"],
+                    ),
+                    self._render_from_import(
+                        f"{self._package_name}.infrastructure.session_store.provider",
+                        ["get_session_store"],
+                    ),
+                ]
+            )
+        imports.append(f"from {module_path} import handlers")
         model_names = sorted(
             {
                 endpoint.response.model_name
@@ -210,23 +226,28 @@ class FastAPIModuleGenerator:
         lines = [
             f"@router.{method}({path}, response_model={response_type})",
         ]
-        if endpoint.request is None:
-            lines.extend(
-                [
-                    f"async def {endpoint.name}() -> {response_type}:",
-                    f"    return await handlers.{endpoint.handler}()",
-                ]
+        parameters: list[str] = []
+        arguments: list[str] = []
+        if endpoint.request is not None:
+            parameters.append(f"    request: {self._request_type(endpoint)},")
+            arguments.append("request")
+        if EndpointDependency.SESSION_STORE in endpoint.dependencies:
+            parameters.append(
+                "    session_store: Annotated["
+                "SessionStore, Depends(get_session_store)],"
             )
+            arguments.append("session_store")
+
+        if parameters:
+            lines.append(f"async def {endpoint.name}(")
+            lines.extend(parameters)
+            lines.append(f") -> {response_type}:")
         else:
-            request_type = self._request_type(endpoint)
-            lines.extend(
-                [
-                    f"async def {endpoint.name}(",
-                    f"    request: {request_type},",
-                    f") -> {response_type}:",
-                    f"    return await handlers.{endpoint.handler}(request)",
-                ]
-            )
+            lines.append(f"async def {endpoint.name}() -> {response_type}:")
+        joined_arguments = ", ".join(arguments)
+        lines.append(
+            f"    return await handlers.{endpoint.handler}({joined_arguments})"
+        )
         return "\n".join(lines)
 
     def _render_handlers(self, specification: ModuleSpec) -> str:
@@ -252,6 +273,11 @@ class FastAPIModuleGenerator:
         )
         if model_names or schema_names:
             imports.append("")
+        if self._requires_session_store(specification):
+            imports.append(
+                f"from {self._package_name}.infrastructure.session_store.protocol "
+                "import SessionStore"
+            )
         if model_names:
             imports.append(f"from {module_path}.models import {', '.join(model_names)}")
         if schema_names:
@@ -265,14 +291,19 @@ class FastAPIModuleGenerator:
 
     def _render_handler(self, endpoint: EndpointSpec) -> str:
         response_type = self._response_type(endpoint)
-        if endpoint.request is None:
-            signature = f"async def {endpoint.handler}() -> {response_type}:"
-        else:
+        parameters: list[str] = []
+        if endpoint.request is not None:
+            parameters.append(f"    request: {self._request_type(endpoint)},")
+        if EndpointDependency.SESSION_STORE in endpoint.dependencies:
+            parameters.append("    session_store: SessionStore,")
+        if parameters:
             signature = (
                 f"async def {endpoint.handler}(\n"
-                f"    request: {self._request_type(endpoint)},\n"
-                f") -> {response_type}:"
+                + "\n".join(parameters)
+                + f"\n) -> {response_type}:"
             )
+        else:
+            signature = f"async def {endpoint.handler}() -> {response_type}:"
         return (
             f'{signature}\n    raise NotImplementedError("Handler를 구현해야 합니다.")'
         )
@@ -331,3 +362,10 @@ class FastAPIModuleGenerator:
             return single_line
         items = "".join(f"    {name},\n" for name in names)
         return f"from {module} import (\n{items})"
+
+    @staticmethod
+    def _requires_session_store(specification: ModuleSpec) -> bool:
+        return any(
+            EndpointDependency.SESSION_STORE in endpoint.dependencies
+            for endpoint in specification.endpoints
+        )

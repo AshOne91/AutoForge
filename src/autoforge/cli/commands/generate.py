@@ -10,7 +10,7 @@ from autoforge.core.job import (
     GenerationUnitKind,
     GenerationUnitManifest,
 )
-from autoforge.core.specification import ModuleSpec, ProjectSpec
+from autoforge.core.specification import EndpointDependency, ModuleSpec, ProjectSpec
 from autoforge.core.workspace import Workspace
 from autoforge.services.generation import GenerationRunner, ManifestStore
 from autoforge.services.generation.manifest_store import ManifestStoreError
@@ -39,6 +39,7 @@ def generate(
             "Module 명세가 Project 선언과 일치하지 않습니다: "
             f"declared={sorted(declared)}, discovered={sorted(discovered)}"
         )
+    _validate_endpoint_dependencies(project_spec, module_specs)
 
     output.mkdir(parents=True, exist_ok=True)
     workspace = Workspace(output.resolve())
@@ -79,6 +80,25 @@ def generate(
 
 def _load_yaml(path: Path) -> object:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def _validate_endpoint_dependencies(
+    project_spec: ProjectSpec,
+    module_specs: list[ModuleSpec],
+) -> None:
+    requires_session_store = any(
+        EndpointDependency.SESSION_STORE in endpoint.dependencies
+        for module_spec in module_specs
+        for endpoint in module_spec.endpoints
+    )
+    has_session_store = any(
+        service.kind == "redis_session"
+        for service in project_spec.application.services
+    )
+    if requires_session_store and not has_session_store:
+        raise typer.BadParameter(
+            "Endpoint dependency 'session_store' requires a redis_session service."
+        )
 
 
 def _load_previous_job(store: ManifestStore) -> GenerationJobManifest | None:

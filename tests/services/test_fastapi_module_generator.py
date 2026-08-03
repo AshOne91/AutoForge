@@ -11,6 +11,7 @@ from autoforge.core.generation import (
     content_hash,
 )
 from autoforge.core.specification import (
+    EndpointDependency,
     EndpointSpec,
     FieldSpec,
     FieldType,
@@ -218,6 +219,33 @@ def test_router_calls_async_handlers_with_schema_types() -> None:
     assert "async def get_progress() -> TutorialProgress:" in handlers
     assert "request: CompleteStepRequest" in handlers
     assert "raise NotImplementedError" in handlers
+
+
+def test_session_store_dependency_is_injected_into_handler() -> None:
+    specification = tutorial_specification()
+    dependent_endpoint = specification.endpoints[1].model_copy(
+        update={"dependencies": [EndpointDependency.SESSION_STORE]}
+    )
+    specification = specification.model_copy(
+        update={"endpoints": [specification.endpoints[0], dependent_endpoint]}
+    )
+
+    files = FastAPIModuleGenerator("game_server").render(specification)
+    router = files[
+        PurePosixPath("src/game_server/modules/tutorial/generated/router.py")
+    ]
+    handlers = files[
+        PurePosixPath("src/game_server/modules/tutorial/handlers.py")
+    ]
+
+    ast.parse(router)
+    ast.parse(handlers)
+    assert "from fastapi import APIRouter, Depends" in router
+    assert (
+        "session_store: Annotated[SessionStore, Depends(get_session_store)]" in router
+    )
+    assert "handlers.complete_step(request, session_store)" in router
+    assert "session_store: SessionStore," in handlers
 
 
 def test_same_specification_preserves_modified_handler(tmp_path: Path) -> None:

@@ -37,7 +37,19 @@ class FastAPIProjectGenerator:
             for service in specification.application.services
             if service.kind == "redis_session"
         ]
-        has_lifespan = bool(session_services)
+        database_stores = specification.application.databases
+        has_database = bool(database_stores)
+        has_session_store = bool(session_services)
+        has_lifespan = has_database or has_session_store
+        database_env_names = [
+            environment_name
+            for store in database_stores
+            for environment_name in [
+                store.global_url_env,
+                *(shard.url_env for shard in store.shards),
+            ]
+            if environment_name is not None
+        ]
 
         rendered = {
             PurePosixPath("pyproject.toml"): self._render_pyproject(
@@ -76,15 +88,18 @@ class FastAPIProjectGenerator:
             package_root / "routers" / "health.py": self._render_health_router(),
             PurePosixPath("tests", "test_health.py"): self._render_health_test(
                 package_name,
-                required_env_names=[
-                    service.url_env for service in session_services
-                ],
+                redis_env_names=[service.url_env for service in session_services],
+                database_env_names=database_env_names,
             ),
         }
         if has_lifespan:
             rendered[
                 package_root / "application" / "generated" / "lifespan.py"
-            ] = self._render_lifespan(package_name)
+            ] = self._render_lifespan(
+                package_name,
+                has_database=has_database,
+                has_session_store=has_session_store,
+            )
         return rendered
 
     def plan(self, specification: ProjectSpec) -> GenerationPlan:
@@ -159,6 +174,9 @@ class FastAPIProjectGenerator:
             "[tool.pytest.ini_options]\n"
             'pythonpath = ["src"]\n'
             'testpaths = ["tests"]\n'
+            "\n"
+            "[tool.ruff.lint.isort]\n"
+            f'known-first-party = ["{package_name}"]\n'
         )
 
     @staticmethod
@@ -276,12 +294,19 @@ class FastAPIProjectGenerator:
     @staticmethod
     def _render_health_test(
         package_name: str,
-        required_env_names: list[str],
+        redis_env_names: list[str],
+        database_env_names: list[str],
     ) -> str:
+        required_env_names = [*redis_env_names, *database_env_names]
         monkeypatch_argument = "monkeypatch: pytest.MonkeyPatch" if required_env_names else ""
-        env_setup = "".join(
+        redis_env_setup = "".join(
             f'    monkeypatch.setenv("{name}", "redis://localhost:6379/0")\n'
-            for name in required_env_names
+            for name in redis_env_names
+        )
+        database_env_setup = "".join(
+            f'    monkeypatch.setenv("{name}", '
+            '"postgresql+asyncpg://user:password@localhost/database")\n'
+            for name in database_env_names
         )
         pytest_import = "import pytest\n" if required_env_names else ""
         return (
@@ -292,7 +317,8 @@ class FastAPIProjectGenerator:
             "\n"
             "\n"
             f"def test_health({monkeypatch_argument}) -> None:\n"
-            f"{env_setup}"
+            f"{redis_env_setup}"
+            f"{database_env_setup}"
             "    with TestClient(app) as client:\n"
             '        response = client.get("/health")\n'
             "\n"
@@ -301,21 +327,44 @@ class FastAPIProjectGenerator:
         )
 
     @staticmethod
-    def _render_lifespan(package_name: str) -> str:
+    def _render_lifespan(
+        package_name: str,
+        *,
+        has_database: bool,
+        has_session_store: bool,
+    ) -> str:
+        imports = ""
+        entries = ""
+        if has_database:
+            imports += (
+                f"from {package_name}.infrastructure.database.provider import (\n"
+                "    database_lifespan,\n"
+                ")\n"
+            )
+            entries += (
+                "        await stack.enter_async_context(database_lifespan(app))\n"
+            )
+        if has_session_store:
+            imports += (
+                f"from {package_name}.infrastructure.session_store.provider import (\n"
+                "    session_store_lifespan,\n"
+                ")\n"
+            )
+            entries += (
+                "        await stack.enter_async_context(session_store_lifespan(app))\n"
+            )
         return (
             "from collections.abc import AsyncIterator\n"
             "from contextlib import AsyncExitStack, asynccontextmanager\n"
             "\n"
             "from fastapi import FastAPI\n"
             "\n"
-            f"from {package_name}.infrastructure.session_store.provider import (\n"
-            "    session_store_lifespan,\n"
-            ")\n"
+            f"{imports}"
             "\n"
             "\n"
             "@asynccontextmanager\n"
             "async def lifespan(app: FastAPI) -> AsyncIterator[None]:\n"
             "    async with AsyncExitStack() as stack:\n"
-            "        await stack.enter_async_context(session_store_lifespan(app))\n"
+            f"{entries}"
             "        yield\n"
         )

@@ -7,7 +7,9 @@ from autoforge.core.generation import FileOwnership, Generator
 from autoforge.core.specification import (
     ApplicationSpec,
     ColumnSpec,
+    DatabaseShardSpec,
     DatabaseSpec,
+    DatabaseStoreSpec,
     FieldType,
     FieldTypeKind,
     ModelSpec,
@@ -121,6 +123,46 @@ def test_infrastructure_generator_renders_async_session_and_router() -> None:
     assert "async_sessionmaker(engine, expire_on_commit=False)" in session
     assert "raise ShardRoutingError" in session
     assert "global" not in session.split("if engine is None:", maxsplit=1)[1]
+
+
+def test_infrastructure_generator_renders_database_lifespan_provider() -> None:
+    specification = project_specification().model_copy(
+        update={
+            "application": ApplicationSpec(
+                modules=["identity", "account"],
+                databases=[
+                    DatabaseStoreSpec(
+                        name="identity",
+                        global_url_env="IDENTITY_DATABASE_URL",
+                    ),
+                    DatabaseStoreSpec(
+                        name="profile",
+                        shards=[
+                            DatabaseShardSpec(
+                                shard_id="1",
+                                url_env="PROFILE_SHARD_1_DATABASE_URL",
+                            )
+                        ],
+                    ),
+                ],
+            )
+        }
+    )
+    files = SQLAlchemyInfrastructureGenerator().render(specification)
+    provider_path = PurePosixPath(
+        "src/kis_auto_trading/infrastructure/database/provider.py"
+    )
+    provider = files[provider_path]
+
+    ast.parse(provider)
+    assert "('identity', 'IDENTITY_DATABASE_URL')" in provider
+    assert "('profile', '1', 'PROFILE_SHARD_1_DATABASE_URL')" in provider
+    assert "create_async_engine" in provider
+    assert "app.state.session_registry" in provider
+    assert "registry_registered = False" in provider
+    assert "if registry_registered:" in provider
+    assert "await engine.dispose()" in provider
+    assert "def get_session_registry(request: Request)" in provider
 
 
 def test_model_generator_renders_sqlalchemy_2_record() -> None:

@@ -58,13 +58,19 @@ class SQLAlchemyInfrastructureGenerator:
         package_name = specification.project.package_name
         root = PurePosixPath("src", package_name, "infrastructure")
         database_root = root / "database"
-        return {
+        rendered = {
             root / "__init__.py": "",
             database_root / "__init__.py": "",
             database_root / "base.py": self._render_base(),
             database_root / "routing.py": self._render_routing(),
             database_root / "session.py": self._render_session(package_name),
         }
+        if specification.application.databases:
+            rendered[database_root / "provider.py"] = self._render_provider(
+                package_name,
+                specification,
+            )
+        return rendered
 
     def plan(self, specification: ProjectSpec) -> GenerationPlan:
         return _generated_plan(
@@ -161,6 +167,87 @@ class SQLAlchemyInfrastructureGenerator:
             "                f\"Database engine is not configured: {target}\"\n"
             "            )\n"
             "        return engine\n"
+        )
+
+    @staticmethod
+    def _render_provider(package_name: str, specification: ProjectSpec) -> str:
+        global_connections = [
+            (store.name, store.global_url_env)
+            for store in specification.application.databases
+            if store.global_url_env is not None
+        ]
+        shard_connections = [
+            (store.name, shard.shard_id, shard.url_env)
+            for store in specification.application.databases
+            for shard in store.shards
+        ]
+        return (
+            "import os\n"
+            "from collections.abc import AsyncIterator\n"
+            "from contextlib import asynccontextmanager\n"
+            "\n"
+            "from fastapi import FastAPI, Request\n"
+            "from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine\n"
+            "\n"
+            f"from {package_name}.infrastructure.database.session import "
+            "AsyncSessionRegistry\n"
+            "\n"
+            f"GLOBAL_DATABASES = {global_connections!r}\n"
+            f"SHARD_DATABASES = {shard_connections!r}\n"
+            "\n"
+            "\n"
+            "class DatabaseConfigurationError(RuntimeError):\n"
+            "    pass\n"
+            "\n"
+            "\n"
+            "def _required_url(environment_name: str) -> str:\n"
+            "    value = os.environ.get(environment_name)\n"
+            "    if not value:\n"
+            "        raise DatabaseConfigurationError(\n"
+            "            f\"Required environment variable is missing: \"\n"
+            "            f\"{environment_name}\"\n"
+            "        )\n"
+            "    return value\n"
+            "\n"
+            "\n"
+            "@asynccontextmanager\n"
+            "async def database_lifespan(app: FastAPI) -> AsyncIterator[None]:\n"
+            "    engines: list[AsyncEngine] = []\n"
+            "    global_engines: dict[str, AsyncEngine] = {}\n"
+            "    shard_engines: dict[tuple[str, str], AsyncEngine] = {}\n"
+            "    registry_registered = False\n"
+            "    try:\n"
+            "        for store, environment_name in GLOBAL_DATABASES:\n"
+            "            engine = create_async_engine(\n"
+            "                _required_url(environment_name), pool_pre_ping=True\n"
+            "            )\n"
+            "            engines.append(engine)\n"
+            "            global_engines[store] = engine\n"
+            "        for store, shard_id, environment_name in SHARD_DATABASES:\n"
+            "            engine = create_async_engine(\n"
+            "                _required_url(environment_name), pool_pre_ping=True\n"
+            "            )\n"
+            "            engines.append(engine)\n"
+            "            shard_engines[(store, shard_id)] = engine\n"
+            "        app.state.session_registry = AsyncSessionRegistry(\n"
+            "            global_engines, shard_engines\n"
+            "        )\n"
+            "        registry_registered = True\n"
+            "        yield\n"
+            "    finally:\n"
+            "        if registry_registered:\n"
+            "            del app.state.session_registry\n"
+            "        for engine in reversed(engines):\n"
+            "            await engine.dispose()\n"
+            "\n"
+            "\n"
+            "def get_session_registry(request: Request) -> AsyncSessionRegistry:\n"
+            "    try:\n"
+            "        return request.app.state.session_registry\n"
+            "    except AttributeError as error:\n"
+            "        raise DatabaseConfigurationError(\n"
+            "            \"Database session registry is not initialized\"\n"
+            "        ) from error\n"
         )
 
 

@@ -4,9 +4,12 @@ from pydantic import ValidationError
 from autoforge.core.specification import (
     ApplicationSpec,
     ColumnSpec,
+    DatabaseShardSpec,
     DatabaseSpec,
+    DatabaseStoreSpec,
     DataPlacementMode,
     DataPlacementSpec,
+    EndpointDependency,
     EndpointSpec,
     FieldSpec,
     FieldType,
@@ -72,6 +75,58 @@ def test_application_service_requires_positive_ttl_and_unique_name() -> None:
 
     with pytest.raises(ValidationError, match="Service 이름은 중복"):
         ApplicationSpec(services=[service, service])
+
+
+def test_endpoint_dependency_is_typed_unique_and_optional() -> None:
+    endpoint_data = {
+        "name": "login",
+        "method": "POST",
+        "path": "/login",
+        "response": {"fields": []},
+        "handler": "login",
+    }
+    endpoint = EndpointSpec.model_validate(
+        {**endpoint_data, "dependencies": ["session_store"]}
+    )
+
+    assert endpoint.dependencies == [EndpointDependency.SESSION_STORE]
+
+    with pytest.raises(ValidationError, match="dependencies must be unique"):
+        EndpointSpec.model_validate(
+            {**endpoint_data, "dependencies": ["session_store", "session_store"]}
+        )
+
+    with pytest.raises(ValidationError, match="session_store"):
+        EndpointSpec.model_validate(
+            {**endpoint_data, "dependencies": ["unknown_store"]}
+        )
+
+
+def test_application_database_supports_global_and_sharded_urls() -> None:
+    database = DatabaseStoreSpec(
+        name="identity",
+        global_url_env="IDENTITY_DATABASE_URL",
+        shards=[
+            DatabaseShardSpec(
+                shard_id="1",
+                url_env="IDENTITY_SHARD_1_DATABASE_URL",
+            )
+        ],
+    )
+
+    assert ApplicationSpec(databases=[database]).databases == [database]
+
+    with pytest.raises(ValidationError, match="requires a global URL or shard URLs"):
+        DatabaseStoreSpec(name="identity")
+
+    with pytest.raises(ValidationError, match="shard IDs must be unique"):
+        DatabaseStoreSpec(
+            name="identity",
+            shards=[
+                DatabaseShardSpec(shard_id="1", url_env="SHARD_ONE_URL"),
+                DatabaseShardSpec(shard_id="1", url_env="SHARD_TWO_URL"),
+            ],
+        )
 
 
 def test_create_tutorial_module_spec() -> None:

@@ -115,3 +115,19 @@ FastAPI lifespan 종료
 비활성화하면 Replica마다 동작이 달라질 수 있기 때문이다. 테스트는 실제 Secret을
 파일에 저장하지 않고 `url_env`에 임시 URL을 주입하거나 Redis factory를 Fake로
 교체한다.
+## Endpoint dependency specification
+
+Redis session을 사용하는 endpoint는 Module 명세에 의존성을 명시한다.
+
+```yaml
+endpoints:
+  - name: login
+    dependencies:
+      - session_store
+```
+
+이 선언은 생성된 FastAPI router가 `get_session_store`를 `Depends`로 호출하고,
+얻은 `SessionStore` Protocol을 사용자 소유 handler 인자로 전달하게 한다. Handler는
+Redis client나 `app.state`를 직접 알지 않으므로 Application과 Infrastructure 경계가
+유지된다. 하나 이상의 endpoint가 `session_store`를 요구하면 Project 명세에도
+`redis_session` service가 반드시 있어야 하며, CLI는 파일을 쓰기 전에 이를 검증한다.

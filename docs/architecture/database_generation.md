@@ -369,3 +369,24 @@ UserProfile Model, API, Repository와 global placement를 함께 검증한다.
 - Git commit, push, pull request
 
 이 기능들은 계약과 생성 결과가 실제 프로젝트에서 검증된 후 별도로 구현한다.
+## Runtime database lifespan specification
+
+실제 DSN은 Git에 저장하지 않고 Project 명세에는 환경변수 이름만 선언한다.
+
+```yaml
+application:
+  databases:
+    - name: identity
+      global_url_env: IDENTITY_DATABASE_URL
+    - name: profile
+      shards:
+        - shard_id: "1"
+          url_env: PROFILE_SHARD_1_DATABASE_URL
+```
+
+AutoForge는 서버 프로세스마다 SQLAlchemy async engine pool을 만들고
+`AsyncSessionRegistry`를 FastAPI `app.state`에 등록한다. 종료 시 생성 역순으로 모든
+engine을 `dispose()`한다. 요청이나 작업은 registry를 주입받아 짧은 transaction
+scope를 열며, engine이나 `AsyncSession`을 전역 mutable singleton으로 보관하지 않는다.
+Global URL 또는 shard URL이 하나도 없는 store는 명세 오류다. 환경변수가 누락되면
+서버 시작을 실패시켜 replica마다 서로 다른 DB fallback이 발생하지 않게 한다.

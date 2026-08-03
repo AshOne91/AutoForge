@@ -9,6 +9,8 @@ from autoforge.core.generation import (
 )
 from autoforge.core.specification import (
     ApplicationSpec,
+    DatabaseShardSpec,
+    DatabaseStoreSpec,
     ProjectInfo,
     ProjectSpec,
     ServiceSpec,
@@ -22,6 +24,7 @@ def project_specification(
     description: str = "모듈형 FastAPI 게임 서버",
     modules: list[str] | None = None,
     services: list[ServiceSpec] | None = None,
+    databases: list[DatabaseStoreSpec] | None = None,
 ) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
@@ -34,6 +37,7 @@ def project_specification(
         application=ApplicationSpec(
             modules=modules or [],
             services=services or [],
+            databases=databases or [],
         ),
     )
 
@@ -140,6 +144,32 @@ def test_session_service_generates_and_registers_lifespan() -> None:
     assert 'monkeypatch.setenv("GAME_REDIS_URL"' in health_test
 
 
+def test_database_store_generates_and_registers_lifespan() -> None:
+    database = DatabaseStoreSpec(
+        name="identity",
+        global_url_env="IDENTITY_DATABASE_URL",
+        shards=[
+            DatabaseShardSpec(
+                shard_id="1",
+                url_env="IDENTITY_SHARD_1_DATABASE_URL",
+            )
+        ],
+    )
+    files = FastAPIProjectGenerator().render(
+        project_specification(databases=[database])
+    )
+    lifespan = files[
+        PurePosixPath("src/game_server/application/generated/lifespan.py")
+    ]
+    health_test = files[PurePosixPath("tests/test_health.py")]
+
+    assert "database_lifespan(app)" in lifespan
+    assert "session_store_lifespan" not in lifespan
+    assert 'monkeypatch.setenv("IDENTITY_DATABASE_URL"' in health_test
+    assert 'monkeypatch.setenv("IDENTITY_SHARD_1_DATABASE_URL"' in health_test
+    assert "postgresql+asyncpg://" in health_test
+
+
 def test_rendered_python_and_toml_are_valid() -> None:
     files = FastAPIProjectGenerator().render(project_specification())
 
@@ -158,6 +188,9 @@ def test_rendered_python_and_toml_are_valid() -> None:
         "pytest",
     ]
     assert pyproject["tool"]["pytest"]["ini_options"]["testpaths"] == ["tests"]
+    assert pyproject["tool"]["ruff"]["lint"]["isort"]["known-first-party"] == [
+        "game_server"
+    ]
 
 
 def test_plan_matches_rendered_content_hashes() -> None:
