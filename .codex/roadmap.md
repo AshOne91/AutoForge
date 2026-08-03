@@ -95,12 +95,13 @@
 
 ## 7단계 - Git 자동화
 
-- [ ] 저장소 Checkout Workspace
+- [x] 안전한 Git Provider checkout 계약과 adapter
+- [ ] repository submission과 Job별 IsolatedWorkspace checkout 연결
 - [ ] 작업 브랜치 생성
 - [ ] 검증된 변경만 Commit
 - [ ] Push와 Pull Request
 - [ ] Git Provider Plugin
-- [ ] `infrastructure/git/` 구현 디렉터리 생성
+- [x] `infrastructure/git/` 구현 디렉터리 생성
 
 ## 8단계 - Webhook과 CI/CD
 

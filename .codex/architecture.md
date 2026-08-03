@@ -35,6 +35,8 @@ Webhook의 HTTP 요청 안에서 코드 생성, 빌드, Commit을 직접 실행�
 
 - Generator는 Git에 접근하지 않는다.
 - Git 서비스는 생성 규칙을 알지 못한다.
+- Git checkout은 Job별 격리 Workspace 안에서 exact commit detached 상태로 수행한다.
+- checkout 성공만으로 branch, commit 또는 push 권한을 부여하지 않는다.
 - 모든 출력은 Workspace 내부에만 생성한다.
 - Manifest는 생성, 변경, 동일, 건너뜀, 충돌 파일을 기록한다.
 - 검증 실패 시 Git 반영을 금지한다.

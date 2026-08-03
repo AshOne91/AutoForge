@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 
@@ -72,3 +73,21 @@ async def test_runner_rejects_invalid_working_directory(tmp_path: Path) -> None:
             cwd=tmp_path / "missing",
             timeout_seconds=5,
         )
+
+
+@pytest.mark.anyio
+async def test_runner_merges_explicit_environment(tmp_path: Path) -> None:
+    result = await AsyncioProcessRunner().run(
+        (
+            sys.executable,
+            "-c",
+            "import os; print(os.environ['AUTOFORGE_RUNNER_TEST'])",
+        ),
+        cwd=tmp_path,
+        timeout_seconds=5,
+        environment={"AUTOFORGE_RUNNER_TEST": "isolated-value"},
+    )
+
+    assert result.succeeded
+    assert result.stdout.strip() == "isolated-value"
+    assert os.environ.get("AUTOFORGE_RUNNER_TEST") is None

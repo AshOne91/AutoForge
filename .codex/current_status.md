@@ -1,5 +1,20 @@
 # 현재 상태
 
+## 2026-08-03 안전한 Git checkout Provider 기반 완료
+
+- Core에 GitCheckoutRequest/Result와 infrastructure-independent GitProvider Protocol을
+  추가했다.
+- Subprocess adapter가 shell 없이 clone하고 revision을 commit SHA로 확정한 뒤 detached
+  checkout과 clean working tree를 검증한다.
+- 운영 URL은 HTTPS/canonical SSH, host allowlist와 credential 비포함 규칙을 적용한다.
+  local repository는 명시된 test root 내부에서만 허용한다.
+- system/global Git config와 interactive credential prompt를 비활성화한다.
+- destination은 Workspace 상대경로만 허용하며 기존 경로를 덮어쓰지 않는다.
+- 실제 로컬 Git repository에서 정확한 commit, clean checkout, 원본 저장소 무변경과
+  URL/ref/path 공격 입력 거부를 검증했다.
+- 다음 단계는 repository/ref submission을 claimed worker의 IsolatedWorkspace에 연결하는
+  것이다. branch, commit, push는 아직 구현하지 않았다.
+
 ## 2026-08-03 worker 운영 loop와 graceful shutdown 완료
 
 - `GenerationWorkerLoop`가 idle polling, 오류 backoff, 주기적 abandoned sweep와 누적
@@ -252,7 +267,7 @@
 
 - 일부 CLI 명령
 - Plugin Permission의 OS 수준 Sandbox 강제
-- Git checkout 기반 Job별 격리 Workspace
+- Git repository/ref submission과 claimed worker 격리 checkout 연결
 
 PluginLoader의 발견, 의존성 정렬과 명시적 trusted 로딩 및 GenerationJob Application
 Pipeline 연결은 완료됐다. 다만 Webhook부터 Git 반영까지 이어지는 자동화 제품 전체는

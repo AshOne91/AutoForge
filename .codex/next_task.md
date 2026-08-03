@@ -81,10 +81,21 @@ transport이며 EventBus를 대체하지 않는다.
 
 다음:
 
-1. 원격 저장소를 Job별 격리 Workspace에 checkout하는 Git Provider 계약을 구현한다.
-2. 허용된 repository/ref와 credential 경계를 검증하고 원본 working tree를 직접
-   수정하지 않는다.
-3. 생성·검증 성공 후에만 작업 branch와 commit 단계로 이동한다.
+완료:
+
+1. infrastructure-independent Git Provider checkout 계약
+2. HTTPS/canonical SSH host allowlist와 embedded credential 금지
+3. test-only local root, 안전한 revision과 Workspace destination 검증
+4. system/global config와 interactive credential prompt 차단
+5. exact commit detached checkout, clean 상태와 원본 repository 불변 검증
+
+다음:
+
+1. GenerationJob submission에 repository/ref를 추가하고 claimed worker가 Job별
+   IsolatedWorkspace에 checkout하도록 연결한다.
+2. checkout repository 내부에서만 Generation/Validation Pipeline을 실행한다.
+3. 실패 Workspace 보존 정책과 정리 후 원본 repository 불변성을 검증한다.
+4. 그 다음 검증 성공 결과에만 작업 branch와 commit을 허용한다.
 
 ## 후속 목표
 

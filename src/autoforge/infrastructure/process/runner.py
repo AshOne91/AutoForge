@@ -1,4 +1,6 @@
 import asyncio
+import os
+from collections.abc import Mapping
 from pathlib import Path
 from time import monotonic
 
@@ -14,6 +16,7 @@ class AsyncioProcessRunner:
         *,
         cwd: Path,
         timeout_seconds: float,
+        environment: Mapping[str, str] | None = None,
     ) -> ProcessResult:
         if not command:
             raise ValueError("실행 명령은 비어 있을 수 없습니다.")
@@ -29,6 +32,7 @@ class AsyncioProcessRunner:
             process = await asyncio.create_subprocess_exec(
                 *command,
                 cwd=working_directory,
+                env=_merged_environment(environment),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -72,3 +76,11 @@ class AsyncioProcessRunner:
     @staticmethod
     def _decode(output: bytes) -> str:
         return output.decode("utf-8", errors="replace")
+
+
+def _merged_environment(overrides: Mapping[str, str] | None) -> dict[str, str] | None:
+    if overrides is None:
+        return None
+    environment = os.environ.copy()
+    environment.update(overrides)
+    return environment
