@@ -163,6 +163,24 @@ def test_cluster_session_service_generates_cluster_health_environment() -> None:
     assert "redis://localhost:16379" in health_test
 
 
+def test_rabbitmq_service_adds_aio_pika_dependency() -> None:
+    service = ServiceSpec(
+        name="events",
+        kind="rabbitmq",
+        outbox_stores=["account"],
+    )
+    database = DatabaseStoreSpec(
+        name="account",
+        shards=[DatabaseShardSpec(shard_id="1", url_env="ACCOUNT_URL")],
+    )
+
+    files = FastAPIProjectGenerator().render(
+        project_specification(services=[service], databases=[database])
+    )
+
+    assert '"aio-pika>=9.5,<10"' in files[PurePosixPath("pyproject.toml")]
+
+
 def test_database_store_generates_and_registers_lifespan() -> None:
     database = DatabaseStoreSpec(
         name="identity",

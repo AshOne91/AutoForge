@@ -57,9 +57,9 @@ class ProjectInfo(StrictSpecModel):
 
 class ServiceSpec(StrictSpecModel):
     name: str
-    kind: Literal["redis_session"]
-    namespace: str
-    ttl_seconds: int = Field(gt=0)
+    kind: Literal["redis_session", "rabbitmq"]
+    namespace: str = ""
+    ttl_seconds: int = 0
     url_env: str = Field(default="REDIS_URL", pattern=r"^[A-Z][A-Z0-9_]*$")
     mode: Literal["standalone", "sentinel", "cluster"] = "standalone"
     cluster_url_env: str = Field(
@@ -71,11 +71,35 @@ class ServiceSpec(StrictSpecModel):
         pattern=r"^[A-Z][A-Z0-9_]*$",
     )
     sentinel_master: str = "session-primary"
+    connection_url_env: str = Field(
+        default="RABBITMQ_URL",
+        pattern=r"^[A-Z][A-Z0-9_]*$",
+    )
+    exchange: str = "domain.events"
+    queue: str = "domain.events.worker"
+    routing_key: str = "domain.#"
+    dead_letter_exchange: str = "domain.events.dlx"
+    dead_letter_queue: str = "domain.events.dead-letter"
+    prefetch_count: int = Field(default=32, gt=0)
+    outbox_stores: list[str] = Field(default_factory=list)
 
-    @field_validator("name", "namespace")
+    @field_validator("name")
     @classmethod
-    def validate_names(cls, value: str) -> str:
+    def validate_name(cls, value: str) -> str:
         return validate_python_name(value)
+
+    @field_validator("namespace")
+    @classmethod
+    def validate_namespace(cls, value: str) -> str:
+        return validate_python_name(value) if value else value
+
+    @field_validator("outbox_stores")
+    @classmethod
+    def validate_outbox_stores(cls, values: list[str]) -> list[str]:
+        validated = [validate_python_name(value) for value in values]
+        if len(validated) != len(set(validated)):
+            raise ValueError("outbox_stores must be unique")
+        return validated
 
     @field_validator("sentinel_master")
     @classmethod
@@ -83,6 +107,17 @@ class ServiceSpec(StrictSpecModel):
         if not value.strip():
             raise ValueError("sentinel_master must not be empty")
         return value
+
+    @model_validator(mode="after")
+    def validate_service_kind(self) -> ServiceSpec:
+        if self.kind == "redis_session":
+            if not self.namespace:
+                raise ValueError("redis_session namespace must not be empty")
+            if self.ttl_seconds <= 0:
+                raise ValueError("redis_session ttl_seconds must be positive")
+        elif not self.outbox_stores:
+            raise ValueError("rabbitmq outbox_stores must not be empty")
+        return self
 
 
 class DatabaseShardSpec(StrictSpecModel):
@@ -135,6 +170,20 @@ class ApplicationSpec(StrictSpecModel):
         database_names = [database.name for database in self.databases]
         if len(database_names) != len(set(database_names)):
             raise ValueError("Application Database 이름은 중복될 수 없습니다.")
+        unknown_outbox_stores = sorted(
+            {
+                store
+                for service in self.services
+                if service.kind == "rabbitmq"
+                for store in service.outbox_stores
+                if store not in database_names
+            }
+        )
+        if unknown_outbox_stores:
+            raise ValueError(
+                f"RabbitMQ outbox stores are not declared databases: "
+                f"{unknown_outbox_stores}"
+            )
         return self
 
 

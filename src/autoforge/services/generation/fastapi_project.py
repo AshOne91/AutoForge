@@ -60,6 +60,10 @@ class FastAPIProjectGenerator:
                     service.kind == "redis_session"
                     for service in specification.application.services
                 ),
+                include_rabbitmq=any(
+                    service.kind == "rabbitmq"
+                    for service in specification.application.services
+                ),
             ),
             PurePosixPath("README.md"): self._render_readme(
                 project_name=project.name,
@@ -152,8 +156,12 @@ class FastAPIProjectGenerator:
         version: str,
         description: str,
         include_redis: bool,
+        include_rabbitmq: bool,
     ) -> str:
         redis_dependency = '    "redis>=5,<7",\n' if include_redis else ""
+        rabbitmq_dependency = (
+            '    "aio-pika>=9.5,<10",\n' if include_rabbitmq else ""
+        )
         return (
             "[build-system]\n"
             'requires = ["setuptools>=68"]\n'
@@ -165,6 +173,7 @@ class FastAPIProjectGenerator:
             f"description = {json.dumps(description, ensure_ascii=False)}\n"
             'requires-python = ">=3.12"\n'
             'dependencies = [\n'
+            f"{rabbitmq_dependency}"
             '    "alembic>=1.18,<2",\n'
             '    "asyncpg>=0.30,<1",\n'
             '    "fastapi",\n'

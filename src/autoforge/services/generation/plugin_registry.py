@@ -24,6 +24,11 @@ from autoforge.services.generation.fastapi_project import (
     GENERATOR_VERSION,
     FastAPIProjectGenerator,
 )
+from autoforge.services.generation.messaging import (
+    MESSAGING_GENERATOR_ID,
+    MESSAGING_GENERATOR_VERSION,
+    MessagingGenerator,
+)
 from autoforge.services.generation.postgresql_ddl import (
     POSTGRESQL_DDL_GENERATOR_ID,
     POSTGRESQL_DDL_GENERATOR_VERSION,
@@ -58,6 +63,18 @@ def create_fastapi_generator_plugins(
     package_name: str,
 ) -> FastAPIGeneratorPlugins:
     project_registry = GeneratorPluginRegistry[ProjectSpec]()
+    project_registry.register(
+        GeneratorPluginAdapter(
+            MessagingGenerator(),
+            PluginMetadata(
+                name=MESSAGING_GENERATOR_ID,
+                version=MESSAGING_GENERATOR_VERSION,
+                description="RabbitMQ Transport와 Transactional Outbox Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
     project_registry.register(
         GeneratorPluginAdapter(
             AlembicEnvironmentGenerator(),

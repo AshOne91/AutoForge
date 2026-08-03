@@ -11,6 +11,7 @@ from autoforge.services.generation.alembic import (
 )
 from autoforge.services.generation.fastapi_module import MODULE_GENERATOR_ID
 from autoforge.services.generation.fastapi_project import GENERATOR_ID
+from autoforge.services.generation.messaging import MESSAGING_GENERATOR_ID
 from autoforge.services.generation.postgresql_ddl import (
     POSTGRESQL_DDL_GENERATOR_ID,
 )
@@ -57,6 +58,7 @@ def test_builtin_catalog_contains_expected_plugins() -> None:
     assert catalog.generators.project.names() == [
         ALEMBIC_PROJECT_GENERATOR_ID,
         GENERATOR_ID,
+        MESSAGING_GENERATOR_ID,
         SESSION_STORE_GENERATOR_ID,
         SQLALCHEMY_PROJECT_GENERATOR_ID,
     ]

@@ -12,6 +12,7 @@ from autoforge.services.generation.manifest_store import (
     ManifestStoreError,
     StoredManifest,
 )
+from autoforge.services.generation.messaging import MessagingGenerator
 from autoforge.services.generation.plan_applier import (
     GenerationPlanApplier,
     GenerationPlanApplyError,
@@ -48,6 +49,7 @@ __all__ = [
     "GenerationRunnerError",
     "ManifestStore",
     "ManifestStoreError",
+    "MessagingGenerator",
     "PostgreSQLDDLGenerator",
     "PydanticTypeRenderer",
     "RepositoryGenerator",

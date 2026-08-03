@@ -62,13 +62,35 @@ def test_application_service_requires_positive_ttl_and_unique_name() -> None:
     assert cluster_service.mode == "cluster"
     assert cluster_service.cluster_url_env == "SESSION_CLUSTER_URL"
 
-    with pytest.raises(ValidationError, match="greater than 0"):
+    with pytest.raises(ValidationError, match="ttl_seconds must be positive"):
         ServiceSpec(
             name="session",
             kind="redis_session",
             namespace="kis_session",
             ttl_seconds=0,
         )
+
+
+def test_rabbitmq_service_requires_declared_outbox_store() -> None:
+    service = ServiceSpec(
+        name="events",
+        kind="rabbitmq",
+        outbox_stores=["account"],
+    )
+
+    application = ApplicationSpec(
+        services=[service],
+        databases=[
+            DatabaseStoreSpec(
+                name="account",
+                shards=[DatabaseShardSpec(shard_id="1", url_env="ACCOUNT_URL")],
+            )
+        ],
+    )
+
+    assert application.services == [service]
+    with pytest.raises(ValidationError, match="outbox store"):
+        ApplicationSpec(services=[service])
 
     with pytest.raises(ValidationError, match="string_pattern_mismatch"):
         ServiceSpec(
