@@ -52,6 +52,7 @@ def test_generate_applies_specs_and_supports_repeated_run(tmp_path: Path) -> Non
 
     assert first.exit_code == 0, first.output
     assert second.exit_code == 0, second.output
+    assert "Generated and validated 2 units" in first.output
     assert (output / "src/sample/main.py").is_file()
     assert (output / ".autoforge/manifest.json").is_file()
 

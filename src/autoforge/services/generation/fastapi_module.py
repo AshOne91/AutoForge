@@ -199,7 +199,8 @@ class FastAPIModuleGenerator:
                     ),
                 ]
             )
-        imports.append(f"from {module_path} import handlers")
+        if specification.endpoints:
+            imports.append(f"from {module_path} import handlers")
         model_names = sorted(
             {
                 endpoint.response.model_name
@@ -238,7 +239,7 @@ class FastAPIModuleGenerator:
             self._render_router_endpoint(endpoint)
             for endpoint in specification.endpoints
         ]
-        import_section = "\n".join(imports)
+        import_section = "\n".join(imports).rstrip()
         endpoint_section = "\n\n\n".join(endpoints)
         rendered = f"{import_section}\n\n{router_declaration}"
         if endpoint_section:

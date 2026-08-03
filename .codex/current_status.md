@@ -29,6 +29,22 @@
 - 이는 영속 Job Store가 아니다. 다음 단계에서 Application Pipeline을 연결한 뒤
   PostgreSQL adapter와 idempotent trigger를 구현한다.
 
+## 2026-08-03 Generation Application Pipeline 완료
+
+- 기존 generate CLI 안의 명세 로딩, 교차 참조 검증, 생성과 manifest 저장 업무를
+  `application/generation`으로 이동했다.
+- 실제 실행 순서는 prepare_generation_job → generate_units →
+  validate_generated_project 세 Task로 명시했다.
+- JobStore에 상태를 먼저 저장한 뒤 Job/Generation/Validation Event를 발행한다.
+- 생성 결과의 import, pytest, Ruff와 wheel build가 모두 성공해야 GenerationJob을
+  succeeded로 전이한다. 검증 실패는 failed 상태와 실패 Event를 남긴다.
+- CLI는 Application Pipeline을 조립하고 사용자 입력 오류와 실행 오류를 표시하는
+  얇은 adapter가 됐다. 기존 검증 helper 공개 경계는 호환 wrapper로 보존했다.
+- 실제 검증을 연결하면서 발견한 endpoint 없는 Router의 unused handlers import와
+  import 구역 공백 생성 오류를 수정했다.
+- 전체 Ruff, 298개 pytest와 `python -m autoforge.main version`을 통과했다.
+- 다음 단계는 logging/audit handler, PostgreSQL JobStore와 idempotent trigger다.
+
 ## 2026-08-03 RabbitMQ/Transactional Outbox 완료
 
 - Project `ServiceSpec`에 RabbitMQ connection, exchange, queue, routing key,
@@ -127,8 +143,8 @@
 - kis-auto-trading에서 3 Primary + 3 Replica, 전체 16,384 slot coverage, 담당
   Primary 중지와 Replica 승격, 기존 읽기·신규 쓰기 및 volume 재기동을 검증했다.
 - RabbitMQ Transport와 Transactional Outbox를 완료했다.
-- generic Event/Pipeline Core와 GenerationJob lifecycle 기반을 완료했고 Application
-  연결을 진행한다.
+- generic Event/Pipeline Core, GenerationJob lifecycle과 실제 생성·검증 Application
+  연결을 완료했다.
 - 문서 정합성 정리
 - 패키지와 코딩 스타일 정리
 - Plugin Framework 4단계 완료 검토

@@ -99,6 +99,27 @@ def test_module_generator_satisfies_protocol() -> None:
     assert isinstance(generator, Generator)
 
 
+def test_router_without_endpoints_does_not_import_unused_handlers() -> None:
+    specification = ModuleSpec(
+        spec_version="1",
+        module=ModuleInfo(
+            name="account",
+            display_name="Account",
+            route_prefix="/api/account",
+        ),
+    )
+
+    files = FastAPIModuleGenerator("game_server").render(specification)
+    router = files[
+        PurePosixPath("src/game_server/modules/account/generated/router.py")
+    ]
+
+    ast.parse(router)
+    assert "import handlers" not in router
+    assert 'router = APIRouter(prefix="/api/account", tags=["Account"])' in router
+    assert "from fastapi import APIRouter\n\nrouter =" in router
+
+
 def test_render_returns_generated_model_and_schema_files() -> None:
     files = FastAPIModuleGenerator("game_server").render(tutorial_specification())
 

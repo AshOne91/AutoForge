@@ -83,9 +83,9 @@
 - [x] GenerationJob 상태 머신과 async JobStore Protocol
 - [ ] PostgreSQL JobStore와 idempotent trigger
 - [ ] Logging, Audit, Metrics Handler
-- [ ] Generation Pipeline
-- [ ] Validation 및 Build Pipeline
-- [ ] 실패·재시도·Timeout 정책
+- [x] Generation Pipeline
+- [x] Validation 및 Build Pipeline
+- [x] 실패·재시도·Timeout 정책
 
 ## 7단계 - Git 자동화
 

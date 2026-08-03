@@ -507,9 +507,11 @@ Infrastructure
 3. Job lifecycle 기반: 완료
    - Job, Generation, Validation Event
    - 상태 머신, JobStore Protocol과 로컬 adapter
-4. 첫 Application 수직 Event 흐름
-   - in-process Handler 조립
-   - 기존 생성·검증 Service를 Pipeline Task로 연결
+4. 첫 Application 수직 Event 흐름: 완료
+   - Prepare, Generate와 Validate Task
+   - 기존 Generator, ManifestStore와 ProjectValidator 연결
+   - JobStore 선저장 후 lifecycle Event 발행
+   - import, pytest, Ruff와 wheel build 성공 후 Job succeeded
 5. 관찰 Handler
    - Logging, Audit, Metrics, Job 상태 Projection
 6. Git과 Webhook 연결
