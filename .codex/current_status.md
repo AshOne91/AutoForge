@@ -1,5 +1,19 @@
 # 현재 상태
 
+## 2026-08-03 검증된 Git branch/commit adapter 기반 완료
+
+- Core에 예상 base SHA, branch, message, author, 선택적 signing fingerprint와 변경 경로
+  allowlist를 가진 `GitCommitRequest/Result` 계약을 추가했다.
+- Subprocess adapter는 HEAD fencing과 전체 working tree 변경 검사를 먼저 수행한다.
+  allowlist 밖 변경, rename/copy와 위험한 branch 입력은 branch 생성 전에 거부한다.
+- 검증된 경로만 stage하고 staged path 집합을 다시 비교한 뒤 commit한다. 변경이 없으면
+  불필요한 branch나 빈 commit을 만들지 않는다.
+- 실제 Git repository에서 허용 경로만 commit, 예상 밖 변경과 잘못된 base/branch 거부,
+  author 적용, clean 결과와 원본 repository 불변을 검증했다.
+- worker 연결은 아직 하지 않았다. 검증 직후 terminal `succeeded`가 되는 현재 Job
+  수명주기에 `validated/committing` 경계를 먼저 추가해야 commit 실패를 정확히 기록할
+  수 있다.
+
 ## 2026-08-03 원격 GenerationJob 격리 실행 완료
 
 - trigger submission에 repository URL과 revision 쌍을 추가했다. 원격 요청은 HTTP 처리

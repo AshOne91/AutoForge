@@ -97,6 +97,7 @@
 
 - [x] 안전한 Git Provider checkout 계약과 adapter
 - [x] repository submission과 Job별 IsolatedWorkspace checkout 연결
+- [x] expected base와 변경 allowlist 기반 안전한 branch/commit adapter
 - [ ] 작업 브랜치 생성
 - [ ] 검증된 변경만 Commit
 - [ ] Push와 Pull Request

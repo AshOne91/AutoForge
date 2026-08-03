@@ -100,9 +100,21 @@ transport이며 EventBus를 대체하지 않는다.
 
 다음:
 
-1. 검증 성공 결과에만 작업 branch와 commit을 허용하는 계약을 설계한다.
-2. 생성기가 변경할 수 있는 경로 allowlist와 예상 밖 변경 거부 정책을 확정한다.
-3. author, commit message와 signing 정책을 infrastructure-independent 계약으로 분리한다.
+완료:
+
+1. 검증 성공 결과에만 작업 branch와 commit을 허용하는 Core 계약과 adapter 기반
+2. 생성기가 변경할 수 있는 경로 allowlist와 예상 밖 변경·rename/copy 거부
+3. expected base SHA fencing, author, commit message와 signing fingerprint 정책
+4. 변경이 없을 때 branch와 빈 commit을 만들지 않는 동작
+
+다음:
+
+1. GenerationJob에 `validated → committing → succeeded` 수명주기를 추가한다.
+2. manifest의 created/changed 파일과 `.autoforge/manifest.json`에서 commit allowlist를
+   결정적으로 계산한다.
+3. 원격 worker가 검증 성공 후 `commit_validated()`를 실행하고 commit 실패를 failed
+   Job으로 저장하도록 연결한다.
+4. 실제 생성 repository에서 성공 commit과 예상 밖 변경 거부를 종단 검증한다.
 
 ## 후속 목표
 

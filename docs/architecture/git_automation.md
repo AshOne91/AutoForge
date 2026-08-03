@@ -21,6 +21,16 @@ GenerationJob
 checkout 완료는 commit이나 push 권한을 의미하지 않는다. branch, commit, push와 pull
 request는 각각 별도 계약과 검증 gate를 통과해야 한다.
 
+`GitCommitRequest`는 예상 base commit SHA, 작업 branch, 한 줄 commit message,
+author identity, 선택적 signing fingerprint와 변경 허용 경로를 가진다. adapter는 현재
+HEAD가 예상 SHA와 같은지 확인하고 실제 변경 전체가 허용 경로의 부분집합인지 확인한
+뒤에만 branch를 만들고 stage한다. stage 결과도 검증된 변경 집합과 정확히 같아야 한다.
+
+`GitCommitRequest`는 예상 base commit SHA, 작업 branch, 한 줄 commit message,
+author identity, 선택적 signing fingerprint와 변경 허용 경로를 가진다. adapter는 현재
+HEAD가 예상 SHA와 같은지 확인하고 실제 변경 전체가 허용 경로의 부분집합인지 확인한
+뒤에만 branch를 만들고 stage한다. stage 결과도 검증된 변경 집합과 정확히 같아야 한다.
+
 ## Core 계약
 
 `GitCheckoutRequest`는 repository URL, revision과 Workspace 상대 destination만 가진다.
@@ -76,6 +86,28 @@ working tree 검증을 구현한다. 원격 GenerationJob은 HTTP 제출 시 로
 Windows의 읽기 전용 Git object도 안전하게 정리한다. 실제 로컬 repository 통합
 테스트에서 성공·실패 모두 원본 저장소가 변하지 않으며 확정된 commit에서만 생성되는
 것을 검증했다.
+
+`SubprocessGitProvider.commit_validated()`는 검증된 변경만 작업 branch에 commit한다.
+예상 base SHA 불일치, 허용 목록 밖 변경, rename/copy, 위험한 branch·message·identity와
+중복 경로를 branch 생성 전에 거부한다. 변경이 없으면 branch나 빈 commit을 만들지
+않는다. Git system/global config와 대화형 credential 차단은 checkout과 동일하게
+적용한다. unsigned commit은 명시적인 `--no-gpg-sign`, signed commit은 요청의 16진수
+fingerprint를 사용한다.
+
+이 adapter는 아직 worker에 연결하지 않았다. 현재 Generation Pipeline은 검증 직후
+Job을 terminal `succeeded`로 전이하기 때문이다. commit 실패를 성공으로 기록하지 않기
+위해 다음 단계에서 `validated → committing → succeeded` 수명주기를 먼저 도입한다.
+
+`SubprocessGitProvider.commit_validated()`는 검증된 변경만 작업 branch에 commit한다.
+예상 base SHA 불일치, 허용 목록 밖 변경, rename/copy, 위험한 branch·message·identity와
+중복 경로를 branch 생성 전에 거부한다. 변경이 없으면 branch나 빈 commit을 만들지
+않는다. Git system/global config와 대화형 credential 차단은 checkout과 동일하게
+적용한다. unsigned commit은 명시적인 `--no-gpg-sign`, signed commit은 요청의 16진수
+fingerprint를 사용한다.
+
+이 adapter는 아직 worker에 연결하지 않았다. 현재 Generation Pipeline은 검증 직후
+Job을 terminal `succeeded`로 전이하기 때문이다. commit 실패를 성공으로 기록하지 않기
+위해 다음 단계에서 `validated → committing → succeeded` 수명주기를 먼저 도입한다.
 
 남은 범위:
 
