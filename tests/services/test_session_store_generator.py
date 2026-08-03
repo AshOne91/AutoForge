@@ -100,6 +100,9 @@ def test_render_produces_protocol_fake_and_redis_adapter() -> None:
     assert "Redis.from_url(redis_url, decode_responses=True)" in provider
     assert "await client.aclose()" in provider
     assert "def get_session_store(request: Request)" in provider
+    assert "bearer_scheme = HTTPBearer(auto_error=False)" in provider
+    assert "async def get_current_session(" in provider
+    assert "session_store.get(credentials.credentials)" in provider
 
 
 def test_without_session_service_produces_no_files() -> None:
@@ -122,6 +125,7 @@ def test_sentinel_provider_uses_declared_discovery_contract() -> None:
     assert "from redis.asyncio.sentinel import Sentinel" in provider
     assert "sentinel.master_for(" in provider
     assert "for sentinel_client in sentinel.sentinels:" in provider
+    assert "async def get_current_session(" in provider
 
 
 def test_plan_marks_all_session_files_generated() -> None:

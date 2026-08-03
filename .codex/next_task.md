@@ -26,9 +26,12 @@ Store별 Alembic 실행 환경과 최초 baseline revision 생성을 완료했�
 `scripts/migrate.py`가 identity DB와 account shard DB 2개에 각 store의 revision을
 적용하고, 각 `alembic_version` 값을 기록하는 것을 실제 Docker 환경에서 검증했다.
 
-다음 목표는 kis-auto-trading의 Account/Profile 업무 저장소를 실제 account shard
-DB에 연결하고, global identity의 `shard_id`로 올바른 shard를 선택하는 흐름을
-완성하는 것이다.
+Bearer current_session 의존성 생성과 kis-auto-trading Account/Profile의 실제 account
+shard 저장을 완료했다. API 2가 저장한 Profile을 API 1이 조회하고, 세션에서 선택된
+shard에만 행이 존재하며 반대 shard에는 저장되지 않는 것을 Docker 환경에서 검증했다.
+
+다음 목표는 Redis Cluster 3 Primary + 3 Replica 연결 공급자와 통합 토폴로지를
+추가하되, 기존 SessionStore 업무 계약과 Handler 코드는 변경하지 않는 것이다.
 
 Repository와 DB 기반 이후 Redis Service와 RabbitMQ Transport를 필수 서비스로
 구현한다. Redis는 cache/coordination, RabbitMQ는 Queue/Worker 책임을 가지며
@@ -42,11 +45,11 @@ Repository와 DB 기반 이후 Redis Service와 RabbitMQ Transport를 필수 서
 
 ## 다음 구현 범위
 
-1. Account/Profile repository의 현재 scaffold와 generated adapter 경계 확인
-2. global identity 조회 결과의 `shard_id` 전달 계약 확정
-3. `ShardRouter`로 account DB 세션을 선택하는 application 흐름 구현
-4. 회원 생성·조회 시 identity와 profile 저장 결과 검증
-5. account DB 2개에서 서로 다른 사용자 배치와 API 2대 교차 호출 검증
+1. redis-py Cluster async client와 현재 SessionStore adapter 호환성 확인
+2. Cluster endpoint 설정 명세와 standalone/sentinel/cluster 배타 검증
+3. Session key와 user-session set이 같은 slot을 쓰는 hash-tag 규칙 확정
+4. Redis Cluster 3 Primary + 3 Replica Compose 토폴로지 구성
+5. API 2대 세션 읽기·쓰기와 primary 장애 후 복구 검증
 6. 구현 전 구체적인 코드·테스트 파일 계획 제시
 
 ## 이번 범위에서 구현하지 않음

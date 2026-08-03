@@ -104,6 +104,43 @@ def test_generate_rejects_session_dependency_without_service(tmp_path: Path) -> 
         _validate_endpoint_dependencies(project_spec, [module_spec])
 
 
+def test_current_session_dependency_requires_session_service() -> None:
+    project_spec = ProjectSpec.model_validate(
+        {
+            "spec_version": "1",
+            "project": {
+                "name": "Sample",
+                "package_name": "sample",
+                "version": "0.1.0",
+            },
+            "application": {},
+        }
+    )
+    module_spec = ModuleSpec.model_validate(
+        {
+            "spec_version": "1",
+            "module": {
+                "name": "account",
+                "display_name": "Account",
+                "route_prefix": "/account",
+            },
+            "endpoints": [
+                {
+                    "name": "profile",
+                    "method": "GET",
+                    "path": "/profile",
+                    "response": {"fields": []},
+                    "handler": "profile",
+                    "dependencies": ["current_session"],
+                }
+            ],
+        }
+    )
+
+    with pytest.raises(typer.BadParameter, match="requires a redis_session service"):
+        _validate_endpoint_dependencies(project_spec, [module_spec])
+
+
 def test_plugin_reports_unavailable_command() -> None:
     result = runner.invoke(app, ["plugin"])
 

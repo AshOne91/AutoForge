@@ -34,6 +34,7 @@ class HttpMethod(StrEnum):
 
 class EndpointDependency(StrEnum):
     SESSION_STORE = "session_store"
+    CURRENT_SESSION = "current_session"
     DATABASE_SESSION_REGISTRY = "database_session_registry"
 
 

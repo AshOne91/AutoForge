@@ -155,8 +155,11 @@ class FastAPIModuleGenerator:
         module_name = specification.module.name
         module_path = f"{self._package_name}.modules.{module_name}"
         has_session_store = self._requires_session_store(specification)
+        has_current_session = self._requires_current_session(specification)
         has_database_registry = self._requires_database_registry(specification)
-        has_dependencies = has_session_store or has_database_registry
+        has_dependencies = (
+            has_session_store or has_current_session or has_database_registry
+        )
         fastapi_names = "APIRouter, Depends" if has_dependencies else "APIRouter"
         imports: list[str] = []
         if has_dependencies:
@@ -175,16 +178,24 @@ class FastAPIModuleGenerator:
                     ),
                 ]
             )
-        if has_session_store:
+        if has_session_store or has_current_session:
+            protocol_names = []
+            provider_names = []
+            if has_current_session:
+                protocol_names.append("SessionData")
+                provider_names.append("get_current_session")
+            if has_session_store:
+                protocol_names.append("SessionStore")
+                provider_names.append("get_session_store")
             imports.extend(
                 [
                     self._render_from_import(
                         f"{self._package_name}.infrastructure.session_store.protocol",
-                        ["SessionStore"],
+                        protocol_names,
                     ),
                     self._render_from_import(
                         f"{self._package_name}.infrastructure.session_store.provider",
-                        ["get_session_store"],
+                        provider_names,
                     ),
                 ]
             )
@@ -252,6 +263,12 @@ class FastAPIModuleGenerator:
                 "SessionStore, Depends(get_session_store)],"
             )
             arguments.append("session_store")
+        if EndpointDependency.CURRENT_SESSION in endpoint.dependencies:
+            parameters.append(
+                "    current_session: Annotated["
+                "SessionData, Depends(get_current_session)],"
+            )
+            arguments.append("current_session")
         if (
             EndpointDependency.DATABASE_SESSION_REGISTRY
             in endpoint.dependencies
@@ -302,6 +319,11 @@ class FastAPIModuleGenerator:
                 f"from {self._package_name}.infrastructure.session_store.protocol "
                 "import SessionStore"
             )
+        if self._requires_current_session(specification):
+            imports.append(
+                f"from {self._package_name}.infrastructure.session_store.protocol "
+                "import SessionData"
+            )
         if self._requires_database_registry(specification):
             imports.append(
                 f"from {self._package_name}.infrastructure.database.session "
@@ -325,6 +347,8 @@ class FastAPIModuleGenerator:
             parameters.append(f"    request: {self._request_type(endpoint)},")
         if EndpointDependency.SESSION_STORE in endpoint.dependencies:
             parameters.append("    session_store: SessionStore,")
+        if EndpointDependency.CURRENT_SESSION in endpoint.dependencies:
+            parameters.append("    current_session: SessionData,")
         if (
             EndpointDependency.DATABASE_SESSION_REGISTRY
             in endpoint.dependencies
@@ -401,6 +425,13 @@ class FastAPIModuleGenerator:
     def _requires_session_store(specification: ModuleSpec) -> bool:
         return any(
             EndpointDependency.SESSION_STORE in endpoint.dependencies
+            for endpoint in specification.endpoints
+        )
+
+    @staticmethod
+    def _requires_current_session(specification: ModuleSpec) -> bool:
+        return any(
+            EndpointDependency.CURRENT_SESSION in endpoint.dependencies
             for endpoint in specification.endpoints
         )
 

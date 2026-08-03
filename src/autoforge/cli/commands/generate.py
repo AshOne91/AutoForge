@@ -89,6 +89,7 @@ def _validate_endpoint_dependencies(
 ) -> None:
     requires_session_store = any(
         EndpointDependency.SESSION_STORE in endpoint.dependencies
+        or EndpointDependency.CURRENT_SESSION in endpoint.dependencies
         for module_spec in module_specs
         for endpoint in module_spec.endpoints
     )

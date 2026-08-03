@@ -278,6 +278,38 @@ def test_database_session_registry_dependency_is_injected_into_handler() -> None
     assert "session_registry: AsyncSessionRegistry," in handlers
 
 
+def test_current_session_dependency_is_injected_into_handler() -> None:
+    specification = tutorial_specification()
+    dependent_endpoint = specification.endpoints[0].model_copy(
+        update={
+            "dependencies": [
+                EndpointDependency.CURRENT_SESSION,
+                EndpointDependency.DATABASE_SESSION_REGISTRY,
+            ]
+        }
+    )
+    specification = specification.model_copy(
+        update={"endpoints": [dependent_endpoint, specification.endpoints[1]]}
+    )
+
+    files = FastAPIModuleGenerator("game_server").render(specification)
+    router = files[
+        PurePosixPath("src/game_server/modules/tutorial/generated/router.py")
+    ]
+    handlers = files[
+        PurePosixPath("src/game_server/modules/tutorial/handlers.py")
+    ]
+
+    ast.parse(router)
+    ast.parse(handlers)
+    assert (
+        "current_session: Annotated[SessionData, Depends(get_current_session)]"
+        in router
+    )
+    assert "handlers.get_progress(current_session, session_registry)" in router
+    assert "current_session: SessionData," in handlers
+
+
 def test_same_specification_preserves_modified_handler(tmp_path: Path) -> None:
     generator = FastAPIModuleGenerator("game_server")
     specification = tutorial_specification()
