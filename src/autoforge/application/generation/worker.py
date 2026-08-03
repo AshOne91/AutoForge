@@ -1,8 +1,11 @@
 import asyncio
+import logging
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
+from time import monotonic
+from typing import Protocol
 
 from autoforge.application.generation.pipeline import (
     GenerationJobExecution,
@@ -17,6 +20,8 @@ from autoforge.core.job import (
     JobStore,
 )
 from autoforge.core.workspace import Workspace
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +47,36 @@ class GenerationWorkerSettings:
 class GenerationWorkerResult:
     lease: JobLease
     execution: GenerationJobExecution
+
+
+@dataclass(frozen=True, slots=True)
+class GenerationWorkerLoopSettings:
+    idle_poll_interval: timedelta = timedelta(seconds=1)
+    error_backoff: timedelta = timedelta(seconds=5)
+    abandoned_sweep_interval: timedelta = timedelta(seconds=30)
+    shutdown_grace_period: timedelta = timedelta(seconds=30)
+
+    def __post_init__(self) -> None:
+        for name, value in (
+            ("idle_poll_interval", self.idle_poll_interval),
+            ("error_backoff", self.error_backoff),
+            ("abandoned_sweep_interval", self.abandoned_sweep_interval),
+            ("shutdown_grace_period", self.shutdown_grace_period),
+        ):
+            if value <= timedelta(0):
+                raise ValueError(f"{name} must be positive")
+
+
+@dataclass(frozen=True, slots=True)
+class GenerationWorkerLoopResult:
+    completed_jobs: int
+    failed_attempts: int
+    recovered_jobs: int
+    shutdown_timed_out: bool
+
+
+class GenerationWorkerProtocol(Protocol):
+    async def run_once(self) -> GenerationWorkerResult | None: ...
 
 
 class GenerationWorker:
@@ -109,6 +144,10 @@ class GenerationWorker:
                 await pipeline_task
             raise error
         finally:
+            if not pipeline_task.done():
+                pipeline_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await pipeline_task
             heartbeat_task.cancel()
             with suppress(asyncio.CancelledError):
                 await heartbeat_task
@@ -151,3 +190,116 @@ class GenerationWorker:
             )
         except JobLeaseConflictError:
             return
+
+
+class GenerationWorkerLoop:
+    def __init__(
+        self,
+        *,
+        worker: GenerationWorkerProtocol,
+        job_store: JobStore,
+        settings: GenerationWorkerLoopSettings | None = None,
+    ) -> None:
+        self._worker = worker
+        self._job_store = job_store
+        self._settings = settings or GenerationWorkerLoopSettings()
+
+    async def run(self, stop_event: asyncio.Event) -> GenerationWorkerLoopResult:
+        completed_jobs = 0
+        failed_attempts = 0
+        recovered_jobs = 0
+        shutdown_timed_out = False
+        next_sweep_at = 0.0
+
+        while not stop_event.is_set():
+            if monotonic() >= next_sweep_at:
+                try:
+                    recovered_jobs += len(
+                        await self._job_store.recover_abandoned()
+                    )
+                except Exception:
+                    failed_attempts += 1
+                    logger.exception("Generation worker abandoned sweep failed")
+                    if await _wait_for_stop(
+                        stop_event, self._settings.error_backoff
+                    ):
+                        break
+                next_sweep_at = (
+                    monotonic()
+                    + self._settings.abandoned_sweep_interval.total_seconds()
+                )
+
+            work_task = asyncio.create_task(self._worker.run_once())
+            stop_task = asyncio.create_task(stop_event.wait())
+            done, _ = await asyncio.wait(
+                (work_task, stop_task), return_when=asyncio.FIRST_COMPLETED
+            )
+
+            if stop_task in done:
+                if not work_task.done():
+                    try:
+                        result = await asyncio.wait_for(
+                            asyncio.shield(work_task),
+                            timeout=self._settings.shutdown_grace_period.total_seconds(),
+                        )
+                        if result is not None:
+                            completed_jobs += 1
+                    except TimeoutError:
+                        shutdown_timed_out = True
+                        work_task.cancel()
+                        with suppress(asyncio.CancelledError):
+                            await work_task
+                    except Exception:
+                        failed_attempts += 1
+                        logger.exception(
+                            "Generation worker failed during graceful shutdown"
+                        )
+                elif not work_task.cancelled() and work_task.exception() is not None:
+                    failed_attempts += 1
+                    error = work_task.exception()
+                    assert error is not None
+                    logger.error(
+                        "Generation worker failed as shutdown was requested",
+                        exc_info=(type(error), error, error.__traceback__),
+                    )
+                elif not work_task.cancelled() and work_task.result() is not None:
+                    completed_jobs += 1
+                break
+
+            stop_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await stop_task
+            try:
+                result = await work_task
+            except Exception:
+                failed_attempts += 1
+                logger.exception("Generation worker attempt failed")
+                if await _wait_for_stop(stop_event, self._settings.error_backoff):
+                    break
+                continue
+            if result is not None:
+                completed_jobs += 1
+                continue
+            if await _wait_for_stop(
+                stop_event, self._settings.idle_poll_interval
+            ):
+                break
+
+        return GenerationWorkerLoopResult(
+            completed_jobs=completed_jobs,
+            failed_attempts=failed_attempts,
+            recovered_jobs=recovered_jobs,
+            shutdown_timed_out=shutdown_timed_out,
+        )
+
+
+async def _wait_for_stop(
+    stop_event: asyncio.Event, duration: timedelta
+) -> bool:
+    try:
+        await asyncio.wait_for(
+            stop_event.wait(), timeout=duration.total_seconds()
+        )
+    except TimeoutError:
+        return False
+    return True

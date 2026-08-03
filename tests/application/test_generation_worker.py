@@ -25,7 +25,7 @@ from autoforge.services.validation import (
 
 class SlowSuccessfulValidator:
     async def validate(self, **_: object) -> ProjectValidationResult:
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.7)
         return ProjectValidationResult(
             steps=(
                 ValidationStepResult(
@@ -36,7 +36,7 @@ class SlowSuccessfulValidator:
                         stdout="",
                         stderr="",
                         timed_out=False,
-                        duration_seconds=0.1,
+                        duration_seconds=0.7,
                     ),
                 ),
             )
@@ -100,8 +100,8 @@ def test_two_workers_execute_one_submitted_job_with_heartbeat(
                     worker_id=worker_id,
                     source_root=tmp_path,
                     output_root=output_root,
-                    lease_duration=timedelta(milliseconds=60),
-                    heartbeat_interval=timedelta(milliseconds=10),
+                    lease_duration=timedelta(milliseconds=500),
+                    heartbeat_interval=timedelta(milliseconds=50),
                 ),
                 job_store=store,
                 pipeline=GenerationJobPipeline(

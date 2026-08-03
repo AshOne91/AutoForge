@@ -14,6 +14,9 @@ from autoforge.application.generation.submission import (
 )
 from autoforge.application.generation.worker import (
     GenerationWorker,
+    GenerationWorkerLoop,
+    GenerationWorkerLoopResult,
+    GenerationWorkerLoopSettings,
     GenerationWorkerResult,
     GenerationWorkerSettings,
 )
@@ -28,6 +31,9 @@ __all__ = [
     "GenerationTriggerResult",
     "GenerationValidationError",
     "GenerationWorker",
+    "GenerationWorkerLoop",
+    "GenerationWorkerLoopResult",
+    "GenerationWorkerLoopSettings",
     "GenerationWorkerResult",
     "GenerationWorkerSettings",
     "IdempotencyConflictError",

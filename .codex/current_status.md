@@ -1,5 +1,20 @@
 # 현재 상태
 
+## 2026-08-03 worker 운영 loop와 graceful shutdown 완료
+
+- `GenerationWorkerLoop`가 idle polling, 오류 backoff, 주기적 abandoned sweep와 누적
+  실행 결과를 조정한다.
+- idle 대기는 stop event와 timeout을 함께 기다려 busy polling하지 않는다.
+- 종료 요청이 들어오면 새 claim을 중단하고 현재 Job에 설정된 grace period를 준다.
+  grace 초과 시 Pipeline과 heartbeat task를 취소하되 lease를 임의로 해제하지 않는다.
+- 취소된 실행은 다른 worker가 만료 전 상태를 덮어쓸 수 없고, lease 만료 후 기존
+  pending takeover 또는 generating/validating failed 복구 규칙을 따른다.
+- SIGINT/SIGTERM adapter는 OS signal을 async stop event로 변환하며 context 종료 시
+  기존 signal handler를 복원한다.
+- 실제 PostgreSQL 16에서 validating 중 종료 유예 초과, task 취소, lease 보존과
+  만료 후 `JobLeaseExpired` failed 복구까지 검증했다.
+- 다음 단계는 Git checkout 기반의 Job별 격리 Workspace다.
+
 ## 2026-08-03 lease worker와 Generation Pipeline 연결 완료
 
 - `GenerationWorker.run_once()`가 pending Job 하나를 claim하고 submission 상대경로를
@@ -237,7 +252,7 @@
 
 - 일부 CLI 명령
 - Plugin Permission의 OS 수준 Sandbox 강제
-- worker 장기 실행 loop와 graceful shutdown 운영 adapter
+- Git checkout 기반 Job별 격리 Workspace
 
 PluginLoader의 발견, 의존성 정렬과 명시적 trusted 로딩 및 GenerationJob Application
 Pipeline 연결은 완료됐다. 다만 Webhook부터 Git 반영까지 이어지는 자동화 제품 전체는

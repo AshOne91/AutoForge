@@ -16,6 +16,8 @@ from autoforge.application.generation import (
     GenerationSubmissionService,
     GenerationTriggerRequest,
     GenerationWorker,
+    GenerationWorkerLoop,
+    GenerationWorkerLoopSettings,
     GenerationWorkerSettings,
 )
 from autoforge.core.audit import AuditRecord
@@ -75,6 +77,16 @@ class SuccessfulValidator:
                 ),
             )
         )
+
+
+class SlowValidator:
+    def __init__(self) -> None:
+        self.started = asyncio.Event()
+
+    async def validate(self, **_: object) -> ProjectValidationResult:
+        self.started.set()
+        await asyncio.sleep(60)
+        raise AssertionError("validator should be cancelled")
 
 
 def _job(job_id: str) -> GenerationJob:
@@ -400,6 +412,85 @@ def test_two_postgresql_workers_execute_one_generation_job(
                 )
                 assert row is not None
                 assert row.lease_token is None
+        finally:
+            await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_worker_shutdown_timeout_is_recovered_after_lease_expiry(
+    tmp_path: Path,
+) -> None:
+    async def scenario() -> None:
+        assert DATABASE_URL is not None
+        _write_specifications(tmp_path)
+        output_root = tmp_path / "shutdown-output"
+        output_root.mkdir()
+        engine = create_async_engine(DATABASE_URL)
+        sessions = async_sessionmaker(engine, expire_on_commit=False)
+        store = PostgreSQLJobStore(sessions)
+        try:
+            async with engine.begin() as connection:
+                await connection.execute(
+                    text("TRUNCATE autoforge_generation_jobs")
+                )
+            submitted = await GenerationSubmissionService(
+                source_root=tmp_path,
+                output_root=output_root,
+                job_store=store,
+                event_bus=EventBus(),
+            ).trigger(
+                GenerationTriggerRequest(
+                    project_path="spec/project.yaml",
+                    specifications_path="spec/modules",
+                    output_path="generated/service",
+                ),
+                idempotency_key="shutdown-delivery-1",
+            )
+            validator = SlowValidator()
+            bus = EventBus()
+            worker = GenerationWorker(
+                settings=GenerationWorkerSettings(
+                    worker_id="worker-shutdown",
+                    source_root=tmp_path,
+                    output_root=output_root,
+                    lease_duration=timedelta(seconds=2),
+                    heartbeat_interval=timedelta(milliseconds=100),
+                ),
+                job_store=store,
+                pipeline=GenerationJobPipeline(
+                    job_store=store,
+                    event_bus=bus,
+                    validator=validator,
+                ),
+            )
+            loop = GenerationWorkerLoop(
+                worker=worker,
+                job_store=store,
+                settings=GenerationWorkerLoopSettings(
+                    idle_poll_interval=timedelta(milliseconds=10),
+                    error_backoff=timedelta(milliseconds=10),
+                    abandoned_sweep_interval=timedelta(seconds=1),
+                    shutdown_grace_period=timedelta(milliseconds=10),
+                ),
+            )
+            stop = asyncio.Event()
+            loop_task = asyncio.create_task(loop.run(stop))
+            await asyncio.wait_for(validator.started.wait(), timeout=5)
+            stop.set()
+            loop_result = await asyncio.wait_for(loop_task, timeout=5)
+
+            assert loop_result.shutdown_timed_out is True
+            interrupted = await store.get(submitted.job.job_id)
+            assert interrupted is not None
+            assert interrupted.status is GenerationJobStatus.VALIDATING
+
+            recovered = await store.recover_abandoned(
+                now=datetime.now(UTC) + timedelta(seconds=10)
+            )
+            assert len(recovered) == 1
+            assert recovered[0].status is GenerationJobStatus.FAILED
+            assert recovered[0].error == "JobLeaseExpired"
         finally:
             await engine.dispose()
 

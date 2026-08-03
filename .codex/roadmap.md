@@ -85,7 +85,7 @@
 - [x] 인증된 idempotent trigger/status API와 입력 경계
 - [x] 실행 lease, heartbeat, stale-worker fencing과 abandoned Job 복구
 - [x] lease worker와 Generation Pipeline 연결
-- [ ] worker polling loop와 graceful shutdown 운영 adapter
+- [x] worker polling loop, abandoned sweep와 graceful shutdown 운영 adapter
 - [x] Logging과 Audit Handler 및 구독 실패 정책
 - [x] PostgreSQL AuditSink와 event_id 중복 방지
 - [ ] Metrics Handler

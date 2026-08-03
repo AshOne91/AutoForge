@@ -71,11 +71,20 @@ transport이며 EventBus를 대체하지 않는다.
 
 다음:
 
-1. polling/backoff, graceful shutdown과 abandoned sweep를 갖춘 worker 운영 loop를
-   구현한다.
-2. 프로세스 종료 신호에서 새 claim을 중단하고 현재 Pipeline을 제한 시간 동안
-   완료하거나 lease 만료 복구로 넘긴다.
-3. worker 프로세스 2개 중단·재시작 검증 후 Git checkout Workspace 단계로 진입한다.
+완료:
+
+1. idle polling, error backoff와 주기적 abandoned sweep 운영 loop
+2. stop event 이후 새 claim 중단과 현재 Pipeline grace period
+3. grace 초과 시 Pipeline·heartbeat 취소 및 lease 만료 복구 위임
+4. SIGINT/SIGTERM의 async stop event 변환과 기존 handler 복원
+5. 실제 PostgreSQL validating Job 중단·만료·failed 복구 검증
+
+다음:
+
+1. 원격 저장소를 Job별 격리 Workspace에 checkout하는 Git Provider 계약을 구현한다.
+2. 허용된 repository/ref와 credential 경계를 검증하고 원본 working tree를 직접
+   수정하지 않는다.
+3. 생성·검증 성공 후에만 작업 branch와 commit 단계로 이동한다.
 
 ## 후속 목표
 

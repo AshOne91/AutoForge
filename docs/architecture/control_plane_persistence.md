@@ -121,6 +121,19 @@ Generator 렌더링과 파일 적용은 동기 코드이므로 event loop에서 
 heartbeat가 굶을 수 있다. 출력 규칙은 유지하면서 `asyncio.to_thread()`로 실행해
 heartbeat와 cancellation이 계속 스케줄되게 한다.
 
+## Worker 운영 loop와 종료
+
+운영 loop는 Job이 없을 때 설정된 polling 간격 동안 stop event를 기다린다. Job 오류는
+구조화된 logging으로 남기고 error backoff 뒤 다음 claim을 계속한다. 시작 시 즉시,
+이후 설정 주기마다 abandoned sweep를 실행한다.
+
+SIGINT/SIGTERM adapter는 signal handler에서 Pipeline을 직접 취소하지 않고 thread-safe
+방식으로 async stop event만 설정한다. loop는 새 claim을 중단하고 실행 중 Job에는
+grace period를 준다. 제한 시간을 넘으면 Pipeline과 heartbeat를 취소하지만 DB lease는
+강제로 비우지 않는다. 취소 직후 lease를 지우면 다른 worker가 아직 정리 중인 파일을
+동시에 건드릴 수 있기 때문이다. lease가 자연 만료된 뒤 기존 fencing과 abandoned
+복구 정책이 소유권을 안전하게 넘긴다.
+
 ## Migration과 실행
 
 운영 adapter는 런타임 `create_all()`을 호출하지 않는다. schema는 버전 관리되는
@@ -150,7 +163,7 @@ server extra가 없는 로컬 CLI의 import를 깨뜨리지 않는다.
 
 ## 아직 남은 범위
 
-- worker polling loop, backoff와 graceful shutdown 운영 adapter
+- Git checkout 기반 Job별 격리 Workspace
 - PostgreSQL Multi-AZ 배포 계약
 - backup/restore, 보존 기간과 개인정보 삭제 정책
 - Metrics projection
