@@ -3,9 +3,13 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from autoforge.core.event.event import Event
-from autoforge.core.event.event_bus import EventBus
-from autoforge.core.event.handler import EventHandler
+from autoforge.core.event import (
+    Event,
+    EventBus,
+    EventDispatchError,
+    EventHandler,
+    HandlerFailurePolicy,
+)
 
 
 class SampleEvent(Event):
@@ -18,6 +22,12 @@ class RecordingHandler(EventHandler):
 
     async def handle(self, event: Event) -> None:
         self.events.append(event)
+
+
+class FailingHandler(EventHandler):
+    async def handle(self, event: Event) -> None:
+        del event
+        raise RuntimeError("handler failed")
 
 
 def test_publish_event_to_subscribed_handlers() -> None:
@@ -64,3 +74,56 @@ def test_event_rejects_naive_created_at() -> None:
 
     with pytest.raises(ValueError, match="timezone-aware"):
         SampleEvent(created_at=datetime.now(UTC).replace(tzinfo=None))
+
+
+def test_critical_failure_is_raised_after_all_handlers_finish() -> None:
+    bus = EventBus()
+    failing = FailingHandler()
+    recording = RecordingHandler()
+    event = SampleEvent()
+    bus.subscribe(SampleEvent, failing)
+    bus.subscribe(SampleEvent, recording)
+
+    with pytest.raises(EventDispatchError) as raised:
+        asyncio.run(bus.publish(event))
+
+    assert recording.events == [event]
+    assert raised.value.result.handler_count == 2
+    assert len(raised.value.result.critical_failures) == 1
+    assert raised.value.result.failures[0].handler_type == "FailingHandler"
+
+
+def test_observational_failure_is_reported_without_failing_publish() -> None:
+    bus = EventBus()
+    failing = FailingHandler()
+    recording = RecordingHandler()
+    event = SampleEvent()
+    bus.subscribe(
+        SampleEvent,
+        failing,
+        failure_policy=HandlerFailurePolicy.OBSERVATIONAL,
+    )
+    bus.subscribe(SampleEvent, recording)
+
+    result = asyncio.run(bus.publish(event))
+
+    assert recording.events == [event]
+    assert not result.succeeded
+    assert result.critical_failures == ()
+    assert result.failures[0].failure_policy is HandlerFailurePolicy.OBSERVATIONAL
+
+
+def test_duplicate_subscription_preserves_original_failure_policy() -> None:
+    bus = EventBus()
+    handler = RecordingHandler()
+    bus.subscribe(
+        SampleEvent,
+        handler,
+        failure_policy=HandlerFailurePolicy.OBSERVATIONAL,
+    )
+    bus.subscribe(SampleEvent, handler)
+
+    subscriptions = bus.subscriptions(SampleEvent)
+
+    assert len(subscriptions) == 1
+    assert subscriptions[0].failure_policy is HandlerFailurePolicy.OBSERVATIONAL

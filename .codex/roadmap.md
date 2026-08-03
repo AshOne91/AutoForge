@@ -82,7 +82,8 @@
 - [x] Job 및 Generation Event 정의
 - [x] GenerationJob 상태 머신과 async JobStore Protocol
 - [ ] PostgreSQL JobStore와 idempotent trigger
-- [ ] Logging, Audit, Metrics Handler
+- [x] Logging과 Audit Handler 및 구독 실패 정책
+- [ ] Metrics Handler와 PostgreSQL AuditSink
 - [x] Generation Pipeline
 - [x] Validation 및 Build Pipeline
 - [x] 실패·재시도·Timeout 정책

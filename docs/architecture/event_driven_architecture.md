@@ -363,6 +363,13 @@ Observational Handler
 Generic EventBus가 Handler 이름을 보고 중요도를 판단하지 않는다. 구독 Metadata
 또는 상위 Dispatcher 정책으로 명시한다.
 
+현재 구독은 `HandlerFailurePolicy.CRITICAL` 또는 `OBSERVATIONAL`을 명시한다.
+기본값은 하위 호환성을 위해 critical이다. Dispatcher는 동일 Event의 모든 handler를
+동시에 끝까지 실행하고, critical 실패가 하나라도 있으면 전체 실패 목록을 포함한
+`EventDispatchError`를 발생시킨다. observational 실패만 있으면 publish는 정상
+반환하되 `EventDispatchResult.failures`에 결과를 남긴다. EventBus는 handler 이름이나
+업무 종류를 보고 정책을 추측하지 않는다.
+
 ### 중복 처리
 
 외부 Transport의 최소 한 번 전달에서는 같은 Event가 재전달될 수 있다.
@@ -484,12 +491,14 @@ Infrastructure
 - 명시적 Task 순서의 SequentialPipeline
 - Task별 timeout, 제한된 retry, 실패 중단과 cancellation
 - Pipeline/Task lifecycle Event
+- critical/observational 구독 실패 정책과 구조화된 dispatch 결과
+- envelope-only Logging/Audit Handler와 async AuditSink Protocol
+- 로컬·테스트용 append-only InMemoryAuditSink
 
 추후 필요:
 
-- Dispatch 결과와 실패 정책 경계
-- Job/Generation Event
 - Application Handler 조립
+- PostgreSQL AuditSink와 외부 전달 중복 방지
 - 외부 Transport가 필요할 때의 Protocol
 
 현재 구현은 폐기 대상이 아니라 최소 기반이다.

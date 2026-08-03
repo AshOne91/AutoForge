@@ -1,5 +1,19 @@
 # 현재 상태
 
+## 2026-08-03 Observability Handler 기반 완료
+
+- Event 구독에 `critical`과 `observational` 실패 정책을 명시한다.
+- 기본값은 기존 의미를 보존하는 critical이며, 동일 Event의 모든 handler를 실행한
+  뒤 critical 실패를 구조화된 `EventDispatchError`로 전파한다.
+- observational 실패는 핵심 Pipeline을 실패시키지 않고 `EventDispatchResult`에
+  handler type, 정책과 원인 예외를 기록한다.
+- 구조화된 Logging Handler와 Audit Handler는 임의 payload를 복사하지 않고 Event
+  envelope만 기록하여 비밀정보 노출 경계를 지킨다.
+- async AuditSink Protocol과 append-only InMemoryAuditSink를 추가했다.
+- InMemoryAuditSink는 로컬·테스트 adapter이며 재시작 복구, 분산 중복 방지와 규정
+  보존을 제공하지 않는다. PostgreSQL adapter가 다음 단계다.
+- 전체 Ruff, 312개 pytest와 CLI 버전 검증을 통과했다.
+
 ## 2026-08-03 Event/Pipeline Core 완료
 
 - 기존 in-process EventBus의 업무 중립성을 유지하면서 Event를 불변 객체로 만들고
@@ -48,7 +62,7 @@
   명세에 없음을 확인해 `ToolingSpec.ruff_exclude` 계약을 추가했다.
 - exclude 항목은 안전한 Workspace 상대 POSIX 경로만 허용하며 FastAPI Project
   Generator가 결정적인 `[tool.ruff]` 설정으로 렌더링한다.
-- 전체 테스트 기준선은 305개다.
+- 전체 테스트 기준선은 312개다.
 - wheel 검증이 만드는 `build/`, `dist/`와 `.autoforge/dist/`를 포함한 기본
   `.gitignore`를 Project Generator의 SCAFFOLDED 파일로 추가했다. 기존 프로젝트의
   사용자 `.gitignore`는 덮어쓰지 않는다.

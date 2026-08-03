@@ -27,11 +27,19 @@ transport이며 EventBus를 대체하지 않는다.
 
 ## 현재 목표: 관찰과 영속 Job 실행
 
-1. 구조화된 logging handler를 추가한다.
-2. append-only audit record 계약과 adapter를 추가한다.
-3. PostgreSQL JobStore와 optimistic concurrency를 구현한다.
-4. idempotency key 기반 trigger/status Application API를 구현한다.
-5. KIS에서 새 Generation Pipeline 전체를 실제 실행해 검증한다.
+완료:
+
+1. 구조화된 logging handler
+2. envelope-only append-only audit record와 InMemory adapter
+3. critical/observational handler 실패 정책
+4. KIS Generation Pipeline 전체 실사용 검증
+
+다음:
+
+1. PostgreSQL JobStore와 optimistic concurrency를 구현한다.
+2. PostgreSQL AuditSink와 event_id 중복 방지를 구현한다.
+3. idempotency key 기반 trigger/status Application API를 구현한다.
+4. 다중 API 인스턴스에서 같은 trigger의 단일 Job 생성을 검증한다.
 
 ## 후속 목표
 
