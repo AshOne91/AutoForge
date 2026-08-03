@@ -1,5 +1,21 @@
 # 현재 상태
 
+## 2026-08-03 lease worker와 Generation Pipeline 연결 완료
+
+- `GenerationWorker.run_once()`가 pending Job 하나를 claim하고 submission 상대경로를
+  주입된 source/output root의 실제 경로로 복원한다.
+- claimed 전용 Pipeline 경로가 저장된 specification hash와 현재 명세를 다시 비교한 뒤
+  Generate → Validate를 실행한다. 기존 CLI `run()` API는 그대로 유지한다.
+- 모든 worker 상태 전이는 lease token으로 fencing하며, Pipeline 실행과 heartbeat를
+  동시에 조정한다. heartbeat 상실 시 실행을 취소하고 stale worker 쓰기를 금지한다.
+- 동기 Generator 렌더링·파일 적용은 `asyncio.to_thread()`에서 실행해 event loop의
+  heartbeat와 cancellation을 막지 않는다.
+- 입력이 사라지거나 제출 후 명세가 바뀌면 pending Job을 명시적으로 failed 처리한다.
+- InMemory에서 lease보다 긴 실행의 heartbeat 유지와 worker 2대 단일 실행을 검증했고,
+  실제 PostgreSQL 16에서도 서로 다른 store·Pipeline·worker 2대 중 하나만 생성하고
+  succeeded terminal 전이에서 lease가 정리되는 것을 검증했다.
+- 다음 단계는 worker 장기 실행 loop와 graceful shutdown 운영 adapter다.
+
 ## 2026-08-03 GenerationJob lease와 fencing 완료
 
 - JobStore 계약에 pending claim, heartbeat, release와 abandoned 복구를 추가했다.
@@ -221,7 +237,7 @@
 
 - 일부 CLI 명령
 - Plugin Permission의 OS 수준 Sandbox 강제
-- pending Job worker와 기존 Generation Pipeline 연결
+- worker 장기 실행 loop와 graceful shutdown 운영 adapter
 
 PluginLoader의 발견, 의존성 정렬과 명시적 trusted 로딩 및 GenerationJob Application
 Pipeline 연결은 완료됐다. 다만 Webhook부터 Git 반영까지 이어지는 자동화 제품 전체는

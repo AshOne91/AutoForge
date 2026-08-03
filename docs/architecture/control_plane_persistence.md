@@ -103,7 +103,23 @@ key로 경로 또는 명세 내용이 다른 요청을 보내면 409다. 누락�
 
 HTTP 요청은 Generation Pipeline을 직접 실행하지 않는다. 신규 Job일 때만
 `GenerationJobCreatedEvent`를 in-process EventBus에 발행하고 즉시 응답한다. 영속
-queue 역할은 PostgreSQL pending Job과 후속 lease worker가 담당한다.
+queue 역할은 PostgreSQL pending Job과 lease worker가 담당한다.
+
+## Worker 실행 계약
+
+`GenerationWorker.run_once()`는 pending Job 하나를 claim하고 저장된 submission을
+주입된 source/output root 기준 실제 경로로 복원한다. claimed Pipeline은 현재 YAML을
+다시 읽고 저장된 unit specification hash와 비교한다. 입력이 사라졌거나 제출 후 명세가
+변경됐다면 코드를 만들지 않고 Job을 failed 처리한다.
+
+Pipeline의 generating/validating/terminal 전이는 모두 claim token을 전달한다. worker는
+Pipeline과 heartbeat task를 함께 감시한다. heartbeat가 먼저 실패하면 Pipeline을
+취소하며, Pipeline이 먼저 끝나면 heartbeat를 취소한다. terminal 상태 저장은 같은
+transaction에서 lease 컬럼을 비운다.
+
+Generator 렌더링과 파일 적용은 동기 코드이므로 event loop에서 직접 실행하면
+heartbeat가 굶을 수 있다. 출력 규칙은 유지하면서 `asyncio.to_thread()`로 실행해
+heartbeat와 cancellation이 계속 스케줄되게 한다.
 
 ## Migration과 실행
 
@@ -134,7 +150,7 @@ server extra가 없는 로컬 CLI의 import를 깨뜨리지 않는다.
 
 ## 아직 남은 범위
 
-- lease worker와 Generation Pipeline 연결
+- worker polling loop, backoff와 graceful shutdown 운영 adapter
 - PostgreSQL Multi-AZ 배포 계약
 - backup/restore, 보존 기간과 개인정보 삭제 정책
 - Metrics projection

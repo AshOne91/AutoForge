@@ -453,7 +453,9 @@ submission과 specification hash를 먼저 저장하고, 신규 claim일 때만
 JobStore의 실행 lease, heartbeat와 stale-worker fencing은 구현됐다. pending 상태의
 만료 lease만 takeover하며, generating/validating 중 만료된 Job은 부분 Workspace를
 추측해서 이어 실행하지 않고 `JobLeaseExpired` failed로 복구한다. lease worker와
-Generation Pipeline의 실제 연결은 다음 단계다.
+Generation Pipeline도 연결됐다. worker는 HTTP 요청과 분리되어 claimed Job의 명세
+hash를 재검증하고 실행 중 heartbeat를 유지한다. 장기 polling loop와 graceful shutdown
+운영 adapter는 다음 단계다.
 
 `GenerationJobStateMachine`은 다음 전이만 허용한다.
 

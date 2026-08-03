@@ -61,10 +61,21 @@ transport이며 EventBus를 대체하지 않는다.
 
 다음:
 
-1. pending Job을 HTTP 요청과 분리된 worker가 claim해 기존 Generation Pipeline에
-   전달한다.
-2. worker 실행 중 heartbeat를 유지하고 terminal 상태에서 lease를 정리한다.
-3. worker 2대가 실제 생성 요청 하나만 실행하는지 격리 Workspace에서 검증한다.
+완료:
+
+1. pending Job을 HTTP 요청과 분리된 worker가 claim해 기존 Generation Pipeline에 전달
+2. claimed 명세 hash 재검증과 source/output root 경로 복원
+3. Pipeline 실행 중 heartbeat 유지와 모든 상태 전이의 lease token fencing
+4. terminal 상태 lease 정리와 입력 소실·명세 변경의 failed 처리
+5. 실제 PostgreSQL worker 2대 경쟁에서 단일 Generation Pipeline 실행 검증
+
+다음:
+
+1. polling/backoff, graceful shutdown과 abandoned sweep를 갖춘 worker 운영 loop를
+   구현한다.
+2. 프로세스 종료 신호에서 새 claim을 중단하고 현재 Pipeline을 제한 시간 동안
+   완료하거나 lease 만료 복구로 넘긴다.
+3. worker 프로세스 2개 중단·재시작 검증 후 Git checkout Workspace 단계로 진입한다.
 
 ## 후속 목표
 

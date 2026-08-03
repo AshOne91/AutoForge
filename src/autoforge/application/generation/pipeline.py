@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -23,6 +24,7 @@ from autoforge.core.job import (
     GenerationUnit,
     GenerationUnitKind,
     GenerationUnitManifest,
+    JobLease,
     JobStore,
     ValidationCompletedEvent,
     ValidationFailedEvent,
@@ -85,6 +87,7 @@ class _GenerationContext:
     job: GenerationJob | None = None
     manifest: GenerationJobManifest | None = None
     manifest_path: Path | None = None
+    lease_token: str | None = None
 
 
 class _PrepareGenerationJobTask(Task):
@@ -130,6 +133,37 @@ class _PrepareGenerationJobTask(Task):
         }
 
 
+class _HydrateClaimedGenerationJobTask(Task):
+    def __init__(self, context: _GenerationContext) -> None:
+        self._context = context
+
+    async def execute(self) -> GenerationJob:
+        job = self._context.job
+        if job is None:
+            raise RuntimeError("Claimed GenerationJob is missing")
+        project_spec, module_specs = load_generation_specifications(
+            self._context.request.project_path,
+            self._context.request.specifications_path,
+        )
+        expected = build_generation_job(
+            job.job_id,
+            project_spec,
+            module_specs,
+            submission=job.submission,
+        )
+        if expected.units != job.units:
+            raise GenerationSpecificationError(
+                "Claimed GenerationJob specifications changed after submission"
+            )
+        self._context.request.output_path.mkdir(parents=True, exist_ok=True)
+        self._context.project_spec = project_spec
+        self._context.module_specs = module_specs
+        self._context.workspace = Workspace(
+            self._context.request.output_path.resolve()
+        )
+        return job
+
+
 class _GenerateUnitsTask(Task):
     def __init__(
         self,
@@ -153,7 +187,7 @@ class _GenerateUnitsTask(Task):
             )
         )
         try:
-            manifest, manifest_path = self._generate()
+            manifest, manifest_path = await asyncio.to_thread(self._generate)
         except Exception as error:
             await self._fail(error)
             raise
@@ -250,7 +284,11 @@ class _GenerateUnitsTask(Task):
     async def _replace(
         self, job: GenerationJob, *, expected_status: GenerationJobStatus
     ) -> None:
-        await self._job_store.replace(job, expected_status=expected_status)
+        await self._job_store.replace(
+            job,
+            expected_status=expected_status,
+            lease_token=self._context.lease_token,
+        )
         self._context.job = job
 
     def _require_job(self) -> GenerationJob:
@@ -315,7 +353,9 @@ class _ValidateGeneratedProjectTask(Task):
             current, GenerationJobStatus.SUCCEEDED
         )
         await self._job_store.replace(
-            succeeded, expected_status=GenerationJobStatus.VALIDATING
+            succeeded,
+            expected_status=GenerationJobStatus.VALIDATING,
+            lease_token=self._context.lease_token,
         )
         self._context.job = succeeded
         completed_steps = tuple(step.step.value for step in result.steps)
@@ -334,7 +374,9 @@ class _ValidateGeneratedProjectTask(Task):
             error=type(error).__name__,
         )
         await self._job_store.replace(
-            failed, expected_status=GenerationJobStatus.VALIDATING
+            failed,
+            expected_status=GenerationJobStatus.VALIDATING,
+            lease_token=self._context.lease_token,
         )
         self._context.job = failed
         await self._event_bus.publish(
@@ -389,16 +431,48 @@ class GenerationJobPipeline:
         context = _GenerationContext(
             job_id=job_id or str(uuid4()), request=request
         )
+        return await self._run_context(
+            context,
+            first_step=PipelineStep(
+                "prepare_generation_job",
+                _PrepareGenerationJobTask(
+                    context, self._job_store, self._event_bus
+                ),
+            ),
+        )
+
+    async def run_claimed(
+        self,
+        request: GenerationJobRequest,
+        lease: JobLease,
+    ) -> GenerationJobExecution:
+        if lease.job.status is not GenerationJobStatus.PENDING:
+            raise ValueError("Only a pending GenerationJob may be executed")
+        context = _GenerationContext(
+            job_id=lease.job.job_id,
+            request=request,
+            job=lease.job,
+            lease_token=lease.token,
+        )
+        return await self._run_context(
+            context,
+            first_step=PipelineStep(
+                "hydrate_claimed_generation_job",
+                _HydrateClaimedGenerationJobTask(context),
+            ),
+        )
+
+    async def _run_context(
+        self,
+        context: _GenerationContext,
+        *,
+        first_step: PipelineStep,
+    ) -> GenerationJobExecution:
         pipeline = SequentialPipeline(
             name="generation",
             job_id=context.job_id,
             steps=(
-                PipelineStep(
-                    "prepare_generation_job",
-                    _PrepareGenerationJobTask(
-                        context, self._job_store, self._event_bus
-                    ),
-                ),
+                first_step,
                 PipelineStep(
                     "generate_units",
                     _GenerateUnitsTask(

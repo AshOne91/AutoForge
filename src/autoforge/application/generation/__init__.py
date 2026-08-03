@@ -12,6 +12,11 @@ from autoforge.application.generation.submission import (
     GenerationTriggerResult,
     IdempotencyConflictError,
 )
+from autoforge.application.generation.worker import (
+    GenerationWorker,
+    GenerationWorkerResult,
+    GenerationWorkerSettings,
+)
 
 __all__ = [
     "GenerationJobExecution",
@@ -22,6 +27,9 @@ __all__ = [
     "GenerationTriggerRequest",
     "GenerationTriggerResult",
     "GenerationValidationError",
+    "GenerationWorker",
+    "GenerationWorkerResult",
+    "GenerationWorkerSettings",
     "IdempotencyConflictError",
     "build_generation_job",
 ]

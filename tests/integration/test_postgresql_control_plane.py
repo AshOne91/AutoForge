@@ -11,7 +11,13 @@ pytest.importorskip("sqlalchemy")
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from autoforge.application.generation import GenerationSubmissionService
+from autoforge.application.generation import (
+    GenerationJobPipeline,
+    GenerationSubmissionService,
+    GenerationTriggerRequest,
+    GenerationWorker,
+    GenerationWorkerSettings,
+)
 from autoforge.core.audit import AuditRecord
 from autoforge.core.event import EventBus
 from autoforge.core.generation import content_hash
@@ -34,6 +40,12 @@ from autoforge.infrastructure.postgresql.control_plane import (
     AuditRecordRow,
     GenerationJobRecord,
 )
+from autoforge.services.validation import (
+    ProcessResult,
+    ProjectValidationResult,
+    ValidationStep,
+    ValidationStepResult,
+)
 
 DATABASE_URL = os.getenv("AUTOFORGE_TEST_DATABASE_URL")
 
@@ -44,6 +56,25 @@ pytestmark = [
         reason="AUTOFORGE_TEST_DATABASE_URL is required",
     ),
 ]
+
+
+class SuccessfulValidator:
+    async def validate(self, **_: object) -> ProjectValidationResult:
+        return ProjectValidationResult(
+            steps=(
+                ValidationStepResult(
+                    step=ValidationStep.IMPORT,
+                    process=ProcessResult(
+                        command=("python",),
+                        exit_code=0,
+                        stdout="",
+                        stderr="",
+                        timed_out=False,
+                        duration_seconds=0,
+                    ),
+                ),
+            )
+        )
 
 
 def _job(job_id: str) -> GenerationJob:
@@ -297,6 +328,78 @@ def test_postgresql_lease_heartbeat_takeover_and_abandoned_recovery() -> None:
                 assert row is not None
                 assert row.lease_token is None
                 assert row.status == GenerationJobStatus.FAILED.value
+        finally:
+            await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_two_postgresql_workers_execute_one_generation_job(
+    tmp_path: Path,
+) -> None:
+    async def scenario() -> None:
+        assert DATABASE_URL is not None
+        _write_specifications(tmp_path)
+        output_root = tmp_path / "worker-output"
+        output_root.mkdir()
+        engine = create_async_engine(DATABASE_URL)
+        sessions = async_sessionmaker(engine, expire_on_commit=False)
+        try:
+            async with engine.begin() as connection:
+                await connection.execute(
+                    text("TRUNCATE autoforge_generation_jobs")
+                )
+            submission_store = PostgreSQLJobStore(sessions)
+            submitted = await GenerationSubmissionService(
+                source_root=tmp_path,
+                output_root=output_root,
+                job_store=submission_store,
+                event_bus=EventBus(),
+            ).trigger(
+                GenerationTriggerRequest(
+                    project_path="spec/project.yaml",
+                    specifications_path="spec/modules",
+                    output_path="generated/service",
+                ),
+                idempotency_key="worker-delivery-1",
+            )
+
+            def worker(worker_id: str) -> GenerationWorker:
+                store = PostgreSQLJobStore(sessions)
+                bus = EventBus()
+                return GenerationWorker(
+                    settings=GenerationWorkerSettings(
+                        worker_id=worker_id,
+                        source_root=tmp_path,
+                        output_root=output_root,
+                        lease_duration=timedelta(seconds=5),
+                        heartbeat_interval=timedelta(seconds=1),
+                    ),
+                    job_store=store,
+                    pipeline=GenerationJobPipeline(
+                        job_store=store,
+                        event_bus=bus,
+                        validator=SuccessfulValidator(),
+                    ),
+                )
+
+            results = await asyncio.gather(
+                worker("worker-a").run_once(),
+                worker("worker-b").run_once(),
+            )
+            assert sum(result is not None for result in results) == 1
+            persisted = await submission_store.get(submitted.job.job_id)
+            assert persisted is not None
+            assert persisted.status is GenerationJobStatus.SUCCEEDED
+            assert (
+                output_root / "generated/service/src/sample/main.py"
+            ).is_file()
+            async with sessions() as session:
+                row = await session.get(
+                    GenerationJobRecord, submitted.job.job_id
+                )
+                assert row is not None
+                assert row.lease_token is None
         finally:
             await engine.dispose()
 
