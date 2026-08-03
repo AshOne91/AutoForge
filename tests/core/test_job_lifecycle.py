@@ -1,10 +1,14 @@
+from pathlib import PurePosixPath
+
 import pytest
 
 from autoforge.core.generation import content_hash
+from autoforge.core.git import GitCheckoutRequest, GitCommitResult
 from autoforge.core.job import (
     GenerationJob,
     GenerationJobStateMachine,
     GenerationJobStatus,
+    GenerationJobSubmission,
     GenerationUnit,
     GenerationUnitKind,
     InvalidJobTransitionError,
@@ -131,3 +135,47 @@ def test_state_machine_plans_pending_job_once() -> None:
     assert planned.units == units
     with pytest.raises(InvalidJobTransitionError, match="already planned"):
         GenerationJobStateMachine.plan(planned, units)
+
+
+def test_remote_job_commits_after_validation_and_persists_result() -> None:
+    pending = GenerationJob.model_validate(
+        {
+            **_pending_job().model_dump(),
+            "submission": GenerationJobSubmission(
+                project_path="spec/project.yaml",
+                specifications_path="spec/modules",
+                output_path=".",
+                repository=GitCheckoutRequest(
+                    "https://github.com/example/repository.git", "main"
+                ),
+                resolved_commit_sha="a" * 40,
+            ),
+        }
+    )
+    generating = GenerationJobStateMachine.transition(
+        pending, GenerationJobStatus.GENERATING
+    )
+    validating = GenerationJobStateMachine.transition(
+        generating,
+        GenerationJobStatus.VALIDATING,
+        manifest=job_manifest(),
+    )
+    committing = GenerationJobStateMachine.transition(
+        validating, GenerationJobStatus.COMMITTING
+    )
+    commit = GitCommitResult(
+        commit_sha="b" * 40,
+        branch_name="autoforge/job-001",
+        changed_paths=(PurePosixPath("src/service.py"),),
+        commit_created=True,
+    )
+    succeeded = GenerationJobStateMachine.transition(
+        committing,
+        GenerationJobStatus.SUCCEEDED,
+        git_commit=commit,
+    )
+
+    assert committing.status is GenerationJobStatus.COMMITTING
+    assert committing.git_commit is None
+    assert succeeded.status is GenerationJobStatus.SUCCEEDED
+    assert succeeded.git_commit == commit

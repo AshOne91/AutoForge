@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from autoforge.core.generation import GenerationManifest
 from autoforge.core.generation.models import validate_sha256
-from autoforge.core.git import GitCheckoutRequest
+from autoforge.core.git import GitCheckoutRequest, GitCommitResult
 from autoforge.core.workspace import validate_workspace_relative_path
 
 
@@ -23,6 +23,7 @@ class GenerationJobStatus(StrEnum):
     PENDING = "pending"
     GENERATING = "generating"
     VALIDATING = "validating"
+    COMMITTING = "committing"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
 
@@ -114,6 +115,7 @@ class GenerationJob(JobModel):
     units: list[GenerationUnit] = Field(default_factory=list)
     submission: GenerationJobSubmission | None = None
     manifest: GenerationJobManifest | None = None
+    git_commit: GitCommitResult | None = None
     error: str | None = None
 
     @model_validator(mode="after")
@@ -149,6 +151,16 @@ class GenerationJob(JobModel):
                 raise ValueError(
                     "성공한 GenerationJob에는 모든 Unit 결과가 필요합니다."
                 )
+        if self.status is GenerationJobStatus.COMMITTING:
+            if self.manifest is None:
+                raise ValueError("Git commit 중인 GenerationJob에는 Manifest가 필요합니다.")
+            if self.submission is None or self.submission.repository is None:
+                raise ValueError("Git commit 상태에는 repository submission이 필요합니다.")
+        if self.git_commit is not None:
+            if self.status is not GenerationJobStatus.SUCCEEDED:
+                raise ValueError("Git commit 결과는 성공한 GenerationJob에만 저장됩니다.")
+            if self.submission is None or self.submission.repository is None:
+                raise ValueError("Git commit 결과에는 repository submission이 필요합니다.")
         if self.status is GenerationJobStatus.FAILED and self.error is None:
             raise ValueError("실패한 GenerationJob에는 error가 필요합니다.")
         if self.status is not GenerationJobStatus.FAILED and self.error is not None:

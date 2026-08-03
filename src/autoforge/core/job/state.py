@@ -1,5 +1,6 @@
 from pydantic import ValidationError
 
+from autoforge.core.git import GitCommitResult
 from autoforge.core.job.models import (
     GenerationJob,
     GenerationJobManifest,
@@ -16,6 +17,13 @@ _ALLOWED_TRANSITIONS: dict[GenerationJobStatus, frozenset[GenerationJobStatus]] 
         {GenerationJobStatus.VALIDATING, GenerationJobStatus.FAILED}
     ),
     GenerationJobStatus.VALIDATING: frozenset(
+        {
+            GenerationJobStatus.COMMITTING,
+            GenerationJobStatus.SUCCEEDED,
+            GenerationJobStatus.FAILED,
+        }
+    ),
+    GenerationJobStatus.COMMITTING: frozenset(
         {GenerationJobStatus.SUCCEEDED, GenerationJobStatus.FAILED}
     ),
     GenerationJobStatus.SUCCEEDED: frozenset(),
@@ -60,6 +68,7 @@ class GenerationJobStateMachine:
         status: GenerationJobStatus,
         *,
         manifest: GenerationJobManifest | None = None,
+        git_commit: GitCommitResult | None = None,
         error: str | None = None,
     ) -> GenerationJob:
         if status not in _ALLOWED_TRANSITIONS[job.status]:
@@ -89,6 +98,7 @@ class GenerationJobStateMachine:
         values.update(
             status=status,
             manifest=next_manifest,
+            git_commit=git_commit if git_commit is not None else job.git_commit,
             error=next_error,
         )
         try:

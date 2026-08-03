@@ -137,8 +137,9 @@ grace period를 준다. 제한 시간을 넘으면 Pipeline과 heartbeat를 취�
 ## Migration과 실행
 
 운영 adapter는 런타임 `create_all()`을 호출하지 않는다. schema는 버전 관리되는
-`deploy/postgresql/init/001_control_plane.sql` baseline과 `002_job_leases.sql` 순서로
-명시적으로 적용한다. 로컬 통합 구성은 `compose.integration.yaml`을 사용한다.
+`deploy/postgresql/init/001_control_plane.sql` baseline, `002_job_leases.sql`,
+`003_job_committing_status.sql` 순서로 명시적으로 적용한다. 로컬 통합 구성은
+`compose.integration.yaml`을 사용한다.
 
 ```powershell
 docker compose -p autoforge-control-it -f compose.integration.yaml up -d --wait

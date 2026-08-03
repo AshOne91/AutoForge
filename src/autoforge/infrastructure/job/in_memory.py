@@ -139,6 +139,7 @@ class InMemoryJobStore:
                     not in {
                         GenerationJobStatus.GENERATING,
                         GenerationJobStatus.VALIDATING,
+                        GenerationJobStatus.COMMITTING,
                     }
                 ):
                     continue

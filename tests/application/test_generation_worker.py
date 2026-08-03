@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from autoforge.application.generation import (
+    GenerationGitCommitSettings,
     GenerationJobPipeline,
     GenerationPlanningService,
     GenerationSubmissionService,
@@ -12,12 +13,17 @@ from autoforge.application.generation import (
     GenerationWorker,
     GenerationWorkerSettings,
 )
-from autoforge.core.event import EventBus
+from autoforge.core.event import Event, EventBus, EventHandler
 from autoforge.core.git import GitCheckoutPolicy
-from autoforge.core.job import GenerationJobStatus
+from autoforge.core.job import (
+    GenerationJobStatus,
+    GitCommitCompletedEvent,
+    GitCommitFailedEvent,
+    GitCommitStartedEvent,
+)
 from autoforge.core.pipeline import PipelineExecutionError
 from autoforge.core.workspace import Workspace
-from autoforge.infrastructure.git import SubprocessGitProvider
+from autoforge.infrastructure.git import GitProviderError, SubprocessGitProvider
 from autoforge.infrastructure.job import InMemoryJobStore
 from autoforge.infrastructure.process import AsyncioProcessRunner
 from autoforge.infrastructure.workspace import IsolatedWorkspaceManager
@@ -49,6 +55,14 @@ class SlowSuccessfulValidator:
         )
 
 
+class RecordingHandler(EventHandler):
+    def __init__(self) -> None:
+        self.events: list[Event] = []
+
+    async def handle(self, event: Event) -> None:
+        self.events.append(event)
+
+
 class RecordingSuccessfulValidator(SlowSuccessfulValidator):
     def __init__(self) -> None:
         self.workspace_root: Path | None = None
@@ -64,6 +78,17 @@ class RecordingSuccessfulValidator(SlowSuccessfulValidator):
 class FailingValidator:
     async def validate(self, **_: object) -> ProjectValidationResult:
         raise RuntimeError("validation failed")
+
+
+class UnexpectedChangeValidator(SlowSuccessfulValidator):
+    async def validate(
+        self, *, package_name: str, workspace: Workspace
+    ) -> ProjectValidationResult:
+        del package_name
+        (workspace.root / "unexpected.txt").write_text(
+            "not generated\n", encoding="utf-8"
+        )
+        return await super().validate()
 
 
 async def _git(cwd: Path, *arguments: str) -> str:
@@ -343,5 +368,165 @@ def test_worker_preserves_failed_git_workspace_without_touching_source(
         assert (preserved[0] / "repository" / "src" / "sample").is_dir()
         assert not (source / "src" / "sample").exists()
         assert await _git(source, "status", "--porcelain") == ""
+
+    asyncio.run(scenario())
+
+
+def test_worker_commits_validated_manifest_changes_and_persists_result(
+    tmp_path: Path,
+) -> None:
+    async def scenario() -> None:
+        source, commit_sha = await _create_source_repository(tmp_path)
+        workspaces = tmp_path / "workspaces"
+        store = InMemoryJobStore()
+        bus = EventBus()
+        commit_events = RecordingHandler()
+        bus.subscribe(GitCommitStartedEvent, commit_events)
+        bus.subscribe(GitCommitCompletedEvent, commit_events)
+        submitted = await GenerationSubmissionService(
+            source_root=tmp_path,
+            output_root=tmp_path,
+            job_store=store,
+            event_bus=bus,
+        ).trigger(
+            GenerationTriggerRequest(
+                project_path="spec/project.yaml",
+                specifications_path="spec/modules",
+                output_path=".",
+                repository_url=str(source),
+                revision=commit_sha,
+            ),
+            idempotency_key="delivery-git-commit",
+        )
+        worker = GenerationWorker(
+            settings=GenerationWorkerSettings(
+                worker_id="worker-1",
+                source_root=tmp_path,
+                output_root=tmp_path,
+            ),
+            job_store=store,
+            pipeline=GenerationJobPipeline(
+                job_store=store,
+                event_bus=bus,
+                validator=SlowSuccessfulValidator(),
+            ),
+            git_provider=SubprocessGitProvider(
+                policy=GitCheckoutPolicy(
+                    allowed_hosts=frozenset(),
+                    allowed_local_roots=(tmp_path / "sources",),
+                )
+            ),
+            workspace_manager=IsolatedWorkspaceManager(workspaces),
+            planning_service=GenerationPlanningService(
+                job_store=store, event_bus=bus
+            ),
+            git_commit_settings=GenerationGitCommitSettings(
+                author_name="AutoForge",
+                author_email="autoforge@example.invalid",
+            ),
+            event_bus=bus,
+        )
+
+        result = await worker.run_once()
+
+        assert result is not None
+        persisted = await store.get(submitted.job.job_id)
+        assert persisted is not None
+        assert persisted.status is GenerationJobStatus.SUCCEEDED
+        assert persisted.git_commit is not None
+        assert persisted.git_commit.commit_created is True
+        assert persisted.git_commit.branch_name == (
+            f"autoforge/{submitted.job.job_id}"
+        )
+        assert persisted.git_commit.commit_sha != commit_sha
+        changed = {path.as_posix() for path in persisted.git_commit.changed_paths}
+        assert ".autoforge/manifest.json" in changed
+        assert "src/sample/main.py" in changed
+        assert list(workspaces.iterdir()) == []
+        assert await _git(source, "rev-parse", "HEAD") == commit_sha
+        assert await _git(source, "status", "--porcelain") == ""
+        assert [type(event) for event in commit_events.events] == [
+            GitCommitStartedEvent,
+            GitCommitCompletedEvent,
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_worker_fails_committing_job_on_change_outside_manifest_allowlist(
+    tmp_path: Path,
+) -> None:
+    async def scenario() -> None:
+        source, commit_sha = await _create_source_repository(tmp_path)
+        workspaces = tmp_path / "workspaces"
+        store = InMemoryJobStore()
+        bus = EventBus()
+        commit_events = RecordingHandler()
+        bus.subscribe(GitCommitStartedEvent, commit_events)
+        bus.subscribe(GitCommitFailedEvent, commit_events)
+        submitted = await GenerationSubmissionService(
+            source_root=tmp_path,
+            output_root=tmp_path,
+            job_store=store,
+            event_bus=bus,
+        ).trigger(
+            GenerationTriggerRequest(
+                project_path="spec/project.yaml",
+                specifications_path="spec/modules",
+                output_path=".",
+                repository_url=str(source),
+                revision=commit_sha,
+            ),
+            idempotency_key="delivery-git-unexpected-change",
+        )
+        worker = GenerationWorker(
+            settings=GenerationWorkerSettings(
+                worker_id="worker-1",
+                source_root=tmp_path,
+                output_root=tmp_path,
+            ),
+            job_store=store,
+            pipeline=GenerationJobPipeline(
+                job_store=store,
+                event_bus=bus,
+                validator=UnexpectedChangeValidator(),
+            ),
+            git_provider=SubprocessGitProvider(
+                policy=GitCheckoutPolicy(
+                    allowed_hosts=frozenset(),
+                    allowed_local_roots=(tmp_path / "sources",),
+                )
+            ),
+            workspace_manager=IsolatedWorkspaceManager(
+                workspaces, preserve_on_error=True
+            ),
+            planning_service=GenerationPlanningService(
+                job_store=store, event_bus=bus
+            ),
+            git_commit_settings=GenerationGitCommitSettings(
+                author_name="AutoForge",
+                author_email="autoforge@example.invalid",
+            ),
+            event_bus=bus,
+        )
+
+        with pytest.raises(GitProviderError, match="outside the allowlist"):
+            await worker.run_once()
+
+        persisted = await store.get(submitted.job.job_id)
+        assert persisted is not None
+        assert persisted.status is GenerationJobStatus.FAILED
+        assert persisted.error == "GitProviderError"
+        preserved = list(workspaces.iterdir())
+        assert len(preserved) == 1
+        repository = preserved[0] / "repository"
+        assert (repository / "unexpected.txt").is_file()
+        assert await _git(repository, "branch", "--show-current") == ""
+        assert await _git(repository, "rev-parse", "HEAD") == commit_sha
+        assert await _git(source, "status", "--porcelain") == ""
+        assert [type(event) for event in commit_events.events] == [
+            GitCommitStartedEvent,
+            GitCommitFailedEvent,
+        ]
 
     asyncio.run(scenario())

@@ -26,11 +26,6 @@ author identity, 선택적 signing fingerprint와 변경 허용 경로를 가진
 HEAD가 예상 SHA와 같은지 확인하고 실제 변경 전체가 허용 경로의 부분집합인지 확인한
 뒤에만 branch를 만들고 stage한다. stage 결과도 검증된 변경 집합과 정확히 같아야 한다.
 
-`GitCommitRequest`는 예상 base commit SHA, 작업 branch, 한 줄 commit message,
-author identity, 선택적 signing fingerprint와 변경 허용 경로를 가진다. adapter는 현재
-HEAD가 예상 SHA와 같은지 확인하고 실제 변경 전체가 허용 경로의 부분집합인지 확인한
-뒤에만 branch를 만들고 stage한다. stage 결과도 검증된 변경 집합과 정확히 같아야 한다.
-
 ## Core 계약
 
 `GitCheckoutRequest`는 repository URL, revision과 Workspace 상대 destination만 가진다.
@@ -94,24 +89,13 @@ Windows의 읽기 전용 Git object도 안전하게 정리한다. 실제 로컬 
 적용한다. unsigned commit은 명시적인 `--no-gpg-sign`, signed commit은 요청의 16진수
 fingerprint를 사용한다.
 
-이 adapter는 아직 worker에 연결하지 않았다. 현재 Generation Pipeline은 검증 직후
-Job을 terminal `succeeded`로 전이하기 때문이다. commit 실패를 성공으로 기록하지 않기
-위해 다음 단계에서 `validated → committing → succeeded` 수명주기를 먼저 도입한다.
-
-`SubprocessGitProvider.commit_validated()`는 검증된 변경만 작업 branch에 commit한다.
-예상 base SHA 불일치, 허용 목록 밖 변경, rename/copy, 위험한 branch·message·identity와
-중복 경로를 branch 생성 전에 거부한다. 변경이 없으면 branch나 빈 commit을 만들지
-않는다. Git system/global config와 대화형 credential 차단은 checkout과 동일하게
-적용한다. unsigned commit은 명시적인 `--no-gpg-sign`, signed commit은 요청의 16진수
-fingerprint를 사용한다.
-
-이 adapter는 아직 worker에 연결하지 않았다. 현재 Generation Pipeline은 검증 직후
-Job을 terminal `succeeded`로 전이하기 때문이다. commit 실패를 성공으로 기록하지 않기
-위해 다음 단계에서 `validated → committing → succeeded` 수명주기를 먼저 도입한다.
+Git commit 설정이 주입된 원격 worker는 검증 후 Job을 `committing`으로 저장하고,
+manifest의 created/changed 파일과 `.autoforge/manifest.json`만 allowlist로 계산한다.
+commit 성공 후 결과 SHA·branch·변경 경로를 Job에 저장하고 `succeeded`로 전이한다.
+commit 실패는 `failed`로 저장한다. 각 단계는 GitCommitStarted/Completed/FailedEvent를
+발행한다. 로컬 CLI와 commit 설정이 없는 worker의 기존 검증 완료 동작은 유지한다.
 
 남은 범위:
 
-- 검증 성공 후 작업 branch 생성과 변경 allowlist
-- author/signing 정책을 적용한 commit
 - credential Secret Provider, push와 Pull Request adapter
 - force push 금지, protected branch와 fork/PR 정책

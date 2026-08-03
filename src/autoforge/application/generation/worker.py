@@ -3,7 +3,7 @@ import logging
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import timedelta
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from time import monotonic
 from typing import Protocol
 
@@ -13,15 +13,21 @@ from autoforge.application.generation.pipeline import (
     GenerationJobRequest,
 )
 from autoforge.application.generation.planning import GenerationPlanningService
-from autoforge.core.git import GitCheckoutRequest, GitProvider
+from autoforge.core.event import EventBus
+from autoforge.core.generation import FileResultStatus
+from autoforge.core.git import GitCheckoutRequest, GitCommitRequest, GitProvider
 from autoforge.core.job import (
     GenerationJobStateMachine,
     GenerationJobStatus,
+    GitCommitCompletedEvent,
+    GitCommitFailedEvent,
+    GitCommitStartedEvent,
     JobLease,
     JobLeaseConflictError,
     JobStore,
 )
 from autoforge.core.workspace import Workspace, WorkspaceManager
+from autoforge.services.generation.manifest_store import MANIFEST_RELATIVE_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +49,25 @@ class GenerationWorkerSettings:
             raise ValueError("heartbeat_interval must be positive")
         if self.heartbeat_interval >= self.lease_duration:
             raise ValueError("heartbeat_interval must be shorter than lease_duration")
+
+
+@dataclass(frozen=True, slots=True)
+class GenerationGitCommitSettings:
+    author_name: str
+    author_email: str
+    branch_prefix: str = "autoforge"
+    commit_message: str = "chore: apply AutoForge generation"
+    signing_key: str | None = None
+
+    def __post_init__(self) -> None:
+        for name, value in (
+            ("author_name", self.author_name),
+            ("author_email", self.author_email),
+            ("branch_prefix", self.branch_prefix),
+            ("commit_message", self.commit_message),
+        ):
+            if not value.strip():
+                raise ValueError(f"{name} must not be empty")
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,6 +116,8 @@ class GenerationWorker:
         git_provider: GitProvider | None = None,
         workspace_manager: WorkspaceManager | None = None,
         planning_service: GenerationPlanningService | None = None,
+        git_commit_settings: GenerationGitCommitSettings | None = None,
+        event_bus: EventBus | None = None,
     ) -> None:
         self._settings = settings
         self._job_store = job_store
@@ -98,6 +125,10 @@ class GenerationWorker:
         self._git_provider = git_provider
         self._workspace_manager = workspace_manager
         self._planning_service = planning_service
+        self._git_commit_settings = git_commit_settings
+        self._event_bus = event_bus
+        if git_commit_settings is not None and event_bus is None:
+            raise ValueError("Git commit execution requires an EventBus")
         self._source = Workspace(settings.source_root)
         self._output = Workspace(settings.output_root)
 
@@ -208,7 +239,118 @@ class GenerationWorker:
                     token=lease.token,
                     expires_at=lease.expires_at,
                 )
-            return await self._pipeline.run_claimed(request, lease)
+            execution = await self._pipeline.run_claimed(
+                request,
+                lease,
+                complete_after_validation=self._git_commit_settings is None,
+            )
+            if self._git_commit_settings is None:
+                return execution
+            return await self._commit_validated(
+                workspace=workspace,
+                repository_destination=repository.destination,
+                output_path=submission.output_path,
+                base_commit_sha=checkout.commit_sha,
+                lease=lease,
+                execution=execution,
+            )
+
+    async def _commit_validated(
+        self,
+        *,
+        workspace: Workspace,
+        repository_destination: str,
+        output_path: str,
+        base_commit_sha: str,
+        lease: JobLease,
+        execution: GenerationJobExecution,
+    ) -> GenerationJobExecution:
+        settings = self._git_commit_settings
+        if settings is None or self._git_provider is None:
+            raise RuntimeError("Git commit dependencies are not configured")
+        manifest = execution.job.manifest
+        if manifest is None:
+            raise RuntimeError("Validated GenerationJob has no manifest")
+        output_prefix = (
+            PurePosixPath() if output_path == "." else PurePosixPath(output_path)
+        )
+        generated_paths = {
+            output_prefix / file.relative_path
+            for unit in manifest.units
+            for file in unit.manifest.files
+            if file.status in {FileResultStatus.CREATED, FileResultStatus.CHANGED}
+        }
+        generated_paths.add(output_prefix / MANIFEST_RELATIVE_PATH)
+        branch_name = f"{settings.branch_prefix}/{execution.job.job_id}"
+        event_bus = self._event_bus
+        if event_bus is None:
+            raise RuntimeError("Git commit EventBus is not configured")
+        metadata = {
+            "job_id": execution.job.job_id,
+            "correlation_id": execution.job.job_id,
+            "producer": "generation_worker",
+        }
+        await event_bus.publish(
+            GitCommitStartedEvent(
+                branch_name=branch_name,
+                allowed_path_count=len(generated_paths),
+                **metadata,
+            )
+        )
+        try:
+            result = await self._git_provider.commit_validated(
+                GitCommitRequest(
+                    expected_base_sha=base_commit_sha,
+                    branch_name=branch_name,
+                    message=settings.commit_message,
+                    author_name=settings.author_name,
+                    author_email=settings.author_email,
+                    allowed_paths=tuple(sorted(generated_paths)),
+                    repository_destination=repository_destination,
+                    signing_key=settings.signing_key,
+                ),
+                workspace=workspace,
+            )
+        except Exception as error:
+            failed = GenerationJobStateMachine.transition(
+                execution.job,
+                GenerationJobStatus.FAILED,
+                error=type(error).__name__,
+            )
+            await self._job_store.replace(
+                failed,
+                expected_status=GenerationJobStatus.COMMITTING,
+                lease_token=lease.token,
+            )
+            await event_bus.publish(
+                GitCommitFailedEvent(error_type=type(error).__name__, **metadata)
+            )
+            raise
+        succeeded = GenerationJobStateMachine.transition(
+            execution.job,
+            GenerationJobStatus.SUCCEEDED,
+            git_commit=result,
+        )
+        await self._job_store.replace(
+            succeeded,
+            expected_status=GenerationJobStatus.COMMITTING,
+            lease_token=lease.token,
+        )
+        await event_bus.publish(
+            GitCommitCompletedEvent(
+                commit_sha=result.commit_sha,
+                branch_name=result.branch_name,
+                changed_paths=tuple(
+                    path.as_posix() for path in result.changed_paths
+                ),
+                commit_created=result.commit_created,
+                **metadata,
+            )
+        )
+        return GenerationJobExecution(
+            job=succeeded,
+            pipeline_result=execution.pipeline_result,
+        )
 
     async def _heartbeat(self, lease: JobLease) -> None:
         while True:

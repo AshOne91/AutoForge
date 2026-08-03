@@ -109,12 +109,20 @@ transport이며 EventBus를 대체하지 않는다.
 
 다음:
 
-1. GenerationJob에 `validated → committing → succeeded` 수명주기를 추가한다.
-2. manifest의 created/changed 파일과 `.autoforge/manifest.json`에서 commit allowlist를
-   결정적으로 계산한다.
-3. 원격 worker가 검증 성공 후 `commit_validated()`를 실행하고 commit 실패를 failed
-   Job으로 저장하도록 연결한다.
-4. 실제 생성 repository에서 성공 commit과 예상 밖 변경 거부를 종단 검증한다.
+완료:
+
+1. GenerationJob에 `validating → committing → succeeded` 수명주기 추가
+2. manifest의 created/changed 파일과 `.autoforge/manifest.json` 기반 allowlist 계산
+3. 원격 worker의 검증 후 안전 commit 실행과 결과 Job 저장
+4. commit 실패의 failed 상태 저장과 lease 만료 복구
+5. GitCommitStarted/Completed/FailedEvent 발행
+6. 실제 생성 repository의 성공 commit과 예상 밖 변경 거부 종단 검증
+
+다음:
+
+1. credential을 URL·명령 인자에 노출하지 않는 Secret Provider 계약을 구현한다.
+2. 검증된 commit만 remote 작업 branch에 non-force push하는 계약을 구현한다.
+3. protected branch 직접 push를 금지하고 Pull Request adapter 경계를 구현한다.
 
 ## 후속 목표
 

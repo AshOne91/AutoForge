@@ -1,7 +1,7 @@
 import asyncio
 import os
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import httpx
 import pytest
@@ -23,10 +23,12 @@ from autoforge.application.generation import (
 from autoforge.core.audit import AuditRecord
 from autoforge.core.event import EventBus
 from autoforge.core.generation import content_hash
+from autoforge.core.git import GitCheckoutRequest, GitCommitResult
 from autoforge.core.job import (
     GenerationJob,
     GenerationJobStateMachine,
     GenerationJobStatus,
+    GenerationJobSubmission,
     GenerationUnit,
     GenerationUnitKind,
     JobConcurrencyError,
@@ -48,6 +50,7 @@ from autoforge.services.validation import (
     ValidationStep,
     ValidationStepResult,
 )
+from tests.core.test_generation_job import job_manifest
 
 DATABASE_URL = os.getenv("AUTOFORGE_TEST_DATABASE_URL")
 
@@ -101,6 +104,98 @@ def _job(job_id: str) -> GenerationJob:
             )
         ],
     )
+
+
+def test_postgresql_persists_committing_lifecycle_and_commit_result() -> None:
+    async def scenario() -> None:
+        assert DATABASE_URL is not None
+        engine = create_async_engine(DATABASE_URL)
+        sessions = async_sessionmaker(engine, expire_on_commit=False)
+        store = PostgreSQLJobStore(sessions)
+        manifest = job_manifest("job-commit")
+        job = GenerationJob(
+            job_id="job-commit",
+            units=[
+                GenerationUnit(
+                    unit_id=unit.unit_id,
+                    kind=unit.kind,
+                    specification_version=unit.manifest.specification_version,
+                    specification_hash=unit.manifest.specification_hash,
+                )
+                for unit in manifest.units
+            ],
+            submission=GenerationJobSubmission(
+                project_path="spec/project.yaml",
+                specifications_path="spec/modules",
+                output_path=".",
+                repository=GitCheckoutRequest(
+                    "https://github.com/example/repository.git", "main"
+                ),
+                resolved_commit_sha="a" * 40,
+            ),
+        )
+        try:
+            async with engine.begin() as connection:
+                await connection.execute(
+                    text("TRUNCATE autoforge_generation_jobs")
+                )
+            await store.create(job)
+            lease = await store.claim_next(
+                worker_id="worker-commit",
+                lease_duration=timedelta(seconds=30),
+            )
+            assert lease is not None
+            generating = GenerationJobStateMachine.transition(
+                lease.job, GenerationJobStatus.GENERATING
+            )
+            await store.replace(
+                generating,
+                expected_status=GenerationJobStatus.PENDING,
+                lease_token=lease.token,
+            )
+            validating = GenerationJobStateMachine.transition(
+                generating,
+                GenerationJobStatus.VALIDATING,
+                manifest=manifest,
+            )
+            await store.replace(
+                validating,
+                expected_status=GenerationJobStatus.GENERATING,
+                lease_token=lease.token,
+            )
+            committing = GenerationJobStateMachine.transition(
+                validating, GenerationJobStatus.COMMITTING
+            )
+            await store.replace(
+                committing,
+                expected_status=GenerationJobStatus.VALIDATING,
+                lease_token=lease.token,
+            )
+            succeeded = GenerationJobStateMachine.transition(
+                committing,
+                GenerationJobStatus.SUCCEEDED,
+                git_commit=GitCommitResult(
+                    commit_sha="b" * 40,
+                    branch_name="autoforge/job-commit",
+                    changed_paths=(PurePosixPath("src/service.py"),),
+                    commit_created=True,
+                ),
+            )
+            await store.replace(
+                succeeded,
+                expected_status=GenerationJobStatus.COMMITTING,
+                lease_token=lease.token,
+            )
+
+            persisted = await store.get(job.job_id)
+            assert persisted == succeeded
+            assert persisted is not None
+            assert persisted.git_commit is not None
+            assert persisted.git_commit.commit_sha == "b" * 40
+        finally:
+            await engine.dispose()
+
+    asyncio.run(scenario())
 
 
 def test_postgresql_job_claim_cas_and_audit_idempotency() -> None:

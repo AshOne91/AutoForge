@@ -1,5 +1,22 @@
 # 현재 상태
 
+## 2026-08-03 원격 GenerationJob 검증 후 Git commit 연결 완료
+
+- Git commit 설정이 주입된 원격 worker는 검증 후 Job을 `committing`으로 저장한다.
+  로컬 CLI와 설정이 없는 worker의 기존 검증 완료 동작은 유지한다.
+- manifest의 created/changed 파일과 `.autoforge/manifest.json`만 commit allowlist로
+  계산한다. 검증기나 외부 도구가 만든 예상 밖 변경은 branch 생성 전에 거부한다.
+- commit 성공 결과의 SHA, branch, 변경 경로와 생성 여부를 succeeded Job에 저장한다.
+  실패는 먼저 failed Job으로 저장한 뒤 GitCommitFailedEvent를 발행한다.
+- committing lease가 만료되면 기존 generating/validating과 동일하게 안전한 재개가
+  불가능하므로 `JobLeaseExpired` failed로 복구한다.
+- PostgreSQL status check 확장은 `003_job_committing_status.sql` migration이 소유한다.
+- 실제 PostgreSQL 16에 migration을 적용하고 committing 상태와 commit 결과 JSONB 왕복을
+  포함한 제어면 통합 테스트 6개를 통과했다.
+- 실제 생성 repository 종단 테스트에서 성공 commit, 이벤트 순서, 원본 불변과 예상 밖
+  변경 거부·실패 상태를 검증했다.
+- PostgreSQL 통합 테스트를 포함한 전체 357개 pytest, Ruff와 CLI 버전 검증을 통과했다.
+
 ## 2026-08-03 검증된 Git branch/commit adapter 기반 완료
 
 - Core에 예상 base SHA, branch, message, author, 선택적 signing fingerprint와 변경 경로
@@ -10,9 +27,7 @@
   불필요한 branch나 빈 commit을 만들지 않는다.
 - 실제 Git repository에서 허용 경로만 commit, 예상 밖 변경과 잘못된 base/branch 거부,
   author 적용, clean 결과와 원본 repository 불변을 검증했다.
-- worker 연결은 아직 하지 않았다. 검증 직후 terminal `succeeded`가 되는 현재 Job
-  수명주기에 `validated/committing` 경계를 먼저 추가해야 commit 실패를 정확히 기록할
-  수 있다.
+- 후속 단계에서 `committing` 상태와 원격 worker 연결을 완료했다.
 
 ## 2026-08-03 원격 GenerationJob 격리 실행 완료
 
@@ -28,7 +43,7 @@
   변하지 않고, 성공 시 격리 공간 삭제와 실패 시 보존이 적용됨을 검증했다.
 - 전체 344개 테스트 통과, PostgreSQL 환경이 필요한 통합 테스트 5개 skip, Ruff 경고
   0개와 CLI `AutoForge v0.1.0`을 확인했다.
-- branch, commit, push와 Pull Request는 아직 구현하지 않았다.
+- branch와 검증된 commit은 구현했다. push와 Pull Request는 아직 구현하지 않았다.
 
 ## 2026-08-03 안전한 Git checkout Provider 기반 완료
 
@@ -42,8 +57,8 @@
 - destination은 Workspace 상대경로만 허용하며 기존 경로를 덮어쓰지 않는다.
 - 실제 로컬 Git repository에서 정확한 commit, clean checkout, 원본 저장소 무변경과
   URL/ref/path 공격 입력 거부를 검증했다.
-- 다음 단계는 repository/ref submission을 claimed worker의 IsolatedWorkspace에 연결하는
-  것이다. branch, commit, push는 아직 구현하지 않았다.
+- repository/ref submission과 branch/commit 연결은 후속 단계에서 완료했다. push와
+  Pull Request는 아직 구현하지 않았다.
 
 ## 2026-08-03 worker 운영 loop와 graceful shutdown 완료
 

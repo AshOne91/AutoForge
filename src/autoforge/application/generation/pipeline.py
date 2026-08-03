@@ -321,11 +321,13 @@ class _ValidateGeneratedProjectTask(Task):
         job_store: JobStore,
         event_bus: EventBus,
         validator: ProjectValidatorProtocol,
+        completion_status: GenerationJobStatus,
     ) -> None:
         self._context = context
         self._job_store = job_store
         self._event_bus = event_bus
         self._validator = validator
+        self._completion_status = completion_status
 
     async def execute(self) -> ProjectValidationResult:
         await self._event_bus.publish(
@@ -349,15 +351,15 @@ class _ValidateGeneratedProjectTask(Task):
             await self._fail(error, failed_step=failed_step)
             raise error
         current = self._require_job()
-        succeeded = GenerationJobStateMachine.transition(
-            current, GenerationJobStatus.SUCCEEDED
+        completed = GenerationJobStateMachine.transition(
+            current, self._completion_status
         )
         await self._job_store.replace(
-            succeeded,
+            completed,
             expected_status=GenerationJobStatus.VALIDATING,
             lease_token=self._context.lease_token,
         )
-        self._context.job = succeeded
+        self._context.job = completed
         completed_steps = tuple(step.step.value for step in result.steps)
         await self._event_bus.publish(
             ValidationCompletedEvent(
@@ -433,6 +435,7 @@ class GenerationJobPipeline:
         )
         return await self._run_context(
             context,
+            completion_status=GenerationJobStatus.SUCCEEDED,
             first_step=PipelineStep(
                 "prepare_generation_job",
                 _PrepareGenerationJobTask(
@@ -445,6 +448,8 @@ class GenerationJobPipeline:
         self,
         request: GenerationJobRequest,
         lease: JobLease,
+        *,
+        complete_after_validation: bool = True,
     ) -> GenerationJobExecution:
         if lease.job.status is not GenerationJobStatus.PENDING:
             raise ValueError("Only a pending GenerationJob may be executed")
@@ -456,6 +461,11 @@ class GenerationJobPipeline:
         )
         return await self._run_context(
             context,
+            completion_status=(
+                GenerationJobStatus.SUCCEEDED
+                if complete_after_validation
+                else GenerationJobStatus.COMMITTING
+            ),
             first_step=PipelineStep(
                 "hydrate_claimed_generation_job",
                 _HydrateClaimedGenerationJobTask(context),
@@ -467,6 +477,7 @@ class GenerationJobPipeline:
         context: _GenerationContext,
         *,
         first_step: PipelineStep,
+        completion_status: GenerationJobStatus,
     ) -> GenerationJobExecution:
         pipeline = SequentialPipeline(
             name="generation",
@@ -486,6 +497,7 @@ class GenerationJobPipeline:
                         self._job_store,
                         self._event_bus,
                         self._validator,
+                        completion_status,
                     ),
                 ),
             ),

@@ -14,6 +14,7 @@ from autoforge.application.generation.submission import (
     IdempotencyConflictError,
 )
 from autoforge.application.generation.worker import (
+    GenerationGitCommitSettings,
     GenerationWorker,
     GenerationWorkerLoop,
     GenerationWorkerLoopResult,
@@ -23,6 +24,7 @@ from autoforge.application.generation.worker import (
 )
 
 __all__ = [
+    "GenerationGitCommitSettings",
     "GenerationJobExecution",
     "GenerationJobPipeline",
     "GenerationJobRequest",

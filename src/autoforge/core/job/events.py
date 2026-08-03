@@ -43,3 +43,22 @@ class ValidationCompletedEvent(Event):
 class ValidationFailedEvent(Event):
     failed_step: str
     error_type: str
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class GitCommitStartedEvent(Event):
+    branch_name: str
+    allowed_path_count: int
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class GitCommitCompletedEvent(Event):
+    commit_sha: str
+    branch_name: str | None
+    changed_paths: tuple[str, ...]
+    commit_created: bool
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class GitCommitFailedEvent(Event):
+    error_type: str
