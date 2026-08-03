@@ -1,5 +1,19 @@
 # 현재 상태
 
+## 2026-08-03 PostgreSQL Control Plane 기반 완료
+
+- SQLAlchemy/asyncpg를 로컬 CLI 필수가 아닌 `server` optional extra로 분리했다.
+- PostgreSQLJobStore가 JSONB Job snapshot, unique idempotency key, status CAS와
+  revision 증가를 구현한다.
+- PostgreSQLAuditSink가 envelope-only audit를 event_id 기준으로 중복 없이 append한다.
+- schema는 runtime create_all이 아니라 버전 관리되는
+  `deploy/postgresql/init/001_control_plane.sql`이 소유한다.
+- 실제 PostgreSQL 16에서 동시 claim 2건 중 생성 1건, status 전이 경쟁 중 성공 1건,
+  동일 audit append 2건 중 row 1건을 검증했다.
+- Compose credential은 로컬 통합 테스트 전용이며 운영 secret 계약은 후속 배포
+  단계에서 별도로 구현한다.
+- 다음 단계는 인증된 idempotent trigger/status API와 실행 lease다.
+
 ## 2026-08-03 Observability Handler 기반 완료
 
 - Event 구독에 `critical`과 `observational` 실패 정책을 명시한다.
@@ -11,7 +25,7 @@
   envelope만 기록하여 비밀정보 노출 경계를 지킨다.
 - async AuditSink Protocol과 append-only InMemoryAuditSink를 추가했다.
 - InMemoryAuditSink는 로컬·테스트 adapter이며 재시작 복구, 분산 중복 방지와 규정
-  보존을 제공하지 않는다. PostgreSQL adapter가 다음 단계다.
+  보존을 제공하지 않는다. 분산 실행용 PostgreSQL adapter는 후속 단계에서 구현했다.
 - 전체 Ruff, 312개 pytest와 CLI 버전 검증을 통과했다.
 
 ## 2026-08-03 Event/Pipeline Core 완료
@@ -40,8 +54,8 @@
 - async JobStore Protocol과 테스트·로컬 CLI용 InMemoryJobStore adapter를 추가했다.
 - replace 시 expected status를 비교해 같은 Job의 동시 실행이 조용히 상태를
   덮어쓰지 못하게 한다.
-- 이는 영속 Job Store가 아니다. 다음 단계에서 Application Pipeline을 연결한 뒤
-  PostgreSQL adapter와 idempotent trigger를 구현한다.
+- InMemory adapter 자체는 영속 Job Store가 아니다. 분산 실행용 PostgreSQL adapter와
+  idempotent claim은 후속 단계에서 구현했다.
 
 ## 2026-08-03 Generation Application Pipeline 완료
 
@@ -57,7 +71,8 @@
 - 실제 검증을 연결하면서 발견한 endpoint 없는 Router의 unused handlers import와
   import 구역 공백 생성 오류를 수정했다.
 - 전체 Ruff, 299개 pytest와 `python -m autoforge.main version`을 통과했다.
-- 다음 단계는 logging/audit handler, PostgreSQL JobStore와 idempotent trigger다.
+- 후속 단계에서 logging/audit handler, PostgreSQL JobStore와 idempotent claim을
+  구현했다.
 - KIS 실사용 검증 중 GENERATED `pyproject.toml`의 프로젝트별 품질 도구 설정이
   명세에 없음을 확인해 `ToolingSpec.ruff_exclude` 계약을 추가했다.
 - exclude 항목은 안전한 Workspace 상대 POSIX 경로만 허용하며 FastAPI Project
@@ -173,17 +188,17 @@
 
 ## 존재하지만 미완성
 
-- CLI 명령
-- Plugin Framework
-- GenerationJob Application Pipeline 연결
-PluginLoader는 발견, 의존성 정렬과 명시적 trusted 로딩까지 구현됐다.
-Permission의 OS 수준 Sandbox 강제는 아직 없다.
-Pipeline Core 실행기는 구현됐지만 실제 생성·검증 Application Service 연결 전이므로
-자동화 Pipeline 전체가 완성된 것은 아니다.
+- 일부 CLI 명령
+- Plugin Permission의 OS 수준 Sandbox 강제
+- 인증된 GenerationJob trigger/status API
+- 실행 lease, heartbeat와 abandoned Job 복구
+
+PluginLoader의 발견, 의존성 정렬과 명시적 trusted 로딩 및 GenerationJob Application
+Pipeline 연결은 완료됐다. 다만 Webhook부터 Git 반영까지 이어지는 자동화 제품 전체는
+아직 완성되지 않았다.
 
 ## 시작하지 않음
 
-- GenerationJob 실행 조정 Service
 - Build 및 Git 서비스
 - Webhook 서비스
 - AI 생성

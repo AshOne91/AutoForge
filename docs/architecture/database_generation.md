@@ -234,8 +234,10 @@ Database가 필요한 Module만 계약을 선언한다.
 `account.yaml`이다. 로그인 인증정보는 Global, 개인정보 Profile은 `user_id`를
 partition key로 사용하는 Sharded 배치로 검증한다.
 
-이 단계의 `provider`는 `agnostic`만 허용한다. SQLAlchemy, Alembic과 실제 DB
-접속은 후속 Plugin에서 구현한다.
+Repository 최소 계약 단계의 `provider`는 기술 중립 경계를 검증하기 위해
+`agnostic`만 허용했다. 현재 실제 생성·실행 Provider는 PostgreSQL이며 SQLAlchemy,
+Alembic과 실제 DB 접속까지 구현됐다. MySQL은 아직 선택 가능한 모드가 아니고,
+PostgreSQL 안정화 이후 별도 Provider Plugin으로 추가한다.
 
 ## PostgreSQL DDL Generator
 

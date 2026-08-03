@@ -68,6 +68,11 @@ SKN12 `base_server`는 AutoForge가 있었다면 생성·조립했을 롤모델 
 Redis는 cache와 coordination, RabbitMQ는 비동기 Queue와 외부 Event Transport를
 담당한다.
 
+관계형 Database의 현재 기본 Provider는 PostgreSQL이다. 생성되는 Global/Shard DDL,
+SQLAlchemy async adapter, Alembic migration, Transactional Outbox와 AutoForge 제어면
+저장소는 PostgreSQL 기준으로 구현하고 검증한다. MySQL은 현재 선택 모드가 아니며,
+기존 PostgreSQL 계약을 안정화한 뒤 별도 Provider Plugin으로 지원한다.
+
 ## 설계 원칙
 
 - 프로젝트 명세 기반

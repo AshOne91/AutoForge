@@ -61,7 +61,7 @@
   - [x] Repository Adapter와 Domain/Record 변환 Generator
   - [x] Store별 Alembic 실행 환경과 최초 baseline revision Generator
 - [x] PostgreSQL Global/Shard DDL Plugin
-- [ ] 추가 DB Provider DDL Plugin
+- [ ] MySQL을 포함한 추가 DB Provider Plugin(PostgreSQL 안정화 이후)
 - [ ] 필수 Redis Service Blueprint와 Adapter
   - [x] Standalone 연결과 공통 SessionStore 계약
   - [x] Sentinel 연결 공급자와 Primary 자동 장애 전환 검증
@@ -81,9 +81,11 @@
 - [x] Pipeline과 Task lifecycle Event 발행
 - [x] Job 및 Generation Event 정의
 - [x] GenerationJob 상태 머신과 async JobStore Protocol
-- [ ] PostgreSQL JobStore와 idempotent trigger
+- [x] PostgreSQL JobStore와 원자적 idempotent claim
+- [ ] 인증된 trigger/status API와 실행 lease
 - [x] Logging과 Audit Handler 및 구독 실패 정책
-- [ ] Metrics Handler와 PostgreSQL AuditSink
+- [x] PostgreSQL AuditSink와 event_id 중복 방지
+- [ ] Metrics Handler
 - [x] Generation Pipeline
 - [x] Validation 및 Build Pipeline
 - [x] 실패·재시도·Timeout 정책

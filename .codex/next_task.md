@@ -34,12 +34,19 @@ transport이며 EventBus를 대체하지 않는다.
 3. critical/observational handler 실패 정책
 4. KIS Generation Pipeline 전체 실사용 검증
 
+완료:
+
+1. PostgreSQL JobStore와 status CAS/revision
+2. PostgreSQL AuditSink와 event_id 중복 방지
+3. unique idempotency key 기반 원자적 Job claim
+4. 실제 PostgreSQL 16에서 두 store 인스턴스 경쟁 검증
+
 다음:
 
-1. PostgreSQL JobStore와 optimistic concurrency를 구현한다.
-2. PostgreSQL AuditSink와 event_id 중복 방지를 구현한다.
-3. idempotency key 기반 trigger/status Application API를 구현한다.
-4. 다중 API 인스턴스에서 같은 trigger의 단일 Job 생성을 검증한다.
+1. idempotency key 기반 trigger/status Application API를 구현한다.
+2. 인증과 요청 크기·경로 제한을 적용한다.
+3. 실행 lease, heartbeat와 abandoned Job 복구 계약을 구현한다.
+4. API 인스턴스 2대에서 같은 trigger의 단일 Job 생성을 검증한다.
 
 ## 후속 목표
 

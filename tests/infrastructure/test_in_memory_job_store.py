@@ -71,3 +71,22 @@ def test_store_rejects_duplicate_job_and_stale_status() -> None:
             )
 
     asyncio.run(scenario())
+
+
+def test_store_claims_one_job_for_concurrent_idempotency_key() -> None:
+    async def scenario() -> None:
+        store = InMemoryJobStore()
+        first = _job()
+        second = first.model_copy(update={"job_id": "job-002"})
+
+        claims = await asyncio.gather(
+            store.create_or_get(first, idempotency_key="delivery-1"),
+            store.create_or_get(second, idempotency_key="delivery-1"),
+        )
+
+        assert sum(claim.created for claim in claims) == 1
+        assert {claim.job.job_id for claim in claims} == {"job-001"}
+        with pytest.raises(ValueError, match="must not be empty"):
+            await store.create_or_get(second, idempotency_key=" ")
+
+    asyncio.run(scenario())

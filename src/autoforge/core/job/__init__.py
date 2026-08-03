@@ -22,6 +22,7 @@ from autoforge.core.job.state import (
 )
 from autoforge.core.job.store import (
     DuplicateJobError,
+    JobClaim,
     JobConcurrencyError,
     JobStore,
 )
@@ -40,6 +41,7 @@ __all__ = [
     "GenerationUnitKind",
     "GenerationUnitManifest",
     "InvalidJobTransitionError",
+    "JobClaim",
     "JobConcurrencyError",
     "JobStore",
     "ManifestDocumentKind",

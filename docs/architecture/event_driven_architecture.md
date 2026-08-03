@@ -438,9 +438,14 @@ Projection = Event로 갱신되는 조회 상태
 중요 상태 전이는 Idempotent하게 저장하고 재조회할 수 있어야 한다.
 
 현재 Core에는 `JobStore` async Protocol이 있고 로컬 CLI와 테스트를 위한
-`InMemoryJobStore` adapter가 있다. 저장할 때 예상 이전 상태를 비교하여 동일 Job의
-경쟁 상태 전이를 거부한다. 이는 재시작 후 복구되는 영속 저장소가 아니며 Webhook과
-분산 worker를 연결하기 전에 PostgreSQL adapter와 idempotency key가 필요하다.
+`InMemoryJobStore`, 제어면 서버를 위한 `PostgreSQLJobStore` adapter가 있다. 두
+adapter 모두 예상 이전 상태를 비교하여 동일 Job의 경쟁 상태 전이를 거부한다.
+InMemory adapter는 재시작 후 복구되지 않으므로 분산 실행에는 PostgreSQL을 사용한다.
+
+PostgreSQL adapter는 구현됐다. unique idempotency key의 원자적 claim, status CAS와
+revision, JSONB snapshot을 제공한다. AuditSink도 event_id primary key로 중복 append를
+막는다. 상세 schema와 실제 동시성 검증은 `control_plane_persistence.md`를 따른다.
+Trigger/Status HTTP API와 실행 lease는 아직 구현 전이다.
 
 `GenerationJobStateMachine`은 다음 전이만 허용한다.
 
