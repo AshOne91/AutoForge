@@ -448,7 +448,12 @@ revision, JSONB snapshot을 제공한다. AuditSink도 event_id primary key로 �
 인증된 Trigger/Status HTTP adapter도 구현됐다. Trigger는 재실행 가능한 상대경로
 submission과 specification hash를 먼저 저장하고, 신규 claim일 때만
 `GenerationJobCreatedEvent`를 발행한다. HTTP 요청 안에서는 Pipeline을 실행하지
-않는다. 실행 lease와 worker 복구는 아직 구현 전이다.
+않는다.
+
+JobStore의 실행 lease, heartbeat와 stale-worker fencing은 구현됐다. pending 상태의
+만료 lease만 takeover하며, generating/validating 중 만료된 Job은 부분 Workspace를
+추측해서 이어 실행하지 않고 `JobLeaseExpired` failed로 복구한다. lease worker와
+Generation Pipeline의 실제 연결은 다음 단계다.
 
 `GenerationJobStateMachine`은 다음 전이만 허용한다.
 

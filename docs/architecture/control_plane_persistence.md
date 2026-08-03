@@ -20,6 +20,10 @@ autoforge_generation_jobs
   document             검증된 GenerationJob JSON snapshot
     submission         source/output root 기준 재실행 가능한 상대경로
   revision             성공한 상태 교체 횟수
+  lease_owner          현재 worker 식별자
+  lease_token          claim마다 바뀌는 fencing token
+  lease_expires_at     PostgreSQL 기준 lease 만료 시각
+  heartbeat_at         마지막 정상 heartbeat 시각
   created_at/updated_at UTC 시각
 
 autoforge_audit_records
@@ -51,6 +55,22 @@ WHERE job_id = :job_id AND status = :expected_status
 영향받은 row가 정확히 하나가 아니면 `JobConcurrencyError`다. 따라서 같은 pending
 Job을 worker 둘이 동시에 generating으로 전이해도 하나만 성공한다. 성공한 교체마다
 revision을 1 증가시킨다.
+
+### 실행 lease와 fencing
+
+worker는 pending Job을 `FOR UPDATE SKIP LOCKED` 후보 선택과 조건부 UPDATE로 claim한다.
+동일 Job을 동시에 claim해도 하나의 worker만 lease를 받는다. PostgreSQL adapter는
+애플리케이션 서버 시계 대신 DB의 `now()`를 기본 기준으로 사용한다.
+
+상태 전이는 expected status뿐 아니라 현재 lease token과 만료 전 조건까지 만족해야
+한다. lease가 만료된 뒤 이전 worker가 늦게 결과를 저장해도 새 token과 일치하지 않아
+거부된다. heartbeat도 현재 token이 유효하고 아직 만료되지 않은 경우에만 연장된다.
+
+pending Job은 실행을 시작하지 않았으므로 만료 lease takeover가 안전하다. 반면
+generating/validating Job은 파일 적용 중 중단됐을 수 있다. Checkout Workspace의 완전한
+초기화·재생성이 아직 없으므로 다른 worker가 자동으로 이어 쓰지 않고
+`error=JobLeaseExpired`인 failed 상태로 복구한다. 안전한 재시도는 이후 새 격리
+Workspace와 새 Job으로 수행한다.
 
 ### Audit idempotency
 
@@ -88,8 +108,8 @@ queue 역할은 PostgreSQL pending Job과 후속 lease worker가 담당한다.
 ## Migration과 실행
 
 운영 adapter는 런타임 `create_all()`을 호출하지 않는다. schema는 버전 관리되는
-`deploy/postgresql/init/001_control_plane.sql`로 명시적으로 적용한다. 로컬 통합 구성은
-`compose.integration.yaml`을 사용한다.
+`deploy/postgresql/init/001_control_plane.sql` baseline과 `002_job_leases.sql` 순서로
+명시적으로 적용한다. 로컬 통합 구성은 `compose.integration.yaml`을 사용한다.
 
 ```powershell
 docker compose -p autoforge-control-it -f compose.integration.yaml up -d --wait
@@ -114,7 +134,7 @@ server extra가 없는 로컬 CLI의 import를 깨뜨리지 않는다.
 
 ## 아직 남은 범위
 
-- Job 실행 lease, heartbeat와 abandoned Job 복구
+- lease worker와 Generation Pipeline 연결
 - PostgreSQL Multi-AZ 배포 계약
 - backup/restore, 보존 기간과 개인정보 삭제 정책
 - Metrics projection

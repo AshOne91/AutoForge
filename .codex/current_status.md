@@ -1,5 +1,20 @@
 # 현재 상태
 
+## 2026-08-03 GenerationJob lease와 fencing 완료
+
+- JobStore 계약에 pending claim, heartbeat, release와 abandoned 복구를 추가했다.
+- lease는 worker ID, 매 claim마다 새로 발급되는 token, PostgreSQL 기준 만료 시각과
+  heartbeat 시각을 저장한다.
+- 상태 CAS에 유효한 lease token 조건을 함께 적용해 만료된 worker의 늦은 쓰기를
+  차단한다.
+- pending Job만 만료 후 다른 worker가 takeover한다. generating/validating 중 만료된
+  Job은 부분 파일을 안전하게 이어 쓸 수 없으므로 `JobLeaseExpired` failed로 복구한다.
+- PostgreSQL은 `FOR UPDATE SKIP LOCKED`와 조건부 UPDATE로 worker 경쟁을 조정한다.
+- 실제 PostgreSQL 16에서 단일 claim, heartbeat, 만료 takeover, stale token fencing과
+  abandoned failed 복구를 검증했다.
+- 다음 단계는 lease를 보유한 worker가 HTTP 요청 밖에서 기존 Generation Pipeline을
+  실행하도록 연결하는 것이다.
+
 ## 2026-08-03 인증된 GenerationJob 제출 API 완료
 
 - `GenerationJobSubmission`이 source/output root 기준 상대경로를 Job snapshot에 저장해
@@ -21,8 +36,8 @@
 - PostgreSQLJobStore가 JSONB Job snapshot, unique idempotency key, status CAS와
   revision 증가를 구현한다.
 - PostgreSQLAuditSink가 envelope-only audit를 event_id 기준으로 중복 없이 append한다.
-- schema는 runtime create_all이 아니라 버전 관리되는
-  `deploy/postgresql/init/001_control_plane.sql`이 소유한다.
+- schema는 runtime create_all이 아니라 버전 관리되는 `001_control_plane.sql` baseline과
+  `002_job_leases.sql` migration이 소유한다.
 - 실제 PostgreSQL 16에서 동시 claim 2건 중 생성 1건, status 전이 경쟁 중 성공 1건,
   동일 audit append 2건 중 row 1건을 검증했다.
 - Compose credential은 로컬 통합 테스트 전용이며 운영 secret 계약은 후속 배포
@@ -206,7 +221,7 @@
 
 - 일부 CLI 명령
 - Plugin Permission의 OS 수준 Sandbox 강제
-- 실행 lease, heartbeat와 abandoned Job 복구
+- pending Job worker와 기존 Generation Pipeline 연결
 
 PluginLoader의 발견, 의존성 정렬과 명시적 trusted 로딩 및 GenerationJob Application
 Pipeline 연결은 완료됐다. 다만 Webhook부터 Git 반영까지 이어지는 자동화 제품 전체는

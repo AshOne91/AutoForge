@@ -1,6 +1,6 @@
 import asyncio
 import os
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -22,6 +22,7 @@ from autoforge.core.job import (
     GenerationUnit,
     GenerationUnitKind,
     JobConcurrencyError,
+    JobLeaseConflictError,
 )
 from autoforge.infrastructure.audit.postgresql import PostgreSQLAuditSink
 from autoforge.infrastructure.http import (
@@ -220,6 +221,82 @@ def test_two_control_plane_apps_claim_one_postgresql_job(
                     select(func.count()).select_from(GenerationJobRecord)
                 )
             assert job_count == 1
+        finally:
+            await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_postgresql_lease_heartbeat_takeover_and_abandoned_recovery() -> None:
+    async def scenario() -> None:
+        assert DATABASE_URL is not None
+        engine = create_async_engine(DATABASE_URL)
+        sessions = async_sessionmaker(engine, expire_on_commit=False)
+        first_store = PostgreSQLJobStore(sessions)
+        second_store = PostgreSQLJobStore(sessions)
+        started_at = datetime.now(UTC)
+        try:
+            async with engine.begin() as connection:
+                await connection.execute(
+                    text("TRUNCATE autoforge_generation_jobs")
+                )
+            await first_store.create(_job("lease-job"))
+            claims = await asyncio.gather(
+                first_store.claim_next(
+                    worker_id="worker-1",
+                    lease_duration=timedelta(seconds=10),
+                    now=started_at,
+                ),
+                second_store.claim_next(
+                    worker_id="worker-2",
+                    lease_duration=timedelta(seconds=10),
+                    now=started_at,
+                ),
+            )
+            leases = [claim for claim in claims if claim is not None]
+            assert len(leases) == 1
+            first = leases[0]
+            renewed = await first_store.renew_lease(
+                job_id=first.job.job_id,
+                lease_token=first.token,
+                lease_duration=timedelta(seconds=10),
+                now=started_at + timedelta(seconds=5),
+            )
+            assert renewed.expires_at == started_at + timedelta(seconds=15)
+
+            takeover = await second_store.claim_next(
+                worker_id="worker-2",
+                lease_duration=timedelta(seconds=30),
+                now=started_at + timedelta(seconds=16),
+            )
+            assert takeover is not None
+            assert takeover.token != first.token
+            generating = GenerationJobStateMachine.transition(
+                takeover.job, GenerationJobStatus.GENERATING
+            )
+            with pytest.raises(JobLeaseConflictError):
+                await first_store.replace(
+                    generating,
+                    expected_status=GenerationJobStatus.PENDING,
+                    lease_token=first.token,
+                )
+            await second_store.replace(
+                generating,
+                expected_status=GenerationJobStatus.PENDING,
+                lease_token=takeover.token,
+            )
+
+            recovered = await first_store.recover_abandoned(
+                now=started_at + timedelta(seconds=47)
+            )
+            assert len(recovered) == 1
+            assert recovered[0].status is GenerationJobStatus.FAILED
+            assert recovered[0].error == "JobLeaseExpired"
+            async with sessions() as session:
+                row = await session.get(GenerationJobRecord, "lease-job")
+                assert row is not None
+                assert row.lease_token is None
+                assert row.status == GenerationJobStatus.FAILED.value
         finally:
             await engine.dispose()
 

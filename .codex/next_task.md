@@ -52,11 +52,19 @@ transport이며 EventBus를 대체하지 않는다.
 
 다음:
 
-1. 실행 lease, heartbeat와 abandoned Job 복구 계약을 구현한다.
-2. pending Job을 HTTP 요청과 분리된 worker가 claim해 기존 Generation Pipeline에
+완료:
+
+1. pending Job의 lease claim과 만료 takeover
+2. heartbeat/release와 lease token 기반 상태 쓰기 fencing
+3. generating/validating 중 만료 Job의 `JobLeaseExpired` failed 복구
+4. 실제 PostgreSQL 16 worker 경쟁, heartbeat, takeover와 stale token 차단 검증
+
+다음:
+
+1. pending Job을 HTTP 요청과 분리된 worker가 claim해 기존 Generation Pipeline에
    전달한다.
-3. worker 2대 경쟁, lease 만료 takeover와 중단 후 복구를 실제 PostgreSQL에서
-   검증한다.
+2. worker 실행 중 heartbeat를 유지하고 terminal 상태에서 lease를 정리한다.
+3. worker 2대가 실제 생성 요청 하나만 실행하는지 격리 Workspace에서 검증한다.
 
 ## 후속 목표
 

@@ -25,6 +25,8 @@ from autoforge.core.job.store import (
     DuplicateJobError,
     JobClaim,
     JobConcurrencyError,
+    JobLease,
+    JobLeaseConflictError,
     JobStore,
 )
 
@@ -45,6 +47,8 @@ __all__ = [
     "InvalidJobTransitionError",
     "JobClaim",
     "JobConcurrencyError",
+    "JobLease",
+    "JobLeaseConflictError",
     "JobStore",
     "ManifestDocumentKind",
     "ValidationCompletedEvent",
