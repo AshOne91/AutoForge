@@ -7,6 +7,13 @@ from autoforge.core.plugin import (
     PluginMetadata,
 )
 from autoforge.core.specification import ModuleSpec, ProjectSpec
+from autoforge.services.generation.alembic import (
+    ALEMBIC_BASELINE_GENERATOR_ID,
+    ALEMBIC_GENERATOR_VERSION,
+    ALEMBIC_PROJECT_GENERATOR_ID,
+    AlembicBaselineGenerator,
+    AlembicEnvironmentGenerator,
+)
 from autoforge.services.generation.fastapi_module import (
     MODULE_GENERATOR_ID,
     MODULE_GENERATOR_VERSION,
@@ -53,6 +60,18 @@ def create_fastapi_generator_plugins(
     project_registry = GeneratorPluginRegistry[ProjectSpec]()
     project_registry.register(
         GeneratorPluginAdapter(
+            AlembicEnvironmentGenerator(),
+            PluginMetadata(
+                name=ALEMBIC_PROJECT_GENERATOR_ID,
+                version=ALEMBIC_GENERATOR_VERSION,
+                description="Store별 Alembic async 실행 환경 Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
+    project_registry.register(
+        GeneratorPluginAdapter(
             FastAPIProjectGenerator(),
             PluginMetadata(
                 name=GENERATOR_ID,
@@ -89,6 +108,18 @@ def create_fastapi_generator_plugins(
     )
 
     module_registry = GeneratorPluginRegistry[ModuleSpec]()
+    module_registry.register(
+        GeneratorPluginAdapter(
+            AlembicBaselineGenerator(),
+            PluginMetadata(
+                name=ALEMBIC_BASELINE_GENERATOR_ID,
+                version=ALEMBIC_GENERATOR_VERSION,
+                description="불변 Alembic baseline revision Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
     module_registry.register(
         GeneratorPluginAdapter(
             FastAPIModuleGenerator(package_name),

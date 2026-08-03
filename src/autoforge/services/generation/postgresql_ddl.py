@@ -117,6 +117,27 @@ class PostgreSQLDDLGenerator:
             statements.extend(self._render_indexes(table))
         return "\n".join(header + statements).rstrip() + "\n"
 
+    def statements_for_store(
+        self,
+        specification: ModuleSpec,
+        store: str,
+    ) -> tuple[list[str], list[str]]:
+        database = specification.database
+        if database is None:
+            return [], []
+        placements = {placement.table: placement for placement in database.placements}
+        tables = [
+            table
+            for table in database.tables
+            if placements.get(table.name) is not None
+            and placements[table.name].store == store
+        ]
+        statements: list[str] = []
+        for table in tables:
+            statements.append(self._render_table(table).strip())
+            statements.extend(statement.strip() for statement in self._render_indexes(table))
+        return statements, [table.name for table in tables]
+
     def _render_table(self, table: TableSpec) -> str:
         columns = ",\n".join(
             f"    {self._render_column(column)}" for column in table.columns

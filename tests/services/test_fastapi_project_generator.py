@@ -184,7 +184,7 @@ def test_rendered_python_and_toml_are_valid() -> None:
     assert "asyncpg>=0.30,<1" in pyproject["project"]["dependencies"]
     assert "alembic>=1.18,<2" in pyproject["project"]["dependencies"]
     assert pyproject["project"]["optional-dependencies"]["test"] == [
-        "httpx2",
+        "httpx",
         "pytest",
     ]
     assert pyproject["tool"]["pytest"]["ini_options"]["testpaths"] == ["tests"]

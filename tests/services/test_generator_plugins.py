@@ -8,6 +8,10 @@ from autoforge.core.specification import (
     ProjectSpec,
 )
 from autoforge.services.generation import create_fastapi_generator_plugins
+from autoforge.services.generation.alembic import (
+    ALEMBIC_BASELINE_GENERATOR_ID,
+    ALEMBIC_PROJECT_GENERATOR_ID,
+)
 from autoforge.services.generation.fastapi_module import MODULE_GENERATOR_ID
 from autoforge.services.generation.fastapi_project import GENERATOR_ID
 from autoforge.services.generation.postgresql_ddl import (
@@ -25,11 +29,13 @@ def test_fastapi_generator_plugins_register_real_generators() -> None:
     plugins = create_fastapi_generator_plugins("game_server")
 
     assert plugins.project.names() == [
+        ALEMBIC_PROJECT_GENERATOR_ID,
         GENERATOR_ID,
         SESSION_STORE_GENERATOR_ID,
         SQLALCHEMY_PROJECT_GENERATOR_ID,
     ]
     assert plugins.module.names() == [
+        ALEMBIC_BASELINE_GENERATOR_ID,
         MODULE_GENERATOR_ID,
         POSTGRESQL_DDL_GENERATOR_ID,
         REPOSITORY_GENERATOR_ID,

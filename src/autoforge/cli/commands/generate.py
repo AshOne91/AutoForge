@@ -40,6 +40,7 @@ def generate(
             f"declared={sorted(declared)}, discovered={sorted(discovered)}"
         )
     _validate_endpoint_dependencies(project_spec, module_specs)
+    _validate_database_placements(project_spec, module_specs)
 
     output.mkdir(parents=True, exist_ok=True)
     workspace = Workspace(output.resolve())
@@ -98,6 +99,29 @@ def _validate_endpoint_dependencies(
     if requires_session_store and not has_session_store:
         raise typer.BadParameter(
             "Endpoint dependency 'session_store' requires a redis_session service."
+        )
+
+
+def _validate_database_placements(
+    project_spec: ProjectSpec,
+    module_specs: list[ModuleSpec],
+) -> None:
+    declared_stores = {
+        database.name for database in project_spec.application.databases
+    }
+    unknown = sorted(
+        {
+            placement.store
+            for module_spec in module_specs
+            if module_spec.database is not None
+            for placement in module_spec.database.placements
+            if placement.store not in declared_stores
+        }
+    )
+    if unknown:
+        raise typer.BadParameter(
+            "Database placement references undeclared stores: "
+            + ", ".join(unknown)
         )
 
 

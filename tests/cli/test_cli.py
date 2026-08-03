@@ -8,7 +8,10 @@ from typer.testing import CliRunner
 
 from autoforge import __version__
 from autoforge.cli.app import app
-from autoforge.cli.commands.generate import _validate_endpoint_dependencies
+from autoforge.cli.commands.generate import (
+    _validate_database_placements,
+    _validate_endpoint_dependencies,
+)
 from autoforge.core.specification import ModuleSpec, ProjectSpec
 
 runner = CliRunner()
@@ -106,3 +109,56 @@ def test_plugin_reports_unavailable_command() -> None:
 
     assert result.exit_code == 1
     assert "PluginLoader 구현 이후" in result.output
+
+
+def test_generate_rejects_undeclared_database_placement_store() -> None:
+    project_spec = ProjectSpec.model_validate(
+        {
+            "spec_version": "1",
+            "project": {
+                "name": "Sample",
+                "package_name": "sample",
+                "version": "0.1.0",
+            },
+            "application": {
+                "databases": [
+                    {"name": "account", "global_url_env": "ACCOUNT_URL"}
+                ]
+            },
+        }
+    )
+    module_spec = ModuleSpec.model_validate(
+        {
+            "spec_version": "1",
+            "module": {
+                "name": "profile",
+                "display_name": "Profile",
+                "route_prefix": "/profile",
+            },
+            "database": {
+                "provider": "agnostic",
+                "tables": [
+                    {
+                        "name": "profiles",
+                        "columns": [
+                            {
+                                "name": "id",
+                                "type": {"kind": "uuid"},
+                                "primary_key": True,
+                            }
+                        ],
+                    }
+                ],
+                "placements": [
+                    {
+                        "table": "profiles",
+                        "store": "missing",
+                        "mode": "global",
+                    }
+                ],
+            },
+        }
+    )
+
+    with pytest.raises(typer.BadParameter, match="undeclared stores: missing"):
+        _validate_database_placements(project_spec, [module_spec])

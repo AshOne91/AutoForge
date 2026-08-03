@@ -74,6 +74,9 @@
 
 ## 진행 중
 
+- Store별 Alembic 실행 환경과 immutable baseline revision 생성을 완료했다.
+- kis-auto-trading의 identity DB와 account DB 2개에 migration 적용을 검증했다.
+- 다음 단계는 Account/Profile 업무 저장소를 실제 shard DB에 연결하는 것이다.
 - 문서 정합성 정리
 - 패키지와 코딩 스타일 정리
 - Plugin Framework 4단계 완료 검토

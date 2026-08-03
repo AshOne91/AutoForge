@@ -55,11 +55,11 @@
 - [x] 참고 프로젝트 기반 Database 생성 책임과 경계 문서화
 - [x] kis-auto-trading Account/Profile 명세로 계약 검증
 - [x] Repository Protocol과 Fake Repository Generator
-- [ ] SQLAlchemy 및 Alembic Plugin
+- [x] SQLAlchemy 및 Alembic Plugin
   - [x] SQLAlchemy async Base, Session과 ShardRouter Generator
   - [x] SQLAlchemy 2.x Record Model Generator
   - [x] Repository Adapter와 Domain/Record 변환 Generator
-  - [ ] Alembic 실행 환경 Generator
+  - [x] Store별 Alembic 실행 환경과 최초 baseline revision Generator
 - [x] PostgreSQL Global/Shard DDL Plugin
 - [ ] 추가 DB Provider DDL Plugin
 - [ ] 필수 Redis Service Blueprint와 Adapter

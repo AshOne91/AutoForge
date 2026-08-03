@@ -22,8 +22,13 @@ kis-auto-trading에서 Primary 중지, Replica 자동 승격, 기존 session 읽
 session 쓰기를 실제 Docker 토폴로지로 검증했다. Cluster-aware 연결과 AWS managed
 환경 계약은 Redis 후속 범위로 유지한다.
 
-다음 목표는 Alembic 실행 환경을 생성하여 저장된 Global/Shard SQL의 적용 순서와
-상태를 관리하는 것이다.
+Store별 Alembic 실행 환경과 최초 baseline revision 생성을 완료했다. 생성된
+`scripts/migrate.py`가 identity DB와 account shard DB 2개에 각 store의 revision을
+적용하고, 각 `alembic_version` 값을 기록하는 것을 실제 Docker 환경에서 검증했다.
+
+다음 목표는 kis-auto-trading의 Account/Profile 업무 저장소를 실제 account shard
+DB에 연결하고, global identity의 `shard_id`로 올바른 shard를 선택하는 흐름을
+완성하는 것이다.
 
 Repository와 DB 기반 이후 Redis Service와 RabbitMQ Transport를 필수 서비스로
 구현한다. Redis는 cache/coordination, RabbitMQ는 Queue/Worker 책임을 가지며
@@ -37,11 +42,11 @@ Repository와 DB 기반 이후 Redis Service와 RabbitMQ Transport를 필수 서
 
 ## 다음 구현 범위
 
-1. Alembic 실행 환경의 GENERATED/SCAFFOLDED 파일 소유권 확정
-2. Global DB와 모든 Shard DB에 동일 순서로 migration을 적용하는 계약 정의
-3. 기존 PostgreSQL DDL 산출물과 Alembic revision의 중복 책임 방지
-4. 반복 생성, migration 상태, 실패 시 중단 정책 확정
-5. kis-auto-trading 격리 Workspace에서 생성·import·pytest 검증
+1. Account/Profile repository의 현재 scaffold와 generated adapter 경계 확인
+2. global identity 조회 결과의 `shard_id` 전달 계약 확정
+3. `ShardRouter`로 account DB 세션을 선택하는 application 흐름 구현
+4. 회원 생성·조회 시 identity와 profile 저장 결과 검증
+5. account DB 2개에서 서로 다른 사용자 배치와 API 2대 교차 호출 검증
 6. 구현 전 구체적인 코드·테스트 파일 계획 제시
 
 ## 이번 범위에서 구현하지 않음

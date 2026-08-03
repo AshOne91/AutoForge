@@ -88,7 +88,18 @@ class FastAPIProjectGenerator:
             package_root / "routers" / "health.py": self._render_health_router(),
             PurePosixPath("tests", "test_health.py"): self._render_health_test(
                 package_name,
-                redis_env_names=[service.url_env for service in session_services],
+                redis_env_values=[
+                    (
+                        service.sentinel_urls_env,
+                        "localhost:26379",
+                    )
+                    if service.mode == "sentinel"
+                    else (
+                        service.url_env,
+                        "redis://localhost:6379/0",
+                    )
+                    for service in session_services
+                ],
                 database_env_names=database_env_names,
             ),
         }
@@ -163,7 +174,7 @@ class FastAPIProjectGenerator:
             ']\n'
             "\n"
             "[project.optional-dependencies]\n"
-            'test = ["httpx2", "pytest"]\n'
+            'test = ["httpx", "pytest"]\n'
             "\n"
             "[tool.setuptools]\n"
             'package-dir = {"" = "src"}\n'
@@ -294,14 +305,15 @@ class FastAPIProjectGenerator:
     @staticmethod
     def _render_health_test(
         package_name: str,
-        redis_env_names: list[str],
+        redis_env_values: list[tuple[str, str]],
         database_env_names: list[str],
     ) -> str:
+        redis_env_names = [name for name, _ in redis_env_values]
         required_env_names = [*redis_env_names, *database_env_names]
         monkeypatch_argument = "monkeypatch: pytest.MonkeyPatch" if required_env_names else ""
         redis_env_setup = "".join(
-            f'    monkeypatch.setenv("{name}", "redis://localhost:6379/0")\n'
-            for name in redis_env_names
+            f'    monkeypatch.setenv("{name}", "{value}")\n'
+            for name, value in redis_env_values
         )
         database_env_setup = "".join(
             f'    monkeypatch.setenv("{name}", '
