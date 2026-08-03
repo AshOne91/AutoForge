@@ -430,6 +430,22 @@ Projection = Event로 갱신되는 조회 상태
 
 중요 상태 전이는 Idempotent하게 저장하고 재조회할 수 있어야 한다.
 
+현재 Core에는 `JobStore` async Protocol이 있고 로컬 CLI와 테스트를 위한
+`InMemoryJobStore` adapter가 있다. 저장할 때 예상 이전 상태를 비교하여 동일 Job의
+경쟁 상태 전이를 거부한다. 이는 재시작 후 복구되는 영속 저장소가 아니며 Webhook과
+분산 worker를 연결하기 전에 PostgreSQL adapter와 idempotency key가 필요하다.
+
+`GenerationJobStateMachine`은 다음 전이만 허용한다.
+
+```text
+pending → generating → validating → succeeded
+    └──────── 각 실행 상태에서 ────────→ failed
+```
+
+각 전이는 기존 snapshot을 변경하지 않고 전체 Pydantic 불변조건을 다시 검증한 새
+snapshot을 만든다. Application Service는 새 상태를 JobStore에 먼저 저장하고 저장에
+성공한 사실을 Event로 발행해야 한다.
+
 ## 11. 계층과 금지 사항
 
 ```text
@@ -488,15 +504,18 @@ Infrastructure
    - 명시적 Task 순서
    - timeout, retry, 실패와 cancellation
    - Pipeline/Task lifecycle Event
-3. 첫 Application 수직 Event 흐름
-   - Job, Pipeline, Task, Generation, Validation Event
+3. Job lifecycle 기반: 완료
+   - Job, Generation, Validation Event
+   - 상태 머신, JobStore Protocol과 로컬 adapter
+4. 첫 Application 수직 Event 흐름
    - in-process Handler 조립
-4. 관찰 Handler
+   - 기존 생성·검증 Service를 Pipeline Task로 연결
+5. 관찰 Handler
    - Logging, Audit, Metrics, Job 상태 Projection
-5. Git과 Webhook 연결
+6. Git과 Webhook 연결
    - Webhook 정규화와 중복 방지
    - Repository와 Git Delivery Event
-6. 필요할 때 외부 Transport
+7. 필요할 때 외부 Transport
    - 직렬화, Idempotency, Retry, Dead-letter, Outbox/Inbox
 
 ## 14. 변경 승인 기준

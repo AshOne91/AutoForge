@@ -79,7 +79,9 @@
 - [x] 불변 Event metadata와 typed Handler 계약
 - [x] 순차 Pipeline 실행, task timeout·retry·실패·취소 정책
 - [x] Pipeline과 Task lifecycle Event 발행
-- [ ] Job 및 Generation Event 정의
+- [x] Job 및 Generation Event 정의
+- [x] GenerationJob 상태 머신과 async JobStore Protocol
+- [ ] PostgreSQL JobStore와 idempotent trigger
 - [ ] Logging, Audit, Metrics Handler
 - [ ] Generation Pipeline
 - [ ] Validation 및 Build Pipeline

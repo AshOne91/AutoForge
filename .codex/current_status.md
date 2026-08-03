@@ -11,9 +11,23 @@
   cancellation을 조정한다.
 - Pipeline/Task의 started/completed/failed/retry/cancelled event를 발행하며 EventBus는
   Task나 Pipeline의 실행 규칙을 알지 않는다.
-- Core 집중 테스트 8개와 전체 288개 테스트, Ruff를 통과했다.
+- Core Event/Pipeline 집중 테스트 8개, Job lifecycle 집중 테스트 7개와 전체
+  295개 테스트, Ruff를 통과했다.
 - 다음 단계는 기존 GenerationJob 상태 모델과 실제 생성·검증 서비스를 이 Pipeline에
   연결하는 Application 수직 슬라이스다.
+
+## 2026-08-03 GenerationJob lifecycle 기반 완료
+
+- Job/Generation/Validation의 created/started/completed/failed Event 계약을 추가했다.
+- GenerationJob 상태 전이를 pending → generating → validating → succeeded 순서로
+  제한하고, 어느 실행 단계에서든 명시적 failed 전이를 지원한다.
+- 상태 전이는 기존 객체를 변경하지 않고 새 snapshot을 만들며 Pydantic 전체
+  불변조건을 다시 검증한다.
+- async JobStore Protocol과 테스트·로컬 CLI용 InMemoryJobStore adapter를 추가했다.
+- replace 시 expected status를 비교해 같은 Job의 동시 실행이 조용히 상태를
+  덮어쓰지 못하게 한다.
+- 이는 영속 Job Store가 아니다. 다음 단계에서 Application Pipeline을 연결한 뒤
+  PostgreSQL adapter와 idempotent trigger를 구현한다.
 
 ## 2026-08-03 RabbitMQ/Transactional Outbox 완료
 
@@ -100,7 +114,7 @@
 - 명시적 Config 주입과 전역 Config 제거
 - 프로젝트 디렉터리 밖에서 동작하는 version CLI
 - 미구현 CLI의 명확한 실패 상태
-- 전체 테스트 288개 통과 기준선
+- 전체 테스트 295개 통과 기준선
 
 ## 진행 중
 
@@ -113,7 +127,8 @@
 - kis-auto-trading에서 3 Primary + 3 Replica, 전체 16,384 slot coverage, 담당
   Primary 중지와 Replica 승격, 기존 읽기·신규 쓰기 및 volume 재기동을 검증했다.
 - RabbitMQ Transport와 Transactional Outbox를 완료했다.
-- generic Event/Pipeline Core를 완료했고 GenerationJob Application 연결을 진행한다.
+- generic Event/Pipeline Core와 GenerationJob lifecycle 기반을 완료했고 Application
+  연결을 진행한다.
 - 문서 정합성 정리
 - 패키지와 코딩 스타일 정리
 - Plugin Framework 4단계 완료 검토
