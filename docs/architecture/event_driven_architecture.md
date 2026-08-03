@@ -445,7 +445,10 @@ InMemory adapter는 재시작 후 복구되지 않으므로 분산 실행에는 
 PostgreSQL adapter는 구현됐다. unique idempotency key의 원자적 claim, status CAS와
 revision, JSONB snapshot을 제공한다. AuditSink도 event_id primary key로 중복 append를
 막는다. 상세 schema와 실제 동시성 검증은 `control_plane_persistence.md`를 따른다.
-Trigger/Status HTTP API와 실행 lease는 아직 구현 전이다.
+인증된 Trigger/Status HTTP adapter도 구현됐다. Trigger는 재실행 가능한 상대경로
+submission과 specification hash를 먼저 저장하고, 신규 claim일 때만
+`GenerationJobCreatedEvent`를 발행한다. HTTP 요청 안에서는 Pipeline을 실행하지
+않는다. 실행 lease와 worker 복구는 아직 구현 전이다.
 
 `GenerationJobStateMachine`은 다음 전이만 허용한다.
 

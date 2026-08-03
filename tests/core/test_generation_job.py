@@ -12,6 +12,7 @@ from autoforge.core.job import (
     GenerationJob,
     GenerationJobManifest,
     GenerationJobStatus,
+    GenerationJobSubmission,
     GenerationUnit,
     GenerationUnitKind,
     GenerationUnitManifest,
@@ -256,4 +257,26 @@ def test_job_rejects_mismatched_unit_specification() -> None:
                 job_id="job-001",
                 units=[job_manifest().units[0]],
             ),
+        )
+
+
+def test_job_submission_normalizes_safe_relative_paths() -> None:
+    submission = GenerationJobSubmission(
+        project_path="spec/project.yaml",
+        specifications_path="spec/modules",
+        output_path="work/generated",
+    )
+
+    assert submission.project_path == "spec/project.yaml"
+    with pytest.raises(ValidationError, match="드라이브"):
+        GenerationJobSubmission(
+            project_path="C:/outside/project.yaml",
+            specifications_path="spec/modules",
+            output_path="work/generated",
+        )
+    with pytest.raises(ValidationError, match=r"\.\."):
+        GenerationJobSubmission(
+            project_path="../project.yaml",
+            specifications_path="spec/modules",
+            output_path="work/generated",
         )

@@ -18,6 +18,7 @@ from autoforge.core.job import (
     GenerationJobManifest,
     GenerationJobStateMachine,
     GenerationJobStatus,
+    GenerationJobSubmission,
     GenerationStartedEvent,
     GenerationUnit,
     GenerationUnitKind,
@@ -103,24 +104,9 @@ class _PrepareGenerationJobTask(Task):
             self._context.request.specifications_path,
         )
         self._context.request.output_path.mkdir(parents=True, exist_ok=True)
-        units = [
-            GenerationUnit(
-                unit_id="project",
-                kind=GenerationUnitKind.PROJECT,
-                specification_version=project_spec.spec_version,
-                specification_hash=specification_hash(project_spec),
-            ),
-            *(
-                GenerationUnit(
-                    unit_id=f"module:{module.module.name}",
-                    kind=GenerationUnitKind.MODULE,
-                    specification_version=module.spec_version,
-                    specification_hash=specification_hash(module),
-                )
-                for module in module_specs
-            ),
-        ]
-        job = GenerationJob(job_id=self._context.job_id, units=units)
+        job = build_generation_job(
+            self._context.job_id, project_spec, module_specs
+        )
         await self._job_store.create(job)
         self._context.project_spec = project_spec
         self._context.module_specs = module_specs
@@ -130,7 +116,7 @@ class _PrepareGenerationJobTask(Task):
         self._context.job = job
         await self._event_bus.publish(
             GenerationJobCreatedEvent(
-                unit_ids=tuple(unit.unit_id for unit in units),
+                unit_ids=tuple(unit.unit_id for unit in job.units),
                 **self._metadata(),
             )
         )
@@ -435,6 +421,33 @@ class GenerationJobPipeline:
         if context.job is None:
             raise RuntimeError("Generation pipeline completed without a job")
         return GenerationJobExecution(job=context.job, pipeline_result=result)
+
+
+def build_generation_job(
+    job_id: str,
+    project_spec: ProjectSpec,
+    module_specs: tuple[ModuleSpec, ...],
+    *,
+    submission: GenerationJobSubmission | None = None,
+) -> GenerationJob:
+    units = [
+        GenerationUnit(
+            unit_id="project",
+            kind=GenerationUnitKind.PROJECT,
+            specification_version=project_spec.spec_version,
+            specification_hash=specification_hash(project_spec),
+        ),
+        *(
+            GenerationUnit(
+                unit_id=f"module:{module.module.name}",
+                kind=GenerationUnitKind.MODULE,
+                specification_version=module.spec_version,
+                specification_hash=specification_hash(module),
+            )
+            for module in module_specs
+        ),
+    ]
+    return GenerationJob(job_id=job_id, units=units, submission=submission)
 
 
 def load_generation_specifications(

@@ -1,10 +1,11 @@
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from autoforge.core.generation import GenerationManifest
 from autoforge.core.generation.models import validate_sha256
+from autoforge.core.workspace import validate_workspace_relative_path
 
 
 class JobModel(BaseModel):
@@ -38,6 +39,17 @@ class GenerationUnit(JobModel):
     def validate_hash(self) -> "GenerationUnit":
         validate_sha256(self.specification_hash)
         return self
+
+
+class GenerationJobSubmission(JobModel):
+    project_path: str
+    specifications_path: str
+    output_path: str
+
+    @field_validator("project_path", "specifications_path", "output_path")
+    @classmethod
+    def validate_relative_path(cls, value: str) -> str:
+        return validate_workspace_relative_path(value).as_posix()
 
 
 class GenerationUnitManifest(JobModel):
@@ -76,6 +88,7 @@ class GenerationJob(JobModel):
     job_id: str = Field(min_length=1)
     status: GenerationJobStatus = GenerationJobStatus.PENDING
     units: list[GenerationUnit] = Field(min_length=1)
+    submission: GenerationJobSubmission | None = None
     manifest: GenerationJobManifest | None = None
     error: str | None = None
 

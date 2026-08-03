@@ -1,7 +1,9 @@
 import asyncio
 import os
 from datetime import UTC, datetime
+from pathlib import Path
 
+import httpx
 import pytest
 
 pytest.importorskip("sqlalchemy")
@@ -9,7 +11,9 @@ pytest.importorskip("sqlalchemy")
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from autoforge.application.generation import GenerationSubmissionService
 from autoforge.core.audit import AuditRecord
+from autoforge.core.event import EventBus
 from autoforge.core.generation import content_hash
 from autoforge.core.job import (
     GenerationJob,
@@ -20,8 +24,15 @@ from autoforge.core.job import (
     JobConcurrencyError,
 )
 from autoforge.infrastructure.audit.postgresql import PostgreSQLAuditSink
+from autoforge.infrastructure.http import (
+    ControlPlaneHTTPSettings,
+    create_control_plane_app,
+)
 from autoforge.infrastructure.job.postgresql import PostgreSQLJobStore
-from autoforge.infrastructure.postgresql.control_plane import AuditRecordRow
+from autoforge.infrastructure.postgresql.control_plane import (
+    AuditRecordRow,
+    GenerationJobRecord,
+)
 
 DATABASE_URL = os.getenv("AUTOFORGE_TEST_DATABASE_URL")
 
@@ -111,6 +122,104 @@ def test_postgresql_job_claim_cas_and_audit_idempotency() -> None:
                     select(func.count()).select_from(AuditRecordRow)
                 )
             assert audit_count == 1
+        finally:
+            await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def _write_specifications(root: Path) -> None:
+    modules = root / "spec" / "modules"
+    modules.mkdir(parents=True)
+    (root / "spec" / "project.yaml").write_text(
+        """spec_version: "1"
+project:
+  name: Sample
+  package_name: sample
+  version: "0.1.0"
+application:
+  modules:
+    - account
+""",
+        encoding="utf-8",
+    )
+    (modules / "account.yaml").write_text(
+        """spec_version: "1"
+module:
+  name: account
+  display_name: Account
+  route_prefix: /account
+""",
+        encoding="utf-8",
+    )
+
+
+def test_two_control_plane_apps_claim_one_postgresql_job(
+    tmp_path: Path,
+) -> None:
+    async def scenario() -> None:
+        assert DATABASE_URL is not None
+        _write_specifications(tmp_path)
+        output_root = tmp_path / "output"
+        output_root.mkdir()
+        engine = create_async_engine(DATABASE_URL)
+        sessions = async_sessionmaker(engine, expire_on_commit=False)
+        try:
+            async with engine.begin() as connection:
+                await connection.execute(
+                    text("TRUNCATE autoforge_generation_jobs")
+                )
+            apps = [
+                create_control_plane_app(
+                    service=GenerationSubmissionService(
+                        source_root=tmp_path,
+                        output_root=output_root,
+                        job_store=PostgreSQLJobStore(sessions),
+                        event_bus=EventBus(),
+                    ),
+                    settings=ControlPlaneHTTPSettings(api_token="integration-token"),
+                )
+                for _ in range(2)
+            ]
+            clients = [
+                httpx.AsyncClient(
+                    transport=httpx.ASGITransport(app=app),
+                    base_url="http://test",
+                )
+                for app in apps
+            ]
+            payload = {
+                "project_path": "spec/project.yaml",
+                "specifications_path": "spec/modules",
+                "output_path": "generated/service",
+            }
+            headers = {
+                "Authorization": "Bearer integration-token",
+                "Idempotency-Key": "github-delivery-api-1",
+            }
+            try:
+                responses = await asyncio.gather(
+                    *(
+                        client.post(
+                            "/v1/generation-jobs",
+                            json=payload,
+                            headers=headers,
+                        )
+                        for client in clients
+                    )
+                )
+            finally:
+                await asyncio.gather(*(client.aclose() for client in clients))
+
+            assert sorted(response.status_code for response in responses) == [200, 202]
+            assert len(
+                {response.json()["job"]["job_id"] for response in responses}
+            ) == 1
+            async with sessions() as session:
+                job_count = await session.scalar(
+                    select(func.count()).select_from(GenerationJobRecord)
+                )
+            assert job_count == 1
         finally:
             await engine.dispose()
 

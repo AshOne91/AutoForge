@@ -43,10 +43,20 @@ transport이며 EventBus를 대체하지 않는다.
 
 다음:
 
-1. idempotency key 기반 trigger/status Application API를 구현한다.
-2. 인증과 요청 크기·경로 제한을 적용한다.
-3. 실행 lease, heartbeat와 abandoned Job 복구 계약을 구현한다.
-4. API 인스턴스 2대에서 같은 trigger의 단일 Job 생성을 검증한다.
+완료:
+
+1. idempotency key 기반 trigger/status Application API
+2. Bearer 인증, streaming 요청 크기 제한과 source/output root 경로 제한
+3. 재시작 가능한 relative-path submission snapshot과 key 재사용 충돌 검증
+4. 실제 API 인스턴스 2대에서 같은 trigger의 단일 PostgreSQL Job 생성 검증
+
+다음:
+
+1. 실행 lease, heartbeat와 abandoned Job 복구 계약을 구현한다.
+2. pending Job을 HTTP 요청과 분리된 worker가 claim해 기존 Generation Pipeline에
+   전달한다.
+3. worker 2대 경쟁, lease 만료 takeover와 중단 후 복구를 실제 PostgreSQL에서
+   검증한다.
 
 ## 후속 목표
 

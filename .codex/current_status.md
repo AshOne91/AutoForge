@@ -1,5 +1,20 @@
 # 현재 상태
 
+## 2026-08-03 인증된 GenerationJob 제출 API 완료
+
+- `GenerationJobSubmission`이 source/output root 기준 상대경로를 Job snapshot에 저장해
+  다른 worker가 재시작 후에도 실행 입력을 복원할 수 있게 했다.
+- Application service가 명세를 먼저 검증하고 Job unit hash를 만든 뒤 idempotency key로
+  원자적 claim한다. 같은 key의 경로 또는 명세가 달라지면 충돌로 거부한다.
+- FastAPI adapter는 Bearer token, 1~255자 `Idempotency-Key`, 4 KiB 기본 streaming
+  body 제한과 root 이탈 방지를 적용한다.
+- POST는 신규 Job에 202, 동일 요청 재전달에 200, key 재사용 충돌에 409를 반환하고,
+  GET은 저장된 Job 상태를 조회한다.
+- 서로 다른 FastAPI 앱 2개가 실제 PostgreSQL 16에 동시에 같은 요청을 제출해도
+  202 응답과 Job row가 하나만 생성되는 것을 검증했다.
+- HTTP 요청 안에서는 생성 Pipeline을 실행하지 않는다. 다음 단계는 lease 기반 worker
+  claim, heartbeat와 abandoned Job 복구다.
+
 ## 2026-08-03 PostgreSQL Control Plane 기반 완료
 
 - SQLAlchemy/asyncpg를 로컬 CLI 필수가 아닌 `server` optional extra로 분리했다.
@@ -12,7 +27,8 @@
   동일 audit append 2건 중 row 1건을 검증했다.
 - Compose credential은 로컬 통합 테스트 전용이며 운영 secret 계약은 후속 배포
   단계에서 별도로 구현한다.
-- 다음 단계는 인증된 idempotent trigger/status API와 실행 lease다.
+- 후속 단계에서 인증된 idempotent trigger/status API를 구현했다. 다음은 실행
+  lease와 worker 복구다.
 
 ## 2026-08-03 Observability Handler 기반 완료
 
@@ -190,7 +206,6 @@
 
 - 일부 CLI 명령
 - Plugin Permission의 OS 수준 Sandbox 강제
-- 인증된 GenerationJob trigger/status API
 - 실행 lease, heartbeat와 abandoned Job 복구
 
 PluginLoader의 발견, 의존성 정렬과 명시적 trusted 로딩 및 GenerationJob Application

@@ -18,6 +18,7 @@ autoforge_generation_jobs
   idempotency_key      외부 요청 중복 방지 키(UNIQUE)
   status               현재 상태
   document             검증된 GenerationJob JSON snapshot
+    submission         source/output root 기준 재실행 가능한 상대경로
   revision             성공한 상태 교체 횟수
   created_at/updated_at UTC 시각
 
@@ -56,6 +57,34 @@ revision을 1 증가시킨다.
 Audit append는 `event_id` primary key에 대해 conflict를 무시한다. 외부 transport의
 최소 한 번 전달로 같은 Event가 재전달돼도 audit row는 하나다.
 
+## Trigger와 Status HTTP 계약
+
+```text
+POST /v1/generation-jobs
+  Authorization: Bearer <control-plane token>
+  Idempotency-Key: <1..255 characters>
+
+  project_path         source root 기준 project YAML 상대경로
+  specifications_path  source root 기준 module YAML 디렉터리 상대경로
+  output_path          output root 기준 생성 Workspace 상대경로
+
+GET /v1/generation-jobs/{job_id}
+  Authorization: Bearer <control-plane token>
+```
+
+POST는 명세를 검증하고 specification hash가 포함된 pending Job을 영속화한다. 신규
+claim은 202, 동일 요청 재전달은 기존 Job과 함께 200을 반환한다. 같은 idempotency
+key로 경로 또는 명세 내용이 다른 요청을 보내면 409다. 누락·잘못된 입력은 400/422,
+인증 실패는 401, streaming 본문 제한 초과는 413이다.
+
+경로는 절대경로, 드라이브, 역슬래시와 `..`을 허용하지 않는다. 해석한 경로가 symlink
+등으로 주입된 source/output root를 벗어나도 거부한다. 본문은 기본 4 KiB이며
+`Content-Length`만 신뢰하지 않고 ASGI stream을 읽는 도중 한도를 검사한다.
+
+HTTP 요청은 Generation Pipeline을 직접 실행하지 않는다. 신규 Job일 때만
+`GenerationJobCreatedEvent`를 in-process EventBus에 발행하고 즉시 응답한다. 영속
+queue 역할은 PostgreSQL pending Job과 후속 lease worker가 담당한다.
+
 ## Migration과 실행
 
 운영 adapter는 런타임 `create_all()`을 호출하지 않는다. schema는 버전 관리되는
@@ -85,7 +114,6 @@ server extra가 없는 로컬 CLI의 import를 깨뜨리지 않는다.
 
 ## 아직 남은 범위
 
-- Trigger/Status HTTP API와 인증
 - Job 실행 lease, heartbeat와 abandoned Job 복구
 - PostgreSQL Multi-AZ 배포 계약
 - backup/restore, 보존 기간과 개인정보 삭제 정책
