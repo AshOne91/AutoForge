@@ -201,13 +201,13 @@ class FastAPIProjectGenerator:
         title_literal = json.dumps(project_name, ensure_ascii=False)
         version_literal = json.dumps(version, ensure_ascii=False)
         lifespan_import = ""
-        lifespan_argument = ""
+        lifespan_line = ""
         if has_lifespan:
             lifespan_import = (
                 f"from {package_name}.application.generated.lifespan "
                 "import lifespan\n"
             )
-            lifespan_argument = ", lifespan=lifespan"
+            lifespan_line = "        lifespan=lifespan,\n"
         return (
             "from fastapi import FastAPI\n"
             "\n"
@@ -220,7 +220,8 @@ class FastAPIProjectGenerator:
             "def create_app() -> FastAPI:\n"
             f"    app = FastAPI(\n"
             f"        title={title_literal},\n"
-            f"        version={version_literal}{lifespan_argument},\n"
+            f"        version={version_literal},\n"
+            f"{lifespan_line}"
             f"    )\n"
             "    app.include_router(health_router)\n"
             "    for router in MODULE_ROUTERS:\n"
