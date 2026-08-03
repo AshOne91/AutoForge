@@ -32,8 +32,14 @@ class FastAPIProjectGenerator:
         project = specification.project
         package_name = project.package_name
         package_root = PurePosixPath("src", package_name)
+        session_services = [
+            service
+            for service in specification.application.services
+            if service.kind == "redis_session"
+        ]
+        has_lifespan = bool(session_services)
 
-        return {
+        rendered = {
             PurePosixPath("pyproject.toml"): self._render_pyproject(
                 package_name=package_name,
                 version=project.version,
@@ -64,13 +70,22 @@ class FastAPIProjectGenerator:
                 package_name=package_name,
                 project_name=project.name,
                 version=project.version,
+                has_lifespan=has_lifespan,
             ),
             package_root / "routers" / "__init__.py": "",
             package_root / "routers" / "health.py": self._render_health_router(),
             PurePosixPath("tests", "test_health.py"): self._render_health_test(
-                package_name
+                package_name,
+                required_env_names=[
+                    service.url_env for service in session_services
+                ],
             ),
         }
+        if has_lifespan:
+            rendered[
+                package_root / "application" / "generated" / "lifespan.py"
+            ] = self._render_lifespan(package_name)
+        return rendered
 
     def plan(self, specification: ProjectSpec) -> GenerationPlan:
         rendered_files = self.render(specification)
@@ -181,19 +196,32 @@ class FastAPIProjectGenerator:
         package_name: str,
         project_name: str,
         version: str,
+        has_lifespan: bool,
     ) -> str:
         title_literal = json.dumps(project_name, ensure_ascii=False)
         version_literal = json.dumps(version, ensure_ascii=False)
+        lifespan_import = ""
+        lifespan_argument = ""
+        if has_lifespan:
+            lifespan_import = (
+                f"from {package_name}.application.generated.lifespan "
+                "import lifespan\n"
+            )
+            lifespan_argument = ", lifespan=lifespan"
         return (
             "from fastapi import FastAPI\n"
             "\n"
             f"from {package_name}.application.generated.module_registry "
             "import MODULE_ROUTERS\n"
+            f"{lifespan_import}"
             f"from {package_name}.routers.health import router as health_router\n"
             "\n"
             "\n"
             "def create_app() -> FastAPI:\n"
-            f"    app = FastAPI(title={title_literal}, version={version_literal})\n"
+            f"    app = FastAPI(\n"
+            f"        title={title_literal},\n"
+            f"        version={version_literal}{lifespan_argument},\n"
+            f"    )\n"
             "    app.include_router(health_router)\n"
             "    for router in MODULE_ROUTERS:\n"
             "        app.include_router(router)\n"
@@ -245,17 +273,47 @@ class FastAPIProjectGenerator:
         )
 
     @staticmethod
-    def _render_health_test(package_name: str) -> str:
+    def _render_health_test(
+        package_name: str,
+        required_env_names: list[str],
+    ) -> str:
+        monkeypatch_argument = "monkeypatch: pytest.MonkeyPatch" if required_env_names else ""
+        env_setup = "".join(
+            f'    monkeypatch.setenv("{name}", "redis://localhost:6379/0")\n'
+            for name in required_env_names
+        )
+        pytest_import = "import pytest\n\n" if required_env_names else ""
         return (
+            f"{pytest_import}"
             "from fastapi.testclient import TestClient\n"
             "\n"
             f"from {package_name}.main import app\n"
             "\n"
             "\n"
-            "def test_health() -> None:\n"
+            f"def test_health({monkeypatch_argument}) -> None:\n"
+            f"{env_setup}"
             "    with TestClient(app) as client:\n"
             '        response = client.get("/health")\n'
             "\n"
             "    assert response.status_code == 200\n"
             '    assert response.json() == {"status": "ok"}\n'
+        )
+
+    @staticmethod
+    def _render_lifespan(package_name: str) -> str:
+        return (
+            "from collections.abc import AsyncIterator\n"
+            "from contextlib import AsyncExitStack, asynccontextmanager\n"
+            "\n"
+            "from fastapi import FastAPI\n"
+            "\n"
+            f"from {package_name}.infrastructure.session_store.provider "
+            "import session_store_lifespan\n"
+            "\n"
+            "\n"
+            "@asynccontextmanager\n"
+            "async def lifespan(app: FastAPI) -> AsyncIterator[None]:\n"
+            "    async with AsyncExitStack() as stack:\n"
+            "        await stack.enter_async_context(session_store_lifespan(app))\n"
+            "        yield\n"
         )

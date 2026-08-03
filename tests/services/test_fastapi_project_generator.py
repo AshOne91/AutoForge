@@ -7,7 +7,12 @@ from autoforge.core.generation import (
     Generator,
     content_hash,
 )
-from autoforge.core.specification import ApplicationSpec, ProjectInfo, ProjectSpec
+from autoforge.core.specification import (
+    ApplicationSpec,
+    ProjectInfo,
+    ProjectSpec,
+    ServiceSpec,
+)
 from autoforge.services.generation import FastAPIProjectGenerator
 
 
@@ -16,6 +21,7 @@ def project_specification(
     name: str = "Game Server",
     description: str = "모듈형 FastAPI 게임 서버",
     modules: list[str] | None = None,
+    services: list[ServiceSpec] | None = None,
 ) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
@@ -25,7 +31,10 @@ def project_specification(
             version="0.1.0",
             description=description,
         ),
-        application=ApplicationSpec(modules=modules or []),
+        application=ApplicationSpec(
+            modules=modules or [],
+            services=services or [],
+        ),
     )
 
 
@@ -100,6 +109,35 @@ def test_app_factory_registers_module_routers() -> None:
     assert "import MODULE_ROUTERS" in app_factory
     assert "for router in MODULE_ROUTERS:" in app_factory
     assert "app.include_router(router)" in app_factory
+
+
+def test_session_service_generates_and_registers_lifespan() -> None:
+    service = ServiceSpec(
+        name="session",
+        kind="redis_session",
+        namespace="game_session",
+        ttl_seconds=3600,
+        url_env="GAME_REDIS_URL",
+    )
+    files = FastAPIProjectGenerator().render(
+        project_specification(services=[service])
+    )
+    lifespan_path = PurePosixPath(
+        "src/game_server/application/generated/lifespan.py"
+    )
+    app_factory = files[
+        PurePosixPath("src/game_server/application/app_factory.py")
+    ]
+    health_test = files[PurePosixPath("tests/test_health.py")]
+
+    assert lifespan_path in files
+    assert "AsyncExitStack" in files[lifespan_path]
+    assert "session_store_lifespan(app)" in files[lifespan_path]
+    assert "from game_server.application.generated.lifespan import lifespan" in (
+        app_factory
+    )
+    assert "lifespan=lifespan" in app_factory
+    assert 'monkeypatch.setenv("GAME_REDIS_URL"' in health_test
 
 
 def test_rendered_python_and_toml_are_valid() -> None:

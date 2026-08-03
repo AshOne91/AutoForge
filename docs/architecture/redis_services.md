@@ -83,7 +83,6 @@ Redis는 세션의 빠른 조회와 폐기를 담당하지만 계정과 개인�
 
 ## 아직 구현하지 않은 범위
 
-- 실제 Redis Engine을 FastAPI lifespan에서 생성하고 종료하는 Provider
 - JWT 또는 opaque access token 발급
 - refresh token rotation
 - 분산 lock, rate limit과 idempotency Adapter
@@ -92,3 +91,27 @@ Redis는 세션의 빠른 조회와 폐기를 담당하지만 계정과 개인�
 
 다음 단계는 이 SessionStore를 kis-auto-trading 명세에 적용하고, 생성된 Fake를
 사용해 로그인 Application Handler의 성공·실패 흐름을 먼저 검증하는 것이다.
+
+## FastAPI 수명주기와 Dependency
+
+`redis_session`을 선택한 Project에는 다음 연결 코드도 생성한다.
+
+```text
+FastAPI lifespan 시작
+  → url_env가 가리키는 환경변수 확인
+  → Redis async client 생성
+  → RedisSessionStore를 app.state에 등록
+
+HTTP Handler
+  → get_session_store(Request)
+  → SessionStore Protocol 반환
+
+FastAPI lifespan 종료
+  → app.state에서 SessionStore 제거
+  → Redis client aclose
+```
+
+환경변수가 없으면 Application 시작을 실패시킨다. 인증용 Session Service를 조용히
+비활성화하면 Replica마다 동작이 달라질 수 있기 때문이다. 테스트는 실제 Secret을
+파일에 저장하지 않고 `url_env`에 임시 URL을 주입하거나 Redis factory를 Fake로
+교체한다.

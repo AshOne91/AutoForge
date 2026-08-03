@@ -54,6 +54,7 @@ class ServiceSpec(StrictSpecModel):
     kind: Literal["redis_session"]
     namespace: str
     ttl_seconds: int = Field(gt=0)
+    url_env: str = Field(default="REDIS_URL", pattern=r"^[A-Z][A-Z0-9_]*$")
 
     @field_validator("name", "namespace")
     @classmethod

@@ -59,6 +59,7 @@ def test_render_produces_protocol_fake_and_redis_adapter() -> None:
         root / "__init__.py",
         root / "protocol.py",
         root / "fake.py",
+        root / "provider.py",
         root / "redis.py",
     }
     for content in files.values():
@@ -67,6 +68,7 @@ def test_render_produces_protocol_fake_and_redis_adapter() -> None:
     protocol = files[root / "protocol.py"]
     fake = files[root / "fake.py"]
     redis = files[root / "redis.py"]
+    provider = files[root / "provider.py"]
     assert "class SessionStore(Protocol):" in protocol
     assert "async def revoke_user_sessions" in protocol
     assert "class FakeSessionStore:" in fake
@@ -75,6 +77,11 @@ def test_render_produces_protocol_fake_and_redis_adapter() -> None:
     assert "pipeline(transaction=True)" in redis
     assert "except RedisError as error:" in redis
     assert "SessionStoreError" in redis
+    assert 'REDIS_URL_ENV = "REDIS_URL"' in provider
+    assert "async def session_store_lifespan(" in provider
+    assert "Redis.from_url(redis_url, decode_responses=True)" in provider
+    assert "await client.aclose()" in provider
+    assert "def get_session_store(request: Request)" in provider
 
 
 def test_without_session_service_produces_no_files() -> None:
@@ -88,7 +95,7 @@ def test_without_session_service_produces_no_files() -> None:
 def test_plan_marks_all_session_files_generated() -> None:
     plan = SessionStoreGenerator().plan(project_specification())
 
-    assert len(plan.files) == 4
+    assert len(plan.files) == 5
     assert all(file.ownership is FileOwnership.GENERATED for file in plan.files)
 
 
@@ -155,6 +162,59 @@ async def test_generated_fake_honors_ttl_and_revocation(tmp_path: Path) -> None:
         "    assert await store.get('s2') is None\n"
         "\n"
         "asyncio.run(verify())\n"
+    )
+    result = await AsyncioProcessRunner().run(
+        (sys.executable, "-c", code),
+        cwd=workspace.root,
+        timeout_seconds=10,
+    )
+
+    assert result.succeeded, result.stderr
+
+
+@pytest.mark.anyio
+async def test_generated_app_lifespan_initializes_and_closes_store(
+    tmp_path: Path,
+) -> None:
+    specification = project_specification()
+    workspace = Workspace(tmp_path)
+    for job_id, generator in (
+        ("project-job", FastAPIProjectGenerator()),
+        ("session-store-job", SessionStoreGenerator()),
+    ):
+        rendered = generator.render(specification)
+        plan = GenerationPlanResolver().resolve(
+            generator.plan(specification), workspace
+        )
+        GenerationPlanApplier().apply(
+            job_id=job_id,
+            plan=plan,
+            rendered_files=rendered,
+            workspace=workspace,
+        )
+
+    code = (
+        "import os\n"
+        "import sys\n"
+        "sys.path.insert(0, 'src')\n"
+        "from fastapi.testclient import TestClient\n"
+        "from kis_auto_trading.application.app_factory import create_app\n"
+        "from kis_auto_trading.infrastructure.session_store import provider\n"
+        "\n"
+        "class FakeRedisClient:\n"
+        "    def __init__(self):\n"
+        "        self.closed = False\n"
+        "    async def aclose(self):\n"
+        "        self.closed = True\n"
+        "\n"
+        "client = FakeRedisClient()\n"
+        "provider.Redis.from_url = lambda *args, **kwargs: client\n"
+        "os.environ['REDIS_URL'] = 'redis://unused:6379/0'\n"
+        "app = create_app()\n"
+        "with TestClient(app):\n"
+        "    assert app.state.session_store is not None\n"
+        "assert client.closed is True\n"
+        "assert not hasattr(app.state, 'session_store')\n"
     )
     result = await AsyncioProcessRunner().run(
         (sys.executable, "-c", code),

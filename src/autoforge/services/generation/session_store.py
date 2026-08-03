@@ -46,6 +46,7 @@ class SessionStoreGenerator:
             root / "protocol.py": self._render_protocol(),
             root / "fake.py": self._render_fake(),
             root / "redis.py": self._render_redis(service),
+            root / "provider.py": self._render_provider(service),
         }
 
     def plan(self, specification: ProjectSpec) -> GenerationPlan:
@@ -293,4 +294,49 @@ class SessionStoreGenerator:
             "\n"
             "    def _user_key(self, user_id: str) -> str:\n"
             '        return f"{self._namespace}:user-sessions:{user_id}"\n'
+        )
+
+    @staticmethod
+    def _render_provider(service: ServiceSpec) -> str:
+        url_env = json.dumps(service.url_env)
+        return (
+            "import os\n"
+            "from collections.abc import AsyncIterator\n"
+            "from contextlib import asynccontextmanager\n"
+            "\n"
+            "from fastapi import FastAPI, Request\n"
+            "from redis.asyncio import Redis\n"
+            "\n"
+            "from .protocol import SessionStore, SessionStoreError\n"
+            "from .redis import RedisSessionStore\n"
+            "\n"
+            "\n"
+            f"REDIS_URL_ENV = {url_env}\n"
+            "\n"
+            "\n"
+            "@asynccontextmanager\n"
+            "async def session_store_lifespan(\n"
+            "    app: FastAPI,\n"
+            ") -> AsyncIterator[None]:\n"
+            "    redis_url = os.environ.get(REDIS_URL_ENV)\n"
+            "    if not redis_url:\n"
+            "        raise SessionStoreError(\n"
+            '            f"Required environment variable is missing: {REDIS_URL_ENV}"\n'
+            "        )\n"
+            "    client = Redis.from_url(redis_url, decode_responses=True)\n"
+            "    app.state.session_store = RedisSessionStore(client)\n"
+            "    try:\n"
+            "        yield\n"
+            "    finally:\n"
+            "        del app.state.session_store\n"
+            "        await client.aclose()\n"
+            "\n"
+            "\n"
+            "def get_session_store(request: Request) -> SessionStore:\n"
+            "    try:\n"
+            "        return request.app.state.session_store\n"
+            "    except AttributeError as error:\n"
+            "        raise SessionStoreError(\n"
+            '            "SessionStore is not initialized"\n'
+            "        ) from error\n"
         )

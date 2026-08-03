@@ -61,6 +61,15 @@ def test_application_service_requires_positive_ttl_and_unique_name() -> None:
             ttl_seconds=0,
         )
 
+    with pytest.raises(ValidationError, match="string_pattern_mismatch"):
+        ServiceSpec(
+            name="session",
+            kind="redis_session",
+            namespace="kis_session",
+            ttl_seconds=3600,
+            url_env="redis-url",
+        )
+
     with pytest.raises(ValidationError, match="Service 이름은 중복"):
         ApplicationSpec(services=[service, service])
 
