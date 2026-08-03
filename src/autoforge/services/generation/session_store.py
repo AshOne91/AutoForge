@@ -310,7 +310,6 @@ class SessionStoreGenerator:
             "from .protocol import SessionStore, SessionStoreError\n"
             "from .redis import RedisSessionStore\n"
             "\n"
-            "\n"
             f"REDIS_URL_ENV = {url_env}\n"
             "\n"
             "\n"

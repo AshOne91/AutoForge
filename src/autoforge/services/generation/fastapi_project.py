@@ -211,9 +211,9 @@ class FastAPIProjectGenerator:
         return (
             "from fastapi import FastAPI\n"
             "\n"
+            f"{lifespan_import}"
             f"from {package_name}.application.generated.module_registry "
             "import MODULE_ROUTERS\n"
-            f"{lifespan_import}"
             f"from {package_name}.routers.health import router as health_router\n"
             "\n"
             "\n"
@@ -282,7 +282,7 @@ class FastAPIProjectGenerator:
             f'    monkeypatch.setenv("{name}", "redis://localhost:6379/0")\n'
             for name in required_env_names
         )
-        pytest_import = "import pytest\n\n" if required_env_names else ""
+        pytest_import = "import pytest\n" if required_env_names else ""
         return (
             f"{pytest_import}"
             "from fastapi.testclient import TestClient\n"
@@ -307,8 +307,9 @@ class FastAPIProjectGenerator:
             "\n"
             "from fastapi import FastAPI\n"
             "\n"
-            f"from {package_name}.infrastructure.session_store.provider "
-            "import session_store_lifespan\n"
+            f"from {package_name}.infrastructure.session_store.provider import (\n"
+            "    session_store_lifespan,\n"
+            ")\n"
             "\n"
             "\n"
             "@asynccontextmanager\n"
