@@ -1,5 +1,20 @@
 # 현재 상태
 
+## 2026-08-03 Event/Pipeline Core 완료
+
+- 기존 in-process EventBus의 업무 중립성을 유지하면서 Event를 불변 객체로 만들고
+  timezone-aware UTC, schema version, correlation/causation, job과 producer metadata를
+  추가했다.
+- 기존 subscribe/unsubscribe/handlers/publish API를 유지하고, 외부에서 내부 구독
+  목록을 변경할 수 없도록 snapshot을 반환한다.
+- SequentialPipeline이 명시적인 Task 순서, task별 timeout, 제한된 retry, 실패 중단과
+  cancellation을 조정한다.
+- Pipeline/Task의 started/completed/failed/retry/cancelled event를 발행하며 EventBus는
+  Task나 Pipeline의 실행 규칙을 알지 않는다.
+- Core 집중 테스트 8개와 전체 288개 테스트, Ruff를 통과했다.
+- 다음 단계는 기존 GenerationJob 상태 모델과 실제 생성·검증 서비스를 이 Pipeline에
+  연결하는 Application 수직 슬라이스다.
+
 ## 2026-08-03 RabbitMQ/Transactional Outbox 완료
 
 - Project `ServiceSpec`에 RabbitMQ connection, exchange, queue, routing key,
@@ -85,7 +100,7 @@
 - 명시적 Config 주입과 전역 Config 제거
 - 프로젝트 디렉터리 밖에서 동작하는 version CLI
 - 미구현 CLI의 명확한 실패 상태
-- 전체 테스트 224개 통과 기준선
+- 전체 테스트 288개 통과 기준선
 
 ## 진행 중
 
@@ -97,7 +112,8 @@
 - Redis Cluster async provider와 사용자 단위 hash-tag 세션 키 계약을 생성한다.
 - kis-auto-trading에서 3 Primary + 3 Replica, 전체 16,384 slot coverage, 담당
   Primary 중지와 Replica 승격, 기존 읽기·신규 쓰기 및 volume 재기동을 검증했다.
-- 다음 단계는 RabbitMQ Transport와 Transactional Outbox다.
+- RabbitMQ Transport와 Transactional Outbox를 완료했다.
+- generic Event/Pipeline Core를 완료했고 GenerationJob Application 연결을 진행한다.
 - 문서 정합성 정리
 - 패키지와 코딩 스타일 정리
 - Plugin Framework 4단계 완료 검토
@@ -106,11 +122,11 @@
 
 - CLI 명령
 - Plugin Framework
-- Pipeline 추상화
+- GenerationJob Application Pipeline 연결
 PluginLoader는 발견, 의존성 정렬과 명시적 trusted 로딩까지 구현됐다.
 Permission의 OS 수준 Sandbox 강제는 아직 없다.
-Pipeline도 추상 클래스 자리표시자뿐이므로 Plugin Framework는 아직 완성으로
-보지 않는다.
+Pipeline Core 실행기는 구현됐지만 실제 생성·검증 Application Service 연결 전이므로
+자동화 Pipeline 전체가 완성된 것은 아니다.
 
 ## 시작하지 않음
 

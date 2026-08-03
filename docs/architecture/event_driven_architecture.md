@@ -2,7 +2,7 @@
 
 - 상태: 장기 아키텍처 결정
 - 확정일: 2026-07-30
-- 구현 상태: 최소 in-process EventBus만 구현됨
+- 구현 상태: in-process EventBus와 generic sequential Pipeline Core 구현됨
 
 ## 1. 목적
 
@@ -293,14 +293,13 @@ Notification/Observation
 
 ## 6. Event Envelope
 
-현재 `Event`는 `event_id`와 timezone-aware UTC `created_at`을 가진다. 장기
-추적에는 다음 공통 정보가 필요하다.
+현재 `Event`는 다음 공통 정보를 가진 불변 dataclass다.
 
 ```text
 event_id       Event 고유 ID
 event_type     직렬화 가능한 Event 종류
 event_version  Payload Schema 버전
-occurred_at    timezone-aware UTC 발생 시각
+created_at     timezone-aware UTC 발생 시각
 correlation_id 하나의 Job/Delivery 전체 흐름 ID
 causation_id   직접 원인이 된 Message ID
 job_id         관련 GenerationJob ID
@@ -317,8 +316,9 @@ payload        Event별 불변 데이터
 - Schema 변경은 `event_version`으로 관리한다.
 - `correlation_id`는 전체 흐름, `causation_id`는 인과관계를 추적한다.
 
-이 필드를 Core `Event`에 즉시 추가하지 않는다. 실제 Job과 Transport 요구를
-확인한 뒤 하위 호환성과 직렬화 테스트를 포함해 구현한다.
+`event_type`은 구체 Event 클래스 이름에서 계산하고, 나머지 metadata는 생성 시
+확정한다. `correlation_id`가 생략되면 자신의 `event_id`를 사용한다. Event payload의
+외부 transport 직렬화 계약은 아직 별도 구현하지 않았다.
 
 ## 7. Delivery와 Handler 의미
 
@@ -459,20 +459,20 @@ Infrastructure
 
 현재 구현:
 
-- Event ID와 timezone-aware UTC 시각
+- 불변 Event와 ID, timezone-aware UTC 시각, schema version
+- correlation/causation, job과 producer metadata
 - Event 타입별 Handler 등록과 해제
+- typed Handler 계약과 구독 목록 snapshot
 - 비동기 publish
 - Git, Plugin, Generator와 독립적인 Core
+- 명시적 Task 순서의 SequentialPipeline
+- Task별 timeout, 제한된 retry, 실패 중단과 cancellation
+- Pipeline/Task lifecycle Event
 
 추후 필요:
 
-- Event 불변성 검토
-- Typed Handler Protocol
-- Handler 목록 캡슐화
 - Dispatch 결과와 실패 정책 경계
-- Correlation/Causation과 Schema 버전
 - Job/Generation Event
-- Pipeline과 Task Event 발행
 - Application Handler 조립
 - 외부 Transport가 필요할 때의 Protocol
 
@@ -480,20 +480,23 @@ Infrastructure
 
 ## 13. 구현 순서
 
-1. Core Event 계약 안정화
+1. Core Event 계약 안정화: 완료
    - 불변성과 공통 Metadata
    - Typed Handler
    - 구독 캡슐화
-   - Dispatch 결과와 오류 의미
-2. 첫 수직 Event 흐름
+2. Generic Pipeline Core: 완료
+   - 명시적 Task 순서
+   - timeout, retry, 실패와 cancellation
+   - Pipeline/Task lifecycle Event
+3. 첫 Application 수직 Event 흐름
    - Job, Pipeline, Task, Generation, Validation Event
    - in-process Handler 조립
-3. 관찰 Handler
+4. 관찰 Handler
    - Logging, Audit, Metrics, Job 상태 Projection
-4. Git과 Webhook 연결
+5. Git과 Webhook 연결
    - Webhook 정규화와 중복 방지
    - Repository와 Git Delivery Event
-5. 필요할 때 외부 Transport
+6. 필요할 때 외부 Transport
    - 직렬화, Idempotency, Retry, Dead-letter, Outbox/Inbox
 
 ## 14. 변경 승인 기준
@@ -523,4 +526,3 @@ Infrastructure
 10. 외부 Transport는 Core 계약과 Infrastructure Adapter로 분리한다.
 11. 외부 상태를 바꾸는 Handler는 중복 전달에 안전해야 한다.
 12. 현재 in-process EventBus는 이유 없이 재작성하지 않고 점진적으로 확장한다.
-

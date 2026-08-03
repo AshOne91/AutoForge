@@ -6,62 +6,40 @@ from autoforge.core.event.handler import EventHandler
 
 
 class EventBus:
-    """
-    Async Event Bus
+    """Generic in-process asynchronous event dispatcher."""
 
-    Event -> Handler를 비동기로 연결한다.
-    """
-
-    def __init__(self):
-        self._subscriptions: dict[type[Event], list[EventHandler]] = defaultdict(list)
+    def __init__(self) -> None:
+        self._subscriptions: dict[type[Event], list[EventHandler[Event]]] = defaultdict(
+            list
+        )
 
     def subscribe(
         self,
         event_type: type[Event],
-        handler: EventHandler,
+        handler: EventHandler[Event],
     ) -> None:
-        """
-        Event Handler 등록
-        """
-
         if handler not in self._subscriptions[event_type]:
             self._subscriptions[event_type].append(handler)
 
     def unsubscribe(
         self,
         event_type: type[Event],
-        handler: EventHandler,
+        handler: EventHandler[Event],
     ) -> None:
-        """
-        Event Handler 제거
-        """
+        subscriptions = self._subscriptions.get(event_type)
+        if subscriptions is None or handler not in subscriptions:
+            return
+        subscriptions.remove(handler)
+        if not subscriptions:
+            del self._subscriptions[event_type]
 
-        if handler in self._subscriptions[event_type]:
-            self._subscriptions[event_type].remove(handler)
+    def handlers(self, event_type: type[Event]) -> list[EventHandler[Event]]:
+        """Return a snapshot so callers cannot mutate bus subscriptions."""
 
-    def handlers(
-        self,
-        event_type: type[Event],
-    ) -> list[EventHandler]:
-        """
-        등록된 Handler 조회
-        """
+        return list(self._subscriptions.get(event_type, ()))
 
-        return self._subscriptions[event_type]
-
-    async def publish(
-        self,
-        event: Event,
-    ) -> None:
-        """
-        Event 발행
-        """
-
+    async def publish(self, event: Event) -> None:
         handlers = self.handlers(type(event))
-
         if not handlers:
             return
-
-        tasks = [asyncio.create_task(handler.handle(event)) for handler in handlers]
-
-        await asyncio.gather(*tasks)
+        await asyncio.gather(*(handler.handle(event) for handler in handlers))

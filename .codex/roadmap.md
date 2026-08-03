@@ -76,6 +76,9 @@
 ## 6단계 - Event와 자동화 Pipeline
 
 - [x] EventBus, Handler, Pipeline 및 외부 Transport 책임 경계 설계
+- [x] 불변 Event metadata와 typed Handler 계약
+- [x] 순차 Pipeline 실행, task timeout·retry·실패·취소 정책
+- [x] Pipeline과 Task lifecycle Event 발행
 - [ ] Job 및 Generation Event 정의
 - [ ] Logging, Audit, Metrics Handler
 - [ ] Generation Pipeline
