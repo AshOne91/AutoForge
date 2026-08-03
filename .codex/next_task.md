@@ -120,9 +120,20 @@ transport이며 EventBus를 대체하지 않는다.
 
 다음:
 
-1. credential을 URL·명령 인자에 노출하지 않는 Secret Provider 계약을 구현한다.
-2. 검증된 commit만 remote 작업 branch에 non-force push하는 계약을 구현한다.
-3. protected branch 직접 push를 금지하고 Pull Request adapter 경계를 구현한다.
+완료:
+
+1. credential을 URL·명령 인자·helper 파일에 노출하지 않는 Secret Provider 계약
+2. 검증된 commit만 작업 branch에 보내는 non-force push adapter
+3. 작업 branch prefix allowlist와 protected branch 직접 push 금지
+4. 동일 SHA push 멱등 처리와 non-fast-forward 거부
+5. 실제 bare remote와 기록용 runner를 이용한 push·credential 비노출 검증
+
+다음:
+
+1. GenerationJob에 `pushing` 상태와 GitPushResult를 추가한다.
+2. 원격 worker가 commit 성공 후 push하고 실패를 failed Job/Event로 저장한다.
+3. PostgreSQL status migration과 worker 2대 fencing을 검증한다.
+4. 그다음 Pull Request adapter와 protected branch 정책을 연결한다.
 
 ## 후속 목표
 

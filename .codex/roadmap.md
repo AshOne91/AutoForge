@@ -100,6 +100,7 @@
 - [x] expected base와 변경 allowlist 기반 안전한 branch/commit adapter
 - [x] 작업 브랜치 생성
 - [x] 검증된 변경만 Commit
+- [x] Secret 참조와 non-force push adapter 기반
 - [ ] Push와 Pull Request
 - [ ] Git Provider Plugin
 - [x] `infrastructure/git/` 구현 디렉터리 생성

@@ -9,6 +9,8 @@ from autoforge.core.git import (
     GitCommitRequest,
     GitCommitResult,
     GitProvider,
+    GitPushRequest,
+    GitPushResult,
 )
 from autoforge.core.workspace import Workspace
 
@@ -31,6 +33,16 @@ class StubGitProvider:
             branch_name=None,
             changed_paths=(),
             commit_created=False,
+        )
+
+    async def push_validated(
+        self, request: GitPushRequest, *, workspace: Workspace
+    ) -> GitPushResult:
+        return GitPushResult(
+            commit_sha=request.expected_commit_sha,
+            branch_name=request.branch_name,
+            remote_url="https://github.com/example/repo.git",
+            pushed=False,
         )
 
 

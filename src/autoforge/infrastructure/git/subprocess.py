@@ -9,8 +9,13 @@ from autoforge.core.git import (
     GitCheckoutResult,
     GitCommitRequest,
     GitCommitResult,
+    GitCredentialReference,
+    GitPushRequest,
+    GitPushResult,
 )
+from autoforge.core.secret import SecretProvider
 from autoforge.core.workspace import Workspace, validate_workspace_relative_path
+from autoforge.infrastructure.git.credential import git_credential_environment
 from autoforge.infrastructure.process.runner import AsyncioProcessRunner
 from autoforge.services.validation import ProcessResult
 
@@ -29,12 +34,14 @@ class SubprocessGitProvider:
         *,
         policy: GitCheckoutPolicy,
         process_runner: AsyncioProcessRunner | None = None,
+        secret_provider: SecretProvider | None = None,
         timeout_seconds: float = 60.0,
     ) -> None:
         if timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
         self._policy = policy
         self._runner = process_runner or AsyncioProcessRunner()
+        self._secret_provider = secret_provider
         self._timeout_seconds = timeout_seconds
 
     async def checkout(
@@ -44,6 +51,7 @@ class SubprocessGitProvider:
         workspace: Workspace,
     ) -> GitCheckoutResult:
         repository_url, local = self._validate_repository(request.repository_url)
+        _validate_credential_usage(repository_url, local, request.credential)
         revision = _validate_revision(request.revision)
         repository_path = workspace.resolve(request.destination)
         if repository_path.exists():
@@ -51,21 +59,26 @@ class SubprocessGitProvider:
         repository_path.parent.mkdir(parents=True, exist_ok=True)
         protocol = "always" if local else "never"
         environment = _git_environment()
-        clone = await self._runner.run(
-            (
-                "git",
-                "-c",
-                f"protocol.file.allow={protocol}",
-                "clone",
-                "--no-checkout",
-                "--",
-                repository_url,
-                str(repository_path),
-            ),
-            cwd=workspace.root,
-            timeout_seconds=self._timeout_seconds,
-            environment=environment,
-        )
+        async with git_credential_environment(
+            request.credential,
+            secret_provider=self._secret_provider,
+            workspace=workspace,
+        ) as credential_environment:
+            clone = await self._runner.run(
+                (
+                    "git",
+                    "-c",
+                    f"protocol.file.allow={protocol}",
+                    "clone",
+                    "--no-checkout",
+                    "--",
+                    repository_url,
+                    str(repository_path),
+                ),
+                cwd=workspace.root,
+                timeout_seconds=self._timeout_seconds,
+                environment={**environment, **credential_environment},
+            )
         _require_success("clone", clone)
         resolved = await self._runner.run(
             ("git", "rev-parse", "--verify", f"{revision}^{{commit}}"),
@@ -217,6 +230,122 @@ class SubprocessGitProvider:
             commit_created=True,
         )
 
+    async def push_validated(
+        self,
+        request: GitPushRequest,
+        *,
+        workspace: Workspace,
+    ) -> GitPushResult:
+        repository_path = workspace.resolve(request.repository_destination)
+        if not (repository_path / ".git").is_dir():
+            raise ValueError("Git push destination is not a repository")
+        expected_commit = _validate_commit_sha(request.expected_commit_sha).lower()
+        branch_name = _validate_branch_name(request.branch_name)
+        _validate_push_branch(branch_name, self._policy)
+        remote_name = _validate_remote_name(request.remote_name)
+        environment = _git_environment()
+
+        head = await self._runner.run(
+            ("git", "rev-parse", "--verify", "HEAD"),
+            cwd=repository_path,
+            timeout_seconds=self._timeout_seconds,
+            environment=environment,
+        )
+        _require_success("verify push commit", head)
+        if _validate_commit_sha(head.stdout.strip()).lower() != expected_commit:
+            raise GitProviderError("Git HEAD does not match the expected push commit")
+        current_branch = await self._runner.run(
+            ("git", "branch", "--show-current"),
+            cwd=repository_path,
+            timeout_seconds=self._timeout_seconds,
+            environment=environment,
+        )
+        _require_success("verify push branch", current_branch)
+        if current_branch.stdout.strip() != branch_name:
+            raise GitProviderError("Git current branch does not match the push branch")
+        remote = await self._runner.run(
+            ("git", "remote", "get-url", "--", remote_name),
+            cwd=repository_path,
+            timeout_seconds=self._timeout_seconds,
+            environment=environment,
+        )
+        _require_success("resolve push remote", remote)
+        remote_url, local = self._validate_repository(remote.stdout.strip())
+        _validate_credential_usage(remote_url, local, request.credential)
+
+        async with git_credential_environment(
+            request.credential,
+            secret_provider=self._secret_provider,
+            workspace=workspace,
+        ) as credential_environment:
+            operation_environment = {**environment, **credential_environment}
+            existing = await self._remote_branch_sha(
+                repository_path,
+                remote_name,
+                branch_name,
+                operation_environment,
+            )
+            if existing == expected_commit:
+                return GitPushResult(
+                    commit_sha=expected_commit,
+                    branch_name=branch_name,
+                    remote_url=remote_url,
+                    pushed=False,
+                )
+            push = await self._runner.run(
+                (
+                    "git",
+                    "push",
+                    "--porcelain",
+                    "--set-upstream",
+                    remote_name,
+                    f"HEAD:refs/heads/{branch_name}",
+                ),
+                cwd=repository_path,
+                timeout_seconds=self._timeout_seconds,
+                environment=operation_environment,
+            )
+            _require_success("push validated commit", push)
+            pushed_sha = await self._remote_branch_sha(
+                repository_path,
+                remote_name,
+                branch_name,
+                operation_environment,
+            )
+        if pushed_sha != expected_commit:
+            raise GitProviderError("Git remote branch does not match the pushed commit")
+        return GitPushResult(
+            commit_sha=expected_commit,
+            branch_name=branch_name,
+            remote_url=remote_url,
+            pushed=True,
+        )
+
+    async def _remote_branch_sha(
+        self,
+        repository_path: Path,
+        remote_name: str,
+        branch_name: str,
+        environment: dict[str, str],
+    ) -> str | None:
+        remote_ref = f"refs/heads/{branch_name}"
+        result = await self._runner.run(
+            ("git", "ls-remote", "--heads", remote_name, remote_ref),
+            cwd=repository_path,
+            timeout_seconds=self._timeout_seconds,
+            environment=environment,
+        )
+        _require_success("inspect remote branch", result)
+        if not result.stdout.strip():
+            return None
+        lines = result.stdout.strip().splitlines()
+        if len(lines) != 1:
+            raise GitProviderError("Git returned multiple remote branch matches")
+        fields = lines[0].split()
+        if len(fields) != 2 or fields[1] != remote_ref:
+            raise GitProviderError("Git returned malformed remote branch output")
+        return _validate_commit_sha(fields[0]).lower()
+
     async def _changed_paths(
         self, repository_path: Path, environment: dict[str, str]
     ) -> tuple[PurePosixPath, ...]:
@@ -334,6 +463,36 @@ def _validate_signing_key(value: str | None) -> str | None:
     if value is not None and _SIGNING_KEY.fullmatch(value) is None:
         raise ValueError("Git signing_key must be a hexadecimal fingerprint")
     return value
+
+
+def _validate_push_branch(value: str, policy: GitCheckoutPolicy) -> None:
+    if value in policy.protected_branches:
+        raise ValueError("Git protected branch push is forbidden")
+    if not any(value.startswith(prefix) for prefix in policy.allowed_push_branch_prefixes):
+        raise ValueError("Git push branch is outside the allowed prefixes")
+
+
+def _validate_remote_name(value: str) -> str:
+    if (
+        not value
+        or value != value.strip()
+        or len(value) > 255
+        or value.startswith("-")
+        or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", value)
+    ):
+        raise ValueError("Git remote name is invalid")
+    return value
+
+
+def _validate_credential_usage(
+    repository_url: str,
+    local: bool,
+    credential: GitCredentialReference | None,
+) -> None:
+    if credential is None:
+        return
+    if local or urlsplit(repository_url).scheme != "https":
+        raise ValueError("Git credentials are supported only for HTTPS repositories")
 
 
 def _parse_status_paths(output: str) -> tuple[PurePosixPath, ...]:

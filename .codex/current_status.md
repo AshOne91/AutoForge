@@ -1,5 +1,20 @@
 # 현재 상태
 
+## 2026-08-03 Secret Provider와 안전한 Git push adapter 기반 완료
+
+- Core에 redacted SecretValue, 안전한 SecretReference와 async SecretProvider 계약을
+  추가했다. Job과 Git 요청에는 실제 token 대신 참조 이름만 저장한다.
+- HTTPS credential은 실행 직전에 resolve하고, secret이 없는 일회용 askpass helper와
+  process environment로 전달한다. URL·command tuple·helper 파일에는 token을 넣지 않고
+  helper는 Git 명령 직후 삭제한다.
+- push adapter는 expected commit SHA와 현재 branch를 fencing하고 허용된 작업 branch
+  prefix만 non-force push한다. main/master 보호 branch는 실행 전에 거부한다.
+- 동일 remote SHA는 멱등 성공으로 처리하고 non-fast-forward는 실패로 전파한다.
+- 실제 bare remote와 기록용 runner 테스트에서 push, 멱등 재호출, 보호 branch와 이력
+  충돌 거부 및 credential 비노출을 검증했다.
+- PostgreSQL 통합 테스트를 포함한 전체 362개 pytest, Ruff와 CLI 검증을 통과했다.
+- worker 연결은 다음 `pushing` 수명주기 단계에서 수행한다.
+
 ## 2026-08-03 원격 GenerationJob 검증 후 Git commit 연결 완료
 
 - Git commit 설정이 주입된 원격 worker는 검증 후 Job을 `committing`으로 저장한다.

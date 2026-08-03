@@ -66,8 +66,10 @@ GCM_INTERACTIVE=Never
 
 host의 system/global Git config와 대화형 credential prompt가 worker 동작을 바꾸는 것을
 막는다. token을 URL이나 command argument에 넣지 않는다. private repository credential은
-향후 Secret Provider와 Git Provider Plugin이 파일·로그·process list에 노출하지 않는
-방식으로 주입한다.
+`SecretReference`만 Job에 저장하고 실행 직전에 `SecretProvider`로 resolve한다. HTTPS
+credential은 secret을 포함하지 않는 일회용 askpass helper와 process environment로만
+전달한다. helper 파일에는 username과 password를 기록하지 않으며 Git 명령 직후 즉시
+삭제한다. 실제 secret 값은 URL과 command tuple에 포함하지 않는다.
 
 ## 현재 구현과 남은 범위
 
@@ -95,7 +97,18 @@ commit 성공 후 결과 SHA·branch·변경 경로를 Job에 저장하고 `succ
 commit 실패는 `failed`로 저장한다. 각 단계는 GitCommitStarted/Completed/FailedEvent를
 발행한다. 로컬 CLI와 commit 설정이 없는 worker의 기존 검증 완료 동작은 유지한다.
 
+`push_validated()`는 현재 HEAD와 branch가 요청의 commit SHA·작업 branch와 정확히
+일치하는지 확인한다. policy의 작업 branch prefix만 허용하고 `main`, `master` 같은 보호
+branch는 명령 실행 전에 거부한다. push 명령에는 force 계열 option을 제공하지 않는다.
+remote가 이미 같은 SHA이면 성공한 멱등 재호출로 처리하고, remote가 다른 이력으로
+진행된 non-fast-forward push는 Git의 안전 거부를 그대로 실패로 전파한다.
+
+push adapter는 실제 bare remote에서 검증했지만 아직 worker에 연결하지 않았다. 현재
+worker는 commit 직후 terminal `succeeded`이므로 다음 단계에서 `pushing` 상태를 추가해
+push 실패가 성공 Job으로 기록되지 않도록 한 뒤 연결한다.
+
 남은 범위:
 
-- credential Secret Provider, push와 Pull Request adapter
+- 원격 worker의 push 상태와 adapter 연결
+- Pull Request adapter
 - force push 금지, protected branch와 fork/PR 정책
