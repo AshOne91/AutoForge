@@ -39,6 +39,14 @@ Before modifying code, read these files in order:
 - Exclude unrelated or generated paths unless they are required: `.git`, `.venv`, `__pycache__`, `.pytest_cache`, `build`, `dist`, `coverage`, and generated artifacts.
 - For bugs, begin with the exact error, failing test, symbol, or call path.
 
+## Model routing gate
+
+- Before every new implementation or code-changing task, report the task, difficulty, recommended model, recommended reasoning level, and current setting.
+- Do not infer the current model or reasoning level from stale conversation context. If the current setting is not confirmed, ask the user to confirm it before editing.
+- If a model or reasoning change is recommended, stop before editing and wait until the user confirms the change.
+- When the confirmed current setting is suitable and the user has said to proceed, continue without asking for duplicate approval.
+- Follow `docs/development/model_routing.md` for the detailed routing policy and report format.
+
 ## Required workflow
 
 Before editing:

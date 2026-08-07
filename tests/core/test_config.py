@@ -86,6 +86,13 @@ def test_git_automation_config_is_optional_and_validated() -> None:
         "git/github/token": "AUTOFORGE_GITHUB_TOKEN"
     }
     assert settings.git_automation.github_api_timeout_seconds == 15
+    assert settings.git_automation.allowed_repository_hosts == frozenset(
+        {"github.com"}
+    )
+    assert settings.git_automation.branch_prefix == "autoforge"
+    assert settings.git_automation.pull_request_base_branch in (
+        settings.git_automation.protected_branches
+    )
 
     data["git_automation"] = {"enabled": True}
     with pytest.raises(ValidationError, match="secret mapping"):
@@ -96,7 +103,10 @@ def test_git_automation_config_is_optional_and_validated() -> None:
     ("field", "value"),
     (
         ("github_api_timeout_seconds", 0),
+        ("git_command_timeout_seconds", 0),
         ("push_remote_name", ""),
+        ("branch_prefix", "autoforge/"),
+        ("allowed_repository_hosts", []),
         ("pull_request_base_branch", ""),
         ("pull_request_title", ""),
     ),
@@ -109,4 +119,15 @@ def test_git_automation_config_rejects_invalid_values(
     data["git_automation"] = {field: value}
 
     with pytest.raises(ValidationError):
+        Settings.model_validate(data)
+
+
+def test_git_automation_requires_pull_request_base_to_be_protected() -> None:
+    data = settings_data()
+    data["git_automation"] = {
+        "pull_request_base_branch": "develop",
+        "protected_branches": ["main"],
+    }
+
+    with pytest.raises(ValidationError, match="protected branch"):
         Settings.model_validate(data)

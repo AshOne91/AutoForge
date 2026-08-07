@@ -366,3 +366,16 @@ Roadmap과 다음 작업 문서를 확인하고 필요한 패키지와 테스트
   `AutoForge v0.1.0`.
 - Older entries below are historical completion snapshots. Statements that push
   is not connected to the worker are superseded by this section.
+
+## 2026-08-07 Git automation composition root 완료
+
+- Pull Request Core 계약, GitHub adapter, 안전한 HTTP transport와 GenerationJob
+  `opening_pull_request` 수명주기는 이미 구현되어 있다.
+- `GitAutomationConfig`가 repository host, 작업 branch prefix, 보호 branch, commit
+  author/message/signing과 Git/HTTP timeout을 명시한다.
+- `autoforge.composition`이 Environment Secret, Subprocess Git, GitHub HTTP와 Pull
+  Request adapter를 동일 정책으로 조립한다.
+- Git 자동화가 꺼져 있으면 어떤 credential resolver나 HTTP client도 생성하지 않는다.
+- HTTP client의 종료 책임은 `GitAutomationComponents.aclose()`로 진입점에 남긴다.
+- 다음 단계는 이 조립 결과를 PostgreSQL JobStore, Generation Pipeline과 함께 실제
+  worker/server 실행 명령에 주입하는 것이다.

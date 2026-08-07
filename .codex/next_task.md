@@ -156,3 +156,18 @@ contract and protected-branch policy. Do not implement webhook, deployment, or A
 generation as part of that step. The older sequential checklist below is retained
 as implementation history and is superseded where it still labels push work as
 pending.
+
+## Current next task (updated after Git composition, 2026-08-07)
+
+Pull Request 계약, 보호 branch 정책, GitHub HTTP adapter, GenerationJob lifecycle와
+Git automation composition root까지 완료했다. 이전 문단에서 Pull Request를 다음
+작업으로 표시한 내용은 구현 이력이며 이 문단이 대체한다.
+
+다음 한정된 단계는 실제 worker/server 실행 진입점이다.
+
+1. 검증된 설정에서 PostgreSQL JobStore와 기존 Generation Pipeline을 조립한다.
+2. `GitAutomationComponents`가 존재할 때만 Git/PR 의존성을 worker에 주입한다.
+3. worker loop 시작과 종료 시 HTTP/DB resource 수명주기를 명시적으로 관리한다.
+4. 설정이 비활성화된 로컬 실행과 기존 CLI 호환성을 유지한다.
+
+Webhook, 배포, AI 생성은 이 단계에 포함하지 않는다.

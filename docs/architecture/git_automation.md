@@ -214,3 +214,35 @@ contains resolved secret values.
 This model is configuration data, not a composition root. It does not instantiate
 HTTP clients, workers, database stores, or secret providers. Those dependencies will
 be assembled explicitly by the future worker/server entrypoint.
+
+## Git automation composition root (2026-08-07)
+
+`autoforge.composition`은 새로운 업무 계층이 아니라 배포 진입점이 소유하는 최외곽
+조립 경계다. `create_git_automation_components()`는 Git 자동화가 활성화된 경우에만
+다음 객체를 명시적으로 생성한다.
+
+- 환경 변수 이름만 가진 설정에서 `EnvironmentSecretProvider` 생성
+- 동일한 repository host, 작업 branch prefix와 보호 branch 정책을 Git push와 PR에 적용
+- `SubprocessGitProvider`, `HttpxGitHubApiClient`, `GitHubPullRequestProvider` 조립
+- worker에 주입할 commit, push와 Pull Request 설정 생성
+
+HTTP 연결 풀은 `GitAutomationComponents.aclose()`로 composition root가 직접 종료한다.
+비활성 설정은 `None`을 반환하므로 기존 로컬 CLI와 생성 흐름에는 Git 권한이나 네트워크
+클라이언트가 추가되지 않는다. 이 단계는 worker 자체를 실행하지 않으며, 다음 배포
+진입점에서 JobStore, Pipeline, Workspace와 함께 주입할 준비만 완료한다.
+
+## Git automation composition root (2026-08-07)
+
+`autoforge.composition`은 새로운 업무 계층이 아니라 배포 진입점이 소유하는 최외곽
+조립 경계다. `create_git_automation_components()`는 Git 자동화가 활성화된 경우에만
+다음 객체를 명시적으로 생성한다.
+
+- 환경 변수 이름만 가진 설정에서 `EnvironmentSecretProvider` 생성
+- 동일한 repository host, 작업 branch prefix와 보호 branch 정책을 Git push와 PR에 적용
+- `SubprocessGitProvider`, `HttpxGitHubApiClient`, `GitHubPullRequestProvider` 조립
+- worker에 주입할 commit, push와 Pull Request 설정 생성
+
+HTTP 연결 풀은 `GitAutomationComponents.aclose()`로 composition root가 직접 종료한다.
+비활성 설정은 `None`을 반환하므로 기존 로컬 CLI와 생성 흐름에는 Git 권한이나 네트워크
+클라이언트가 추가되지 않는다. 이 단계는 worker 자체를 실행하지 않으며, 다음 배포
+진입점에서 JobStore, Pipeline, Workspace와 함께 주입할 준비만 완료한다.
