@@ -30,6 +30,15 @@ Before modifying code, read these files in order:
 - Do not implement webhook, Git automation, AI generation, or pipeline functionality before the current stabilization work is complete.
 - Preserve existing public APIs unless a change is explicitly approved.
 
+## Token and context efficiency
+
+- Prefer Serena semantic tools for source exploration: symbol overview, symbol lookup, references, then only the required symbol bodies.
+- Do not read an entire large source file when a targeted symbol body is sufficient.
+- Use repository-wide text search only when semantic tools cannot locate the target; expand the search scope gradually.
+- Do not repeatedly read code that is already present in the current context.
+- Exclude unrelated or generated paths unless they are required: `.git`, `.venv`, `__pycache__`, `.pytest_cache`, `build`, `dist`, `coverage`, and generated artifacts.
+- For bugs, begin with the exact error, failing test, symbol, or call path.
+
 ## Required workflow
 
 Before editing:
