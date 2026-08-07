@@ -165,3 +165,16 @@ The current transport is an injected Protocol tested with scripted responses; no
 production HTTP client or live GitHub request is enabled yet. This keeps API logic
 testable without network access and leaves timeout, TLS, proxy, and retry policy to
 the concrete transport step.
+## GitHub HTTP transport boundary (2026-08-07)
+
+`HttpxGitHubApiClient` is the production async transport for the injected GitHub
+API contract. It uses a shared `httpx.AsyncClient` with TLS verification enabled,
+an explicit timeout, environment proxy and `.netrc` discovery disabled, and HTTP
+redirect following disabled. It accepts only relative `/repos/` GET and POST paths,
+so a caller cannot redirect an authorization header to an arbitrary origin.
+
+Responses are streamed into a bounded buffer before JSON decoding. Timeout and
+transport exceptions are replaced with fixed messages that do not include request
+headers, token values, URLs, or response bodies. The client exposes `aclose()` and
+an async context manager so the Application composition root can own connection
+pool shutdown explicitly.

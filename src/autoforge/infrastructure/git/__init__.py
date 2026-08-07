@@ -4,6 +4,10 @@ from autoforge.infrastructure.git.github import (
     GitHubPullRequestError,
     GitHubPullRequestProvider,
 )
+from autoforge.infrastructure.git.github_http import (
+    GitHubApiTransportError,
+    HttpxGitHubApiClient,
+)
 from autoforge.infrastructure.git.subprocess import (
     GitProviderError,
     SubprocessGitProvider,
@@ -12,8 +16,10 @@ from autoforge.infrastructure.git.subprocess import (
 __all__ = [
     "GitHubApiClient",
     "GitHubApiResponse",
+    "GitHubApiTransportError",
     "GitHubPullRequestError",
     "GitHubPullRequestProvider",
     "GitProviderError",
+    "HttpxGitHubApiClient",
     "SubprocessGitProvider",
 ]
