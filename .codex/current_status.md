@@ -1,5 +1,22 @@
 # 현재 상태
 
+## 2026-08-07 Control Plane 서버 실행 진입점 완료
+
+- PostgreSQL JobStore, EventBus, `GenerationSubmissionService`와 기존 인증형
+  FastAPI API를 조립하는 `ControlPlaneRuntime`을 추가했다.
+- `autoforge server`는 HTTP 요청에서 GenerationJob만 제출·조회하며, 생성 Pipeline은
+  별도 `autoforge worker` 프로세스가 처리한다. HTTP 서버와 Worker의 수평 확장 경계를
+  유지한다.
+- PostgreSQL URL과 API bearer token은 각각 `AUTOFORGE_DATABASE_URL`,
+  `AUTOFORGE_CONTROL_PLANE_TOKEN` 환경변수에서만 읽는다. 명령행·도움말·결과에는
+  실제 비밀값을 출력하지 않는다.
+- FastAPI lifespan과 Uvicorn 종료 경로 모두에서 SQLAlchemy async engine을
+  idempotent하게 dispose한다.
+- Control Plane composition·CLI·기존 HTTP API 집중 테스트 9개, 전체 403개 pytest와
+  Ruff를 통과했다. 외부 PostgreSQL 통합 테스트 6개는 환경 미설정으로 skip됐다.
+- CLI `version`, `server --help`를 검증했으며 기존 `generate`, `plugin`, `worker`
+  명령 호환성을 유지한다.
+
 ## 2026-08-07 영속 Generation Worker 실행 진입점 완료
 
 - PostgreSQL JobStore, EventBus, Generation Pipeline과 Worker Loop를 조립하는
