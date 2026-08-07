@@ -62,3 +62,23 @@ class GitCommitCompletedEvent(Event):
 @dataclass(frozen=True, kw_only=True, slots=True)
 class GitCommitFailedEvent(Event):
     error_type: str
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class GitPushStartedEvent(Event):
+    commit_sha: str
+    branch_name: str
+    remote_name: str
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class GitPushCompletedEvent(Event):
+    commit_sha: str
+    branch_name: str
+    remote_url: str
+    pushed: bool
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class GitPushFailedEvent(Event):
+    error_type: str

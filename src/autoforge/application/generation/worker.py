@@ -15,13 +15,22 @@ from autoforge.application.generation.pipeline import (
 from autoforge.application.generation.planning import GenerationPlanningService
 from autoforge.core.event import EventBus
 from autoforge.core.generation import FileResultStatus
-from autoforge.core.git import GitCheckoutRequest, GitCommitRequest, GitProvider
+from autoforge.core.git import (
+    GitCheckoutRequest,
+    GitCommitRequest,
+    GitCredentialReference,
+    GitProvider,
+    GitPushRequest,
+)
 from autoforge.core.job import (
     GenerationJobStateMachine,
     GenerationJobStatus,
     GitCommitCompletedEvent,
     GitCommitFailedEvent,
     GitCommitStartedEvent,
+    GitPushCompletedEvent,
+    GitPushFailedEvent,
+    GitPushStartedEvent,
     JobLease,
     JobLeaseConflictError,
     JobStore,
@@ -71,6 +80,15 @@ class GenerationGitCommitSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class GenerationGitPushSettings:
+    remote_name: str = "origin"
+
+    def __post_init__(self) -> None:
+        if not self.remote_name.strip():
+            raise ValueError("remote_name must not be empty")
+
+
+@dataclass(frozen=True, slots=True)
 class GenerationWorkerResult:
     lease: JobLease
     execution: GenerationJobExecution
@@ -117,6 +135,7 @@ class GenerationWorker:
         workspace_manager: WorkspaceManager | None = None,
         planning_service: GenerationPlanningService | None = None,
         git_commit_settings: GenerationGitCommitSettings | None = None,
+        git_push_settings: GenerationGitPushSettings | None = None,
         event_bus: EventBus | None = None,
     ) -> None:
         self._settings = settings
@@ -126,9 +145,12 @@ class GenerationWorker:
         self._workspace_manager = workspace_manager
         self._planning_service = planning_service
         self._git_commit_settings = git_commit_settings
+        self._git_push_settings = git_push_settings
         self._event_bus = event_bus
         if git_commit_settings is not None and event_bus is None:
             raise ValueError("Git commit execution requires an EventBus")
+        if git_push_settings is not None and git_commit_settings is None:
+            raise ValueError("Git push execution requires Git commit settings")
         self._source = Workspace(settings.source_root)
         self._output = Workspace(settings.output_root)
 
@@ -249,6 +271,7 @@ class GenerationWorker:
             return await self._commit_validated(
                 workspace=workspace,
                 repository_destination=repository.destination,
+                credential=repository.credential,
                 output_path=submission.output_path,
                 base_commit_sha=checkout.commit_sha,
                 lease=lease,
@@ -260,6 +283,7 @@ class GenerationWorker:
         *,
         workspace: Workspace,
         repository_destination: str,
+        credential: GitCredentialReference | None,
         output_path: str,
         base_commit_sha: str,
         lease: JobLease,
@@ -326,13 +350,18 @@ class GenerationWorker:
                 GitCommitFailedEvent(error_type=type(error).__name__, **metadata)
             )
             raise
-        succeeded = GenerationJobStateMachine.transition(
+        completed_status = (
+            GenerationJobStatus.PUSHING
+            if self._git_push_settings is not None and result.commit_created
+            else GenerationJobStatus.SUCCEEDED
+        )
+        completed = GenerationJobStateMachine.transition(
             execution.job,
-            GenerationJobStatus.SUCCEEDED,
+            completed_status,
             git_commit=result,
         )
         await self._job_store.replace(
-            succeeded,
+            completed,
             expected_status=GenerationJobStatus.COMMITTING,
             lease_token=lease.token,
         )
@@ -344,6 +373,101 @@ class GenerationWorker:
                     path.as_posix() for path in result.changed_paths
                 ),
                 commit_created=result.commit_created,
+                **metadata,
+            )
+        )
+        committed_execution = GenerationJobExecution(
+            job=completed,
+            pipeline_result=execution.pipeline_result,
+        )
+        if completed_status is GenerationJobStatus.PUSHING:
+            return await self._push_validated(
+                workspace=workspace,
+                repository_destination=repository_destination,
+                credential=credential,
+                lease=lease,
+                execution=committed_execution,
+            )
+        return GenerationJobExecution(
+            job=completed,
+            pipeline_result=execution.pipeline_result,
+        )
+
+    async def _push_validated(
+        self,
+        *,
+        workspace: Workspace,
+        repository_destination: str,
+        credential: GitCredentialReference | None,
+        lease: JobLease,
+        execution: GenerationJobExecution,
+    ) -> GenerationJobExecution:
+        settings = self._git_push_settings
+        commit = execution.job.git_commit
+        event_bus = self._event_bus
+        if (
+            settings is None
+            or commit is None
+            or commit.branch_name is None
+            or self._git_provider is None
+            or event_bus is None
+        ):
+            raise RuntimeError("Git push dependencies are not configured")
+        metadata = {
+            "job_id": execution.job.job_id,
+            "correlation_id": execution.job.job_id,
+            "producer": "generation_worker",
+        }
+        await event_bus.publish(
+            GitPushStartedEvent(
+                commit_sha=commit.commit_sha,
+                branch_name=commit.branch_name,
+                remote_name=settings.remote_name,
+                **metadata,
+            )
+        )
+        try:
+            result = await self._git_provider.push_validated(
+                GitPushRequest(
+                    expected_commit_sha=commit.commit_sha,
+                    branch_name=commit.branch_name,
+                    repository_destination=repository_destination,
+                    remote_name=settings.remote_name,
+                    credential=credential,
+                ),
+                workspace=workspace,
+            )
+        except Exception as error:
+            failed = GenerationJobStateMachine.transition(
+                execution.job,
+                GenerationJobStatus.FAILED,
+                error=type(error).__name__,
+            )
+            await self._job_store.replace(
+                failed,
+                expected_status=GenerationJobStatus.PUSHING,
+                lease_token=lease.token,
+            )
+            await event_bus.publish(
+                GitPushFailedEvent(error_type=type(error).__name__, **metadata)
+            )
+            raise
+        succeeded = GenerationJobStateMachine.transition(
+            execution.job,
+            GenerationJobStatus.SUCCEEDED,
+            git_push=result,
+        )
+        await self._job_store.replace(
+            succeeded,
+            expected_status=GenerationJobStatus.PUSHING,
+            lease_token=lease.token,
+        )
+        await event_bus.publish(
+            GitPushCompletedEvent(
+                commit_sha=result.commit_sha,
+                branch_name=result.branch_name,
+                remote_url=result.remote_url,
+                pushed=result.pushed,
                 **metadata,
             )
         )

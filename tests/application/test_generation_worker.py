@@ -6,6 +6,7 @@ import pytest
 
 from autoforge.application.generation import (
     GenerationGitCommitSettings,
+    GenerationGitPushSettings,
     GenerationJobPipeline,
     GenerationPlanningService,
     GenerationSubmissionService,
@@ -14,12 +15,15 @@ from autoforge.application.generation import (
     GenerationWorkerSettings,
 )
 from autoforge.core.event import Event, EventBus, EventHandler
-from autoforge.core.git import GitCheckoutPolicy
+from autoforge.core.git import GitCheckoutPolicy, GitPushRequest, GitPushResult
 from autoforge.core.job import (
     GenerationJobStatus,
     GitCommitCompletedEvent,
     GitCommitFailedEvent,
     GitCommitStartedEvent,
+    GitPushCompletedEvent,
+    GitPushFailedEvent,
+    GitPushStartedEvent,
 )
 from autoforge.core.pipeline import PipelineExecutionError
 from autoforge.core.workspace import Workspace
@@ -91,6 +95,14 @@ class UnexpectedChangeValidator(SlowSuccessfulValidator):
         return await super().validate()
 
 
+class FailingPushProvider(SubprocessGitProvider):
+    async def push_validated(
+        self, request: GitPushRequest, *, workspace: Workspace
+    ) -> GitPushResult:
+        del request, workspace
+        raise GitProviderError("simulated push failure")
+
+
 async def _git(cwd: Path, *arguments: str) -> str:
     result = await AsyncioProcessRunner().run(
         ("git", *arguments), cwd=cwd, timeout_seconds=10
@@ -109,6 +121,17 @@ async def _create_source_repository(root: Path) -> tuple[Path, str]:
     await _git(repository, "add", ".")
     await _git(repository, "commit", "-m", "initial")
     return repository, await _git(repository, "rev-parse", "HEAD")
+
+
+async def _create_bare_source_repository(root: Path) -> tuple[Path, str]:
+    source, commit_sha = await _create_source_repository(root)
+    remote = root / "remotes" / "source.git"
+    remote.parent.mkdir()
+    remote.mkdir()
+    await _git(remote, "init", "--bare")
+    await _git(source, "remote", "add", "generated", str(remote))
+    await _git(source, "push", "generated", "HEAD:refs/heads/main")
+    return remote, commit_sha
 
 
 def _write_specifications(root: Path) -> None:
@@ -372,17 +395,19 @@ def test_worker_preserves_failed_git_workspace_without_touching_source(
     asyncio.run(scenario())
 
 
-def test_worker_commits_validated_manifest_changes_and_persists_result(
+def test_worker_commits_and_pushes_validated_manifest_changes(
     tmp_path: Path,
 ) -> None:
     async def scenario() -> None:
-        source, commit_sha = await _create_source_repository(tmp_path)
+        remote, commit_sha = await _create_bare_source_repository(tmp_path)
         workspaces = tmp_path / "workspaces"
         store = InMemoryJobStore()
         bus = EventBus()
         commit_events = RecordingHandler()
         bus.subscribe(GitCommitStartedEvent, commit_events)
         bus.subscribe(GitCommitCompletedEvent, commit_events)
+        bus.subscribe(GitPushStartedEvent, commit_events)
+        bus.subscribe(GitPushCompletedEvent, commit_events)
         submitted = await GenerationSubmissionService(
             source_root=tmp_path,
             output_root=tmp_path,
@@ -393,7 +418,7 @@ def test_worker_commits_validated_manifest_changes_and_persists_result(
                 project_path="spec/project.yaml",
                 specifications_path="spec/modules",
                 output_path=".",
-                repository_url=str(source),
+                repository_url=str(remote),
                 revision=commit_sha,
             ),
             idempotency_key="delivery-git-commit",
@@ -413,7 +438,7 @@ def test_worker_commits_validated_manifest_changes_and_persists_result(
             git_provider=SubprocessGitProvider(
                 policy=GitCheckoutPolicy(
                     allowed_hosts=frozenset(),
-                    allowed_local_roots=(tmp_path / "sources",),
+                    allowed_local_roots=(tmp_path / "remotes",),
                 )
             ),
             workspace_manager=IsolatedWorkspaceManager(workspaces),
@@ -424,6 +449,7 @@ def test_worker_commits_validated_manifest_changes_and_persists_result(
                 author_name="AutoForge",
                 author_email="autoforge@example.invalid",
             ),
+            git_push_settings=GenerationGitPushSettings(),
             event_bus=bus,
         )
 
@@ -439,15 +465,24 @@ def test_worker_commits_validated_manifest_changes_and_persists_result(
             f"autoforge/{submitted.job.job_id}"
         )
         assert persisted.git_commit.commit_sha != commit_sha
+        assert persisted.git_push is not None
+        assert persisted.git_push.pushed is True
+        assert persisted.git_push.commit_sha == persisted.git_commit.commit_sha
         changed = {path.as_posix() for path in persisted.git_commit.changed_paths}
         assert ".autoforge/manifest.json" in changed
         assert "src/sample/main.py" in changed
         assert list(workspaces.iterdir()) == []
-        assert await _git(source, "rev-parse", "HEAD") == commit_sha
-        assert await _git(source, "status", "--porcelain") == ""
+        assert await _git(remote, "rev-parse", "refs/heads/main") == commit_sha
+        assert await _git(
+            remote,
+            "rev-parse",
+            f"refs/heads/autoforge/{submitted.job.job_id}",
+        ) == persisted.git_commit.commit_sha
         assert [type(event) for event in commit_events.events] == [
             GitCommitStartedEvent,
             GitCommitCompletedEvent,
+            GitPushStartedEvent,
+            GitPushCompletedEvent,
         ]
 
     asyncio.run(scenario())
@@ -528,5 +563,82 @@ def test_worker_fails_committing_job_on_change_outside_manifest_allowlist(
             GitCommitStartedEvent,
             GitCommitFailedEvent,
         ]
+
+    asyncio.run(scenario())
+
+
+def test_worker_persists_failed_job_and_event_when_push_fails(
+    tmp_path: Path,
+) -> None:
+    async def scenario() -> None:
+        remote, commit_sha = await _create_bare_source_repository(tmp_path)
+        workspaces = tmp_path / "workspaces"
+        store = InMemoryJobStore()
+        bus = EventBus()
+        push_events = RecordingHandler()
+        bus.subscribe(GitPushStartedEvent, push_events)
+        bus.subscribe(GitPushFailedEvent, push_events)
+        submitted = await GenerationSubmissionService(
+            source_root=tmp_path,
+            output_root=tmp_path,
+            job_store=store,
+            event_bus=bus,
+        ).trigger(
+            GenerationTriggerRequest(
+                project_path="spec/project.yaml",
+                specifications_path="spec/modules",
+                output_path=".",
+                repository_url=str(remote),
+                revision=commit_sha,
+            ),
+            idempotency_key="delivery-git-push-failure",
+        )
+        worker = GenerationWorker(
+            settings=GenerationWorkerSettings(
+                worker_id="worker-1",
+                source_root=tmp_path,
+                output_root=tmp_path,
+            ),
+            job_store=store,
+            pipeline=GenerationJobPipeline(
+                job_store=store,
+                event_bus=bus,
+                validator=SlowSuccessfulValidator(),
+            ),
+            git_provider=FailingPushProvider(
+                policy=GitCheckoutPolicy(
+                    allowed_hosts=frozenset(),
+                    allowed_local_roots=(tmp_path / "remotes",),
+                )
+            ),
+            workspace_manager=IsolatedWorkspaceManager(
+                workspaces, preserve_on_error=True
+            ),
+            planning_service=GenerationPlanningService(
+                job_store=store, event_bus=bus
+            ),
+            git_commit_settings=GenerationGitCommitSettings(
+                author_name="AutoForge",
+                author_email="autoforge@example.invalid",
+            ),
+            git_push_settings=GenerationGitPushSettings(),
+            event_bus=bus,
+        )
+
+        with pytest.raises(GitProviderError, match="simulated push failure"):
+            await worker.run_once()
+
+        persisted = await store.get(submitted.job.job_id)
+        assert persisted is not None
+        assert persisted.status is GenerationJobStatus.FAILED
+        assert persisted.error == "GitProviderError"
+        assert persisted.git_commit is not None
+        assert persisted.git_push is None
+        assert [type(event) for event in push_events.events] == [
+            GitPushStartedEvent,
+            GitPushFailedEvent,
+        ]
+        assert await _git(remote, "rev-parse", "refs/heads/main") == commit_sha
+        assert len(list(workspaces.iterdir())) == 1
 
     asyncio.run(scenario())

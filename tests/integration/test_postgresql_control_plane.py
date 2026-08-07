@@ -23,7 +23,7 @@ from autoforge.application.generation import (
 from autoforge.core.audit import AuditRecord
 from autoforge.core.event import EventBus
 from autoforge.core.generation import content_hash
-from autoforge.core.git import GitCheckoutRequest, GitCommitResult
+from autoforge.core.git import GitCheckoutRequest, GitCommitResult, GitPushResult
 from autoforge.core.job import (
     GenerationJob,
     GenerationJobStateMachine,
@@ -171,9 +171,9 @@ def test_postgresql_persists_committing_lifecycle_and_commit_result() -> None:
                 expected_status=GenerationJobStatus.VALIDATING,
                 lease_token=lease.token,
             )
-            succeeded = GenerationJobStateMachine.transition(
+            pushing = GenerationJobStateMachine.transition(
                 committing,
-                GenerationJobStatus.SUCCEEDED,
+                GenerationJobStatus.PUSHING,
                 git_commit=GitCommitResult(
                     commit_sha="b" * 40,
                     branch_name="autoforge/job-commit",
@@ -182,8 +182,23 @@ def test_postgresql_persists_committing_lifecycle_and_commit_result() -> None:
                 ),
             )
             await store.replace(
-                succeeded,
+                pushing,
                 expected_status=GenerationJobStatus.COMMITTING,
+                lease_token=lease.token,
+            )
+            succeeded = GenerationJobStateMachine.transition(
+                pushing,
+                GenerationJobStatus.SUCCEEDED,
+                git_push=GitPushResult(
+                    commit_sha="b" * 40,
+                    branch_name="autoforge/job-commit",
+                    remote_url="https://github.com/example/repository.git",
+                    pushed=True,
+                ),
+            )
+            await store.replace(
+                succeeded,
+                expected_status=GenerationJobStatus.PUSHING,
                 lease_token=lease.token,
             )
 
@@ -192,6 +207,8 @@ def test_postgresql_persists_committing_lifecycle_and_commit_result() -> None:
             assert persisted is not None
             assert persisted.git_commit is not None
             assert persisted.git_commit.commit_sha == "b" * 40
+            assert persisted.git_push is not None
+            assert persisted.git_push.pushed is True
         finally:
             await engine.dispose()
 

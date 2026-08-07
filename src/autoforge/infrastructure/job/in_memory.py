@@ -140,6 +140,7 @@ class InMemoryJobStore:
                         GenerationJobStatus.GENERATING,
                         GenerationJobStatus.VALIDATING,
                         GenerationJobStatus.COMMITTING,
+                        GenerationJobStatus.PUSHING,
                     }
                 ):
                     continue

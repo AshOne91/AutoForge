@@ -3,7 +3,7 @@ from pathlib import PurePosixPath
 import pytest
 
 from autoforge.core.generation import content_hash
-from autoforge.core.git import GitCheckoutRequest, GitCommitResult
+from autoforge.core.git import GitCheckoutRequest, GitCommitResult, GitPushResult
 from autoforge.core.job import (
     GenerationJob,
     GenerationJobStateMachine,
@@ -169,13 +169,27 @@ def test_remote_job_commits_after_validation_and_persists_result() -> None:
         changed_paths=(PurePosixPath("src/service.py"),),
         commit_created=True,
     )
-    succeeded = GenerationJobStateMachine.transition(
+    pushing = GenerationJobStateMachine.transition(
         committing,
-        GenerationJobStatus.SUCCEEDED,
+        GenerationJobStatus.PUSHING,
         git_commit=commit,
+    )
+    push = GitPushResult(
+        commit_sha="b" * 40,
+        branch_name="autoforge/job-001",
+        remote_url="https://github.com/example/repository.git",
+        pushed=True,
+    )
+    succeeded = GenerationJobStateMachine.transition(
+        pushing,
+        GenerationJobStatus.SUCCEEDED,
+        git_push=push,
     )
 
     assert committing.status is GenerationJobStatus.COMMITTING
     assert committing.git_commit is None
+    assert pushing.status is GenerationJobStatus.PUSHING
+    assert pushing.git_commit == commit
     assert succeeded.status is GenerationJobStatus.SUCCEEDED
     assert succeeded.git_commit == commit
+    assert succeeded.git_push == push
