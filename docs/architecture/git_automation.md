@@ -178,3 +178,14 @@ transport exceptions are replaced with fixed messages that do not include reques
 headers, token values, URLs, or response bodies. The client exposes `aclose()` and
 an async context manager so the Application composition root can own connection
 pool shutdown explicitly.
+## GenerationJob Pull Request lifecycle (2026-08-07)
+
+When Pull Request settings and a provider are configured, a successful push moves
+the Job to `opening_pull_request` instead of directly to `succeeded`. The worker
+calls the idempotent provider with the persisted push SHA and branch, then stores
+the exact `GitPullRequestResult` before completing the Job. Failure is persisted
+before `PullRequestFailedEvent` is published.
+
+Workers without Pull Request settings preserve the existing push-to-success path.
+Pull Request execution requires commit and push settings, so it cannot bypass the
+validated commit or remote SHA fencing stages.

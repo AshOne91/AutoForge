@@ -191,6 +191,7 @@ class PostgreSQLJobStore:
                                 GenerationJobStatus.VALIDATING.value,
                                 GenerationJobStatus.COMMITTING.value,
                                 GenerationJobStatus.PUSHING.value,
+                                GenerationJobStatus.OPENING_PULL_REQUEST.value,
                             )
                         ),
                         GenerationJobRecord.lease_expires_at <= current_time,

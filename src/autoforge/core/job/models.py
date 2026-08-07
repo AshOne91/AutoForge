@@ -6,7 +6,12 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from autoforge.core.generation import GenerationManifest
 from autoforge.core.generation.models import validate_sha256
-from autoforge.core.git import GitCheckoutRequest, GitCommitResult, GitPushResult
+from autoforge.core.git import (
+    GitCheckoutRequest,
+    GitCommitResult,
+    GitPullRequestResult,
+    GitPushResult,
+)
 from autoforge.core.workspace import validate_workspace_relative_path
 
 
@@ -25,6 +30,7 @@ class GenerationJobStatus(StrEnum):
     VALIDATING = "validating"
     COMMITTING = "committing"
     PUSHING = "pushing"
+    OPENING_PULL_REQUEST = "opening_pull_request"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
 
@@ -118,6 +124,7 @@ class GenerationJob(JobModel):
     manifest: GenerationJobManifest | None = None
     git_commit: GitCommitResult | None = None
     git_push: GitPushResult | None = None
+    git_pull_request: GitPullRequestResult | None = None
     error: str | None = None
 
     @model_validator(mode="after")
@@ -161,6 +168,7 @@ class GenerationJob(JobModel):
         if self.git_commit is not None:
             if self.status not in {
                 GenerationJobStatus.PUSHING,
+                GenerationJobStatus.OPENING_PULL_REQUEST,
                 GenerationJobStatus.SUCCEEDED,
                 GenerationJobStatus.FAILED,
             }:
@@ -175,10 +183,27 @@ class GenerationJob(JobModel):
             if self.git_commit.branch_name is None:
                 raise ValueError("Git pushing 상태에는 작업 branch가 필요합니다.")
         if self.git_push is not None:
-            if self.status is not GenerationJobStatus.SUCCEEDED:
-                raise ValueError("Git push 결과는 성공한 GenerationJob에만 저장됩니다.")
+            if self.status not in {
+                GenerationJobStatus.OPENING_PULL_REQUEST,
+                GenerationJobStatus.SUCCEEDED,
+                GenerationJobStatus.FAILED,
+            }:
+                raise ValueError(
+                    "Git push 결과는 opening_pull_request, succeeded 또는 failed "
+                    "상태에만 저장됩니다."
+                )
             if self.git_commit is None:
                 raise ValueError("Git push 결과에는 commit 결과가 필요합니다.")
+        if (
+            self.status is GenerationJobStatus.OPENING_PULL_REQUEST
+            and self.git_push is None
+        ):
+            raise ValueError("Pull Request 생성 상태에는 push 결과가 필요합니다.")
+        if self.git_pull_request is not None:
+            if self.status is not GenerationJobStatus.SUCCEEDED:
+                raise ValueError("Pull Request 결과는 성공한 Job에만 저장됩니다.")
+            if self.git_push is None:
+                raise ValueError("Pull Request 결과에는 push 결과가 필요합니다.")
         if self.status is GenerationJobStatus.FAILED and self.error is None:
             raise ValueError("실패한 GenerationJob에는 error가 필요합니다.")
         if self.status is not GenerationJobStatus.FAILED and self.error is not None:

@@ -141,6 +141,7 @@ class InMemoryJobStore:
                         GenerationJobStatus.VALIDATING,
                         GenerationJobStatus.COMMITTING,
                         GenerationJobStatus.PUSHING,
+                        GenerationJobStatus.OPENING_PULL_REQUEST,
                     }
                 ):
                     continue

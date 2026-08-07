@@ -9,13 +9,20 @@ from autoforge.application.generation import (
     GenerationGitPushSettings,
     GenerationJobPipeline,
     GenerationPlanningService,
+    GenerationPullRequestSettings,
     GenerationSubmissionService,
     GenerationTriggerRequest,
     GenerationWorker,
     GenerationWorkerSettings,
 )
 from autoforge.core.event import Event, EventBus, EventHandler
-from autoforge.core.git import GitCheckoutPolicy, GitPushRequest, GitPushResult
+from autoforge.core.git import (
+    GitCheckoutPolicy,
+    GitPullRequestRequest,
+    GitPullRequestResult,
+    GitPushRequest,
+    GitPushResult,
+)
 from autoforge.core.job import (
     GenerationJobStatus,
     GitCommitCompletedEvent,
@@ -24,6 +31,9 @@ from autoforge.core.job import (
     GitPushCompletedEvent,
     GitPushFailedEvent,
     GitPushStartedEvent,
+    PullRequestCompletedEvent,
+    PullRequestFailedEvent,
+    PullRequestStartedEvent,
 )
 from autoforge.core.pipeline import PipelineExecutionError
 from autoforge.core.workspace import Workspace
@@ -101,6 +111,27 @@ class FailingPushProvider(SubprocessGitProvider):
     ) -> GitPushResult:
         del request, workspace
         raise GitProviderError("simulated push failure")
+
+
+class RecordingPullRequestProvider:
+    def __init__(self, *, fail: bool = False) -> None:
+        self._fail = fail
+        self.requests: list[GitPullRequestRequest] = []
+
+    async def create_or_get(
+        self, request: GitPullRequestRequest
+    ) -> GitPullRequestResult:
+        self.requests.append(request)
+        if self._fail:
+            raise RuntimeError("simulated Pull Request failure")
+        return GitPullRequestResult(
+            pull_request_id="42",
+            url="https://github.com/example/repository/pull/42",
+            head_sha=request.expected_head_sha,
+            head_branch=request.head_branch,
+            base_branch=request.base_branch,
+            created=True,
+        )
 
 
 async def _git(cwd: Path, *arguments: str) -> str:
@@ -395,7 +426,7 @@ def test_worker_preserves_failed_git_workspace_without_touching_source(
     asyncio.run(scenario())
 
 
-def test_worker_commits_and_pushes_validated_manifest_changes(
+def test_worker_commits_pushes_and_opens_pull_request(
     tmp_path: Path,
 ) -> None:
     async def scenario() -> None:
@@ -408,6 +439,9 @@ def test_worker_commits_and_pushes_validated_manifest_changes(
         bus.subscribe(GitCommitCompletedEvent, commit_events)
         bus.subscribe(GitPushStartedEvent, commit_events)
         bus.subscribe(GitPushCompletedEvent, commit_events)
+        bus.subscribe(PullRequestStartedEvent, commit_events)
+        bus.subscribe(PullRequestCompletedEvent, commit_events)
+        pull_requests = RecordingPullRequestProvider()
         submitted = await GenerationSubmissionService(
             source_root=tmp_path,
             output_root=tmp_path,
@@ -450,6 +484,8 @@ def test_worker_commits_and_pushes_validated_manifest_changes(
                 author_email="autoforge@example.invalid",
             ),
             git_push_settings=GenerationGitPushSettings(),
+            pull_request_provider=pull_requests,
+            pull_request_settings=GenerationPullRequestSettings(),
             event_bus=bus,
         )
 
@@ -468,6 +504,11 @@ def test_worker_commits_and_pushes_validated_manifest_changes(
         assert persisted.git_push is not None
         assert persisted.git_push.pushed is True
         assert persisted.git_push.commit_sha == persisted.git_commit.commit_sha
+        assert persisted.git_pull_request is not None
+        assert persisted.git_pull_request.pull_request_id == "42"
+        assert persisted.git_pull_request.head_sha == persisted.git_push.commit_sha
+        assert len(pull_requests.requests) == 1
+        assert pull_requests.requests[0].base_branch == "main"
         changed = {path.as_posix() for path in persisted.git_commit.changed_paths}
         assert ".autoforge/manifest.json" in changed
         assert "src/sample/main.py" in changed
@@ -483,6 +524,8 @@ def test_worker_commits_and_pushes_validated_manifest_changes(
             GitCommitCompletedEvent,
             GitPushStartedEvent,
             GitPushCompletedEvent,
+            PullRequestStartedEvent,
+            PullRequestCompletedEvent,
         ]
 
     asyncio.run(scenario())
@@ -639,6 +682,85 @@ def test_worker_persists_failed_job_and_event_when_push_fails(
             GitPushFailedEvent,
         ]
         assert await _git(remote, "rev-parse", "refs/heads/main") == commit_sha
+        assert len(list(workspaces.iterdir())) == 1
+
+    asyncio.run(scenario())
+
+
+def test_worker_persists_failed_job_and_event_when_pull_request_fails(
+    tmp_path: Path,
+) -> None:
+    async def scenario() -> None:
+        remote, commit_sha = await _create_bare_source_repository(tmp_path)
+        workspaces = tmp_path / "workspaces"
+        store = InMemoryJobStore()
+        bus = EventBus()
+        pull_request_events = RecordingHandler()
+        bus.subscribe(PullRequestStartedEvent, pull_request_events)
+        bus.subscribe(PullRequestFailedEvent, pull_request_events)
+        submitted = await GenerationSubmissionService(
+            source_root=tmp_path,
+            output_root=tmp_path,
+            job_store=store,
+            event_bus=bus,
+        ).trigger(
+            GenerationTriggerRequest(
+                project_path="spec/project.yaml",
+                specifications_path="spec/modules",
+                output_path=".",
+                repository_url=str(remote),
+                revision=commit_sha,
+            ),
+            idempotency_key="delivery-pull-request-failure",
+        )
+        worker = GenerationWorker(
+            settings=GenerationWorkerSettings(
+                worker_id="worker-1",
+                source_root=tmp_path,
+                output_root=tmp_path,
+            ),
+            job_store=store,
+            pipeline=GenerationJobPipeline(
+                job_store=store,
+                event_bus=bus,
+                validator=SlowSuccessfulValidator(),
+            ),
+            git_provider=SubprocessGitProvider(
+                policy=GitCheckoutPolicy(
+                    allowed_hosts=frozenset(),
+                    allowed_local_roots=(tmp_path / "remotes",),
+                )
+            ),
+            workspace_manager=IsolatedWorkspaceManager(
+                workspaces, preserve_on_error=True
+            ),
+            planning_service=GenerationPlanningService(
+                job_store=store, event_bus=bus
+            ),
+            git_commit_settings=GenerationGitCommitSettings(
+                author_name="AutoForge",
+                author_email="autoforge@example.invalid",
+            ),
+            git_push_settings=GenerationGitPushSettings(),
+            pull_request_provider=RecordingPullRequestProvider(fail=True),
+            pull_request_settings=GenerationPullRequestSettings(),
+            event_bus=bus,
+        )
+
+        with pytest.raises(RuntimeError, match="simulated Pull Request failure"):
+            await worker.run_once()
+
+        persisted = await store.get(submitted.job.job_id)
+        assert persisted is not None
+        assert persisted.status is GenerationJobStatus.FAILED
+        assert persisted.error == "RuntimeError"
+        assert persisted.git_commit is not None
+        assert persisted.git_push is not None
+        assert persisted.git_pull_request is None
+        assert [type(event) for event in pull_request_events.events] == [
+            PullRequestStartedEvent,
+            PullRequestFailedEvent,
+        ]
         assert len(list(workspaces.iterdir())) == 1
 
     asyncio.run(scenario())

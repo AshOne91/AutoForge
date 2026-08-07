@@ -82,3 +82,22 @@ class GitPushCompletedEvent(Event):
 @dataclass(frozen=True, kw_only=True, slots=True)
 class GitPushFailedEvent(Event):
     error_type: str
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class PullRequestStartedEvent(Event):
+    head_sha: str
+    head_branch: str
+    base_branch: str
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class PullRequestCompletedEvent(Event):
+    pull_request_id: str
+    url: str
+    created: bool
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class PullRequestFailedEvent(Event):
+    error_type: str

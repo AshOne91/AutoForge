@@ -20,7 +20,9 @@ from autoforge.core.git import (
     GitCommitRequest,
     GitCredentialReference,
     GitProvider,
+    GitPullRequestRequest,
     GitPushRequest,
+    PullRequestProvider,
 )
 from autoforge.core.job import (
     GenerationJobStateMachine,
@@ -34,6 +36,9 @@ from autoforge.core.job import (
     JobLease,
     JobLeaseConflictError,
     JobStore,
+    PullRequestCompletedEvent,
+    PullRequestFailedEvent,
+    PullRequestStartedEvent,
 )
 from autoforge.core.workspace import Workspace, WorkspaceManager
 from autoforge.services.generation.manifest_store import MANIFEST_RELATIVE_PATH
@@ -89,6 +94,21 @@ class GenerationGitPushSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class GenerationPullRequestSettings:
+    base_branch: str = "main"
+    title: str = "chore: apply AutoForge generation"
+    body: str = "Generated and validated by AutoForge."
+
+    def __post_init__(self) -> None:
+        for name, value in (
+            ("base_branch", self.base_branch),
+            ("title", self.title),
+        ):
+            if not value.strip():
+                raise ValueError(f"{name} must not be empty")
+
+
+@dataclass(frozen=True, slots=True)
 class GenerationWorkerResult:
     lease: JobLease
     execution: GenerationJobExecution
@@ -136,6 +156,8 @@ class GenerationWorker:
         planning_service: GenerationPlanningService | None = None,
         git_commit_settings: GenerationGitCommitSettings | None = None,
         git_push_settings: GenerationGitPushSettings | None = None,
+        pull_request_provider: PullRequestProvider | None = None,
+        pull_request_settings: GenerationPullRequestSettings | None = None,
         event_bus: EventBus | None = None,
     ) -> None:
         self._settings = settings
@@ -146,11 +168,17 @@ class GenerationWorker:
         self._planning_service = planning_service
         self._git_commit_settings = git_commit_settings
         self._git_push_settings = git_push_settings
+        self._pull_request_provider = pull_request_provider
+        self._pull_request_settings = pull_request_settings
         self._event_bus = event_bus
         if git_commit_settings is not None and event_bus is None:
             raise ValueError("Git commit execution requires an EventBus")
         if git_push_settings is not None and git_commit_settings is None:
             raise ValueError("Git push execution requires Git commit settings")
+        if pull_request_settings is not None and git_push_settings is None:
+            raise ValueError("Pull Request execution requires Git push settings")
+        if pull_request_settings is not None and pull_request_provider is None:
+            raise ValueError("Pull Request execution requires a provider")
         self._source = Workspace(settings.source_root)
         self._output = Workspace(settings.output_root)
 
@@ -231,6 +259,7 @@ class GenerationWorker:
                     repository.repository_url,
                     submission.resolved_commit_sha or repository.revision,
                     destination=repository.destination,
+                    credential=repository.credential,
                 ),
                 workspace=workspace,
             )
@@ -452,13 +481,18 @@ class GenerationWorker:
                 GitPushFailedEvent(error_type=type(error).__name__, **metadata)
             )
             raise
-        succeeded = GenerationJobStateMachine.transition(
+        completed_status = (
+            GenerationJobStatus.OPENING_PULL_REQUEST
+            if self._pull_request_settings is not None
+            else GenerationJobStatus.SUCCEEDED
+        )
+        completed = GenerationJobStateMachine.transition(
             execution.job,
-            GenerationJobStatus.SUCCEEDED,
+            completed_status,
             git_push=result,
         )
         await self._job_store.replace(
-            succeeded,
+            completed,
             expected_status=GenerationJobStatus.PUSHING,
             lease_token=lease.token,
         )
@@ -468,6 +502,94 @@ class GenerationWorker:
                 branch_name=result.branch_name,
                 remote_url=result.remote_url,
                 pushed=result.pushed,
+                **metadata,
+            )
+        )
+        pushed_execution = GenerationJobExecution(
+            job=completed,
+            pipeline_result=execution.pipeline_result,
+        )
+        if completed_status is GenerationJobStatus.OPENING_PULL_REQUEST:
+            return await self._open_pull_request(
+                credential=credential,
+                lease=lease,
+                execution=pushed_execution,
+            )
+        return GenerationJobExecution(
+            job=completed,
+            pipeline_result=execution.pipeline_result,
+        )
+
+    async def _open_pull_request(
+        self,
+        *,
+        credential: GitCredentialReference | None,
+        lease: JobLease,
+        execution: GenerationJobExecution,
+    ) -> GenerationJobExecution:
+        settings = self._pull_request_settings
+        provider = self._pull_request_provider
+        push = execution.job.git_push
+        event_bus = self._event_bus
+        if settings is None or provider is None or push is None or event_bus is None:
+            raise RuntimeError("Pull Request dependencies are not configured")
+        metadata = {
+            "job_id": execution.job.job_id,
+            "correlation_id": execution.job.job_id,
+            "producer": "generation_worker",
+        }
+        await event_bus.publish(
+            PullRequestStartedEvent(
+                head_sha=push.commit_sha,
+                head_branch=push.branch_name,
+                base_branch=settings.base_branch,
+                **metadata,
+            )
+        )
+        try:
+            result = await provider.create_or_get(
+                GitPullRequestRequest(
+                    repository_url=push.remote_url,
+                    expected_head_sha=push.commit_sha,
+                    head_branch=push.branch_name,
+                    base_branch=settings.base_branch,
+                    title=settings.title,
+                    body=settings.body,
+                    credential=(
+                        credential.password if credential is not None else None
+                    ),
+                )
+            )
+        except Exception as error:
+            failed = GenerationJobStateMachine.transition(
+                execution.job,
+                GenerationJobStatus.FAILED,
+                error=type(error).__name__,
+            )
+            await self._job_store.replace(
+                failed,
+                expected_status=GenerationJobStatus.OPENING_PULL_REQUEST,
+                lease_token=lease.token,
+            )
+            await event_bus.publish(
+                PullRequestFailedEvent(error_type=type(error).__name__, **metadata)
+            )
+            raise
+        succeeded = GenerationJobStateMachine.transition(
+            execution.job,
+            GenerationJobStatus.SUCCEEDED,
+            git_pull_request=result,
+        )
+        await self._job_store.replace(
+            succeeded,
+            expected_status=GenerationJobStatus.OPENING_PULL_REQUEST,
+            lease_token=lease.token,
+        )
+        await event_bus.publish(
+            PullRequestCompletedEvent(
+                pull_request_id=result.pull_request_id,
+                url=result.url,
+                created=result.created,
                 **metadata,
             )
         )

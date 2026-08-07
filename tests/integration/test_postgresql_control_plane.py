@@ -23,7 +23,12 @@ from autoforge.application.generation import (
 from autoforge.core.audit import AuditRecord
 from autoforge.core.event import EventBus
 from autoforge.core.generation import content_hash
-from autoforge.core.git import GitCheckoutRequest, GitCommitResult, GitPushResult
+from autoforge.core.git import (
+    GitCheckoutRequest,
+    GitCommitResult,
+    GitPullRequestResult,
+    GitPushResult,
+)
 from autoforge.core.job import (
     GenerationJob,
     GenerationJobStateMachine,
@@ -186,9 +191,9 @@ def test_postgresql_persists_committing_lifecycle_and_commit_result() -> None:
                 expected_status=GenerationJobStatus.COMMITTING,
                 lease_token=lease.token,
             )
-            succeeded = GenerationJobStateMachine.transition(
+            opening_pull_request = GenerationJobStateMachine.transition(
                 pushing,
-                GenerationJobStatus.SUCCEEDED,
+                GenerationJobStatus.OPENING_PULL_REQUEST,
                 git_push=GitPushResult(
                     commit_sha="b" * 40,
                     branch_name="autoforge/job-commit",
@@ -197,8 +202,25 @@ def test_postgresql_persists_committing_lifecycle_and_commit_result() -> None:
                 ),
             )
             await store.replace(
-                succeeded,
+                opening_pull_request,
                 expected_status=GenerationJobStatus.PUSHING,
+                lease_token=lease.token,
+            )
+            succeeded = GenerationJobStateMachine.transition(
+                opening_pull_request,
+                GenerationJobStatus.SUCCEEDED,
+                git_pull_request=GitPullRequestResult(
+                    pull_request_id="42",
+                    url="https://github.com/example/repository/pull/42",
+                    head_sha="b" * 40,
+                    head_branch="autoforge/job-commit",
+                    base_branch="main",
+                    created=True,
+                ),
+            )
+            await store.replace(
+                succeeded,
+                expected_status=GenerationJobStatus.OPENING_PULL_REQUEST,
                 lease_token=lease.token,
             )
 
@@ -209,6 +231,8 @@ def test_postgresql_persists_committing_lifecycle_and_commit_result() -> None:
             assert persisted.git_commit.commit_sha == "b" * 40
             assert persisted.git_push is not None
             assert persisted.git_push.pushed is True
+            assert persisted.git_pull_request is not None
+            assert persisted.git_pull_request.pull_request_id == "42"
         finally:
             await engine.dispose()
 

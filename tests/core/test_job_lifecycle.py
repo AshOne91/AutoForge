@@ -3,7 +3,12 @@ from pathlib import PurePosixPath
 import pytest
 
 from autoforge.core.generation import content_hash
-from autoforge.core.git import GitCheckoutRequest, GitCommitResult, GitPushResult
+from autoforge.core.git import (
+    GitCheckoutRequest,
+    GitCommitResult,
+    GitPullRequestResult,
+    GitPushResult,
+)
 from autoforge.core.job import (
     GenerationJob,
     GenerationJobStateMachine,
@@ -180,16 +185,32 @@ def test_remote_job_commits_after_validation_and_persists_result() -> None:
         remote_url="https://github.com/example/repository.git",
         pushed=True,
     )
-    succeeded = GenerationJobStateMachine.transition(
+    opening_pull_request = GenerationJobStateMachine.transition(
         pushing,
-        GenerationJobStatus.SUCCEEDED,
+        GenerationJobStatus.OPENING_PULL_REQUEST,
         git_push=push,
+    )
+    pull_request = GitPullRequestResult(
+        pull_request_id="42",
+        url="https://github.com/example/repository/pull/42",
+        head_sha="b" * 40,
+        head_branch="autoforge/job-001",
+        base_branch="main",
+        created=True,
+    )
+    succeeded = GenerationJobStateMachine.transition(
+        opening_pull_request,
+        GenerationJobStatus.SUCCEEDED,
+        git_pull_request=pull_request,
     )
 
     assert committing.status is GenerationJobStatus.COMMITTING
     assert committing.git_commit is None
     assert pushing.status is GenerationJobStatus.PUSHING
     assert pushing.git_commit == commit
+    assert opening_pull_request.status is GenerationJobStatus.OPENING_PULL_REQUEST
+    assert opening_pull_request.git_push == push
     assert succeeded.status is GenerationJobStatus.SUCCEEDED
     assert succeeded.git_commit == commit
     assert succeeded.git_push == push
+    assert succeeded.git_pull_request == pull_request

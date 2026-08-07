@@ -16,6 +16,7 @@ from autoforge.application.generation.submission import (
 from autoforge.application.generation.worker import (
     GenerationGitCommitSettings,
     GenerationGitPushSettings,
+    GenerationPullRequestSettings,
     GenerationWorker,
     GenerationWorkerLoop,
     GenerationWorkerLoopResult,
@@ -31,6 +32,7 @@ __all__ = [
     "GenerationJobPipeline",
     "GenerationJobRequest",
     "GenerationPlanningService",
+    "GenerationPullRequestSettings",
     "GenerationSpecificationError",
     "GenerationSubmissionService",
     "GenerationTriggerRequest",
