@@ -189,3 +189,16 @@ before `PullRequestFailedEvent` is published.
 Workers without Pull Request settings preserve the existing push-to-success path.
 Pull Request execution requires commit and push settings, so it cannot bypass the
 validated commit or remote SHA fencing stages.
+
+## Environment secret adapter (2026-08-07)
+
+`EnvironmentSecretProvider` is a deployment-oriented adapter for the existing
+`SecretProvider` contract. It accepts an explicit mapping from a stored secret
+reference name to an environment-variable name, then resolves the value only when
+the Git or GitHub adapter needs it. The mapping prevents lossy automatic name
+conversion and keeps secret values out of YAML, Job documents, URLs, and command
+arguments.
+
+It is intentionally not a global configuration reader. The future application
+composition root will receive the mapping from deployment configuration and inject
+this provider into both Git checkout/push and Pull Request adapters.
