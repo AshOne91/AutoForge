@@ -110,7 +110,7 @@
 - [x] GitHub Webhook 서명 검증
 - [x] 이벤트 정규화와 중복 방지
 - [x] HTTP 요청과 분리된 Job 실행
-- [ ] GitHub Actions 및 Jenkins 설정 Generator
+- [x] GitHub Actions 및 Jenkins 설정 Generator
 - [ ] Docker Build, Artifact, Deployment Plugin
 - [x] `infrastructure/http/` GitHub webhook adapter 구현
 

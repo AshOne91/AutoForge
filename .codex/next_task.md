@@ -191,21 +191,24 @@ composition과 실행 진입점이다.
 
 Webhook 서명 검증, 배포, AI 생성과 메시지 브로커 확장은 이 단계에 포함하지 않는다.
 
-## Current next task (updated after GitHub Webhook, 2026-08-07)
+## Current next task (updated after CI generator, 2026-08-07)
 
-GitHub Webhook의 raw-body HMAC-SHA256 서명 검증, 허용 저장소·ref 제한,
-`X-GitHub-Delivery` 기반 durable idempotency와 기존 Job submission 경계 연결은
-완료했다. 바로 앞 문단의 Webhook 항목은 완료 이력이며 이 문단이 현재 작업을 대체한다.
+검증 전용 CI 설정 Generator는 완료했다. GitHub Actions와 Jenkins가 공통으로
+표현할 수 있는 최소 워크플로를 생성하고, 배포 권한과 secret을 생성물에 넣지 않는
+경계를 검증했다.
 
-다음 한정된 단계는 CI 설정 Generator의 계약을 정의하고 검증하는 일이다.
+다음 한정된 단계는 Docker Build 계약의 범위를 문서화하고 검증 전략만 정리하는 일이다.
 
-1. GitHub Actions와 Jenkins가 공통으로 표현할 수 있는 최소 CI 명세를 정의한다.
-2. 생성되는 workflow가 검증·build만 수행하도록 하고, production 배포 권한과 secret은
-   생성물에 포함하지 않는다.
-3. 기존 ProjectSpec, Generator Plugin, Manifest와 충돌하지 않는 plugin 경계를
-   검증한다.
-4. Docker build, artifact publishing, deployment 및 cloud credential 구현은 이 단계에
-   포함하지 않는다.
+1. build-only Docker 생성물이 어디까지 책임지는지 정의한다.
+2. artifact publishing, deployment, cloud credential은 이 단계에서 제외한다.
+3. 기존 ProjectSpec, Generator Plugin, Manifest와 충돌하지 않는 경계를 확인한다.
+4. 구현은 아직 시작하지 않고 계약과 테스트 범위부터 정리한다.
 
-먼저 계약·템플릿 범위·테스트 전략을 문서화하고, 구현은 작은 Generator 하나로
-한정한다.
+## Current next task (updated after Docker contract, 2026-08-07)
+
+Docker Build의 책임 경계와 검증 전략 문서화가 완료됐다. 다음 구현 단계에서는
+문서화된 계약을 벗어나지 않는 최소 Dockerfile Generator를 `ProjectSpec`의 선택적
+설정으로 추가하고, 생성 계획·manifest·회귀 테스트를 먼저 작성한다.
+
+Artifact publishing, deployment, cloud credential, Kubernetes 및 Compose 자동화는
+Dockerfile Generator가 안정화된 뒤 별도 계약으로 다룬다.

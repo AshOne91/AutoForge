@@ -1,5 +1,23 @@
 # 현재 상태
 
+## 2026-08-07 검증 CI 설정 Generator 완료
+
+- `ProjectSpec.tooling.ci`에 선택적 CI 명세를 추가해 GitHub Actions와 Jenkins가
+  공통으로 표현할 수 있는 최소 검증 워크플로를 생성한다.
+- 생성물은 테스트와 정적 검사까지만 수행하고, production 배포 권한이나 cloud
+  secret은 포함하지 않는다.
+- CI 명세가 비어 있으면 기존 프로젝트 출력은 바꾸지 않는다.
+- 전체 pytest는 410 passed, 외부 PostgreSQL 통합 테스트 6건은 환경 미설정으로 skip,
+  그리고 `python -m autoforge.main version`도 통과했다.
+
+## 2026-08-07 Docker Build 계약 문서화 완료
+
+- `docs/architecture/docker_build_contract.md`에 build-only Docker Plugin의 책임과
+  비책임 범위를 문서화했다.
+- Artifact publishing, 배포, 클라우드 자격 증명, 인프라 프로비저닝은 Docker Build
+  범위에서 제외했다.
+- 실제 Dockerfile Generator 구현과 이미지 빌드는 후속 단계로 남겼다.
+
 ## 2026-08-07 GitHub Webhook 수신 경계 완료
 
 - `POST /v1/webhooks/github`는 raw request body와 `X-Hub-Signature-256`의
