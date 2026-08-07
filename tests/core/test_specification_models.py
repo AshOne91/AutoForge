@@ -3,6 +3,9 @@ from pydantic import ValidationError
 
 from autoforge.core.specification import (
     ApplicationSpec,
+    CiProvider,
+    CiSpec,
+    CiWorkflow,
     ColumnSpec,
     DatabaseShardSpec,
     DatabaseSpec,
@@ -45,6 +48,7 @@ def test_create_minimal_project_spec() -> None:
     assert spec.application.framework == "fastapi"
     assert spec.application.modules == ["tutorial"]
     assert spec.tooling.ruff_exclude == []
+    assert spec.tooling.ci.providers == []
 
 
 @pytest.mark.parametrize(
@@ -62,6 +66,19 @@ def test_tooling_normalizes_and_rejects_duplicate_ruff_exclude_paths() -> None:
     assert tooling.ruff_exclude == ["reference/base_server", "test.py"]
     with pytest.raises(ValidationError, match="must be unique"):
         ToolingSpec(ruff_exclude=["reference", "reference"])
+
+
+def test_ci_spec_requires_a_test_workflow_and_unique_providers() -> None:
+    ci = CiSpec(
+        providers=[CiProvider.GITHUB_ACTIONS, CiProvider.JENKINS],
+        workflows=[CiWorkflow.TEST, CiWorkflow.BUILD],
+    )
+
+    assert ci.providers == [CiProvider.GITHUB_ACTIONS, CiProvider.JENKINS]
+    with pytest.raises(ValidationError, match="must include test"):
+        CiSpec(workflows=[CiWorkflow.BUILD])
+    with pytest.raises(ValidationError, match="must be unique"):
+        CiSpec(providers=[CiProvider.GITHUB_ACTIONS, CiProvider.GITHUB_ACTIONS])
 
 
 def test_application_service_requires_positive_ttl_and_unique_name() -> None:

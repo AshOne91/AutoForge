@@ -1,5 +1,8 @@
 from autoforge.core.specification.models import (
     ApplicationSpec,
+    CiProvider,
+    CiSpec,
+    CiWorkflow,
     ColumnSpec,
     DatabaseShardSpec,
     DatabaseSpec,
@@ -27,6 +30,9 @@ from autoforge.core.specification.types import FieldType, FieldTypeKind
 
 __all__ = [
     "ApplicationSpec",
+    "CiProvider",
+    "CiSpec",
+    "CiWorkflow",
     "ColumnSpec",
     "DataPlacementMode",
     "DataPlacementSpec",

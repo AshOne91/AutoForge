@@ -190,6 +190,7 @@ class ApplicationSpec(StrictSpecModel):
 
 class ToolingSpec(StrictSpecModel):
     ruff_exclude: list[str] = Field(default_factory=list)
+    ci: CiSpec = Field(default_factory=lambda: CiSpec())
 
     @field_validator("ruff_exclude")
     @classmethod
@@ -200,6 +201,31 @@ class ToolingSpec(StrictSpecModel):
         if len(normalized) != len(set(normalized)):
             raise ValueError("tooling.ruff_exclude paths must be unique")
         return normalized
+
+
+class CiProvider(StrEnum):
+    GITHUB_ACTIONS = "github_actions"
+    JENKINS = "jenkins"
+
+
+class CiWorkflow(StrEnum):
+    TEST = "test"
+    BUILD = "build"
+
+
+class CiSpec(StrictSpecModel):
+    providers: list[CiProvider] = Field(default_factory=list)
+    workflows: list[CiWorkflow] = Field(default_factory=lambda: [CiWorkflow.TEST])
+
+    @model_validator(mode="after")
+    def validate_workflows(self) -> CiSpec:
+        if len(self.providers) != len(set(self.providers)):
+            raise ValueError("tooling.ci.providers must be unique")
+        if len(self.workflows) != len(set(self.workflows)):
+            raise ValueError("tooling.ci.workflows must be unique")
+        if CiWorkflow.TEST not in self.workflows:
+            raise ValueError("tooling.ci.workflows must include test")
+        return self
 
 
 class ProjectSpec(StrictSpecModel):
@@ -372,10 +398,7 @@ class DataPlacementSpec(StrictSpecModel):
 
     @model_validator(mode="after")
     def validate_routing(self) -> DataPlacementSpec:
-        if (
-            self.mode is DataPlacementMode.SHARDED
-            and self.partition_key is None
-        ):
+        if self.mode is DataPlacementMode.SHARDED and self.partition_key is None:
             raise ValueError("Sharded Data Placement에는 partition_key가 필요합니다.")
         return self
 

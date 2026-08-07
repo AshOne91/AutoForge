@@ -2,6 +2,7 @@ from autoforge.services.generation.alembic import (
     AlembicBaselineGenerator,
     AlembicEnvironmentGenerator,
 )
+from autoforge.services.generation.ci import CIGenerator
 from autoforge.services.generation.fastapi_module import FastAPIModuleGenerator
 from autoforge.services.generation.fastapi_project import (
     FastAPIProjectGenerator,
@@ -39,6 +40,7 @@ __all__ = [
     "MANIFEST_RELATIVE_PATH",
     "AlembicBaselineGenerator",
     "AlembicEnvironmentGenerator",
+    "CIGenerator",
     "FastAPIGeneratorPlugins",
     "FastAPIModuleGenerator",
     "FastAPIProjectGenerator",

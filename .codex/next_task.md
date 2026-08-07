@@ -191,22 +191,21 @@ composition과 실행 진입점이다.
 
 Webhook 서명 검증, 배포, AI 생성과 메시지 브로커 확장은 이 단계에 포함하지 않는다.
 
-## Current next task (updated after Control Plane server, 2026-08-07)
+## Current next task (updated after GitHub Webhook, 2026-08-07)
 
-PostgreSQL 기반 Control Plane composition, 실제 `autoforge server` 실행 진입점,
-환경변수 기반 API 인증 및 FastAPI/DB 수명주기 관리는 완료했다. 바로 앞 문단의
-Control Plane 서버 항목은 완료 이력이며 이 문단이 현재 작업을 대체한다.
+GitHub Webhook의 raw-body HMAC-SHA256 서명 검증, 허용 저장소·ref 제한,
+`X-GitHub-Delivery` 기반 durable idempotency와 기존 Job submission 경계 연결은
+완료했다. 바로 앞 문단의 Webhook 항목은 완료 이력이며 이 문단이 현재 작업을 대체한다.
 
-다음 한정된 단계는 GitHub Webhook 수신 경계다.
+다음 한정된 단계는 CI 설정 Generator의 계약을 정의하고 검증하는 일이다.
 
-1. GitHub 서명 헤더와 raw request body 기반 HMAC 검증 계약을 정의한다.
-2. delivery ID를 durable하게 중복 제거하여 재전송이 GenerationJob을 중복 생성하지
-   않도록 한다.
-3. 검증된 `push` event만 기존 HTTP submission 경계로 변환한다. HTTP 요청 안에서
-   generation·validation·Git 작업을 실행하지 않는다.
-4. 잘못된 서명, 오래된 delivery, 중복 delivery 및 지원하지 않는 event를 명시적으로
-   거부하거나 무시하는 테스트를 작성한다.
-5. Worker·Control Plane의 수평 확장 및 secret 환경변수 경계를 유지한다.
+1. GitHub Actions와 Jenkins가 공통으로 표현할 수 있는 최소 CI 명세를 정의한다.
+2. 생성되는 workflow가 검증·build만 수행하도록 하고, production 배포 권한과 secret은
+   생성물에 포함하지 않는다.
+3. 기존 ProjectSpec, Generator Plugin, Manifest와 충돌하지 않는 plugin 경계를
+   검증한다.
+4. Docker build, artifact publishing, deployment 및 cloud credential 구현은 이 단계에
+   포함하지 않는다.
 
-Docker 배포, GitHub Actions, AI 생성, RabbitMQ transport 확장은 이 단계에 포함하지
-않는다.
+먼저 계약·템플릿 범위·테스트 전략을 문서화하고, 구현은 작은 Generator 하나로
+한정한다.

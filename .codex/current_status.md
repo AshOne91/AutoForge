@@ -1,5 +1,19 @@
 # 현재 상태
 
+## 2026-08-07 GitHub Webhook 수신 경계 완료
+
+- `POST /v1/webhooks/github`는 raw request body와 `X-Hub-Signature-256`의
+  HMAC-SHA256을 비교해 서명된 GitHub delivery만 수락한다.
+- 서버 CLI는 webhook secret을 환경변수에서만 읽으며, 허용 저장소와 branch ref를
+  명시적으로 제한한다. Git automation 설정이 비활성화된 경우 webhook을 켤 수 없다.
+- `X-GitHub-Delivery`를 `github:<delivery-id>` idempotency key로 변환하여 기존
+  PostgreSQL JobStore의 durable unique 제약으로 중복 delivery를 처리한다.
+- webhook HTTP 요청은 GenerationJob 제출만 수행한다. generation, validation, Git
+  작업은 기존의 독립 Worker 경로에서 계속 실행되므로 수평 확장 경계를 유지한다.
+- 유효 서명 push, 재전송 deduplication, 잘못된 서명, 지원하지 않는 event와 허용되지
+  않은 저장소·ref를 검증했다. 전체 pytest는 407 passed, 외부 PostgreSQL 통합 테스트
+  6건은 환경 미설정으로 skip됐고 Ruff 및 CLI `version`도 통과했다.
+
 ## 2026-08-07 Control Plane 서버 실행 진입점 완료
 
 - PostgreSQL JobStore, EventBus, `GenerationSubmissionService`와 기존 인증형

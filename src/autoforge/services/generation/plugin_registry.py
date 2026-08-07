@@ -14,6 +14,11 @@ from autoforge.services.generation.alembic import (
     AlembicBaselineGenerator,
     AlembicEnvironmentGenerator,
 )
+from autoforge.services.generation.ci import (
+    CI_GENERATOR_ID,
+    CI_GENERATOR_VERSION,
+    CIGenerator,
+)
 from autoforge.services.generation.fastapi_module import (
     MODULE_GENERATOR_ID,
     MODULE_GENERATOR_VERSION,
@@ -63,6 +68,18 @@ def create_fastapi_generator_plugins(
     package_name: str,
 ) -> FastAPIGeneratorPlugins:
     project_registry = GeneratorPluginRegistry[ProjectSpec]()
+    project_registry.register(
+        GeneratorPluginAdapter(
+            CIGenerator(),
+            PluginMetadata(
+                name=CI_GENERATOR_ID,
+                version=CI_GENERATOR_VERSION,
+                description="GitHub Actions와 Jenkins 검증 CI Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
     project_registry.register(
         GeneratorPluginAdapter(
             MessagingGenerator(),

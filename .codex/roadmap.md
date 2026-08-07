@@ -107,12 +107,12 @@
 
 ## 8단계 - Webhook과 CI/CD
 
-- [ ] GitHub Webhook 서명 검증
-- [ ] 이벤트 정규화와 중복 방지
-- [ ] HTTP 요청과 분리된 Job 실행
+- [x] GitHub Webhook 서명 검증
+- [x] 이벤트 정규화와 중복 방지
+- [x] HTTP 요청과 분리된 Job 실행
 - [ ] GitHub Actions 및 Jenkins 설정 Generator
 - [ ] Docker Build, Artifact, Deployment Plugin
-- [ ] `infrastructure/webhook/` 구현 디렉터리 생성
+- [x] `infrastructure/http/` GitHub webhook adapter 구현
 
 ## 9단계 - 향후 기능
 
