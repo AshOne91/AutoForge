@@ -11,7 +11,17 @@ from autoforge.composition import ControlPlaneRuntimeSettings
 runner = CliRunner()
 
 
-def _write_config(path: Path, output: Path) -> None:
+def _write_config(path: Path, output: Path, *, git_automation: bool = False) -> None:
+    git_config = (
+        (
+            "git_automation:",
+            "  enabled: true",
+            "  secret_names:",
+            "    git/github/token: GITHUB_TOKEN",
+        )
+        if git_automation
+        else ()
+    )
     path.write_text(
         "\n".join(
             (
@@ -25,6 +35,7 @@ def _write_config(path: Path, output: Path) -> None:
                 "plugins:",
                 "  enabled: []",
             )
+            + git_config
         ),
         encoding="utf-8",
     )
@@ -93,6 +104,54 @@ def test_server_uses_environment_and_validated_project_config(
     assert captured["host"] == "0.0.0.0"
     assert captured["port"] == 9000
     assert "secret" not in result.output
+
+
+def test_server_configures_signed_github_webhook(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    config = tmp_path / "autoforge.yaml"
+    _write_config(config, tmp_path / "output", git_automation=True)
+    captured: dict[str, object] = {}
+
+    async def run_server(
+        runtime_settings: ControlPlaneRuntimeSettings,
+        *,
+        host: str,
+        port: int,
+    ) -> None:
+        del host, port
+        captured["settings"] = runtime_settings
+
+    monkeypatch.setattr(server_command, "_run_server", run_server)
+    result = runner.invoke(
+        app,
+        [
+            "server",
+            "--config",
+            str(config),
+            "--source-root",
+            str(tmp_path),
+            "--github-webhook-secret-environment",
+            "AUTOFORGE_GITHUB_WEBHOOK_SECRET",
+            "--github-webhook-repository",
+            "AshOne91/AutoForge",
+        ],
+        env={
+            "AUTOFORGE_DATABASE_URL": "postgresql+asyncpg://user:secret@db/autoforge",
+            "AUTOFORGE_CONTROL_PLANE_TOKEN": "server-secret",
+            "AUTOFORGE_GITHUB_WEBHOOK_SECRET": "webhook-secret",
+        },
+    )
+
+    assert result.exit_code == 0
+    runtime_settings = captured["settings"]
+    assert isinstance(runtime_settings, ControlPlaneRuntimeSettings)
+    assert runtime_settings.github_webhook is not None
+    assert runtime_settings.github_webhook.allowed_repositories == frozenset(
+        {"AshOne91/AutoForge"}
+    )
+    assert "webhook-secret" not in result.output
 
 
 def test_run_server_closes_runtime_after_uvicorn_stops(

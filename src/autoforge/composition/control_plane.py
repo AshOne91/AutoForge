@@ -13,7 +13,9 @@ from autoforge.application.generation import GenerationSubmissionService
 from autoforge.core.event import EventBus
 from autoforge.infrastructure.http import (
     ControlPlaneHTTPSettings,
+    GitHubWebhookSettings,
     create_control_plane_app,
+    install_github_webhook_route,
 )
 
 
@@ -28,6 +30,7 @@ class ControlPlaneRuntimeSettings:
     source_root: Path
     output_root: Path
     max_request_bytes: int = 4096
+    github_webhook: GitHubWebhookSettings | None = None
 
     def __post_init__(self) -> None:
         if not self.database_url.strip():
@@ -79,23 +82,28 @@ async def create_control_plane_runtime(
                 await runtime.aclose()
 
     try:
-        sessions = sqlalchemy_asyncio.async_sessionmaker(
-            engine, expire_on_commit=False
-        )
+        sessions = sqlalchemy_asyncio.async_sessionmaker(engine, expire_on_commit=False)
         job_store = PostgreSQLJobStore(sessions)
+        service = GenerationSubmissionService(
+            source_root=settings.source_root,
+            output_root=settings.output_root,
+            job_store=job_store,
+            event_bus=EventBus(),
+        )
         app = create_control_plane_app(
-            service=GenerationSubmissionService(
-                source_root=settings.source_root,
-                output_root=settings.output_root,
-                job_store=job_store,
-                event_bus=EventBus(),
-            ),
+            service=service,
             settings=ControlPlaneHTTPSettings(
                 api_token=settings.api_token,
                 max_request_bytes=settings.max_request_bytes,
             ),
             lifespan=lifespan,
         )
+        if settings.github_webhook is not None:
+            install_github_webhook_route(
+                app,
+                service=service,
+                settings=settings.github_webhook,
+            )
         runtime = ControlPlaneRuntime(app=app, database_engine=engine)
         return runtime
     except BaseException:
