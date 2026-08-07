@@ -1,6 +1,7 @@
 from .loader import ConfigLoader
 from .manager import ConfigManager
 from .settings import (
+    GitAutomationConfig,
     LoggingConfig,
     PluginConfig,
     ProjectConfig,
@@ -11,6 +12,7 @@ from .settings import (
 __all__ = [
     "ConfigLoader",
     "ConfigManager",
+    "GitAutomationConfig",
     "LoggingConfig",
     "PluginConfig",
     "ProjectConfig",

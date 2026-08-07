@@ -24,6 +24,8 @@ def test_config_manager_uses_injected_settings() -> None:
     assert manager.workspace.output == "./output"
     assert manager.logging.level == "INFO"
     assert manager.plugins.enabled == []
+    assert manager.git_automation.enabled is False
+    assert manager.git_automation.push_remote_name == "origin"
 
 
 def test_config_manager_loads_explicit_file(tmp_path: Path) -> None:
@@ -64,4 +66,47 @@ def test_settings_reject_unknown_fields() -> None:
     data["unknown"] = True
 
     with pytest.raises(ValidationError, match="unknown"):
+        Settings.model_validate(data)
+
+
+def test_git_automation_config_is_optional_and_validated() -> None:
+    data = settings_data()
+    data["git_automation"] = {
+        "enabled": True,
+        "secret_names": {"git/github/token": "AUTOFORGE_GITHUB_TOKEN"},
+        "github_api_timeout_seconds": 15,
+        "push_remote_name": "origin",
+        "pull_request_base_branch": "main",
+    }
+
+    settings = Settings.model_validate(data)
+
+    assert settings.git_automation.enabled is True
+    assert settings.git_automation.secret_names == {
+        "git/github/token": "AUTOFORGE_GITHUB_TOKEN"
+    }
+    assert settings.git_automation.github_api_timeout_seconds == 15
+
+    data["git_automation"] = {"enabled": True}
+    with pytest.raises(ValidationError, match="secret mapping"):
+        Settings.model_validate(data)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("github_api_timeout_seconds", 0),
+        ("push_remote_name", ""),
+        ("pull_request_base_branch", ""),
+        ("pull_request_title", ""),
+    ),
+)
+def test_git_automation_config_rejects_invalid_values(
+    field: str,
+    value: object,
+) -> None:
+    data = settings_data()
+    data["git_automation"] = {field: value}
+
+    with pytest.raises(ValidationError):
         Settings.model_validate(data)

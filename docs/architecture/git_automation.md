@@ -202,3 +202,15 @@ arguments.
 It is intentionally not a global configuration reader. The future application
 composition root will receive the mapping from deployment configuration and inject
 this provider into both Git checkout/push and Pull Request adapters.
+
+## Configuration model boundary (2026-08-07)
+
+`Settings.git_automation` is optional and disabled by default, so existing
+`autoforge.yaml` files keep their behavior. When enabled, it requires at least one
+explicit secret-reference mapping and validates timeout, remote, and Pull Request
+metadata limits. The mapping contains environment variable names only; it never
+contains resolved secret values.
+
+This model is configuration data, not a composition root. It does not instantiate
+HTTP clients, workers, database stores, or secret providers. Those dependencies will
+be assembled explicitly by the future worker/server entrypoint.

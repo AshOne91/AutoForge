@@ -2,6 +2,7 @@ from pathlib import Path
 
 from autoforge.core.config.loader import ConfigLoader
 from autoforge.core.config.settings import (
+    GitAutomationConfig,
     LoggingConfig,
     PluginConfig,
     ProjectConfig,
@@ -39,3 +40,7 @@ class ConfigManager:
     @property
     def plugins(self) -> PluginConfig:
         return self._settings.plugins
+
+    @property
+    def git_automation(self) -> GitAutomationConfig:
+        return self._settings.git_automation
