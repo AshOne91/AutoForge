@@ -171,3 +171,22 @@ Git automation composition root까지 완료했다. 이전 문단에서 Pull Req
 4. 설정이 비활성화된 로컬 실행과 기존 CLI 호환성을 유지한다.
 
 Webhook, 배포, AI 생성은 이 단계에 포함하지 않는다.
+
+## Current next task (updated after Worker CLI, 2026-08-07)
+
+PostgreSQL 기반 Worker composition과 실제 `autoforge worker` 실행 진입점, 종료
+signal 및 HTTP/DB resource 수명주기 관리는 완료했다. 바로 앞 문단의 worker 항목은
+완료 이력이며 이 문단이 현재 작업을 대체한다.
+
+다음 한정된 단계는 기존 인증형 GenerationJob HTTP API의 Control Plane 서버
+composition과 실행 진입점이다.
+
+1. PostgreSQL engine과 JobStore, EventBus, `GenerationSubmissionService` 및 기존
+   FastAPI app을 조립한다.
+2. API bearer token과 PostgreSQL URL은 명령행 값이 아닌 환경변수 참조로 받는다.
+3. FastAPI/서버 종료 시 DB engine을 명시적으로 dispose한다.
+4. HTTP 요청은 Job 제출만 담당하고 Generation Pipeline은 별도 worker에서 실행하는
+   현재 수평 확장 경계를 유지한다.
+5. 기존 로컬 `generate`, `version`, `plugin`, `worker` 명령 호환성을 검증한다.
+
+Webhook 서명 검증, 배포, AI 생성과 메시지 브로커 확장은 이 단계에 포함하지 않는다.

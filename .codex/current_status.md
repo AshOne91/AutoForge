@@ -1,5 +1,22 @@
 # 현재 상태
 
+## 2026-08-07 영속 Generation Worker 실행 진입점 완료
+
+- PostgreSQL JobStore, EventBus, Generation Pipeline과 Worker Loop를 조립하는
+  `GenerationWorkerRuntime`을 추가했다.
+- Git automation이 활성화된 경우에만 checkout, commit, push와 Pull Request
+  의존성을 worker에 주입한다. 비활성화된 설정은 기존 로컬 GenerationJob 실행을
+  유지한다.
+- runtime은 종료와 조립 실패 모두에서 GitHub HTTP client와 SQLAlchemy async engine을
+  명시적으로 정리하며 중복 종료를 방지한다.
+- `autoforge worker` CLI가 `AUTOFORGE_DATABASE_URL`에서 PostgreSQL URL을 읽고,
+  `--worker-id` 또는 `AUTOFORGE_WORKER_ID`로 수평 확장 인스턴스를 구분한다. DB URL은
+  명령행 인자로 받거나 출력하지 않는다.
+- SIGINT/SIGTERM을 async stop event로 변환해 기존 graceful shutdown 정책을 사용한다.
+- Worker CLI·구성·자원 수명주기 집중 테스트 13개, 전체 397개 pytest와 Ruff를
+  통과했다. 외부 PostgreSQL이 필요한 통합 테스트 6개는 환경 미설정으로 skip됐다.
+- CLI `version`과 `worker --help`를 검증했으며 기존 명령 호환성을 유지한다.
+
 ## 2026-08-03 Secret Provider와 안전한 Git push adapter 기반 완료
 
 - Core에 redacted SecretValue, 안전한 SecretReference와 async SecretProvider 계약을
