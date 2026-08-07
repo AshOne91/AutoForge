@@ -350,3 +350,19 @@ Roadmap과 다음 작업 문서를 확인하고 필요한 패키지와 테스트
 구현과 함께 생성한다.
 
 전체 인수인계 문서는 `docs/PROJECT_GUIDE_2026-07-29.md`를 참고한다.
+## 2026-08-07 GenerationJob push lifecycle completed
+
+- A remote worker can now move from `committing` to `pushing` after creating a
+  validated commit.
+- The worker calls `GitProvider.push_validated()` only for the validated commit and
+  persists `GitPushResult` before moving the Job to `succeeded`.
+- Push failure is persisted as a `failed` Job and emits `GitPushFailedEvent`; it is
+  never recorded as a successful generation.
+- `pushing` is covered by abandoned-lease recovery and by the PostgreSQL status
+  constraint migration `004_job_pushing_status.sql`.
+- Bare-remote tests verify the pushed work branch, event order, persisted result,
+  source branch immutability, and failed-push behavior.
+- Verification: 357 passed and 6 PostgreSQL-dependent tests skipped; CLI reports
+  `AutoForge v0.1.0`.
+- Older entries below are historical completion snapshots. Statements that push
+  is not connected to the worker are superseded by this section.

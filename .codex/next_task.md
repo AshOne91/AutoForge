@@ -145,3 +145,14 @@ transport이며 EventBus를 대체하지 않는다.
 
 빈 미래 디렉터리를 미리 만들지 않는다. 각 단계에 진입할 때 구현 파일과 테스트를
 함께 생성하고, KIS 실제 사용 사례로 계약을 검증한다.
+## Current next task (updated 2026-08-07)
+
+The `pushing` lifecycle, `GitPushResult` persistence, worker-to-push-adapter
+connection, failure events, abandoned-job recovery, and PostgreSQL status migration
+are complete.
+
+The next bounded Git-automation step is to define and verify the Pull Request
+contract and protected-branch policy. Do not implement webhook, deployment, or AI
+generation as part of that step. The older sequential checklist below is retained
+as implementation history and is superseded where it still labels push work as
+pending.

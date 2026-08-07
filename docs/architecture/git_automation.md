@@ -112,3 +112,21 @@ push 실패가 성공 Job으로 기록되지 않도록 한 뒤 연결한다.
 - 원격 worker의 push 상태와 adapter 연결
 - Pull Request adapter
 - force push 금지, protected branch와 fork/PR 정책
+## Implementation status update (2026-08-07)
+
+The worker integration described as future work in the historical text below is
+now implemented. After a validated commit is created, a configured remote worker
+persists `pushing`, calls `push_validated()`, and then persists either:
+
+- `succeeded` with `GitPushResult`, or
+- `failed` with the push error type.
+
+The worker emits `GitPushStartedEvent`, `GitPushCompletedEvent`, and
+`GitPushFailedEvent`. PostgreSQL deployments add the state through
+`004_job_pushing_status.sql`, and abandoned `pushing` leases are recovered as
+failed Jobs. Workers without push settings preserve the existing commit-only or
+validation-only behavior.
+
+The remaining Git-automation scope starts at the Pull Request contract and its
+protected-branch policy. Statements below saying that push is not connected to the
+worker are retained only as historical context and are superseded by this update.

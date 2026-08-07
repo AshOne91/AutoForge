@@ -125,3 +125,6 @@ Plugin, Metadata, EventBus, Pipeline, Git 및 CI/CD는 AutoForge 최종 구조�
 
 빈 디렉터리는 구조를 미리 보이기 위한 용도로 유지하지 않는다. 각 단계의
 구현을 시작할 때 필요한 소스와 테스트 디렉터리를 파일과 함께 생성한다.
+> Status update (2026-08-07): the non-force Push adapter and its GenerationJob
+> `pushing` lifecycle integration are complete. In the combined "Push and Pull
+> Request" item below, only Pull Request automation remains incomplete.
