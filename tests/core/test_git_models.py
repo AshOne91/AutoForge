@@ -9,9 +9,14 @@ from autoforge.core.git import (
     GitCommitRequest,
     GitCommitResult,
     GitProvider,
+    GitPullRequestPolicy,
+    GitPullRequestRequest,
+    GitPullRequestResult,
     GitPushRequest,
     GitPushResult,
+    PullRequestProvider,
 )
+from autoforge.core.secret import SecretReference
 from autoforge.core.workspace import Workspace
 
 
@@ -43,6 +48,20 @@ class StubGitProvider:
             branch_name=request.branch_name,
             remote_url="https://github.com/example/repo.git",
             pushed=False,
+        )
+
+
+class StubPullRequestProvider:
+    async def create_or_get(
+        self, request: GitPullRequestRequest
+    ) -> GitPullRequestResult:
+        return GitPullRequestResult(
+            pull_request_id="42",
+            url="https://github.com/example/repo/pull/42",
+            head_sha=request.expected_head_sha,
+            head_branch=request.head_branch,
+            base_branch=request.base_branch,
+            created=False,
         )
 
 
@@ -87,3 +106,69 @@ def test_git_commit_request_normalizes_and_rejects_unsafe_paths() -> None:
             author_email="autoforge@example.invalid",
             allowed_paths=(PurePosixPath("same.py"), PurePosixPath("same.py")),
         )
+
+
+@pytest.mark.anyio
+async def test_pull_request_contract_is_separate_from_git_process_provider() -> None:
+    provider: PullRequestProvider = StubPullRequestProvider()
+    request = GitPullRequestRequest(
+        repository_url="https://github.com/example/repo.git",
+        expected_head_sha="a" * 40,
+        head_branch="autoforge/job-1",
+        base_branch="main",
+        title="Generate service",
+        credential=SecretReference("git/github/token"),
+    )
+    result = await provider.create_or_get(request)
+
+    assert result.pull_request_id == "42"
+    assert result.created is False
+    assert result.head_sha == request.expected_head_sha
+    assert request.credential == SecretReference("git/github/token")
+
+
+def test_pull_request_policy_allows_only_work_branches_into_protected_base() -> None:
+    policy = GitPullRequestPolicy()
+
+    policy.validate_branches(
+        head_branch="autoforge/job-1",
+        base_branch="main",
+    )
+
+    with pytest.raises(ValueError, match="head and base"):
+        policy.validate_branches(head_branch="main", base_branch="main")
+    with pytest.raises(ValueError, match="head branch is not allowed"):
+        policy.validate_branches(head_branch="feature/manual", base_branch="main")
+    with pytest.raises(ValueError, match="base branch is not allowed"):
+        policy.validate_branches(
+            head_branch="autoforge/job-1",
+            base_branch="develop",
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    (
+        ("repository_url", "", "repository_url"),
+        ("expected_head_sha", "not-a-sha", "expected_head_sha"),
+        ("head_branch", "--unsafe", "head_branch"),
+        ("base_branch", "", "base_branch"),
+        ("title", " ", "title"),
+    ),
+)
+def test_pull_request_request_rejects_invalid_values(
+    field: str,
+    value: str,
+    message: str,
+) -> None:
+    values = {
+        "repository_url": "https://github.com/example/repo.git",
+        "expected_head_sha": "a" * 40,
+        "head_branch": "autoforge/job-1",
+        "base_branch": "main",
+        "title": "Generate service",
+    }
+    values[field] = value
+
+    with pytest.raises(ValueError, match=message):
+        GitPullRequestRequest(**values)

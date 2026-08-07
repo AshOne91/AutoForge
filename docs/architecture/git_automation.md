@@ -130,3 +130,38 @@ validation-only behavior.
 The remaining Git-automation scope starts at the Pull Request contract and its
 protected-branch policy. Statements below saying that push is not connected to the
 worker are retained only as historical context and are superseded by this update.
+## Pull Request contract boundary (2026-08-07)
+
+Pull Request creation belongs to a hosting-service API, not to the local Git
+process adapter. `GitProvider` therefore remains responsible only for checkout,
+validated commit, and validated push. The independent `PullRequestProvider`
+contract creates or returns the existing matching Pull Request.
+
+`GitPullRequestRequest` carries the repository URL, expected remote head SHA, head
+and base branches, title, body, and a secret reference. It never carries the token
+value. `GitPullRequestPolicy` permits only configured generated-branch prefixes as
+heads and configured protected branches as bases. The head and base must differ.
+
+`create_or_get()` intentionally defines idempotent behavior. A hosting adapter must
+verify that the remote head branch still points to `expected_head_sha`, return an
+existing open Pull Request for the same head/base pair when present, and create a
+new one only when none exists. The concrete GitHub HTTP adapter and GenerationJob
+state integration are separate follow-up steps.
+## GitHub Pull Request adapter boundary (2026-08-07)
+
+`GitHubPullRequestProvider` implements the hosting-service contract through an
+injected async `GitHubApiClient`. The adapter validates the generated head and
+protected base policy before resolving credentials, verifies the remote head ref
+against the expected commit SHA, searches for an existing open head/base Pull
+Request, and creates one only when none exists.
+
+The adapter treats a create-time HTTP 422 as a possible concurrent creation and
+queries once more. It succeeds only when that query returns the exact requested
+head branch, base branch, and head SHA. All other malformed, ambiguous, stale, or
+unexpected responses fail closed. The API token is resolved immediately before
+the calls and appears only in the authorization header supplied to the transport.
+
+The current transport is an injected Protocol tested with scripted responses; no
+production HTTP client or live GitHub request is enabled yet. This keeps API logic
+testable without network access and leaves timeout, TLS, proxy, and retry policy to
+the concrete transport step.

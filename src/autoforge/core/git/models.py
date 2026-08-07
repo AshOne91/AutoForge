@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
@@ -116,3 +117,84 @@ class GitPushResult:
     branch_name: str
     remote_url: str
     pushed: bool
+
+
+_COMMIT_SHA = re.compile(r"[0-9a-fA-F]{40,64}")
+
+
+@dataclass(frozen=True, slots=True)
+class GitPullRequestPolicy:
+    allowed_head_branch_prefixes: tuple[str, ...] = ("autoforge/",)
+    allowed_base_branches: frozenset[str] = frozenset({"main", "master"})
+
+    def __post_init__(self) -> None:
+        if not self.allowed_head_branch_prefixes or any(
+            not prefix
+            or prefix != prefix.strip()
+            or not prefix.endswith("/")
+            or prefix.startswith(("-", "/"))
+            for prefix in self.allowed_head_branch_prefixes
+        ):
+            raise ValueError("Git pull request head branch prefixes are invalid")
+        if not self.allowed_base_branches or any(
+            not branch or branch != branch.strip()
+            for branch in self.allowed_base_branches
+        ):
+            raise ValueError("Git pull request base branches are invalid")
+
+    def validate_branches(self, *, head_branch: str, base_branch: str) -> None:
+        if head_branch == base_branch:
+            raise ValueError("Git pull request head and base branches must differ")
+        if head_branch in self.allowed_base_branches:
+            raise ValueError("Git pull request head branch must not be protected")
+        if not any(
+            head_branch.startswith(prefix)
+            for prefix in self.allowed_head_branch_prefixes
+        ):
+            raise ValueError("Git pull request head branch is not allowed")
+        if base_branch not in self.allowed_base_branches:
+            raise ValueError("Git pull request base branch is not allowed")
+
+
+@dataclass(frozen=True, slots=True)
+class GitPullRequestRequest:
+    repository_url: str
+    expected_head_sha: str
+    head_branch: str
+    base_branch: str
+    title: str
+    body: str = ""
+    credential: SecretReference | None = None
+
+    def __post_init__(self) -> None:
+        if (
+            not self.repository_url
+            or self.repository_url != self.repository_url.strip()
+        ):
+            raise ValueError("Git pull request repository_url is invalid")
+        if _COMMIT_SHA.fullmatch(self.expected_head_sha) is None:
+            raise ValueError("Git pull request expected_head_sha is invalid")
+        for name, value in (
+            ("head_branch", self.head_branch),
+            ("base_branch", self.base_branch),
+        ):
+            if not value or value != value.strip() or value.startswith("-"):
+                raise ValueError(f"Git pull request {name} is invalid")
+        if (
+            not self.title
+            or self.title != self.title.strip()
+            or len(self.title) > 256
+        ):
+            raise ValueError("Git pull request title is invalid")
+        if len(self.body) > 65_536:
+            raise ValueError("Git pull request body is too long")
+
+
+@dataclass(frozen=True, slots=True)
+class GitPullRequestResult:
+    pull_request_id: str
+    url: str
+    head_sha: str
+    head_branch: str
+    base_branch: str
+    created: bool

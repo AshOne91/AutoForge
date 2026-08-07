@@ -5,10 +5,13 @@ from autoforge.core.git.models import (
     GitCommitRequest,
     GitCommitResult,
     GitCredentialReference,
+    GitPullRequestPolicy,
+    GitPullRequestRequest,
+    GitPullRequestResult,
     GitPushRequest,
     GitPushResult,
 )
-from autoforge.core.git.provider import GitProvider
+from autoforge.core.git.provider import GitProvider, PullRequestProvider
 
 __all__ = [
     "GitCheckoutPolicy",
@@ -18,6 +21,10 @@ __all__ = [
     "GitCommitResult",
     "GitCredentialReference",
     "GitProvider",
+    "GitPullRequestPolicy",
+    "GitPullRequestRequest",
+    "GitPullRequestResult",
     "GitPushRequest",
     "GitPushResult",
+    "PullRequestProvider",
 ]

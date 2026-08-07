@@ -5,6 +5,8 @@ from autoforge.core.git.models import (
     GitCheckoutResult,
     GitCommitRequest,
     GitCommitResult,
+    GitPullRequestRequest,
+    GitPullRequestResult,
     GitPushRequest,
     GitPushResult,
 )
@@ -23,3 +25,9 @@ class GitProvider(Protocol):
     async def push_validated(
         self, request: GitPushRequest, *, workspace: Workspace
     ) -> GitPushResult: ...
+
+
+class PullRequestProvider(Protocol):
+    async def create_or_get(
+        self, request: GitPullRequestRequest
+    ) -> GitPullRequestResult: ...
