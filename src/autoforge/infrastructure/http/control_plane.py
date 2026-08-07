@@ -1,6 +1,7 @@
+from collections.abc import Callable
 from dataclasses import dataclass
 from secrets import compare_digest
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -54,8 +55,13 @@ def create_control_plane_app(
     *,
     service: GenerationSubmissionService,
     settings: ControlPlaneHTTPSettings,
+    lifespan: Callable[[FastAPI], Any] | None = None,
 ) -> FastAPI:
-    app = FastAPI(title="AutoForge Control Plane", version="0.1.0")
+    app = FastAPI(
+        title="AutoForge Control Plane",
+        version="0.1.0",
+        lifespan=lifespan,
+    )
     bearer = HTTPBearer(auto_error=False)
 
     async def require_authentication(
