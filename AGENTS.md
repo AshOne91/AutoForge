@@ -1,68 +1,76 @@
-# AutoForge Agent Instructions
+﻿# AutoForge Agent Instructions
 
-## Required reading order
+## Project role
 
-Before modifying code, read these files in order:
+AutoForge is the primary project in this workspace.
 
-1. `.codex/bootstrap.md`
-2. `.codex/project_context.md`
-3. `.codex/current_status.md`
-4. `.codex/architecture.md`
-5. `.codex/development_rules.md`
-6. `.codex/coding_style.md`
-7. `.codex/common_tool_analysis.md`
-8. `.codex/roadmap.md`
-9. `.codex/next_task.md`
+`kis-auto-trading` is a consumer/validation project. If a defect in KIS originates
+from generated code, templates, manifests, or generator behavior, fix AutoForge
+first instead of patching generated-owned output directly.
 
-## Project constraints
+## Core rules
 
-- Do not redesign the architecture without explicit approval.
-- Do not add unrelated features.
-- Keep changes small and reviewable.
-- Use Python 3.12.
-- Use the `src` package layout.
-- Use pytest for tests.
-- Use type hints.
+- Use Python 3.12 and the `src` package layout.
+- Use pytest and type hints.
+- Preserve async-first behavior where relevant.
 - Prefer composition over inheritance.
-- Keep async-first behavior where asynchronous work is relevant.
-- Do not introduce global mutable state.
-- Do not use `print()` in production code; use logging.
-- Do not implement webhook, Git automation, AI generation, or pipeline functionality before the current stabilization work is complete.
-- Preserve existing public APIs unless a change is explicitly approved.
+- Avoid global mutable state.
+- Use logging instead of `print()` in production code.
+- Preserve public contracts unless explicitly approved.
+- Keep changes small, bounded, and reviewable.
+- Do not redesign unrelated architecture or add unrelated features.
 
-## Token and context efficiency
+## Context efficiency
 
-- Prefer Serena semantic tools for source exploration: symbol overview, symbol lookup, references, then only the required symbol bodies.
-- Do not read an entire large source file when a targeted symbol body is sufficient.
-- Use repository-wide text search only when semantic tools cannot locate the target; expand the search scope gradually.
-- Do not repeatedly read code that is already present in the current context.
-- Exclude unrelated or generated paths unless required: `.git`, `.venv`, `__pycache__`, `.pytest_cache`, `build`, `dist`, `coverage`, and generated artifacts.
-- For bugs, begin with the exact error, failing test, symbol, or call path.
+Do not read the whole repository or all `.codex` documents by default.
 
-## Model routing gate
+Explore in this order:
 
-- Before starting a new implementation or code-changing task, evaluate the task against the model and reasoning level currently active in the session.
-- Report the routing decision first using the format from `docs/development/model_routing.md`.
-- The agent cannot change the session setting itself; it may only recommend `UPGRADE`, `DOWNGRADE`, or `KEEP`.
-- If the current setting is suitable and the user has already said to proceed, continue without asking for duplicate approval.
+1. exact request, error, or failing test
+2. relevant symbol
+3. references
+4. relevant symbol bodies or small file sections
+5. broader search only when required
 
-## Required workflow
+Prefer Serena symbol/reference lookup when it is narrower than whole-file reading.
+Do not reread information already present in context.
 
-Before editing:
+Files under `.codex/` are reference material. Read only the specific document
+needed for the current task.
 
-1. Inspect the repository tree.
-2. Read `pyproject.toml`.
-3. Run `git status`.
-4. Run `pytest`.
-5. Explain the current failures.
-6. Propose a minimal plan.
-7. Wait for approval before broad refactoring.
+## Model routing
 
-After editing:
+For substantial code-changing, debugging, or architectural tasks, use the
+`model-routing` Skill under `.agents/skills/model-routing/`.
 
-1. Run the relevant focused tests.
-2. Run the full `pytest` suite.
-3. Run `python -m autoforge.main version`.
-4. Show changed files.
-5. Summarize remaining issues.
-6. Do not commit or push unless explicitly requested.
+Do not load it merely for trivial reading, explanation, or mechanical edits when
+routing is unnecessary.
+
+The agent may recommend KEEP, DOWNGRADE, or UPGRADE, but cannot silently change
+the user's current model or reasoning setting.
+
+## Testing
+
+Verify the smallest useful scope first:
+
+focused test
+→ affected module tests
+→ integration tests when relevant
+→ full suite only when regression risk warrants it
+
+Every behavioral change requires appropriate verification.
+
+## Git safety
+
+Before modifying code, check `git status` and preserve unrelated user changes.
+
+Do not commit, push, stash, reset, restore, or rewrite history unless explicitly
+requested.
+
+After changes, report changed files, verification performed, and remaining issues.
+
+## Specialized workflows
+
+Keep this file short.
+
+Put specialized procedures in `.agents/skills/` and load them only when relevant.
