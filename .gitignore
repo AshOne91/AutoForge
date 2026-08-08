@@ -1,4 +1,4 @@
-__pycache__/
+﻿__pycache__/
 *.py[cod]
 
 .pytest_cache/
@@ -11,7 +11,6 @@ __pycache__/
 .vscode/
 .idea/
 .obsidian/
-.serena/
 
 dist/
 build/
@@ -44,5 +43,7 @@ logs/
 
 output/
 
-# AutoForge가 생성 프로젝트에 기록하는 로컬 작업 산출물
+# AutoForge媛 ?앹꽦 ?꾨줈?앺듃??湲곕줉?섎뒗 濡쒖뺄 ?묒뾽 ?곗텧臾?
 .autoforge/
+# Added by code-review-graph
+.code-review-graph/
