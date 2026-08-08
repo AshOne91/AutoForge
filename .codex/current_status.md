@@ -1,447 +1,52 @@
-# 현재 상태
+# Current Status
 
-## 2026-08-07 검증 CI 설정 Generator 완료
+## Stable foundation
 
-- `ProjectSpec.tooling.ci`에 선택적 CI 명세를 추가해 GitHub Actions와 Jenkins가
-  공통으로 표현할 수 있는 최소 검증 워크플로를 생성한다.
-- 생성물은 테스트와 정적 검사까지만 수행하고, production 배포 권한이나 cloud
-  secret은 포함하지 않는다.
-- CI 명세가 비어 있으면 기존 프로젝트 출력은 바꾸지 않는다.
-- 전체 pytest는 410 passed, 외부 PostgreSQL 통합 테스트 6건은 환경 미설정으로 skip,
-  그리고 `python -m autoforge.main version`도 통과했다.
+AutoForge currently has working foundations for:
 
-## 2026-08-07 Docker Build 계약 문서화 완료
+- specification and generation contracts
+- manifest and file ownership
+- isolated workspaces
+- validation/build pipeline
+- generator and validator plugins
+- PostgreSQL-oriented database generation
+- Redis and RabbitMQ integration foundations
+- Transactional Outbox
+- EventBus and ordered Pipeline execution
+- durable GenerationJob processing
+- PostgreSQL JobStore and worker leasing
+- isolated Git checkout
+- safe branch/commit/push/Pull Request automation
+- authenticated Control Plane API
+- persistent worker/server entry points
+- GitHub webhook verification and delivery deduplication
+- GitHub Actions/Jenkins validation configuration generation
 
-- `docs/architecture/docker_build_contract.md`에 build-only Docker Plugin의 책임과
-  비책임 범위를 문서화했다.
-- Artifact publishing, 배포, 클라우드 자격 증명, 인프라 프로비저닝은 Docker Build
-  범위에서 제외했다.
-- 실제 Dockerfile Generator 구현과 이미지 빌드는 후속 단계로 남겼다.
+## Docker work
 
-## 2026-08-07 GitHub Webhook 수신 경계 완료
+The build-only Docker contract is documented.
 
-- `POST /v1/webhooks/github`는 raw request body와 `X-Hub-Signature-256`의
-  HMAC-SHA256을 비교해 서명된 GitHub delivery만 수락한다.
-- 서버 CLI는 webhook secret을 환경변수에서만 읽으며, 허용 저장소와 branch ref를
-  명시적으로 제한한다. Git automation 설정이 비활성화된 경우 webhook을 켤 수 없다.
-- `X-GitHub-Delivery`를 `github:<delivery-id>` idempotency key로 변환하여 기존
-  PostgreSQL JobStore의 durable unique 제약으로 중복 delivery를 처리한다.
-- webhook HTTP 요청은 GenerationJob 제출만 수행한다. generation, validation, Git
-  작업은 기존의 독립 Worker 경로에서 계속 실행되므로 수평 확장 경계를 유지한다.
-- 유효 서명 push, 재전송 deduplication, 잘못된 서명, 지원하지 않는 event와 허용되지
-  않은 저장소·ref를 검증했다. 전체 pytest는 407 passed, 외부 PostgreSQL 통합 테스트
-  6건은 환경 미설정으로 skip됐고 Ruff 및 CLI `version`도 통과했다.
+The next implementation is a minimal optional Dockerfile Generator.
 
-## 2026-08-07 Control Plane 서버 실행 진입점 완료
+A Dockerfile Generator WIP exists separately from the tooling changes and has
+previously passed its focused test set.
 
-- PostgreSQL JobStore, EventBus, `GenerationSubmissionService`와 기존 인증형
-  FastAPI API를 조립하는 `ControlPlaneRuntime`을 추가했다.
-- `autoforge server`는 HTTP 요청에서 GenerationJob만 제출·조회하며, 생성 Pipeline은
-  별도 `autoforge worker` 프로세스가 처리한다. HTTP 서버와 Worker의 수평 확장 경계를
-  유지한다.
-- PostgreSQL URL과 API bearer token은 각각 `AUTOFORGE_DATABASE_URL`,
-  `AUTOFORGE_CONTROL_PLANE_TOKEN` 환경변수에서만 읽는다. 명령행·도움말·결과에는
-  실제 비밀값을 출력하지 않는다.
-- FastAPI lifespan과 Uvicorn 종료 경로 모두에서 SQLAlchemy async engine을
-  idempotent하게 dispose한다.
-- Control Plane composition·CLI·기존 HTTP API 집중 테스트 9개, 전체 403개 pytest와
-  Ruff를 통과했다. 외부 PostgreSQL 통합 테스트 6개는 환경 미설정으로 skip됐다.
-- CLI `version`, `server --help`를 검증했으며 기존 `generate`, `plugin`, `worker`
-  명령 호환성을 유지한다.
+Artifact publishing, deployment, cloud credentials, Kubernetes, and Compose are
+outside this bounded Dockerfile task.
 
-## 2026-08-07 영속 Generation Worker 실행 진입점 완료
+## Development tooling
 
-- PostgreSQL JobStore, EventBus, Generation Pipeline과 Worker Loop를 조립하는
-  `GenerationWorkerRuntime`을 추가했다.
-- Git automation이 활성화된 경우에만 checkout, commit, push와 Pull Request
-  의존성을 worker에 주입한다. 비활성화된 설정은 기존 로컬 GenerationJob 실행을
-  유지한다.
-- runtime은 종료와 조립 실패 모두에서 GitHub HTTP client와 SQLAlchemy async engine을
-  명시적으로 정리하며 중복 종료를 방지한다.
-- `autoforge worker` CLI가 `AUTOFORGE_DATABASE_URL`에서 PostgreSQL URL을 읽고,
-  `--worker-id` 또는 `AUTOFORGE_WORKER_ID`로 수평 확장 인스턴스를 구분한다. DB URL은
-  명령행 인자로 받거나 출력하지 않는다.
-- SIGINT/SIGTERM을 async stop event로 변환해 기존 graceful shutdown 정책을 사용한다.
-- Worker CLI·구성·자원 수명주기 집중 테스트 13개, 전체 397개 pytest와 Ruff를
-  통과했다. 외부 PostgreSQL이 필요한 통합 테스트 6개는 환경 미설정으로 skip됐다.
-- CLI `version`과 `worker --help`를 검증했으며 기존 명령 호환성을 유지한다.
+Repository navigation and cost-control tooling is maintained through:
 
-## 2026-08-03 Secret Provider와 안전한 Git push adapter 기반 완료
+- `AGENTS.md`
+- `.agents/skills/`
+- Serena
+- code-review-graph
+- Ponytail LITE
 
-- Core에 redacted SecretValue, 안전한 SecretReference와 async SecretProvider 계약을
-  추가했다. Job과 Git 요청에는 실제 token 대신 참조 이름만 저장한다.
-- HTTPS credential은 실행 직전에 resolve하고, secret이 없는 일회용 askpass helper와
-  process environment로 전달한다. URL·command tuple·helper 파일에는 token을 넣지 않고
-  helper는 Git 명령 직후 삭제한다.
-- push adapter는 expected commit SHA와 현재 branch를 fencing하고 허용된 작업 branch
-  prefix만 non-force push한다. main/master 보호 branch는 실행 전에 거부한다.
-- 동일 remote SHA는 멱등 성공으로 처리하고 non-fast-forward는 실패로 전파한다.
-- 실제 bare remote와 기록용 runner 테스트에서 push, 멱등 재호출, 보호 branch와 이력
-  충돌 거부 및 credential 비노출을 검증했다.
-- PostgreSQL 통합 테스트를 포함한 전체 362개 pytest, Ruff와 CLI 검증을 통과했다.
-- worker 연결은 다음 `pushing` 수명주기 단계에서 수행한다.
+Detailed tool procedures belong in Skills, not in `.codex` reference documents.
 
-## 2026-08-03 원격 GenerationJob 검증 후 Git commit 연결 완료
+## Verification policy
 
-- Git commit 설정이 주입된 원격 worker는 검증 후 Job을 `committing`으로 저장한다.
-  로컬 CLI와 설정이 없는 worker의 기존 검증 완료 동작은 유지한다.
-- manifest의 created/changed 파일과 `.autoforge/manifest.json`만 commit allowlist로
-  계산한다. 검증기나 외부 도구가 만든 예상 밖 변경은 branch 생성 전에 거부한다.
-- commit 성공 결과의 SHA, branch, 변경 경로와 생성 여부를 succeeded Job에 저장한다.
-  실패는 먼저 failed Job으로 저장한 뒤 GitCommitFailedEvent를 발행한다.
-- committing lease가 만료되면 기존 generating/validating과 동일하게 안전한 재개가
-  불가능하므로 `JobLeaseExpired` failed로 복구한다.
-- PostgreSQL status check 확장은 `003_job_committing_status.sql` migration이 소유한다.
-- 실제 PostgreSQL 16에 migration을 적용하고 committing 상태와 commit 결과 JSONB 왕복을
-  포함한 제어면 통합 테스트 6개를 통과했다.
-- 실제 생성 repository 종단 테스트에서 성공 commit, 이벤트 순서, 원본 불변과 예상 밖
-  변경 거부·실패 상태를 검증했다.
-- PostgreSQL 통합 테스트를 포함한 전체 357개 pytest, Ruff와 CLI 버전 검증을 통과했다.
-
-## 2026-08-03 검증된 Git branch/commit adapter 기반 완료
-
-- Core에 예상 base SHA, branch, message, author, 선택적 signing fingerprint와 변경 경로
-  allowlist를 가진 `GitCommitRequest/Result` 계약을 추가했다.
-- Subprocess adapter는 HEAD fencing과 전체 working tree 변경 검사를 먼저 수행한다.
-  allowlist 밖 변경, rename/copy와 위험한 branch 입력은 branch 생성 전에 거부한다.
-- 검증된 경로만 stage하고 staged path 집합을 다시 비교한 뒤 commit한다. 변경이 없으면
-  불필요한 branch나 빈 commit을 만들지 않는다.
-- 실제 Git repository에서 허용 경로만 commit, 예상 밖 변경과 잘못된 base/branch 거부,
-  author 적용, clean 결과와 원본 repository 불변을 검증했다.
-- 후속 단계에서 `committing` 상태와 원격 worker 연결을 완료했다.
-
-## 2026-08-03 원격 GenerationJob 격리 실행 완료
-
-- trigger submission에 repository URL과 revision 쌍을 추가했다. 원격 요청은 HTTP 처리
-  중 파일을 읽지 않고 unit이 없는 pending Job으로 원자적으로 저장한다.
-- worker가 Job별 IsolatedWorkspace에 exact commit을 checkout한 뒤 명세를 읽고 unit,
-  specification hash와 resolved commit SHA를 lease가 유지된 상태에서 확정한다.
-- 계획이 확정된 동일 checkout 안에서만 Generation/Validation Pipeline을 실행한다.
-  재실행 시에는 움직일 수 있는 branch 이름보다 저장된 commit SHA를 우선한다.
-- 성공 Workspace는 정리하고 실패 Workspace는 운영 설정에 따라 보존한다. Windows의
-  읽기 전용 Git object도 정리할 수 있다.
-- 실제 로컬 Git repository를 사용하는 성공·실패 테스트에서 원본 working tree가
-  변하지 않고, 성공 시 격리 공간 삭제와 실패 시 보존이 적용됨을 검증했다.
-- 전체 344개 테스트 통과, PostgreSQL 환경이 필요한 통합 테스트 5개 skip, Ruff 경고
-  0개와 CLI `AutoForge v0.1.0`을 확인했다.
-- branch와 검증된 commit은 구현했다. push와 Pull Request는 아직 구현하지 않았다.
-
-## 2026-08-03 안전한 Git checkout Provider 기반 완료
-
-- Core에 GitCheckoutRequest/Result와 infrastructure-independent GitProvider Protocol을
-  추가했다.
-- Subprocess adapter가 shell 없이 clone하고 revision을 commit SHA로 확정한 뒤 detached
-  checkout과 clean working tree를 검증한다.
-- 운영 URL은 HTTPS/canonical SSH, host allowlist와 credential 비포함 규칙을 적용한다.
-  local repository는 명시된 test root 내부에서만 허용한다.
-- system/global Git config와 interactive credential prompt를 비활성화한다.
-- destination은 Workspace 상대경로만 허용하며 기존 경로를 덮어쓰지 않는다.
-- 실제 로컬 Git repository에서 정확한 commit, clean checkout, 원본 저장소 무변경과
-  URL/ref/path 공격 입력 거부를 검증했다.
-- repository/ref submission과 branch/commit 연결은 후속 단계에서 완료했다. push와
-  Pull Request는 아직 구현하지 않았다.
-
-## 2026-08-03 worker 운영 loop와 graceful shutdown 완료
-
-- `GenerationWorkerLoop`가 idle polling, 오류 backoff, 주기적 abandoned sweep와 누적
-  실행 결과를 조정한다.
-- idle 대기는 stop event와 timeout을 함께 기다려 busy polling하지 않는다.
-- 종료 요청이 들어오면 새 claim을 중단하고 현재 Job에 설정된 grace period를 준다.
-  grace 초과 시 Pipeline과 heartbeat task를 취소하되 lease를 임의로 해제하지 않는다.
-- 취소된 실행은 다른 worker가 만료 전 상태를 덮어쓸 수 없고, lease 만료 후 기존
-  pending takeover 또는 generating/validating failed 복구 규칙을 따른다.
-- SIGINT/SIGTERM adapter는 OS signal을 async stop event로 변환하며 context 종료 시
-  기존 signal handler를 복원한다.
-- 실제 PostgreSQL 16에서 validating 중 종료 유예 초과, task 취소, lease 보존과
-  만료 후 `JobLeaseExpired` failed 복구까지 검증했다.
-- 다음 단계는 Git checkout 기반의 Job별 격리 Workspace다.
-
-## 2026-08-03 lease worker와 Generation Pipeline 연결 완료
-
-- `GenerationWorker.run_once()`가 pending Job 하나를 claim하고 submission 상대경로를
-  주입된 source/output root의 실제 경로로 복원한다.
-- claimed 전용 Pipeline 경로가 저장된 specification hash와 현재 명세를 다시 비교한 뒤
-  Generate → Validate를 실행한다. 기존 CLI `run()` API는 그대로 유지한다.
-- 모든 worker 상태 전이는 lease token으로 fencing하며, Pipeline 실행과 heartbeat를
-  동시에 조정한다. heartbeat 상실 시 실행을 취소하고 stale worker 쓰기를 금지한다.
-- 동기 Generator 렌더링·파일 적용은 `asyncio.to_thread()`에서 실행해 event loop의
-  heartbeat와 cancellation을 막지 않는다.
-- 입력이 사라지거나 제출 후 명세가 바뀌면 pending Job을 명시적으로 failed 처리한다.
-- InMemory에서 lease보다 긴 실행의 heartbeat 유지와 worker 2대 단일 실행을 검증했고,
-  실제 PostgreSQL 16에서도 서로 다른 store·Pipeline·worker 2대 중 하나만 생성하고
-  succeeded terminal 전이에서 lease가 정리되는 것을 검증했다.
-- 다음 단계는 worker 장기 실행 loop와 graceful shutdown 운영 adapter다.
-
-## 2026-08-03 GenerationJob lease와 fencing 완료
-
-- JobStore 계약에 pending claim, heartbeat, release와 abandoned 복구를 추가했다.
-- lease는 worker ID, 매 claim마다 새로 발급되는 token, PostgreSQL 기준 만료 시각과
-  heartbeat 시각을 저장한다.
-- 상태 CAS에 유효한 lease token 조건을 함께 적용해 만료된 worker의 늦은 쓰기를
-  차단한다.
-- pending Job만 만료 후 다른 worker가 takeover한다. generating/validating 중 만료된
-  Job은 부분 파일을 안전하게 이어 쓸 수 없으므로 `JobLeaseExpired` failed로 복구한다.
-- PostgreSQL은 `FOR UPDATE SKIP LOCKED`와 조건부 UPDATE로 worker 경쟁을 조정한다.
-- 실제 PostgreSQL 16에서 단일 claim, heartbeat, 만료 takeover, stale token fencing과
-  abandoned failed 복구를 검증했다.
-- 다음 단계는 lease를 보유한 worker가 HTTP 요청 밖에서 기존 Generation Pipeline을
-  실행하도록 연결하는 것이다.
-
-## 2026-08-03 인증된 GenerationJob 제출 API 완료
-
-- `GenerationJobSubmission`이 source/output root 기준 상대경로를 Job snapshot에 저장해
-  다른 worker가 재시작 후에도 실행 입력을 복원할 수 있게 했다.
-- Application service가 명세를 먼저 검증하고 Job unit hash를 만든 뒤 idempotency key로
-  원자적 claim한다. 같은 key의 경로 또는 명세가 달라지면 충돌로 거부한다.
-- FastAPI adapter는 Bearer token, 1~255자 `Idempotency-Key`, 4 KiB 기본 streaming
-  body 제한과 root 이탈 방지를 적용한다.
-- POST는 신규 Job에 202, 동일 요청 재전달에 200, key 재사용 충돌에 409를 반환하고,
-  GET은 저장된 Job 상태를 조회한다.
-- 서로 다른 FastAPI 앱 2개가 실제 PostgreSQL 16에 동시에 같은 요청을 제출해도
-  202 응답과 Job row가 하나만 생성되는 것을 검증했다.
-- HTTP 요청 안에서는 생성 Pipeline을 실행하지 않는다. 다음 단계는 lease 기반 worker
-  claim, heartbeat와 abandoned Job 복구다.
-
-## 2026-08-03 PostgreSQL Control Plane 기반 완료
-
-- SQLAlchemy/asyncpg를 로컬 CLI 필수가 아닌 `server` optional extra로 분리했다.
-- PostgreSQLJobStore가 JSONB Job snapshot, unique idempotency key, status CAS와
-  revision 증가를 구현한다.
-- PostgreSQLAuditSink가 envelope-only audit를 event_id 기준으로 중복 없이 append한다.
-- schema는 runtime create_all이 아니라 버전 관리되는 `001_control_plane.sql` baseline과
-  `002_job_leases.sql` migration이 소유한다.
-- 실제 PostgreSQL 16에서 동시 claim 2건 중 생성 1건, status 전이 경쟁 중 성공 1건,
-  동일 audit append 2건 중 row 1건을 검증했다.
-- Compose credential은 로컬 통합 테스트 전용이며 운영 secret 계약은 후속 배포
-  단계에서 별도로 구현한다.
-- 후속 단계에서 인증된 idempotent trigger/status API를 구현했다. 다음은 실행
-  lease와 worker 복구다.
-
-## 2026-08-03 Observability Handler 기반 완료
-
-- Event 구독에 `critical`과 `observational` 실패 정책을 명시한다.
-- 기본값은 기존 의미를 보존하는 critical이며, 동일 Event의 모든 handler를 실행한
-  뒤 critical 실패를 구조화된 `EventDispatchError`로 전파한다.
-- observational 실패는 핵심 Pipeline을 실패시키지 않고 `EventDispatchResult`에
-  handler type, 정책과 원인 예외를 기록한다.
-- 구조화된 Logging Handler와 Audit Handler는 임의 payload를 복사하지 않고 Event
-  envelope만 기록하여 비밀정보 노출 경계를 지킨다.
-- async AuditSink Protocol과 append-only InMemoryAuditSink를 추가했다.
-- InMemoryAuditSink는 로컬·테스트 adapter이며 재시작 복구, 분산 중복 방지와 규정
-  보존을 제공하지 않는다. 분산 실행용 PostgreSQL adapter는 후속 단계에서 구현했다.
-- 전체 Ruff, 312개 pytest와 CLI 버전 검증을 통과했다.
-
-## 2026-08-03 Event/Pipeline Core 완료
-
-- 기존 in-process EventBus의 업무 중립성을 유지하면서 Event를 불변 객체로 만들고
-  timezone-aware UTC, schema version, correlation/causation, job과 producer metadata를
-  추가했다.
-- 기존 subscribe/unsubscribe/handlers/publish API를 유지하고, 외부에서 내부 구독
-  목록을 변경할 수 없도록 snapshot을 반환한다.
-- SequentialPipeline이 명시적인 Task 순서, task별 timeout, 제한된 retry, 실패 중단과
-  cancellation을 조정한다.
-- Pipeline/Task의 started/completed/failed/retry/cancelled event를 발행하며 EventBus는
-  Task나 Pipeline의 실행 규칙을 알지 않는다.
-- Core Event/Pipeline 집중 테스트 8개, Job lifecycle 집중 테스트 7개와 전체
-  295개 테스트, Ruff를 통과했다.
-- 다음 단계는 기존 GenerationJob 상태 모델과 실제 생성·검증 서비스를 이 Pipeline에
-  연결하는 Application 수직 슬라이스다.
-
-## 2026-08-03 GenerationJob lifecycle 기반 완료
-
-- Job/Generation/Validation의 created/started/completed/failed Event 계약을 추가했다.
-- GenerationJob 상태 전이를 pending → generating → validating → succeeded 순서로
-  제한하고, 어느 실행 단계에서든 명시적 failed 전이를 지원한다.
-- 상태 전이는 기존 객체를 변경하지 않고 새 snapshot을 만들며 Pydantic 전체
-  불변조건을 다시 검증한다.
-- async JobStore Protocol과 테스트·로컬 CLI용 InMemoryJobStore adapter를 추가했다.
-- replace 시 expected status를 비교해 같은 Job의 동시 실행이 조용히 상태를
-  덮어쓰지 못하게 한다.
-- InMemory adapter 자체는 영속 Job Store가 아니다. 분산 실행용 PostgreSQL adapter와
-  idempotent claim은 후속 단계에서 구현했다.
-
-## 2026-08-03 Generation Application Pipeline 완료
-
-- 기존 generate CLI 안의 명세 로딩, 교차 참조 검증, 생성과 manifest 저장 업무를
-  `application/generation`으로 이동했다.
-- 실제 실행 순서는 prepare_generation_job → generate_units →
-  validate_generated_project 세 Task로 명시했다.
-- JobStore에 상태를 먼저 저장한 뒤 Job/Generation/Validation Event를 발행한다.
-- 생성 결과의 import, pytest, Ruff와 wheel build가 모두 성공해야 GenerationJob을
-  succeeded로 전이한다. 검증 실패는 failed 상태와 실패 Event를 남긴다.
-- CLI는 Application Pipeline을 조립하고 사용자 입력 오류와 실행 오류를 표시하는
-  얇은 adapter가 됐다. 기존 검증 helper 공개 경계는 호환 wrapper로 보존했다.
-- 실제 검증을 연결하면서 발견한 endpoint 없는 Router의 unused handlers import와
-  import 구역 공백 생성 오류를 수정했다.
-- 전체 Ruff, 299개 pytest와 `python -m autoforge.main version`을 통과했다.
-- 후속 단계에서 logging/audit handler, PostgreSQL JobStore와 idempotent claim을
-  구현했다.
-- KIS 실사용 검증 중 GENERATED `pyproject.toml`의 프로젝트별 품질 도구 설정이
-  명세에 없음을 확인해 `ToolingSpec.ruff_exclude` 계약을 추가했다.
-- exclude 항목은 안전한 Workspace 상대 POSIX 경로만 허용하며 FastAPI Project
-  Generator가 결정적인 `[tool.ruff]` 설정으로 렌더링한다.
-- 전체 테스트 기준선은 312개다.
-- wheel 검증이 만드는 `build/`, `dist/`와 `.autoforge/dist/`를 포함한 기본
-  `.gitignore`를 Project Generator의 SCAFFOLDED 파일로 추가했다. 기존 프로젝트의
-  사용자 `.gitignore`는 덮어쓰지 않는다.
-
-## 2026-08-03 RabbitMQ/Transactional Outbox 완료
-
-- Project `ServiceSpec`에 RabbitMQ connection, exchange, queue, routing key,
-  dead-letter와 outbox store 계약을 추가했다.
-- Messaging Generator가 aio-pika publisher/consumer, Outbox writer/relay,
-  Processed Message Inbox, store별 immutable Alembic revision과 실행 script를 생성한다.
-- Publisher confirm, persistent message, mandatory routing, durable topology,
-  manual ACK, DLX/DLQ와 transport 오류만 재시도하는 경계를 적용했다.
-- KIS Profile 저장과 Outbox event 기록이 선택된 account shard의 같은 transaction에서
-  수행되는 것을 단위 테스트와 실제 PostgreSQL로 검증했다.
-- RabbitMQ 중단 중 API 저장과 pending Outbox 기록, 재시작 후 발행/소비,
-  동일 event 재발행 시 Inbox row 1개 유지, volume 기반 durable queue 복구를 검증했다.
-- 다음 단계는 기존 generic EventBus를 업무 로직 없이 유지하면서 Job Event와
-  Pipeline 실행 조정 계층을 구현하는 것이다.
-
-## 완료
-
-- 설정 로딩 기본 구조
-- Registry 안정화
-- Plugin 기반 클래스와 Metadata
-- PluginManager 안정화
-- 기존 Generator를 보존하는 Generator Plugin Adapter
-- Plugin ID·버전·Capability·지원 Specification 버전 정합성 검증
-- Plugin API v1 호환성 검증
-- 버전형 Plugin 의존성과 외부 자원 접근 권한 정책
-- Plugin 디렉터리 자동 발견과 plugin.json 검증
-- 발견 과정의 Symlink 이탈·중복 ID·손상 Manifest 거부
-- Plugin 코드를 실행하지 않는 Metadata 발견 단계
-- Plugin 누락·버전 불일치·순환 의존성 검증
-- 의존성이 먼저 오는 결정적 Plugin 로드 순서
-- 명시적 trusted Entrypoint Import와 Factory 계약 검증
-- PluginManager 의존성 순서 등록과 실패 Rollback
-- Specification 타입별 Generator Plugin Registry
-- FastAPI Project/Module Generator의 실제 Plugin 등록
-- 요청·결과 타입별 async Validator Plugin Registry
-- ProjectValidator의 실제 Plugin 등록과 권한 선언
-- Built-in Generator/Validator Plugin Catalog와 명시적 의존성 주입
-- 코드·아키텍처·FastAPI 학습 가이드 작성
-- Python·웹·FastAPI·AutoForge 4권 완전 입문 학습 시리즈 작성
-- Event와 비동기 EventBus 기본 구조
-- EventBus 중심 장기 통신 아키텍처와 Pipeline 책임 경계 확정
-- Task와 TaskManager 기본 구조
-- 기존 테스트의 pytest 마이그레이션
-- ProjectSpec과 ModuleSpec 검증 모델
-- 첫 MVP 공통 Type System
-- GenerationPlan과 GenerationManifest 모델
-- 명세와 파일 내용 Hash 계산
-- Workspace 상대경로 검증과 경로 이탈 방지
-- 작업별 격리 Workspace 생성과 자동 정리
-- 실패 진단용 격리 Workspace 명시적 보존 정책
-- 제네릭 Generator Protocol
-- 최소 FastAPI Project Generator 렌더링과 Dry-run
-- Workspace 상태 기반 생성 계획 충돌 판정
-- GenerationPlan의 안전한 Workspace 적용과 메모리 Manifest 생성
-- GenerationManifest의 결정적 JSON 저장과 검증된 로딩
-- 비동기 외부 프로세스 실행과 Timeout 처리
-- 생성 프로젝트 Import 및 pytest 검증
-- 생성 프로젝트 Ruff 및 wheel Package Build 검증
-- 공통 Type의 Python/Pydantic Type 변환
-- 기술 중립 DatabaseSpec, Table/Column과 DataPlacement 최소 계약
-- Repository 명세와 Module Aggregate/Table 참조 무결성 검증
-- kis-auto-trading Account/Profile 실제 명세 검증
-- Repository Protocol과 Fake Repository Generator
-- Repository Generator의 Module Plugin Catalog 등록
-- PostgreSQL Global/Shard DDL Generator의 Module Plugin Catalog 등록
-- kis-auto-trading 로그인(Global)과 개인정보(Shard) 명세 및 재현 SQL 검증
-- SQLAlchemy async Base, Session Registry와 ShardRouter Generator
-- ModuleSpec 기반 SQLAlchemy 2.x Record Model Generator
-- AsyncSession 주입형 SQLAlchemy Repository Adapter와 Domain/Record 변환 Generator
-- kis-auto-trading Identity/Account 실제 명세 SQLAlchemy 렌더링 검증
-- kis-auto-trading UserProfileRepository 실제 렌더링 검증
-- ModuleSpec 기반 Pydantic Model 및 Request/Response Schema 생성
-- ModuleSpec 기반 FastAPI Router와 Handler Scaffold 생성
-- 동일 명세 재실행 시 사용자 Handler 보존
-- Manifest 기반 GENERATED 파일 안전 교체
-- Endpoint 추가 재생성 시 Router 갱신과 Handler 보존
-- Application Module Registry 생성
-- Project와 Tutorial Module 조합 및 실제 Endpoint 검증
-- GenerationJob과 Project/Module Unit 집계 모델
-- 복수 Manifest의 Job ID, Specification과 파일 경로 중복 검증
-- 버전형 GenerationJobManifest의 결정적 JSON 저장과 검증된 로딩
-- 기존 GenerationManifest JSON 로딩 호환성
-- 명시적 Config 주입과 전역 Config 제거
-- 프로젝트 디렉터리 밖에서 동작하는 version CLI
-- 미구현 CLI의 명확한 실패 상태
-- 전체 테스트 295개 통과 기준선
-
-## 진행 중
-
-- Store별 Alembic 실행 환경과 immutable baseline revision 생성을 완료했다.
-- kis-auto-trading의 identity DB와 account DB 2개에 migration 적용을 검증했다.
-- Bearer current_session 의존성 생성을 추가했다.
-- kis-auto-trading Account/Profile을 실제 선택된 shard DB에 저장하고 API 2대 교차
-  조회 및 반대 shard 미저장을 검증했다.
-- Redis Cluster async provider와 사용자 단위 hash-tag 세션 키 계약을 생성한다.
-- kis-auto-trading에서 3 Primary + 3 Replica, 전체 16,384 slot coverage, 담당
-  Primary 중지와 Replica 승격, 기존 읽기·신규 쓰기 및 volume 재기동을 검증했다.
-- RabbitMQ Transport와 Transactional Outbox를 완료했다.
-- generic Event/Pipeline Core, GenerationJob lifecycle과 실제 생성·검증 Application
-  연결을 완료했다.
-- 문서 정합성 정리
-- 패키지와 코딩 스타일 정리
-- Plugin Framework 4단계 완료 검토
-
-## 존재하지만 미완성
-
-- 일부 CLI 명령
-- Plugin Permission의 OS 수준 Sandbox 강제
-- Git repository/ref submission과 claimed worker 격리 checkout 연결
-
-PluginLoader의 발견, 의존성 정렬과 명시적 trusted 로딩 및 GenerationJob Application
-Pipeline 연결은 완료됐다. 다만 Webhook부터 Git 반영까지 이어지는 자동화 제품 전체는
-아직 완성되지 않았다.
-
-## 시작하지 않음
-
-- Build 및 Git 서비스
-- Webhook 서비스
-- AI 생성
-
-## 현재 제약
-
-로컬 생성과 검증이 안정되기 전에 Webhook, Git 자동화, AI를 구현하지 않는다.
-Plugin 발견과 실행은 분리한다. 신뢰 여부가 확인되지 않은 Plugin에는
-`load_trusted()`를 호출하지 않는다.
-
-미래 단계용 빈 디렉터리는 미리 유지하지 않는다. 각 단계에 진입할 때
-Roadmap과 다음 작업 문서를 확인하고 필요한 패키지와 테스트 디렉터리를
-구현과 함께 생성한다.
-
-전체 인수인계 문서는 `docs/PROJECT_GUIDE_2026-07-29.md`를 참고한다.
-## 2026-08-07 GenerationJob push lifecycle completed
-
-- A remote worker can now move from `committing` to `pushing` after creating a
-  validated commit.
-- The worker calls `GitProvider.push_validated()` only for the validated commit and
-  persists `GitPushResult` before moving the Job to `succeeded`.
-- Push failure is persisted as a `failed` Job and emits `GitPushFailedEvent`; it is
-  never recorded as a successful generation.
-- `pushing` is covered by abandoned-lease recovery and by the PostgreSQL status
-  constraint migration `004_job_pushing_status.sql`.
-- Bare-remote tests verify the pushed work branch, event order, persisted result,
-  source branch immutability, and failed-push behavior.
-- Verification: 357 passed and 6 PostgreSQL-dependent tests skipped; CLI reports
-  `AutoForge v0.1.0`.
-- Older entries below are historical completion snapshots. Statements that push
-  is not connected to the worker are superseded by this section.
-
-## 2026-08-07 Git automation composition root 완료
-
-- Pull Request Core 계약, GitHub adapter, 안전한 HTTP transport와 GenerationJob
-  `opening_pull_request` 수명주기는 이미 구현되어 있다.
-- `GitAutomationConfig`가 repository host, 작업 branch prefix, 보호 branch, commit
-  author/message/signing과 Git/HTTP timeout을 명시한다.
-- `autoforge.composition`이 Environment Secret, Subprocess Git, GitHub HTTP와 Pull
-  Request adapter를 동일 정책으로 조립한다.
-- Git 자동화가 꺼져 있으면 어떤 credential resolver나 HTTP client도 생성하지 않는다.
-- HTTP client의 종료 책임은 `GitAutomationComponents.aclose()`로 진입점에 남긴다.
-- 다음 단계는 이 조립 결과를 PostgreSQL JobStore, Generation Pipeline과 함께 실제
-  worker/server 실행 명령에 주입하는 것이다.
+Use focused tests first.
+Run broader integration or full-suite tests only when the change risk warrants it.
