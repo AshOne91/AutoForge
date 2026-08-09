@@ -156,6 +156,7 @@ class DurableJobSpec(StrictSpecModel):
     store: str
     event_type: str
     routing_key: str
+    schedule: str | None = None
 
     @field_validator("name", "store")
     @classmethod
@@ -167,6 +168,13 @@ class DurableJobSpec(StrictSpecModel):
     def validate_message_names(cls, value: str) -> str:
         if not value.strip():
             raise ValueError("Durable job message names must not be empty")
+        return value
+
+    @field_validator("schedule")
+    @classmethod
+    def validate_schedule(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("Durable job schedule must not be empty")
         return value
 
 

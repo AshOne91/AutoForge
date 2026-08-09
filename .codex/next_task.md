@@ -1,6 +1,6 @@
 # Next Task
 
-## Durable Job HTTP and worker integration before Airflow DAG
+## Durable Job lifecycle and Airflow DAG scaffold
 
 The generated-project Docker build context, PostgreSQL DDL reproducibility, and
 Redis/session generation reproducibility are verified. Global and Shard
@@ -22,11 +22,16 @@ that contract. Compose/Kubernetes generation remains deferred.
 - generated Worker dispatch validates the event/job contract and performs
   `requested -> running -> succeeded|failed` compare-and-set transitions.
 - generated application handler scaffold is preserved for KIS-owned business work.
+- a Durable Job `schedule` generates an Airflow DAG that uses the stable Airflow
+  run id as the idempotency key, then triggers and polls the internal Job API.
 - Durable Job coordinator storage is limited to an explicitly declared Global DB.
 
 ### Remaining scope
 
-- add the minimal Airflow DAG scaffold only after the Worker contract is stable
+- validate a generated DAG in a KIS-owned Airflow environment before treating it
+  as an operational deployment contract
+- add private service identity (mTLS, OIDC, or IAM) before exposing the internal
+  Job API beyond its private network
 - keep scheduling, retry, timeout, and dependency ownership in Airflow
 - keep News parsing, canonical schema, indexing, and RAG ingestion KIS-owned
 - preserve EventBus, RabbitMQ, Redis, and generated-file ownership contracts

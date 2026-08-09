@@ -41,6 +41,7 @@ def durable_job_specification() -> ProjectSpec:
                     store="account",
                     event_type="news.collection.requested",
                     routing_key="news.collection.requested",
+                    schedule="0 * * * *",
                 )
             ],
         ),
@@ -58,6 +59,7 @@ def test_durable_job_generator_emits_atomic_request_contract() -> None:
         PurePosixPath("src/kis_auto_trading/infrastructure/durable_jobs/worker.py"),
         PurePosixPath("src/kis_auto_trading/application/durable_job_handler.py"),
         PurePosixPath("migrations/account/versions/0003_durable_jobs.py"),
+        PurePosixPath("airflow/dags/news_collection.py"),
     }
     assert set(files) == expected
     for path, content in files.items():
@@ -76,6 +78,7 @@ def test_durable_job_generator_emits_atomic_request_contract() -> None:
     handler = files[
         PurePosixPath("src/kis_auto_trading/application/durable_job_handler.py")
     ]
+    dag = files[PurePosixPath("airflow/dags/news_collection.py")]
     revision = files[PurePosixPath("migrations/account/versions/0003_durable_jobs.py")]
 
     assert "news.collection.requested" in contracts
@@ -89,6 +92,10 @@ def test_durable_job_generator_emits_atomic_request_contract() -> None:
     assert "DurableJobStatus.FAILED" in worker
     assert "raise" in worker
     assert "class ApplicationDurableJobHandler" in handler
+    assert "schedule='0 * * * *'" in dag
+    assert "get_current_context()['run_id']" in dag
+    assert "DURABLE_JOB_NEWS_COLLECTION_PAYLOAD_JSON" in dag
+    assert "execution_timeout=timedelta(seconds=TIMEOUT_SECONDS)" in dag
     assert "af_account_outbox_0001" in revision
     assert "uq_durable_jobs_type_run_key" in revision
 
@@ -103,6 +110,19 @@ def test_durable_job_migration_is_scaffolded() -> None:
     assert ownership[
         PurePosixPath("src/kis_auto_trading/application/durable_job_handler.py")
     ] is FileOwnership.SCAFFOLDED
+
+
+def test_durable_job_generator_omits_airflow_dag_without_schedule() -> None:
+    specification = durable_job_specification()
+    job = specification.application.durable_jobs[0].model_copy(
+        update={"schedule": None}
+    )
+    application = specification.application.model_copy(update={"durable_jobs": [job]})
+    files = DurableJobGenerator().render(
+        specification.model_copy(update={"application": application})
+    )
+
+    assert not any(path.parts[0] == "airflow" for path in files)
 
 
 def test_fastapi_project_registers_durable_job_endpoints() -> None:

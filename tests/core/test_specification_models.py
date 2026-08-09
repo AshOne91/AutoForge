@@ -89,6 +89,14 @@ def test_durable_job_requires_declared_rabbitmq_outbox_store() -> None:
             ],
             durable_jobs=[job],
         )
+    with pytest.raises(ValidationError, match="schedule must not be empty"):
+        DurableJobSpec(
+            name="news_collection",
+            store="account",
+            event_type="news.collection.requested",
+            routing_key="news.collection.requested",
+            schedule=" ",
+        )
 
 
 def test_create_minimal_project_spec() -> None:

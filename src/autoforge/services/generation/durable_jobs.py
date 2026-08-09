@@ -47,6 +47,11 @@ class DurableJobGenerator:
             files[
                 PurePosixPath("migrations", store, "versions", "0003_durable_jobs.py")
             ] = self._render_revision(store)
+        for job in jobs:
+            if job.schedule is not None:
+                files[
+                    PurePosixPath("airflow", "dags", f"{job.name}.py")
+                ] = self._render_airflow_dag(job)
         return files
 
     def plan(self, specification: ProjectSpec) -> GenerationPlan:
@@ -368,6 +373,86 @@ class DurableJobGenerator:
             "        self, execution: DurableJobExecution\n"
             "    ) -> dict[str, object] | None:\n"
             "        raise NotImplementedError('implement the durable job business handler')\n"
+        )
+
+    @staticmethod
+    def _render_airflow_dag(job: DurableJobSpec) -> str:
+        payload_env = f"DURABLE_JOB_{job.name.upper()}_PAYLOAD_JSON"
+        return (
+            "\"\"\"Generated Airflow orchestration for a durable job.\"\"\"\n"
+            "\n"
+            "import json\n"
+            "import os\n"
+            "import time\n"
+            "from datetime import UTC, datetime, timedelta\n"
+            "from urllib.request import Request, urlopen\n"
+            "\n"
+            "from airflow import DAG\n"
+            "from airflow.operators.python import PythonOperator, get_current_context\n"
+            "\n"
+            "\n"
+            f"JOB_TYPE = {job.name!r}\n"
+            f"PAYLOAD_ENV = {payload_env!r}\n"
+            "POLL_SECONDS = int(os.getenv('DURABLE_JOB_POLL_SECONDS', '5'))\n"
+            "TIMEOUT_SECONDS = int(os.getenv('DURABLE_JOB_TIMEOUT_SECONDS', '3600'))\n"
+            "\n"
+            "\n"
+            "def _request(method: str, path: str, body: dict[str, object] | None = None) -> dict[str, object]:\n"
+            "    base_url = os.environ['DURABLE_JOB_API_URL'].rstrip('/')\n"
+            "    data = json.dumps(body).encode() if body is not None else None\n"
+            "    request = Request(\n"
+            "        f'{base_url}{path}', data=data, method=method,\n"
+            "        headers={'Content-Type': 'application/json'},\n"
+            "    )\n"
+            "    with urlopen(request, timeout=TIMEOUT_SECONDS) as response:  # noqa: S310\n"
+            "        payload = json.load(response)\n"
+            "    if not isinstance(payload, dict):\n"
+            "        raise ValueError('durable job API response must be an object')\n"
+            "    return payload\n"
+            "\n"
+            "\n"
+            "def _payload() -> dict[str, object]:\n"
+            "    payload = json.loads(os.getenv(PAYLOAD_ENV, '{}'))\n"
+            "    if not isinstance(payload, dict):\n"
+            "        raise ValueError(f'{PAYLOAD_ENV} must contain a JSON object')\n"
+            "    return payload\n"
+            "\n"
+            "\n"
+            "def trigger_job() -> str:\n"
+            "    run_key = str(get_current_context()['run_id'])\n"
+            "    response = _request(\n"
+            "        'POST', f'/internal/jobs/{JOB_TYPE}',\n"
+            "        {'run_key': run_key, 'payload': _payload()},\n"
+            "    )\n"
+            "    return str(response['job_id'])\n"
+            "\n"
+            "\n"
+            "def wait_for_job(ti) -> None:\n"
+            "    job_id = str(ti.xcom_pull(task_ids='trigger'))\n"
+            "    while True:\n"
+            "        response = _request('GET', f'/internal/jobs/{JOB_TYPE}/{job_id}')\n"
+            "        status = str(response['status'])\n"
+            "        if status == 'succeeded':\n"
+            "            return\n"
+            "        if status == 'failed':\n"
+            "            raise RuntimeError(str(response.get('error') or 'durable job failed'))\n"
+            "        time.sleep(POLL_SECONDS)\n"
+            "\n"
+            "\n"
+            "with DAG(\n"
+            f"    dag_id='durable_job_{job.name}',\n"
+            f"    schedule={job.schedule!r},\n"
+            "    start_date=datetime(2024, 1, 1, tzinfo=UTC),\n"
+            "    catchup=False,\n"
+            "    default_args={'retries': 3, 'retry_delay': timedelta(minutes=1)},\n"
+            ") as dag:\n"
+            "    trigger = PythonOperator(task_id='trigger', python_callable=trigger_job)\n"
+            "    wait = PythonOperator(\n"
+            "        task_id='wait',\n"
+            "        python_callable=wait_for_job,\n"
+            "        execution_timeout=timedelta(seconds=TIMEOUT_SECONDS),\n"
+            "    )\n"
+            "    trigger >> wait\n"
         )
 
     @staticmethod

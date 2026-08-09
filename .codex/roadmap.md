@@ -53,7 +53,8 @@ consumer requirement and an owning generator contract exist.
 - [x] Durable Job persistence and transactional Outbox contract
 - [x] Durable Job trigger/status API contract
 - [x] Durable Job worker lifecycle contract
-- [ ] Airflow DAG scaffold and trigger/status contract
+- [x] Airflow DAG scaffold and trigger/status contract (static generation)
+- [ ] Airflow environment/deployment validation and private service identity
 - [ ] Metrics Handler
 - [ ] artifact publishing
 - [ ] deployment plugins
