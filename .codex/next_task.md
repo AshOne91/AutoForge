@@ -12,6 +12,15 @@ covered. The next bounded contract is to validate the generated stack in the
 
 - inspect the existing KIS validation path
 - validate one generated vertical slice without patching generated-owned files
+
+### Current validation state
+
+- KIS manifest confirms FastAPI, PostgreSQL DDL, SQLAlchemy, SessionStore, and
+  Messaging artifacts are generated-owned by AutoForge.
+- KIS focused tests collect successfully, but the KIS Python environment lacks
+  pytest and the AutoForge environment does not complete KIS pytest execution.
+- Do not change generated KIS files until the consumer test environment is
+  reproducible and exposes a concrete generated-code defect.
 - preserve Generator, GenerationPlan, Manifest, ownership, and validation
   contracts
 
