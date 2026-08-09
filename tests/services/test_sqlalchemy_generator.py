@@ -157,6 +157,13 @@ def test_infrastructure_generator_renders_database_lifespan_provider() -> None:
     ast.parse(provider)
     assert "('identity', 'IDENTITY_DATABASE_URL')" in provider
     assert "('profile', '1', 'PROFILE_SHARD_1_DATABASE_URL')" in provider
+    assert "GLOBAL_DATABASES = [('identity', 'IDENTITY_DATABASE_URL')]" in provider
+    assert (
+        "SHARD_DATABASES = [('profile', '1', 'PROFILE_SHARD_1_DATABASE_URL')]"
+        in provider
+    )
+    assert "global_engines[store] = engine" in provider
+    assert "shard_engines[(store, shard_id)] = engine" in provider
     assert "create_async_engine" in provider
     assert "app.state.session_registry" in provider
     assert "registry_registered = False" in provider

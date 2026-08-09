@@ -128,6 +128,14 @@ def test_worker_runner_is_scaffolded_and_other_files_are_generated() -> None:
     )
 
 
+def test_same_messaging_specification_is_reproducible() -> None:
+    generator = MessagingGenerator()
+    specification = messaging_specification()
+
+    assert generator.render(specification) == generator.render(specification)
+    assert generator.plan(specification) == generator.plan(specification)
+
+
 def test_multiple_rabbitmq_services_are_rejected() -> None:
     specification = messaging_specification()
     service = specification.application.services[0]

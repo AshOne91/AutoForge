@@ -31,8 +31,8 @@ consumer slice in `kis-auto-trading`, in this order:
 
 1. generated FastAPI application starts and validates
 2. database artifacts are deterministic and reproducible (verified for PostgreSQL DDL)
-3. Global versus Shard persistence boundaries are explicit
-4. shared Redis/session and message-service contracts are validated (Redis/session generation verified)
+3. Global versus Shard persistence boundaries are explicit (verified for SQLAlchemy/Alembic)
+4. shared Redis/session and message-service contracts are validated (verified)
 5. deployment-oriented generation is added only afterward
 
 Each step is a separate testable contract. Do not introduce deployment,

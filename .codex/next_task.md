@@ -1,15 +1,17 @@
 # Next Task
 
-## Global/Shard persistence boundary verification
+## KIS consumer vertical-slice validation
 
 The generated-project Docker build context, PostgreSQL DDL reproducibility, and
-Redis/session generation reproducibility are verified. The next bounded
-contract is to validate explicit Global versus Shard persistence boundaries.
+Redis/session generation reproducibility are verified. Global and Shard
+SQLAlchemy/Alembic routing and message/outbox generation are now explicitly
+covered. The next bounded contract is to validate the generated stack in the
+`kis-auto-trading` consumer.
 
 ### Scope
 
-- inspect the existing database specification and SQLAlchemy/Alembic tests
-- verify one representative Global and Shard specification end to end
+- inspect the existing KIS validation path
+- validate one generated vertical slice without patching generated-owned files
 - preserve Generator, GenerationPlan, Manifest, ownership, and validation
   contracts
 
