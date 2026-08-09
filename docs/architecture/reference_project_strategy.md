@@ -32,6 +32,9 @@ kis-auto-trading
 SKN12는 AutoForge의 소스 코드가 아니다. SKN12가 해결하려던 요구사항과 실제
 동작하는 Domain 흐름을 AutoForge 명세와 Generator의 검증 사례로 사용한다.
 
+KIS의 Proxy/App/Secret 분리, Kubernetes 토폴로지와 AutoForge 생성 경계는
+`kis_ha_reference_blueprint.md`에 별도로 고정한다.
+
 ## AutoForge의 책임
 
 AutoForge는 다음 산출물을 명세에서 생성한다.

@@ -179,6 +179,7 @@ Event만 다루며 Command 전달 API는 첫 GenerationPipeline 구현 전에 �
 - `generation_contract.md`: 파일 소유권, 반복 생성, Manifest, 검증 계약
 - `specification_design.md`: Project, Application, Module, API, Model, DB 명세
 - `event_driven_architecture.md`: EventBus, Handler, Pipeline과 Transport 경계
+- `kis_ha_reference_blueprint.md`: KIS의 Proxy/App/Secret 분리와 Kubernetes HA 생성 기준
 
 ## 첫 번째 MVP 제외 범위
 
