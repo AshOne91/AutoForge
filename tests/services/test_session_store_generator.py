@@ -173,6 +173,14 @@ def test_plan_marks_all_session_files_generated() -> None:
     assert all(file.ownership is FileOwnership.GENERATED for file in plan.files)
 
 
+def test_same_session_specification_is_reproducible() -> None:
+    generator = SessionStoreGenerator()
+    specification = project_specification()
+
+    assert generator.render(specification) == generator.render(specification)
+    assert generator.plan(specification) == generator.plan(specification)
+
+
 def test_project_dependencies_include_redis_only_when_selected() -> None:
     generator = FastAPIProjectGenerator()
 

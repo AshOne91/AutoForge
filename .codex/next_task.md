@@ -1,15 +1,15 @@
 # Next Task
 
-## Shared Redis/session contract verification
+## Global/Shard persistence boundary verification
 
-The generated-project Docker build context and representative PostgreSQL DDL
-reproducibility are verified. The next bounded contract is to validate the
-shared Redis/session generation contract.
+The generated-project Docker build context, PostgreSQL DDL reproducibility, and
+Redis/session generation reproducibility are verified. The next bounded
+contract is to validate explicit Global versus Shard persistence boundaries.
 
 ### Scope
 
-- inspect the existing Redis/session generator and tests
-- verify one representative session specification twice
+- inspect the existing database specification and SQLAlchemy/Alembic tests
+- verify one representative Global and Shard specification end to end
 - preserve Generator, GenerationPlan, Manifest, ownership, and validation
   contracts
 
