@@ -86,10 +86,12 @@ def test_durable_job_generator_emits_atomic_request_contract() -> None:
     assert "OutboxWriter(self._session).add(" in repository
     assert ".commit(" not in repository
     assert "message.event_type != definition.event_type" in worker
+    assert "from typing import Protocol" in worker
     assert "DurableJobStatus.REQUESTED" in worker
     assert "DurableJobStatus.RUNNING" in worker
     assert "DurableJobStatus.SUCCEEDED" in worker
     assert "DurableJobStatus.FAILED" in worker
+    assert "raise TypeError('durable job payload must be an object')" in worker
     assert "raise" in worker
     assert "class ApplicationDurableJobHandler" in handler
     assert "schedule='0 * * * *'" in dag
@@ -97,6 +99,7 @@ def test_durable_job_generator_emits_atomic_request_contract() -> None:
     assert "run_key = f'{JOB_TYPE}:{data_interval_start.isoformat()}'" in dag
     assert "DURABLE_JOB_NEWS_COLLECTION_PAYLOAD_JSON" in dag
     assert "execution_timeout=timedelta(seconds=TIMEOUT_SECONDS)" in dag
+    assert "# noqa" not in dag
     assert "af_account_outbox_0001" in revision
     assert "uq_durable_jobs_type_run_key" in revision
 
