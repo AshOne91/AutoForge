@@ -23,6 +23,7 @@
 - [x] build-only responsibility contract
 - [x] minimal Dockerfile Generator
 - [x] generated-project Docker build-context verification
+- [ ] generated-project Docker daemon build verification (environment blocked)
 
 ### Current vertical-slice direction
 
@@ -34,7 +35,7 @@ consumer slice in `kis-auto-trading`, in this order:
 3. Global versus Shard persistence boundaries are explicit (verified for SQLAlchemy/Alembic)
 4. shared Redis/session and message-service contracts are validated (verified)
 5. KIS consumer vertical slice validates generated contracts (verified)
-6. deployment-oriented generation is added only afterward
+6. deployment-oriented generation is added only after daemon build verification
 
 Each step is a separate testable contract. Do not introduce deployment,
 Kubernetes, Redis Cluster, Airflow, or cloud-specific behavior before a
