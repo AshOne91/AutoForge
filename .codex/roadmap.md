@@ -37,12 +37,21 @@ consumer slice in `kis-auto-trading`, in this order:
 5. KIS consumer vertical slice validates generated contracts (verified)
 6. deployment-oriented generation is added only after daemon build verification
 
-Each step is a separate testable contract. The next consumer contract is
-Durable Job plus trigger/status, Outbox, and worker lifecycle. Airflow is added
-after that contract is verified; it owns scheduling, retry, timeout, and
-dependency orchestration, not business processing. Do not introduce deployment,
-Kubernetes, Redis Cluster topology, or cloud-specific behavior before a
-consumer requirement and an owning generator contract exist.
+### Environment realization and integration validation
+
+- [x] environment ownership, profile, and validation-order contract
+- [ ] KIS Durable Job and Global coordinator-store product declaration
+- [ ] local/integration environment profile contract for that declaration
+- [ ] Environment Generator and container vertical-slice validation
+
+Each step is a separate testable contract. The Durable Job trigger/status,
+Outbox, worker lifecycle, and static Airflow DAG contracts are complete.
+The next consumer contract is a real KIS declaration and a local/integration
+environment profile; Airflow runtime validation follows the durable Job worker
+flow. Airflow owns scheduling, retry, timeout, and dependency orchestration,
+not business processing. Do not introduce deployment, Kubernetes, Redis Cluster
+topology, or cloud-specific behavior before a consumer requirement and an
+owning generator contract exist.
 
 ## Later
 

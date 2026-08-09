@@ -1,6 +1,6 @@
 # Next Task
 
-## Durable Job lifecycle and Airflow DAG scaffold
+## Environment realization before Durable Job runtime validation
 
 The generated-project Docker build context, PostgreSQL DDL reproducibility, and
 Redis/session generation reproducibility are verified. Global and Shard
@@ -10,7 +10,9 @@ and full tests. The generated project also builds successfully with Docker
 Engine 29.1.2. The managed Redis Cluster URL contract has been verified against
 the running KIS integration cluster. The next bounded contract is the durable
 Job lifecycle for the KIS News/RAG workflow; the Airflow DAG scaffold follows
-that contract. Compose/Kubernetes generation remains deferred.
+that contract. Environment realization is now governed by
+`docs/architecture/environment_validation_contract.md`; Compose/Kubernetes
+generation remains deferred until a KIS product declaration selects its scope.
 
 ### Completed durable Job foundation
 
