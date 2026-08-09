@@ -20,6 +20,7 @@ from autoforge.core.specification import (
 from autoforge.core.workspace import Workspace
 from autoforge.infrastructure.process import AsyncioProcessRunner
 from autoforge.services.generation import (
+    DockerfileGenerator,
     FastAPIModuleGenerator,
     FastAPIProjectGenerator,
     GenerationPlanApplier,
@@ -38,6 +39,7 @@ def project_specification() -> ProjectSpec:
             description="모듈형 FastAPI 게임 서버",
         ),
         application=ApplicationSpec(modules=["tutorial"]),
+        tooling={"docker": {"enabled": True}},
     )
 
 
@@ -148,3 +150,20 @@ async def test_generated_tutorial_router_is_registered_and_callable(
         endpoint_result.stdout,
         endpoint_result.stderr,
     )
+
+
+def test_generated_project_has_a_complete_docker_build_context(
+    tmp_path: Path,
+) -> None:
+    workspace = Workspace(tmp_path)
+    apply_generator(FastAPIProjectGenerator(), project_specification(), workspace)
+    apply_generator(DockerfileGenerator(), project_specification(), workspace)
+
+    dockerfile = (tmp_path / "Dockerfile").read_text(encoding="utf-8")
+
+    assert (tmp_path / "pyproject.toml").is_file()
+    assert (tmp_path / "README.md").is_file()
+    assert (tmp_path / "src/game_server").is_dir()
+    assert "COPY pyproject.toml README.md ./" in dockerfile
+    assert "COPY src ./src" in dockerfile
+    assert 'CMD ["uvicorn", "game_server.main:app"' in dockerfile

@@ -21,8 +21,23 @@
 ### Docker build
 
 - [x] build-only responsibility contract
-- [ ] minimal Dockerfile Generator
-- [ ] generated-project Docker build verification
+- [x] minimal Dockerfile Generator
+- [x] generated-project Docker build-context verification
+
+### Current vertical-slice direction
+
+After the Docker contract is verified, validate the generator against a real
+consumer slice in `kis-auto-trading`, in this order:
+
+1. generated FastAPI application starts and validates
+2. database artifacts are deterministic and reproducible
+3. Global versus Shard persistence boundaries are explicit
+4. shared Redis/session and message-service contracts are validated
+5. deployment-oriented generation is added only afterward
+
+Each step is a separate testable contract. Do not introduce deployment,
+Kubernetes, Redis Cluster, Airflow, or cloud-specific behavior before a
+consumer requirement and an owning generator contract exist.
 
 ## Later
 
@@ -37,6 +52,24 @@
 - [ ] AI code-generation assistance
 - [ ] dashboard/distributed-worker enhancements
 - [ ] plugin marketplace
+
+### Preserved long-term goals
+
+These remain goals, not current implementation commitments:
+
+- reusable domain/service/application templates derived from one specification
+- reproducible SQL and migration artifacts for local or multi-node setup
+- Global data (for example identity/login) separated from Shard data
+- external Redis-backed shared state and session contracts
+- queue/event-driven integration and transactional outbox completion
+- Airflow-style scheduled ingestion as a replaceable orchestration adapter
+- Docker/Kubernetes/cloud deployment plugins after build contracts stabilize
+- generated-project validation in a second machine or multi-node environment
+
+Reference order is deliberate: `common-tool` supplies generation intent,
+`game-server` supplies runtime composition meaning, and `base_server` supplies
+Python/FastAPI patterns. Current AutoForge tests and ownership contracts remain
+authoritative when references disagree.
 
 Implement one bounded contract at a time.
 Do not create empty future architecture merely to represent roadmap items.

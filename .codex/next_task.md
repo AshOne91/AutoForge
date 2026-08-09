@@ -1,17 +1,17 @@
 # Next Task
 
-## Dockerfile Generator completed
+## Database artifact reproducibility verification
 
-The minimal optional Dockerfile Generator is implemented and verified.
+The generated-project Docker build context is now verified. The next bounded
+contract is to verify database models and SQL/migration artifacts are
+deterministic and reproducible.
 
 ### Scope
 
-- optional Docker configuration in ProjectSpec
-- deterministic Dockerfile rendering
-- GenerationPlan integration
-- generated ownership and content hashes
-- built-in generator/plugin registration
-- focused regression tests
+- inspect the existing database generator and SQL/migration tests
+- verify one representative database specification twice
+- preserve Generator, GenerationPlan, Manifest, ownership, and validation
+  contracts
 
 ### Constraints
 
@@ -28,11 +28,11 @@ Preserve existing Generator, Manifest, ownership, and validation contracts.
 
 ### Workflow
 
-1. keep the bounded Docker generator contract stable
-2. use Serena for exact symbol/reference navigation
-3. use CRG only if structural impact analysis is needed
-4. keep Ponytail LITE active
-5. run focused Docker/spec/plugin tests first
-6. expand testing only when justified
+1. inspect the existing database generator and SQL/migration test path
+2. add the smallest reproducibility assertion needed
+3. use Serena for exact symbol/reference navigation
+4. use CRG only if structural impact analysis is needed
+5. keep Ponytail LITE active
+6. run focused tests first and expand only when justified
 
 Do not perform unrelated refactoring.

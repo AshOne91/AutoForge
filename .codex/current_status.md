@@ -28,9 +28,6 @@ The build-only Docker contract is documented.
 
 The minimal optional Dockerfile Generator is implemented and verified.
 
-A Dockerfile Generator WIP exists separately from the tooling changes and has
-previously passed its focused test set.
-
 Artifact publishing, deployment, cloud credentials, Kubernetes, and Compose are
 outside this bounded Dockerfile task.
 
