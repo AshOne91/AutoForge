@@ -1,26 +1,28 @@
 # Next Task
 
-## KIS consumer vertical-slice validation
+## Generated deployment baseline
 
 The generated-project Docker build context, PostgreSQL DDL reproducibility, and
 Redis/session generation reproducibility are verified. Global and Shard
 SQLAlchemy/Alembic routing and message/outbox generation are now explicitly
-covered. The next bounded contract is to validate the generated stack in the
-`kis-auto-trading` consumer.
+covered. The `kis-auto-trading` consumer vertical slice now passes all focused
+and full tests. The next bounded contract is a deployment baseline generated
+from the existing Docker build contract.
 
 ### Scope
 
-- inspect the existing KIS validation path
-- validate one generated vertical slice without patching generated-owned files
+- inspect the existing Docker build contract and deployment generators
+- choose one local deployment artifact with no cloud or Kubernetes behavior
 
-### Current validation state
+### Completed consumer validation
 
 - KIS manifest confirms FastAPI, PostgreSQL DDL, SQLAlchemy, SessionStore, and
   Messaging artifacts are generated-owned by AutoForge.
-- KIS focused tests collect successfully, but the KIS Python environment lacks
-  pytest and the AutoForge environment does not complete KIS pytest execution.
-- Do not change generated KIS files until the consumer test environment is
-  reproducible and exposes a concrete generated-code defect.
+- `C:\Users\ldgo9\miniconda3\envs\autoforge\python.exe -m pytest -p
+  no:cacheprovider -q` passes all 14 KIS tests.
+- The `kis_trade` environment still lacks pytest. The normal pytest command
+  stalls during cache-provider cleanup in this environment; disabling only
+  `cacheprovider` avoids that external cleanup issue.
 - preserve Generator, GenerationPlan, Manifest, ownership, and validation
   contracts
 
