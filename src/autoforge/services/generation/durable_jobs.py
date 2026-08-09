@@ -38,6 +38,10 @@ class DurableJobGenerator:
             root / "contracts.py": self._render_contracts(jobs),
             root / "models.py": self._render_models(package),
             root / "repository.py": self._render_repository(package),
+            root / "worker.py": self._render_worker(package),
+            PurePosixPath(
+                "src", package, "application", "durable_job_handler.py"
+            ): self._render_handler_scaffold(package),
         }
         for store in sorted({job.store for job in jobs}):
             files[
@@ -59,6 +63,7 @@ class DurableJobGenerator:
                     ownership=(
                         FileOwnership.SCAFFOLDED
                         if path.parts[0] == "migrations"
+                        or path.name == "durable_job_handler.py"
                         else FileOwnership.GENERATED
                     ),
                     action=PlannedAction.CREATE,
@@ -75,12 +80,16 @@ class DurableJobGenerator:
         return (
             "from .contracts import DurableJobDefinition, DurableJobStatus, JOB_DEFINITIONS\n"
             "from .repository import DurableJobRepository, DurableJobRequestResult\n"
+            "from .worker import DurableJobExecution, DurableJobHandler, DurableJobMessageHandler\n"
             "\n"
             "__all__ = [\n"
             "    'DurableJobDefinition',\n"
             "    'DurableJobRepository',\n"
             "    'DurableJobRequestResult',\n"
             "    'DurableJobStatus',\n"
+            "    'DurableJobExecution',\n"
+            "    'DurableJobHandler',\n"
+            "    'DurableJobMessageHandler',\n"
             "    'JOB_DEFINITIONS',\n"
             "]\n"
         )
@@ -100,6 +109,7 @@ class DurableJobGenerator:
         )
         return (
             "from dataclasses import dataclass\n"
+            "from typing import Protocol\n"
             "from enum import StrEnum\n"
             "\n"
             "\n"
@@ -254,6 +264,110 @@ class DurableJobGenerator:
             "            .returning(DurableJobRecord.job_id)\n"
             "        )\n"
             "        return updated.scalar_one_or_none() is not None\n"
+        )
+
+    @staticmethod
+    def _render_worker(package: str) -> str:
+        return (
+            "from dataclasses import dataclass\n"
+            "\n"
+            f"from {package}.infrastructure.database.routing import ShardTarget\n"
+            f"from {package}.infrastructure.database.session import AsyncSessionRegistry\n"
+            f"from {package}.infrastructure.messaging.protocol import EventMessage\n"
+            "\n"
+            "from .contracts import DurableJobStatus, JOB_DEFINITIONS\n"
+            "from .repository import DurableJobRepository\n"
+            "\n"
+            "\n"
+            "@dataclass(frozen=True, slots=True)\n"
+            "class DurableJobExecution:\n"
+            "    job_id: str\n"
+            "    job_type: str\n"
+            "    run_key: str\n"
+            "    payload: dict[str, object]\n"
+            "\n"
+            "\n"
+            "class DurableJobHandler(Protocol):\n"
+            "    async def handle(\n"
+            "        self, execution: DurableJobExecution\n"
+            "    ) -> dict[str, object] | None: ...\n"
+            "\n"
+            "\n"
+            "class DurableJobMessageHandler:\n"
+            "    def __init__(\n"
+            "        self, session_registry: AsyncSessionRegistry, handler: DurableJobHandler\n"
+            "    ) -> None:\n"
+            "        self._session_registry = session_registry\n"
+            "        self._handler = handler\n"
+            "\n"
+            "    async def handle(self, message: EventMessage) -> None:\n"
+            "        payload = message.payload\n"
+            "        job_id = str(payload['job_id'])\n"
+            "        job_type = str(payload['job_type'])\n"
+            "        run_key = str(payload['run_key'])\n"
+            "        job_payload = payload['payload']\n"
+            "        if not isinstance(job_payload, dict):\n"
+            "            raise ValueError('durable job payload must be an object')\n"
+            "        definition = JOB_DEFINITIONS.get(job_type)\n"
+            "        if definition is None or message.event_type != definition.event_type:\n"
+            "            raise ValueError('durable job message does not match a definition')\n"
+            "\n"
+            "        async with self._session_registry.session(\n"
+            "            ShardTarget(store=definition.store)\n"
+            "        ) as session:\n"
+            "            repository = DurableJobRepository(session)\n"
+            "            claimed = await repository.transition(\n"
+            "                job_id=job_id,\n"
+            "                expected_status=DurableJobStatus.REQUESTED,\n"
+            "                status=DurableJobStatus.RUNNING,\n"
+            "            )\n"
+            "            if not claimed:\n"
+            "                return\n"
+            "\n"
+            "        execution = DurableJobExecution(\n"
+            "            job_id=job_id,\n"
+            "            job_type=job_type,\n"
+            "            run_key=run_key,\n"
+            "            payload=job_payload,\n"
+            "        )\n"
+            "        try:\n"
+            "            result = await self._handler.handle(execution)\n"
+            "        except Exception as error:\n"
+            "            async with self._session_registry.session(\n"
+            "                ShardTarget(store=definition.store)\n"
+            "            ) as session:\n"
+            "                await DurableJobRepository(session).transition(\n"
+            "                    job_id=job_id,\n"
+            "                    expected_status=DurableJobStatus.RUNNING,\n"
+            "                    status=DurableJobStatus.FAILED,\n"
+            "                    error=str(error) or type(error).__name__,\n"
+            "                )\n"
+            "            raise\n"
+            "\n"
+            "        async with self._session_registry.session(\n"
+            "            ShardTarget(store=definition.store)\n"
+            "        ) as session:\n"
+            "            completed = await DurableJobRepository(session).transition(\n"
+            "                job_id=job_id,\n"
+            "                expected_status=DurableJobStatus.RUNNING,\n"
+            "                status=DurableJobStatus.SUCCEEDED,\n"
+            "                result=result,\n"
+            "            )\n"
+            "        if not completed:\n"
+            "            raise RuntimeError('durable job completion transition was lost')\n"
+        )
+
+    @staticmethod
+    def _render_handler_scaffold(package: str) -> str:
+        return (
+            f"from {package}.infrastructure.durable_jobs.worker import DurableJobExecution\n"
+            "\n"
+            "\n"
+            "class ApplicationDurableJobHandler:\n"
+            "    async def handle(\n"
+            "        self, execution: DurableJobExecution\n"
+            "    ) -> dict[str, object] | None:\n"
+            "        raise NotImplementedError('implement the durable job business handler')\n"
         )
 
     @staticmethod
