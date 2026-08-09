@@ -36,6 +36,16 @@ that contract. Compose/Kubernetes generation remains deferred.
 - keep News parsing, canonical schema, indexing, and RAG ingestion KIS-owned
 - preserve EventBus, RabbitMQ, Redis, and generated-file ownership contracts
 
+### Validation prerequisites observed on 2026-08-09
+
+- The local `base`, `autoforge`, and `kis_trade` Python environments do not
+  include `apache-airflow`; Docker Engine is available, but no Airflow image is
+  present. No image was downloaded or container created for a scaffold-only
+  generator contract.
+- KIS `autoforge.yaml` currently declares no `durable_jobs`. Its only Global
+  database is `identity`; do not infer that it is the right coordinator store
+  for a News/RAG workflow without a KIS product decision.
+
 ### Completed consumer validation
 
 - KIS manifest confirms FastAPI, PostgreSQL DDL, SQLAlchemy, SessionStore, and
