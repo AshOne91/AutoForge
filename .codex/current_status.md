@@ -26,7 +26,7 @@ AutoForge currently has working foundations for:
 
 The build-only Docker contract is documented.
 
-The next implementation is a minimal optional Dockerfile Generator.
+The minimal optional Dockerfile Generator is implemented and verified.
 
 A Dockerfile Generator WIP exists separately from the tooling changes and has
 previously passed its focused test set.

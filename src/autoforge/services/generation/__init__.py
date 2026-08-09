@@ -3,6 +3,7 @@ from autoforge.services.generation.alembic import (
     AlembicEnvironmentGenerator,
 )
 from autoforge.services.generation.ci import CIGenerator
+from autoforge.services.generation.dockerfile import DockerfileGenerator
 from autoforge.services.generation.fastapi_module import FastAPIModuleGenerator
 from autoforge.services.generation.fastapi_project import (
     FastAPIProjectGenerator,
@@ -41,6 +42,7 @@ __all__ = [
     "AlembicBaselineGenerator",
     "AlembicEnvironmentGenerator",
     "CIGenerator",
+    "DockerfileGenerator",
     "FastAPIGeneratorPlugins",
     "FastAPIModuleGenerator",
     "FastAPIProjectGenerator",

@@ -19,6 +19,11 @@ from autoforge.services.generation.ci import (
     CI_GENERATOR_VERSION,
     CIGenerator,
 )
+from autoforge.services.generation.dockerfile import (
+    DOCKERFILE_GENERATOR_ID,
+    DOCKERFILE_GENERATOR_VERSION,
+    DockerfileGenerator,
+)
 from autoforge.services.generation.fastapi_module import (
     MODULE_GENERATOR_ID,
     MODULE_GENERATOR_VERSION,
@@ -111,6 +116,18 @@ def create_fastapi_generator_plugins(
                 name=GENERATOR_ID,
                 version=GENERATOR_VERSION,
                 description="FastAPI 프로젝트 구조 Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
+    project_registry.register(
+        GeneratorPluginAdapter(
+            DockerfileGenerator(),
+            PluginMetadata(
+                name=DOCKERFILE_GENERATOR_ID,
+                version=DOCKERFILE_GENERATOR_VERSION,
+                description="Python 3.12 build-only Dockerfile Generator",
                 capabilities=(PluginCapability.GENERATOR,),
                 supported_specification_versions=("1",),
             ),

@@ -191,6 +191,7 @@ class ApplicationSpec(StrictSpecModel):
 class ToolingSpec(StrictSpecModel):
     ruff_exclude: list[str] = Field(default_factory=list)
     ci: CiSpec = Field(default_factory=lambda: CiSpec())
+    docker: "DockerSpec" = Field(default_factory=lambda: DockerSpec())
 
     @field_validator("ruff_exclude")
     @classmethod
@@ -201,6 +202,10 @@ class ToolingSpec(StrictSpecModel):
         if len(normalized) != len(set(normalized)):
             raise ValueError("tooling.ruff_exclude paths must be unique")
         return normalized
+
+
+class DockerSpec(StrictSpecModel):
+    enabled: bool = False
 
 
 class CiProvider(StrEnum):

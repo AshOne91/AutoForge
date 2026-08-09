@@ -49,6 +49,7 @@ def test_create_minimal_project_spec() -> None:
     assert spec.application.modules == ["tutorial"]
     assert spec.tooling.ruff_exclude == []
     assert spec.tooling.ci.providers == []
+    assert spec.tooling.docker.enabled is False
 
 
 @pytest.mark.parametrize(

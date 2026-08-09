@@ -1,8 +1,8 @@
 # Next Task
 
-## Minimal Dockerfile Generator
+## Dockerfile Generator completed
 
-Complete the existing Dockerfile Generator WIP as the next bounded feature.
+The minimal optional Dockerfile Generator is implemented and verified.
 
 ### Scope
 
@@ -28,7 +28,7 @@ Preserve existing Generator, Manifest, ownership, and validation contracts.
 
 ### Workflow
 
-1. restore the existing Dockerfile WIP on a dedicated feature branch
+1. keep the bounded Docker generator contract stable
 2. use Serena for exact symbol/reference navigation
 3. use CRG only if structural impact analysis is needed
 4. keep Ponytail LITE active
