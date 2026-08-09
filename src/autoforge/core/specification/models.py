@@ -254,7 +254,10 @@ class ApplicationSpec(StrictSpecModel):
 class ToolingSpec(StrictSpecModel):
     ruff_exclude: list[str] = Field(default_factory=list)
     ci: CiSpec = Field(default_factory=lambda: CiSpec())
-    docker: "DockerSpec" = Field(default_factory=lambda: DockerSpec())
+    docker: DockerSpec = Field(default_factory=lambda: DockerSpec())
+    local_environment: LocalEnvironmentSpec = Field(
+        default_factory=lambda: LocalEnvironmentSpec()
+    )
 
     @field_validator("ruff_exclude")
     @classmethod
@@ -268,6 +271,12 @@ class ToolingSpec(StrictSpecModel):
 
 
 class DockerSpec(StrictSpecModel):
+    enabled: bool = False
+
+
+class LocalEnvironmentSpec(StrictSpecModel):
+    """Generate a disposable Docker integration environment for declared services."""
+
     enabled: bool = False
 
 

@@ -39,6 +39,11 @@ from autoforge.services.generation.fastapi_project import (
     GENERATOR_VERSION,
     FastAPIProjectGenerator,
 )
+from autoforge.services.generation.local_environment import (
+    LOCAL_ENVIRONMENT_GENERATOR_ID,
+    LOCAL_ENVIRONMENT_GENERATOR_VERSION,
+    LocalEnvironmentGenerator,
+)
 from autoforge.services.generation.messaging import (
     MESSAGING_GENERATOR_ID,
     MESSAGING_GENERATOR_VERSION,
@@ -145,6 +150,18 @@ def create_fastapi_generator_plugins(
                 name=DOCKERFILE_GENERATOR_ID,
                 version=DOCKERFILE_GENERATOR_VERSION,
                 description="Python 3.12 build-only Dockerfile Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
+    project_registry.register(
+        GeneratorPluginAdapter(
+            LocalEnvironmentGenerator(),
+            PluginMetadata(
+                name=LOCAL_ENVIRONMENT_GENERATOR_ID,
+                version=LOCAL_ENVIRONMENT_GENERATOR_VERSION,
+                description="선언된 서비스용 로컬 Docker 통합 환경 Generator",
                 capabilities=(PluginCapability.GENERATOR,),
                 supported_specification_versions=("1",),
             ),

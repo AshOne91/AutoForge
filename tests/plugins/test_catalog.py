@@ -14,6 +14,9 @@ from autoforge.services.generation.dockerfile import DOCKERFILE_GENERATOR_ID
 from autoforge.services.generation.durable_jobs import DURABLE_JOB_GENERATOR_ID
 from autoforge.services.generation.fastapi_module import MODULE_GENERATOR_ID
 from autoforge.services.generation.fastapi_project import GENERATOR_ID
+from autoforge.services.generation.local_environment import (
+    LOCAL_ENVIRONMENT_GENERATOR_ID,
+)
 from autoforge.services.generation.messaging import MESSAGING_GENERATOR_ID
 from autoforge.services.generation.postgresql_ddl import (
     POSTGRESQL_DDL_GENERATOR_ID,
@@ -63,6 +66,7 @@ def test_builtin_catalog_contains_expected_plugins() -> None:
         CI_GENERATOR_ID,
         DOCKERFILE_GENERATOR_ID,
         GENERATOR_ID,
+        LOCAL_ENVIRONMENT_GENERATOR_ID,
         DURABLE_JOB_GENERATOR_ID,
         MESSAGING_GENERATOR_ID,
         SESSION_STORE_GENERATOR_ID,

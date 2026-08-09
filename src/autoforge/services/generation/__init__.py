@@ -9,6 +9,7 @@ from autoforge.services.generation.fastapi_module import FastAPIModuleGenerator
 from autoforge.services.generation.fastapi_project import (
     FastAPIProjectGenerator,
 )
+from autoforge.services.generation.local_environment import LocalEnvironmentGenerator
 from autoforge.services.generation.manifest_store import (
     MANIFEST_RELATIVE_PATH,
     ManifestStore,
@@ -53,6 +54,7 @@ __all__ = [
     "GenerationPlanResolver",
     "GenerationRunner",
     "GenerationRunnerError",
+    "LocalEnvironmentGenerator",
     "ManifestStore",
     "ManifestStoreError",
     "MessagingGenerator",
