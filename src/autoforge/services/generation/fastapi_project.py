@@ -40,6 +40,7 @@ class FastAPIProjectGenerator:
         database_stores = specification.application.databases
         has_database = bool(database_stores)
         has_session_store = bool(session_services)
+        has_durable_jobs = bool(specification.application.durable_jobs)
         has_lifespan = has_database or has_session_store
         database_env_names = [
             environment_name
@@ -89,6 +90,7 @@ class FastAPIProjectGenerator:
                 project_name=project.name,
                 version=project.version,
                 has_lifespan=has_lifespan,
+                has_durable_jobs=has_durable_jobs,
             ),
             package_root / "routers" / "__init__.py": "",
             package_root / "routers" / "health.py": self._render_health_router(),
@@ -108,6 +110,10 @@ class FastAPIProjectGenerator:
                 package_name,
                 has_database=has_database,
                 has_session_store=has_session_store,
+            )
+        if has_durable_jobs:
+            rendered[package_root / "routers" / "durable_jobs.py"] = (
+                self._render_durable_jobs_router(package_name)
             )
         return rendered
 
@@ -265,17 +271,26 @@ class FastAPIProjectGenerator:
         project_name: str,
         version: str,
         has_lifespan: bool,
+        has_durable_jobs: bool,
     ) -> str:
         title_literal = json.dumps(project_name, ensure_ascii=False)
         version_literal = json.dumps(version, ensure_ascii=False)
         lifespan_import = ""
         lifespan_line = ""
+        durable_jobs_import = ""
+        durable_jobs_line = ""
         if has_lifespan:
             lifespan_import = (
                 f"from {package_name}.application.generated.lifespan "
                 "import lifespan\n"
             )
             lifespan_line = "        lifespan=lifespan,\n"
+        if has_durable_jobs:
+            durable_jobs_import = (
+                f"from {package_name}.routers.durable_jobs "
+                "import router as durable_jobs_router\n"
+            )
+            durable_jobs_line = "    app.include_router(durable_jobs_router)\n"
         return (
             "from fastapi import FastAPI\n"
             "\n"
@@ -283,6 +298,7 @@ class FastAPIProjectGenerator:
             f"from {package_name}.application.generated.module_registry "
             "import MODULE_ROUTERS\n"
             f"from {package_name}.routers.health import router as health_router\n"
+            f"{durable_jobs_import}"
             "\n"
             "\n"
             "def create_app() -> FastAPI:\n"
@@ -292,6 +308,7 @@ class FastAPIProjectGenerator:
             f"{lifespan_line}"
             f"    )\n"
             "    app.include_router(health_router)\n"
+            f"{durable_jobs_line}"
             "    for router in MODULE_ROUTERS:\n"
             "        app.include_router(router)\n"
             "    return app\n"
@@ -327,6 +344,102 @@ class FastAPIProjectGenerator:
             sections.append("\n".join(package_imports))
         sections.append(declaration.rstrip())
         return "\n\n".join(sections) + "\n"
+
+    @staticmethod
+    def _render_durable_jobs_router(package_name: str) -> str:
+        return (
+            "from datetime import datetime\n"
+            "from typing import Annotated\n"
+            "\n"
+            "from fastapi import APIRouter, Depends, HTTPException, status\n"
+            "from pydantic import BaseModel, Field\n"
+            "\n"
+            f"from {package_name}.infrastructure.database.provider import get_session_registry\n"
+            f"from {package_name}.infrastructure.database.routing import ShardTarget\n"
+            f"from {package_name}.infrastructure.database.session import AsyncSessionRegistry\n"
+            f"from {package_name}.infrastructure.durable_jobs.contracts import JOB_DEFINITIONS\n"
+            f"from {package_name}.infrastructure.durable_jobs.repository import DurableJobRepository\n"
+            "\n"
+            "\n"
+            "class DurableJobTriggerRequest(BaseModel):\n"
+            "    run_key: str = Field(min_length=1)\n"
+            "    payload: dict[str, object] = Field(default_factory=dict)\n"
+            "\n"
+            "\n"
+            "class DurableJobTriggerResponse(BaseModel):\n"
+            "    job_id: str\n"
+            "    created: bool\n"
+            "\n"
+            "\n"
+            "class DurableJobStatusResponse(BaseModel):\n"
+            "    job_id: str\n"
+            "    job_type: str\n"
+            "    run_key: str\n"
+            "    status: str\n"
+            "    payload: dict[str, object]\n"
+            "    result: dict[str, object] | None\n"
+            "    error: str | None\n"
+            "    requested_at: datetime\n"
+            "    updated_at: datetime\n"
+            "\n"
+            "\n"
+            "router = APIRouter(prefix='/internal/jobs', tags=['durable-jobs'])\n"
+            "\n"
+            "\n"
+            "def _definition(job_type: str):\n"
+            "    definition = JOB_DEFINITIONS.get(job_type)\n"
+            "    if definition is None:\n"
+            "        raise HTTPException(status_code=404, detail='durable job type not found')\n"
+            "    return definition\n"
+            "\n"
+            "\n"
+            "@router.post(\n"
+            "    '/{job_type}',\n"
+            "    response_model=DurableJobTriggerResponse,\n"
+            "    status_code=status.HTTP_202_ACCEPTED,\n"
+            ")\n"
+            "async def trigger_durable_job(\n"
+            "    job_type: str,\n"
+            "    request: DurableJobTriggerRequest,\n"
+            "    session_registry: Annotated[\n"
+            "        AsyncSessionRegistry, Depends(get_session_registry)\n"
+            "    ],\n"
+            ") -> DurableJobTriggerResponse:\n"
+            "    definition = _definition(job_type)\n"
+            "    async with session_registry.session(ShardTarget(store=definition.store)) as session:\n"
+            "        result = await DurableJobRepository(session).request(\n"
+            "            job_type=job_type, run_key=request.run_key, payload=request.payload\n"
+            "        )\n"
+            "    return DurableJobTriggerResponse(\n"
+            "        job_id=result.job_id, created=result.created\n"
+            "    )\n"
+            "\n"
+            "\n"
+            "@router.get('/{job_type}/{job_id}', response_model=DurableJobStatusResponse)\n"
+            "async def get_durable_job(\n"
+            "    job_type: str,\n"
+            "    job_id: str,\n"
+            "    session_registry: Annotated[\n"
+            "        AsyncSessionRegistry, Depends(get_session_registry)\n"
+            "    ],\n"
+            ") -> DurableJobStatusResponse:\n"
+            "    definition = _definition(job_type)\n"
+            "    async with session_registry.session(ShardTarget(store=definition.store)) as session:\n"
+            "        job = await DurableJobRepository(session).get(job_id)\n"
+            "    if job is None or job.job_type != definition.name:\n"
+            "        raise HTTPException(status_code=404, detail='durable job not found')\n"
+            "    return DurableJobStatusResponse(\n"
+            "        job_id=job.job_id,\n"
+            "        job_type=job.job_type,\n"
+            "        run_key=job.run_key,\n"
+            "        status=job.status,\n"
+            "        payload=job.payload,\n"
+            "        result=job.result,\n"
+            "        error=job.error,\n"
+            "        requested_at=job.requested_at,\n"
+            "        updated_at=job.updated_at,\n"
+            "    )\n"
+        )
 
     @staticmethod
     def _render_health_router() -> str:

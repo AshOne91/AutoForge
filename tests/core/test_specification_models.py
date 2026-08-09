@@ -74,6 +74,21 @@ def test_durable_job_requires_declared_rabbitmq_outbox_store() -> None:
         )
     with pytest.raises(ValidationError, match="require a RabbitMQ outbox"):
         ApplicationSpec(databases=[database], durable_jobs=[job])
+    with pytest.raises(ValidationError, match="require a global database URL"):
+        ApplicationSpec(
+            services=[service],
+            databases=[
+                DatabaseStoreSpec(
+                    name="account",
+                    shards=[
+                        DatabaseShardSpec(
+                            shard_id="1", url_env="ACCOUNT_SHARD_1_URL"
+                        )
+                    ],
+                )
+            ],
+            durable_jobs=[job],
+        )
 
 
 def test_create_minimal_project_spec() -> None:

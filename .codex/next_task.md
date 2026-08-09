@@ -18,12 +18,13 @@ that contract. Compose/Kubernetes generation remains deferred.
 - generated `DurableJobRecord` enforces `(job_type, run_key)` uniqueness.
 - generated repository creates the JobRecord and OutboxEvent in one caller-owned transaction.
 - generated migration adds the durable job table after the store outbox migration.
+- generated FastAPI router provides idempotent trigger and status endpoints.
+- Durable Job coordinator storage is limited to an explicitly declared Global DB.
 
 ### Remaining scope
 
-- generate idempotent trigger/status HTTP endpoints over the durable Job repository
 - generate a Worker dispatch extension point that transitions durable Job state
-- add the minimal Airflow DAG scaffold only after the HTTP and Worker contracts are stable
+- add the minimal Airflow DAG scaffold only after the Worker contract is stable
 - keep scheduling, retry, timeout, and dependency ownership in Airflow
 - keep News parsing, canonical schema, indexing, and RAG ingestion KIS-owned
 - preserve EventBus, RabbitMQ, Redis, and generated-file ownership contracts

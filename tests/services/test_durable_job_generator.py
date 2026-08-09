@@ -11,6 +11,7 @@ from autoforge.core.specification import (
     ServiceSpec,
 )
 from autoforge.services.generation.durable_jobs import DurableJobGenerator
+from autoforge.services.generation.fastapi_project import FastAPIProjectGenerator
 
 
 def durable_job_specification() -> ProjectSpec:
@@ -84,3 +85,19 @@ def test_durable_job_migration_is_scaffolded() -> None:
     assert ownership[
         PurePosixPath("migrations/account/versions/0003_durable_jobs.py")
     ] is FileOwnership.SCAFFOLDED
+
+
+def test_fastapi_project_registers_durable_job_endpoints() -> None:
+    files = FastAPIProjectGenerator().render(durable_job_specification())
+
+    router = files[PurePosixPath("src/kis_auto_trading/routers/durable_jobs.py")]
+    app_factory = files[
+        PurePosixPath("src/kis_auto_trading/application/app_factory.py")
+    ]
+
+    ast.parse(router)
+    ast.parse(app_factory)
+    assert "@router.post(" in router
+    assert "status.HTTP_202_ACCEPTED" in router
+    assert "ShardTarget(store=definition.store)" in router
+    assert "app.include_router(durable_jobs_router)" in app_factory

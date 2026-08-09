@@ -51,7 +51,8 @@ consumer requirement and an owning generator contract exist.
 - [ ] managed Redis Sentinel deployment verification (when selected by a consumer)
 - [ ] WebSocket/additional service blueprints
 - [~] Durable Job persistence and transactional Outbox contract
-- [ ] Durable Job trigger/status and worker lifecycle contract
+- [x] Durable Job trigger/status API contract
+- [ ] Durable Job worker lifecycle contract
 - [ ] Airflow DAG scaffold and trigger/status contract
 - [ ] Metrics Handler
 - [ ] artifact publishing

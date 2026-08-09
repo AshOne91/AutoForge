@@ -217,6 +217,17 @@ class ApplicationSpec(StrictSpecModel):
                 "Durable job stores are not declared databases: "
                 f"{unknown_job_stores}"
             )
+        databases_by_name = {database.name: database for database in self.databases}
+        sharded_job_stores = sorted(
+            store
+            for store in durable_job_stores
+            if databases_by_name[store].global_url_env is None
+        )
+        if sharded_job_stores:
+            raise ValueError(
+                "Durable job stores require a global database URL: "
+                f"{sharded_job_stores}"
+            )
         rabbitmq_outbox_stores = {
             store
             for service in self.services
