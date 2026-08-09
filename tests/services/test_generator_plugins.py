@@ -6,6 +6,7 @@ from autoforge.core.specification import (
     CiSpec,
     DatabaseStoreSpec,
     DockerSpec,
+    KubernetesSpec,
     LocalEnvironmentSpec,
     ModuleInfo,
     ModuleSpec,
@@ -23,6 +24,9 @@ from autoforge.services.generation.dockerfile import DOCKERFILE_GENERATOR_ID
 from autoforge.services.generation.durable_jobs import DURABLE_JOB_GENERATOR_ID
 from autoforge.services.generation.fastapi_module import MODULE_GENERATOR_ID
 from autoforge.services.generation.fastapi_project import GENERATOR_ID
+from autoforge.services.generation.kubernetes import (
+    KUBERNETES_BASE_SERVER_GENERATOR_ID,
+)
 from autoforge.services.generation.local_environment import (
     LOCAL_ENVIRONMENT_GENERATOR_ID,
 )
@@ -46,6 +50,7 @@ def test_fastapi_generator_plugins_register_real_generators() -> None:
         CI_GENERATOR_ID,
         DOCKERFILE_GENERATOR_ID,
         GENERATOR_ID,
+        KUBERNETES_BASE_SERVER_GENERATOR_ID,
         LOCAL_ENVIRONMENT_GENERATOR_ID,
         DURABLE_JOB_GENERATOR_ID,
         MESSAGING_GENERATOR_ID,
@@ -126,6 +131,43 @@ def test_local_environment_generator_plugin_is_empty_until_enabled() -> None:
     rendered = plugins.project.get(LOCAL_ENVIRONMENT_GENERATOR_ID).render(requested)
 
     assert PurePosixPath("environment", "compose.integration.yml") in rendered
+
+
+def test_kubernetes_base_server_plugin_is_empty_until_enabled() -> None:
+    plugins = create_fastapi_generator_plugins("game_server")
+    specification = ProjectSpec(
+        spec_version="1",
+        project=ProjectInfo(
+            name="Game Server",
+            package_name="game_server",
+            version="0.1.0",
+        ),
+        application=ApplicationSpec(),
+    )
+
+    assert (
+        plugins.project.get(KUBERNETES_BASE_SERVER_GENERATOR_ID).render(
+            specification
+        )
+        == {}
+    )
+
+    requested = specification.model_copy(
+        update={
+            "tooling": ToolingSpec(
+                kubernetes=KubernetesSpec(
+                    enabled=True,
+                    image="game-server:latest",
+                    secret_name="game-server-runtime",
+                )
+            )
+        }
+    )
+    rendered = plugins.project.get(KUBERNETES_BASE_SERVER_GENERATOR_ID).render(
+        requested
+    )
+
+    assert PurePosixPath("deploy", "kubernetes", "base-server.yaml") in rendered
 
 
 def test_ci_generator_plugin_is_empty_until_ci_is_requested() -> None:

@@ -255,6 +255,7 @@ class ToolingSpec(StrictSpecModel):
     ruff_exclude: list[str] = Field(default_factory=list)
     ci: CiSpec = Field(default_factory=lambda: CiSpec())
     docker: DockerSpec = Field(default_factory=lambda: DockerSpec())
+    kubernetes: KubernetesSpec = Field(default_factory=lambda: KubernetesSpec())
     local_environment: LocalEnvironmentSpec = Field(
         default_factory=lambda: LocalEnvironmentSpec()
     )
@@ -272,6 +273,46 @@ class ToolingSpec(StrictSpecModel):
 
 class DockerSpec(StrictSpecModel):
     enabled: bool = False
+
+
+class KubernetesSpec(StrictSpecModel):
+    """Generate a zero-secret Kubernetes base_server deployment profile."""
+
+    enabled: bool = False
+    namespace: str = "default"
+    image: str = ""
+    secret_name: str = ""
+    application_replicas: int = Field(default=3, ge=1)
+    proxy_replicas: int = Field(default=2, ge=1)
+    log_host_path: str | None = None
+    additional_secret_env_names: list[str] = Field(default_factory=list)
+
+    @field_validator("additional_secret_env_names")
+    @classmethod
+    def validate_additional_secret_env_names(cls, values: list[str]) -> list[str]:
+        for value in values:
+            if (
+                not value
+                or not value[0].isupper()
+                or any(
+                    not (character.isupper() or character.isdigit() or character == "_")
+                    for character in value
+                )
+            ):
+                raise ValueError("Kubernetes secret environment names must be uppercase")
+        if len(values) != len(set(values)):
+            raise ValueError("Kubernetes secret environment names must be unique")
+        return values
+
+    @model_validator(mode="after")
+    def validate_enabled_profile(self) -> KubernetesSpec:
+        if self.enabled and not self.image:
+            raise ValueError("Kubernetes base_server requires an image")
+        if self.enabled and not self.secret_name:
+            raise ValueError("Kubernetes base_server requires a secret_name")
+        if self.log_host_path and not self.log_host_path.startswith("/"):
+            raise ValueError("Kubernetes log_host_path must be an absolute path")
+        return self
 
 
 class LocalEnvironmentSpec(StrictSpecModel):

@@ -39,6 +39,11 @@ from autoforge.services.generation.fastapi_project import (
     GENERATOR_VERSION,
     FastAPIProjectGenerator,
 )
+from autoforge.services.generation.kubernetes import (
+    KUBERNETES_BASE_SERVER_GENERATOR_ID,
+    KUBERNETES_BASE_SERVER_GENERATOR_VERSION,
+    KubernetesBaseServerGenerator,
+)
 from autoforge.services.generation.local_environment import (
     LOCAL_ENVIRONMENT_GENERATOR_ID,
     LOCAL_ENVIRONMENT_GENERATOR_VERSION,
@@ -162,6 +167,18 @@ def create_fastapi_generator_plugins(
                 name=LOCAL_ENVIRONMENT_GENERATOR_ID,
                 version=LOCAL_ENVIRONMENT_GENERATOR_VERSION,
                 description="선언된 서비스용 로컬 Docker 통합 환경 Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
+    project_registry.register(
+        GeneratorPluginAdapter(
+            KubernetesBaseServerGenerator(),
+            PluginMetadata(
+                name=KUBERNETES_BASE_SERVER_GENERATOR_ID,
+                version=KUBERNETES_BASE_SERVER_GENERATOR_VERSION,
+                description="Zero-secret Kubernetes Proxy/App base_server Generator",
                 capabilities=(PluginCapability.GENERATOR,),
                 supported_specification_versions=("1",),
             ),
