@@ -49,6 +49,12 @@ routing is unnecessary.
 The agent may recommend KEEP, DOWNGRADE, or UPGRADE, but cannot silently change
 the user's current model or reasoning setting.
 
+Before every substantial task, report the current model/reasoning, recommended
+routing, and KEEP/DOWNGRADE/UPGRADE decision. After reporting, stop and wait for
+the user to explicitly approve proceeding; any clear affirmative instruction is
+sufficient, and no specific language or exact phrase is required. Do not begin
+work automatically, including when the recommendation is KEEP.
+
 ## Testing
 
 Verify the smallest useful scope first:
