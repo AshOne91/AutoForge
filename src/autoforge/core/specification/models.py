@@ -149,11 +149,33 @@ class DatabaseStoreSpec(StrictSpecModel):
         return self
 
 
+class DurableJobSpec(StrictSpecModel):
+    """A durable, idempotent application job routed through the outbox."""
+
+    name: str
+    store: str
+    event_type: str
+    routing_key: str
+
+    @field_validator("name", "store")
+    @classmethod
+    def validate_python_names(cls, value: str) -> str:
+        return validate_python_name(value)
+
+    @field_validator("event_type", "routing_key")
+    @classmethod
+    def validate_message_names(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Durable job message names must not be empty")
+        return value
+
+
 class ApplicationSpec(StrictSpecModel):
     framework: Literal["fastapi"] = "fastapi"
     modules: list[str] = Field(default_factory=list)
     services: list[ServiceSpec] = Field(default_factory=list)
     databases: list[DatabaseStoreSpec] = Field(default_factory=list)
+    durable_jobs: list[DurableJobSpec] = Field(default_factory=list)
 
     @field_validator("modules")
     @classmethod
@@ -171,6 +193,9 @@ class ApplicationSpec(StrictSpecModel):
         database_names = [database.name for database in self.databases]
         if len(database_names) != len(set(database_names)):
             raise ValueError("Application Database 이름은 중복될 수 없습니다.")
+        job_names = [job.name for job in self.durable_jobs]
+        if len(job_names) != len(set(job_names)):
+            raise ValueError("Application Durable Job names must be unique")
         unknown_outbox_stores = sorted(
             {
                 store
@@ -184,6 +209,25 @@ class ApplicationSpec(StrictSpecModel):
             raise ValueError(
                 f"RabbitMQ outbox stores are not declared databases: "
                 f"{unknown_outbox_stores}"
+            )
+        durable_job_stores = {job.store for job in self.durable_jobs}
+        unknown_job_stores = sorted(durable_job_stores - set(database_names))
+        if unknown_job_stores:
+            raise ValueError(
+                "Durable job stores are not declared databases: "
+                f"{unknown_job_stores}"
+            )
+        rabbitmq_outbox_stores = {
+            store
+            for service in self.services
+            if service.kind == "rabbitmq"
+            for store in service.outbox_stores
+        }
+        missing_outbox_stores = sorted(durable_job_stores - rabbitmq_outbox_stores)
+        if missing_outbox_stores:
+            raise ValueError(
+                "Durable job stores require a RabbitMQ outbox: "
+                f"{missing_outbox_stores}"
             )
         return self
 

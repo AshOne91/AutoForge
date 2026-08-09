@@ -24,6 +24,11 @@ from autoforge.services.generation.dockerfile import (
     DOCKERFILE_GENERATOR_VERSION,
     DockerfileGenerator,
 )
+from autoforge.services.generation.durable_jobs import (
+    DURABLE_JOB_GENERATOR_ID,
+    DURABLE_JOB_GENERATOR_VERSION,
+    DurableJobGenerator,
+)
 from autoforge.services.generation.fastapi_module import (
     MODULE_GENERATOR_ID,
     MODULE_GENERATOR_VERSION,
@@ -104,6 +109,18 @@ def create_fastapi_generator_plugins(
                 name=ALEMBIC_PROJECT_GENERATOR_ID,
                 version=ALEMBIC_GENERATOR_VERSION,
                 description="Store별 Alembic async 실행 환경 Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
+    project_registry.register(
+        GeneratorPluginAdapter(
+            DurableJobGenerator(),
+            PluginMetadata(
+                name=DURABLE_JOB_GENERATOR_ID,
+                version=DURABLE_JOB_GENERATOR_VERSION,
+                description="Durable Job과 Transactional Outbox 계약 Generator",
                 capabilities=(PluginCapability.GENERATOR,),
                 supported_specification_versions=("1",),
             ),

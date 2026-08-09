@@ -12,6 +12,7 @@ from autoforge.core.specification import (
     DatabaseStoreSpec,
     DataPlacementMode,
     DataPlacementSpec,
+    DurableJobSpec,
     EndpointDependency,
     EndpointSpec,
     FieldSpec,
@@ -31,6 +32,48 @@ from autoforge.core.specification import (
     TableSpec,
     ToolingSpec,
 )
+
+
+def test_durable_job_requires_declared_rabbitmq_outbox_store() -> None:
+    job = DurableJobSpec(
+        name="news_collection",
+        store="account",
+        event_type="news.collection.requested",
+        routing_key="news.collection.requested",
+    )
+    service = ServiceSpec(
+        name="events",
+        kind="rabbitmq",
+        outbox_stores=["account"],
+    )
+    database = DatabaseStoreSpec(
+        name="account",
+        global_url_env="ACCOUNT_DATABASE_URL",
+    )
+
+    application = ApplicationSpec(
+        services=[service], databases=[database], durable_jobs=[job]
+    )
+
+    assert application.durable_jobs == [job]
+    with pytest.raises(ValidationError, match="Durable job stores"):
+        ApplicationSpec(
+            services=[
+                ServiceSpec(
+                    name="events",
+                    kind="rabbitmq",
+                    outbox_stores=["other"],
+                )
+            ],
+            databases=[
+                DatabaseStoreSpec(
+                    name="other", global_url_env="OTHER_DATABASE_URL"
+                )
+            ],
+            durable_jobs=[job],
+        )
+    with pytest.raises(ValidationError, match="require a RabbitMQ outbox"):
+        ApplicationSpec(databases=[database], durable_jobs=[job])
 
 
 def test_create_minimal_project_spec() -> None:

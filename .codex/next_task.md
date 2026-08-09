@@ -1,6 +1,6 @@
 # Next Task
 
-## Durable Job contract before Airflow DAG
+## Durable Job HTTP and worker integration before Airflow DAG
 
 The generated-project Docker build context, PostgreSQL DDL reproducibility, and
 Redis/session generation reproducibility are verified. Global and Shard
@@ -12,11 +12,18 @@ the running KIS integration cluster. The next bounded contract is the durable
 Job lifecycle for the KIS News/RAG workflow; the Airflow DAG scaffold follows
 that contract. Compose/Kubernetes generation remains deferred.
 
-### Scope
+### Completed durable Job foundation
 
-- define JobRecord, run-key idempotency, lifecycle states, and trigger/status HTTP contract
-- connect the same-transaction Outbox event to a RabbitMQ worker scaffold
-- add the minimal Airflow DAG scaffold only after the Job contract is stable
+- `DurableJobSpec` validates the selected database store and RabbitMQ outbox.
+- generated `DurableJobRecord` enforces `(job_type, run_key)` uniqueness.
+- generated repository creates the JobRecord and OutboxEvent in one caller-owned transaction.
+- generated migration adds the durable job table after the store outbox migration.
+
+### Remaining scope
+
+- generate idempotent trigger/status HTTP endpoints over the durable Job repository
+- generate a Worker dispatch extension point that transitions durable Job state
+- add the minimal Airflow DAG scaffold only after the HTTP and Worker contracts are stable
 - keep scheduling, retry, timeout, and dependency ownership in Airflow
 - keep News parsing, canonical schema, indexing, and RAG ingestion KIS-owned
 - preserve EventBus, RabbitMQ, Redis, and generated-file ownership contracts
