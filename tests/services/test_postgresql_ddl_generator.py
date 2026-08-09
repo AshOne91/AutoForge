@@ -114,6 +114,17 @@ def test_plan_marks_sql_as_generated() -> None:
     assert all(file.ownership is FileOwnership.GENERATED for file in plan.files)
 
 
+def test_same_database_specification_is_reproducible() -> None:
+    generator = PostgreSQLDDLGenerator()
+    specification = database_specification()
+
+    first_render = generator.render(specification)
+    second_render = generator.render(specification)
+
+    assert first_render == second_render
+    assert generator.plan(specification) == generator.plan(specification)
+
+
 def test_render_requires_explicit_placement() -> None:
     specification = database_specification()
     assert specification.database is not None

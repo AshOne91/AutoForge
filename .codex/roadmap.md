@@ -30,7 +30,7 @@ After the Docker contract is verified, validate the generator against a real
 consumer slice in `kis-auto-trading`, in this order:
 
 1. generated FastAPI application starts and validates
-2. database artifacts are deterministic and reproducible
+2. database artifacts are deterministic and reproducible (verified for PostgreSQL DDL)
 3. Global versus Shard persistence boundaries are explicit
 4. shared Redis/session and message-service contracts are validated
 5. deployment-oriented generation is added only afterward

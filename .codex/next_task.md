@@ -1,15 +1,15 @@
 # Next Task
 
-## Database artifact reproducibility verification
+## Shared Redis/session contract verification
 
-The generated-project Docker build context is now verified. The next bounded
-contract is to verify database models and SQL/migration artifacts are
-deterministic and reproducible.
+The generated-project Docker build context and representative PostgreSQL DDL
+reproducibility are verified. The next bounded contract is to validate the
+shared Redis/session generation contract.
 
 ### Scope
 
-- inspect the existing database generator and SQL/migration tests
-- verify one representative database specification twice
+- inspect the existing Redis/session generator and tests
+- verify one representative session specification twice
 - preserve Generator, GenerationPlan, Manifest, ownership, and validation
   contracts
 
