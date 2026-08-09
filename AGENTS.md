@@ -1,4 +1,4 @@
-﻿# AutoForge Agent Instructions
+# AutoForge Agent Instructions
 
 ## Project role
 
@@ -74,3 +74,7 @@ After changes, report changed files, verification performed, and remaining issue
 Keep this file short.
 
 Put specialized procedures in `.agents/skills/` and load them only when relevant.
+
+## Architecture lineage
+
+- For specification/generator/application architecture decisions rooted in common-tool, game-server, or base_server, use the `architecture-lineage` Skill.
