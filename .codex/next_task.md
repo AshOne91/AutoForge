@@ -22,8 +22,8 @@ that contract. Compose/Kubernetes generation remains deferred.
 - generated Worker dispatch validates the event/job contract and performs
   `requested -> running -> succeeded|failed` compare-and-set transitions.
 - generated application handler scaffold is preserved for KIS-owned business work.
-- a Durable Job `schedule` generates an Airflow DAG that uses the stable Airflow
-  run id as the idempotency key, then triggers and polls the internal Job API.
+- a Durable Job `schedule` generates an Airflow DAG that uses its data-interval
+  start as the idempotency key, then triggers and polls the internal Job API.
 - Durable Job coordinator storage is limited to an explicitly declared Global DB.
 
 ### Remaining scope

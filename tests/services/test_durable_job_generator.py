@@ -93,7 +93,8 @@ def test_durable_job_generator_emits_atomic_request_contract() -> None:
     assert "raise" in worker
     assert "class ApplicationDurableJobHandler" in handler
     assert "schedule='0 * * * *'" in dag
-    assert "get_current_context()['run_id']" in dag
+    assert "get_current_context()['data_interval_start']" in dag
+    assert "run_key = f'{JOB_TYPE}:{data_interval_start.isoformat()}'" in dag
     assert "DURABLE_JOB_NEWS_COLLECTION_PAYLOAD_JSON" in dag
     assert "execution_timeout=timedelta(seconds=TIMEOUT_SECONDS)" in dag
     assert "af_account_outbox_0001" in revision
