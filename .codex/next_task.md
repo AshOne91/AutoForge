@@ -1,26 +1,20 @@
 # Next Task
 
-## Generated-project Docker daemon build verification
+## Additional service blueprint selection
 
 The generated-project Docker build context, PostgreSQL DDL reproducibility, and
 Redis/session generation reproducibility are verified. Global and Shard
 SQLAlchemy/Alembic routing and message/outbox generation are now explicitly
 covered. The `kis-auto-trading` consumer vertical slice now passes all focused
-and full tests. The Dockerfile already provides the minimal local deployment
-baseline by running Uvicorn; a separate Compose/Kubernetes generator is not
-justified yet. The next bounded contract is an actual Docker daemon build.
+and full tests. The generated project also builds successfully with Docker
+Engine 29.1.2. The managed Redis Cluster URL contract has been verified against
+the running KIS integration cluster. The next bounded task is to select one
+additional service blueprint; Compose/Kubernetes generation remains deferred.
 
 ### Scope
 
-- run the generated-project Docker build with an available Docker daemon
-- verify the image build context and keep deployment credentials out of output
-
-### Current blocker
-
-The Docker CLI is installed, but Docker Engine is unavailable in the current
-environment (`docker_engine` named pipe access is denied). Do not add a
-Compose/Kubernetes workaround for this environment; retry the same contract
-when a Docker daemon is available.
+- inspect the existing service/plugin extension points
+- choose one consumer-backed service blueprint with a small generated contract
 
 ### Completed consumer validation
 

@@ -23,7 +23,7 @@
 - [x] build-only responsibility contract
 - [x] minimal Dockerfile Generator
 - [x] generated-project Docker build-context verification
-- [ ] generated-project Docker daemon build verification (environment blocked)
+- [x] generated-project Docker daemon build verification
 
 ### Current vertical-slice direction
 
@@ -44,7 +44,8 @@ consumer requirement and an owning generator contract exist.
 ## Later
 
 - [ ] additional database providers such as MySQL
-- [ ] remaining managed Redis deployment contracts
+- [x] managed Redis Cluster connection contract (verified against KIS cluster)
+- [ ] managed Redis Sentinel deployment verification (when selected by a consumer)
 - [ ] WebSocket/additional service blueprints
 - [ ] Metrics Handler
 - [ ] artifact publishing
