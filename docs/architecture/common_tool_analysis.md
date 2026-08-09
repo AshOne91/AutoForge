@@ -114,3 +114,20 @@ Controller와 객체를 정리한다. 생성된 `DBSave`는 변경 표시가 없
 
 이 항목은 현재 명세 버전에 한꺼번에 추가하지 않는다. kis-auto-trading의 실제
 로그인 수직 흐름을 생성하면서 필요한 최소 계약만 검증 후 도입한다.
+## 실제 서비스 구조 대조 결과
+
+실제 소스를 대조하면 계보는 다음과 같다.
+
+```text
+common-tool 명세
+  -> generated model / protocol / table / SQL
+  -> Application composition
+  -> Template runtime module
+  -> Service adapter와 lifecycle
+```
+
+`gameserver`의 `TemplateStartup`은 여러 Template와 DB·Cache·Event·MessageQueue를 순서대로 등록한다. Controller는 Template protocol callback으로 연결되고, Template이 업무 동작과 저장 경계를 소유한다. 따라서 AutoForge의 `ModuleSpec`은 단순 router 생성 설정이 아니라, 향후 transport·persistence·service capability를 함께 묶는 조립 단위로 유지해야 한다.
+
+계승하지 않을 구현은 전역 정적 Context/ServiceContainer, 생성 코드에 업무 규칙을 직접 넣는 방식, 특정 DB stored procedure와 C# 실행 모델에 대한 강결합이다. Python에서는 GENERATED 산출물과 SCAFFOLDED handler를 분리하고, 명시적 provider/lifespan과 Global/Shard placement 계약을 사용한다.
+
+첫 확장 계약은 일반적인 Template 프레임워크가 아니라 KIS 뉴스 수집의 Durable Job 수직 슬라이스다. Job 상태·멱등성·Outbox·Worker·Airflow trigger/status를 실제 consumer로 검증한 뒤 필요한 공통 필드만 Module/Application 명세에 추가한다.

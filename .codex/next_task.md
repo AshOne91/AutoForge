@@ -1,6 +1,6 @@
 # Next Task
 
-## Additional service blueprint selection
+## Durable Job contract before Airflow DAG
 
 The generated-project Docker build context, PostgreSQL DDL reproducibility, and
 Redis/session generation reproducibility are verified. Global and Shard
@@ -8,13 +8,18 @@ SQLAlchemy/Alembic routing and message/outbox generation are now explicitly
 covered. The `kis-auto-trading` consumer vertical slice now passes all focused
 and full tests. The generated project also builds successfully with Docker
 Engine 29.1.2. The managed Redis Cluster URL contract has been verified against
-the running KIS integration cluster. The next bounded task is to select one
-additional service blueprint; Compose/Kubernetes generation remains deferred.
+the running KIS integration cluster. The next bounded contract is the durable
+Job lifecycle for the KIS News/RAG workflow; the Airflow DAG scaffold follows
+that contract. Compose/Kubernetes generation remains deferred.
 
 ### Scope
 
-- inspect the existing service/plugin extension points
-- choose one consumer-backed service blueprint with a small generated contract
+- define JobRecord, run-key idempotency, lifecycle states, and trigger/status HTTP contract
+- connect the same-transaction Outbox event to a RabbitMQ worker scaffold
+- add the minimal Airflow DAG scaffold only after the Job contract is stable
+- keep scheduling, retry, timeout, and dependency ownership in Airflow
+- keep News parsing, canonical schema, indexing, and RAG ingestion KIS-owned
+- preserve EventBus, RabbitMQ, Redis, and generated-file ownership contracts
 
 ### Completed consumer validation
 

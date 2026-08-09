@@ -572,3 +572,16 @@ Infrastructure
 10. 외부 Transport는 Core 계약과 Infrastructure Adapter로 분리한다.
 11. 외부 상태를 바꾸는 Handler는 중복 전달에 안전해야 한다.
 12. 현재 in-process EventBus는 이유 없이 재작성하지 않고 점진적으로 확장한다.
+## 16. 외부 Workflow와의 책임 경계
+
+참고 프로젝트의 운영 흐름을 AutoForge에 적용할 때 세 가지 전달 수단을 섞지 않는다.
+
+```text
+EventBus  = 같은 프로세스 안의 비동기 이벤트 전달
+RabbitMQ  = 프로세스 사이의 내구성 메시지와 Worker 전달
+Airflow   = 일정·재시도·timeout·의존성·관측 Workflow 조정
+```
+
+Airflow는 EventBus나 RabbitMQ를 대체하지 않는다. Airflow DAG는 durable Job의 idempotent trigger/status API를 호출하고, 실제 뉴스 수집·정규화·색인·RAG 업무는 KIS Worker가 소유한다. EventBus는 Generic 상태 알림과 Application handler 연결에만 사용한다.
+
+`base_server`의 crawler처럼 하나의 HTTP 요청에서 수집부터 외부 저장소까지 모두 수행하는 구조는 부분 실패와 재시도 상태가 메모리에 남는다. 따라서 AutoForge의 다음 수직 슬라이스는 Airflow DAG 자체보다 JobRecord·run key·Outbox·Worker 계약을 먼저 검증해야 한다.

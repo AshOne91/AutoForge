@@ -151,6 +151,14 @@ Python과 FastAPI에서 어떤 경계로 보존할지 판단하는 기준이다.
 - 문서에만 있고 실제 코드로 확인되지 않은 기능
 - 임시 응답, mock business result와 운영상 위험한 기본값
 
+## 실제 소스 검증으로 확정한 방향
+
+`common-tool`은 템플릿 파일을 복사하는 도구가 아니라, 명세에서 모델·프로토콜·DB·SQL·Application 조립물을 함께 파생하는 생성기다. `gameserver`의 Application은 필요한 Template와 Service를 Composition Root에서 조립하고, Template은 상태·수명주기·저장 경계를 가진 기능 모듈로 동작한다.
+
+`base_server`는 이 계보를 FastAPI와 async lifecycle로 옮긴 운영 참고 구현이다. 다만 전역 `ServiceContainer`와 정적 서비스 접근은 그대로 계승하지 않고, AutoForge에서는 명시적 dependency provider와 lifespan으로 대체한다.
+
+AutoForge의 다음 확장은 모든 참고 코드를 복제하는 것이 아니라, API·Worker·Workflow가 동일한 명세와 소유권 계약에서 조립되는 하나의 수직 슬라이스를 검증하는 것이다. 첫 슬라이스는 Durable Job, Outbox, trigger/status API, RabbitMQ worker scaffold, Airflow DAG scaffold 순서로 진행한다.
+
 ### JavaBaseWebServer
 
 가져올 것:
