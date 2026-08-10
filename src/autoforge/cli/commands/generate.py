@@ -30,13 +30,29 @@ def generate(
         "specifications"
     ),
     output: Annotated[Path, typer.Option()] = Path("."),
+    validation_python: Annotated[
+        Path | None,
+        typer.Option(
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            help="생성 결과 검증에 사용할 Python 실행 파일",
+        ),
+    ] = None,
 ) -> None:
     """명세로 프로젝트를 생성하고 검증 Pipeline을 실행한다."""
 
     pipeline = GenerationJobPipeline(
         job_store=InMemoryJobStore(),
         event_bus=EventBus(),
-        validator=ProjectValidator(AsyncioProcessRunner()),
+        validator=ProjectValidator(
+            AsyncioProcessRunner(),
+            **(
+                {"python_executable": str(validation_python)}
+                if validation_python is not None
+                else {}
+            ),
+        ),
     )
     try:
         execution = asyncio.run(
