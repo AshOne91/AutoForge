@@ -281,6 +281,7 @@ class ElkSpec(StrictSpecModel):
 
     enabled: bool = False
     version: str = "8.19.17"
+    mode: Literal["central", "collector"] = "central"
 
     _validate_version = field_validator("version")(validate_semantic_version)
 

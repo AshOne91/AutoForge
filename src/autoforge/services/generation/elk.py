@@ -62,10 +62,10 @@ class ElkStackGenerator:
 
     @staticmethod
     def _render_compose(specification: ProjectSpec) -> str:
+        if specification.tooling.elk.mode == "collector":
+            return ElkStackGenerator._render_collector_compose(specification)
         version = specification.tooling.elk.version
-        return f"""name: {specification.project.package_name}-observability
-
-services:
+        return f"""services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:{version}
     environment:
@@ -103,8 +103,28 @@ volumes:
 """
 
     @staticmethod
+    def _render_collector_compose(specification: ProjectSpec) -> str:
+        version = specification.tooling.elk.version
+        return f"""services:
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:{version}
+    user: root
+    environment:
+      ELASTICSEARCH_HOST: ${{ELASTICSEARCH_HOST:?Set ELASTICSEARCH_HOST}}
+    command: ["filebeat", "-e", "--strict.perms=false", "-c", "/usr/share/filebeat/filebeat.yml"]
+    volumes:
+      - ${{LOG_ROOT:-./logs}}:/var/log/application:ro
+      - ${{FILEBEAT_CONFIG:-./deploy/observability/filebeat.yml}}:/usr/share/filebeat/filebeat.yml:ro
+"""
+
+    @staticmethod
     def _render_filebeat(specification: ProjectSpec) -> str:
         package_name = specification.project.package_name
+        elasticsearch_host = (
+            "http://elasticsearch:9200"
+            if specification.tooling.elk.mode == "central"
+            else "${ELASTICSEARCH_HOST}"
+        )
         return f"""filebeat.inputs:
   - type: filestream
     id: {package_name}-application-json
@@ -122,30 +142,53 @@ fields:
   autoforge.environment: development
 
 output.elasticsearch:
-  hosts: ["http://elasticsearch:9200"]
+  hosts: ["{elasticsearch_host}"]
 """
 
     @staticmethod
     def _render_readme(specification: ProjectSpec) -> str:
+        mode = specification.tooling.elk.mode
+        if mode == "collector":
+            startup = (
+                "$env:ELASTICSEARCH_HOST = \"http://central-elasticsearch:9200\"\n"
+                "docker compose -f deploy/observability/compose.elk.yaml up -d"
+            )
+            description = "This collector-only profile runs Filebeat on one application host."
+        else:
+            startup = (
+                "docker compose -f <base-compose-file> -f "
+                "deploy/observability/compose.elk.yaml up -d"
+            )
+            description = "This profile runs a local Elasticsearch, Kibana and Filebeat stack."
+        storage = (
+            "- Elasticsearch stores indexed logs in the `elasticsearch-data` volume."
+            if mode == "central"
+            else "- Filebeat forwards logs to the configured central Elasticsearch host."
+        )
+        access = (
+            "- Kibana is available at `http://127.0.0.1:$KIBANA_PORT` (default `5601`)."
+            if mode == "central"
+            else "- This profile does not expose Elasticsearch or Kibana ports."
+        )
         return f"""# Generated ELK development profile
 
-This profile collects JSON-lines application logs for `{specification.project.package_name}`:
+{description} It collects JSON-lines application logs for `{specification.project.package_name}`:
 
 - Filebeat reads `LOG_ROOT/*/*.log` as NDJSON.
-- Elasticsearch stores the indexed logs in the `elasticsearch-data` volume.
-- Kibana is available at `http://127.0.0.1:$KIBANA_PORT` (default `5601`).
+{storage}
+{access}
 
 Start it together with the application's integration Compose file:
 
 ```powershell
-docker compose -f <base-compose-file> -f deploy/observability/compose.elk.yaml up -d
+{startup}
 ```
 
 Set `LOG_ROOT` when logs are stored outside `./logs`. Set `ELASTICSEARCH_PORT`,
 `KIBANA_PORT`, or `FILEBEAT_CONFIG` when the defaults conflict with the host.
 
-This is a local development profile. Security is disabled and the ports bind to
-localhost. Production requires authenticated Elasticsearch/Kibana and a
-cluster-aware collector such as a Filebeat or Fluent Bit DaemonSet; do not use
-this overlay as a production deployment.
+This is a local development profile. The central mode disables security and
+binds its ports to localhost. Production requires authenticated
+Elasticsearch/Kibana and a cluster-aware collector such as a Filebeat or Fluent
+Bit DaemonSet; do not use this overlay as a production deployment.
 """

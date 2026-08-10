@@ -30,6 +30,16 @@ FastAPI / worker
 기본값은 꺼져 있다. 따라서 ELK 이미지를 사용하지 않는 프로젝트에는 추가 컨테이너,
 볼륨, 포트가 생기지 않는다.
 
+`tooling.elk.mode`는 두 배포 형태를 구분한다.
+
+- `central`(기본값): Elasticsearch, Kibana, Filebeat를 한 개발 Compose 프로젝트에서 실행한다.
+- `collector`: 해당 애플리케이션 인스턴스에는 Filebeat만 실행하고, `ELASTICSEARCH_HOST`
+  환경변수로 중앙 Elasticsearch 주소를 주입한다.
+
+따라서 여러 인스턴스는 각각 `collector` 오버레이를 설치할 수 있고, 중앙 ELK는 한 번만
+운영할 수 있다. 인스턴스별 수집기는 애플리케이션 로그 디렉터리만 읽으며 Elasticsearch
+데이터 볼륨을 소유하지 않는다.
+
 ## 소유권
 
 - AutoForge 생성 파일: 생성기와 명세가 관리한다.

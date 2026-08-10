@@ -47,6 +47,7 @@ def test_elk_generator_renders_development_overlay_and_filebeat_config() -> None
         "kibana",
         "filebeat",
     }
+    assert "name" not in yaml.safe_load(compose)
 
 
 def test_elk_generator_plan_marks_all_outputs_generated() -> None:
@@ -55,3 +56,20 @@ def test_elk_generator_plan_marks_all_outputs_generated() -> None:
     assert len(plan.files) == 3
     assert {file.ownership.value for file in plan.files} == {"generated"}
     assert {file.source for file in plan.files} == {"project:elk"}
+
+
+def test_elk_collector_mode_generates_filebeat_only() -> None:
+    collector_spec = specification(enabled=True).model_copy(
+        update={"tooling": ToolingSpec(elk=ElkSpec(enabled=True, mode="collector"))}
+    )
+
+    files = ElkStackGenerator().render(collector_spec)
+    compose = yaml.safe_load(
+        files[PurePosixPath("deploy", "observability", "compose.elk.yaml")]
+    )
+    filebeat = files[PurePosixPath("deploy", "observability", "filebeat.yml")]
+    readme = files[PurePosixPath("deploy", "observability", "README.md")]
+
+    assert set(compose["services"]) == {"filebeat"}
+    assert "${ELASTICSEARCH_HOST}" in filebeat
+    assert "collector-only" in readme
