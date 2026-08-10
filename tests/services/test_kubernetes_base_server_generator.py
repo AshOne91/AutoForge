@@ -113,6 +113,7 @@ def test_render_creates_zero_secret_proxy_and_application_topology() -> None:
     assert "Copy-Item secret.env.example kis_secret.env" in readme
     assert "kubectl apply" in readme
     assert "Secret values" in readme
+    assert "hostPath is node-local" in readme
 
 
 def test_plan_marks_base_server_manifest_generated() -> None:

@@ -338,6 +338,9 @@ kubectl rollout status --namespace {namespace} deployment/{application_name}-ngi
 ```
 
 `base-server.yaml` uses a local hostPath for `/app/logs` only when the
-specification requests one. Replace it with a PVC/PV or centralized logging
-before production deployment.
+specification requests one. It is suitable only for single-node local
+development (such as Docker Desktop): a hostPath is node-local and cannot
+preserve one replica's files when another node runs it. Production deployments
+must centralize stdout through a log collector. If a file-retention policy is
+also required, use a PVC/PV with an access mode appropriate for the replicas.
 """

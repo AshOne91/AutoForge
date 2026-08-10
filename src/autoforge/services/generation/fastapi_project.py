@@ -76,9 +76,8 @@ class FastAPIProjectGenerator:
             package_root / "__init__.py": (f'__version__ = "{project.version}"\n'),
             package_root / "modules" / "__init__.py": "",
             package_root / "main.py": self._render_main(package_name),
-            package_root / "infrastructure" / "__init__.py": "",
             package_root
-            / "infrastructure"
+            / "application"
             / "observability.py": self._render_observability(package_name),
             package_root / "application" / "__init__.py": "",
             package_root / "application" / "generated" / "__init__.py": "",
@@ -307,7 +306,7 @@ class FastAPIProjectGenerator:
             f"{lifespan_import}"
             f"from {package_name}.application.generated.module_registry "
             "import MODULE_ROUTERS\n"
-            f"from {package_name}.infrastructure.observability import (\n"
+            f"from {package_name}.application.observability import (\n"
             "    configure_logging,\n"
             "    install_request_logging,\n"
             ")\n"
@@ -649,8 +648,8 @@ class FastAPIProjectGenerator:
             "\n"
             "from fastapi import FastAPI\n"
             "\n"
+            f"from {package_name}.application.observability import LOGGER\n"
             f"{imports}"
-            f"from {package_name}.infrastructure.observability import LOGGER\n"
             "\n"
             "\n"
             "@asynccontextmanager\n"

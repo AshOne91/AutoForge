@@ -61,9 +61,8 @@ def test_render_returns_minimum_fastapi_project_files() -> None:
         PurePosixPath("src/game_server/__init__.py"),
         PurePosixPath("src/game_server/main.py"),
         PurePosixPath("src/game_server/modules/__init__.py"),
-        PurePosixPath("src/game_server/infrastructure/__init__.py"),
-        PurePosixPath("src/game_server/infrastructure/observability.py"),
         PurePosixPath("src/game_server/application/__init__.py"),
+        PurePosixPath("src/game_server/application/observability.py"),
         PurePosixPath("src/game_server/application/app_factory.py"),
         PurePosixPath("src/game_server/application/generated/__init__.py"),
         PurePosixPath("src/game_server/application/generated/module_registry.py"),
@@ -155,7 +154,7 @@ def test_app_factory_registers_module_routers() -> None:
 def test_observability_records_safe_request_metadata() -> None:
     files = FastAPIProjectGenerator().render(project_specification())
     observability = files[
-        PurePosixPath("src/game_server/infrastructure/observability.py")
+        PurePosixPath("src/game_server/application/observability.py")
     ]
 
     assert "LOG_DIRECTORY" in observability
