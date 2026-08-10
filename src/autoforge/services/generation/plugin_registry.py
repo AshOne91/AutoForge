@@ -29,6 +29,11 @@ from autoforge.services.generation.durable_jobs import (
     DURABLE_JOB_GENERATOR_VERSION,
     DurableJobGenerator,
 )
+from autoforge.services.generation.elk import (
+    ELK_GENERATOR_ID,
+    ELK_GENERATOR_VERSION,
+    ElkStackGenerator,
+)
 from autoforge.services.generation.fastapi_module import (
     MODULE_GENERATOR_ID,
     MODULE_GENERATOR_VERSION,
@@ -155,6 +160,18 @@ def create_fastapi_generator_plugins(
                 name=DOCKERFILE_GENERATOR_ID,
                 version=DOCKERFILE_GENERATOR_VERSION,
                 description="Python 3.12 build-only Dockerfile Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
+    project_registry.register(
+        GeneratorPluginAdapter(
+            ElkStackGenerator(),
+            PluginMetadata(
+                name=ELK_GENERATOR_ID,
+                version=ELK_GENERATOR_VERSION,
+                description="Development Elasticsearch, Kibana and Filebeat overlay Generator",
                 capabilities=(PluginCapability.GENERATOR,),
                 supported_specification_versions=("1",),
             ),

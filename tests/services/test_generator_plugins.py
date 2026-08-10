@@ -22,6 +22,7 @@ from autoforge.services.generation.alembic import (
 from autoforge.services.generation.ci import CI_GENERATOR_ID
 from autoforge.services.generation.dockerfile import DOCKERFILE_GENERATOR_ID
 from autoforge.services.generation.durable_jobs import DURABLE_JOB_GENERATOR_ID
+from autoforge.services.generation.elk import ELK_GENERATOR_ID
 from autoforge.services.generation.fastapi_module import MODULE_GENERATOR_ID
 from autoforge.services.generation.fastapi_project import GENERATOR_ID
 from autoforge.services.generation.kubernetes import (
@@ -49,6 +50,7 @@ def test_fastapi_generator_plugins_register_real_generators() -> None:
         ALEMBIC_PROJECT_GENERATOR_ID,
         CI_GENERATOR_ID,
         DOCKERFILE_GENERATOR_ID,
+        ELK_GENERATOR_ID,
         GENERATOR_ID,
         KUBERNETES_BASE_SERVER_GENERATOR_ID,
         LOCAL_ENVIRONMENT_GENERATOR_ID,

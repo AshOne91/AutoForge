@@ -255,6 +255,7 @@ class ToolingSpec(StrictSpecModel):
     ruff_exclude: list[str] = Field(default_factory=list)
     ci: CiSpec = Field(default_factory=lambda: CiSpec())
     docker: DockerSpec = Field(default_factory=lambda: DockerSpec())
+    elk: ElkSpec = Field(default_factory=lambda: ElkSpec())
     kubernetes: KubernetesSpec = Field(default_factory=lambda: KubernetesSpec())
     local_environment: LocalEnvironmentSpec = Field(
         default_factory=lambda: LocalEnvironmentSpec()
@@ -273,6 +274,15 @@ class ToolingSpec(StrictSpecModel):
 
 class DockerSpec(StrictSpecModel):
     enabled: bool = False
+
+
+class ElkSpec(StrictSpecModel):
+    """Generate an optional development ELK log collection profile."""
+
+    enabled: bool = False
+    version: str = "8.19.17"
+
+    _validate_version = field_validator("version")(validate_semantic_version)
 
 
 class KubernetesSpec(StrictSpecModel):

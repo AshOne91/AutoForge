@@ -5,6 +5,7 @@ from autoforge.services.generation.alembic import (
 from autoforge.services.generation.ci import CIGenerator
 from autoforge.services.generation.dockerfile import DockerfileGenerator
 from autoforge.services.generation.durable_jobs import DurableJobGenerator
+from autoforge.services.generation.elk import ElkStackGenerator
 from autoforge.services.generation.fastapi_module import FastAPIModuleGenerator
 from autoforge.services.generation.fastapi_project import (
     FastAPIProjectGenerator,
@@ -47,6 +48,7 @@ __all__ = [
     "CIGenerator",
     "DockerfileGenerator",
     "DurableJobGenerator",
+    "ElkStackGenerator",
     "FastAPIGeneratorPlugins",
     "FastAPIModuleGenerator",
     "FastAPIProjectGenerator",
