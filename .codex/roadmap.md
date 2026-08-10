@@ -40,9 +40,15 @@ consumer slice in `kis-auto-trading`, in this order:
 ### Environment realization and integration validation
 
 - [x] environment ownership, profile, and validation-order contract
-- [ ] KIS Durable Job and Global coordinator-store product declaration
-- [ ] local/integration environment profile contract for that declaration
-- [ ] Environment Generator and container vertical-slice validation
+- [x] KIS Durable Job and Global coordinator-store product declaration
+- [x] local/integration environment profile contract for that declaration
+- [x] Environment Generator and container vertical-slice validation
+
+Verified on 2026-08-10 against the generated KIS Compose profile: PostgreSQL
+created `identity`, `automation`, `account_shard_1`, and `account_shard_2`;
+the three-node Redis Cluster reported `cluster_state:ok`; RabbitMQ passed its
+healthcheck. The next environment realization step is Airflow runtime
+validation with its private service identity.
 
 Each step is a separate testable contract. The Durable Job trigger/status,
 Outbox, worker lifecycle, and static Airflow DAG contracts are complete.
