@@ -271,6 +271,18 @@ class ToolingSpec(StrictSpecModel):
             raise ValueError("tooling.ruff_exclude paths must be unique")
         return normalized
 
+    @model_validator(mode="after")
+    def validate_kubernetes_collector(self) -> ToolingSpec:
+        if not self.elk.kubernetes_collector_enabled:
+            return self
+        if not self.elk.enabled:
+            raise ValueError("Kubernetes log collector requires tooling.elk.enabled")
+        if not self.kubernetes.enabled:
+            raise ValueError("Kubernetes log collector requires tooling.kubernetes.enabled")
+        if not self.kubernetes.log_host_path:
+            raise ValueError("Kubernetes log collector requires log_host_path")
+        return self
+
 
 class DockerSpec(StrictSpecModel):
     enabled: bool = False
@@ -282,6 +294,7 @@ class ElkSpec(StrictSpecModel):
     enabled: bool = False
     version: str = "8.19.17"
     mode: Literal["central", "collector"] = "central"
+    kubernetes_collector_enabled: bool = False
 
     _validate_version = field_validator("version")(validate_semantic_version)
 

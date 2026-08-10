@@ -12,6 +12,10 @@ from autoforge.core.specification import ProjectSpec, ServiceSpec
 
 KUBERNETES_BASE_SERVER_GENERATOR_ID = "autoforge.generator.kubernetes-base-server"
 KUBERNETES_BASE_SERVER_GENERATOR_VERSION = "0.1.0"
+_COLLECTOR_SECRET_ENVIRONMENT_NAMES = (
+    "ELASTICSEARCH_HOST",
+    "ELASTICSEARCH_API_KEY",
+)
 
 
 class KubernetesBaseServerGenerator:
@@ -31,7 +35,12 @@ class KubernetesBaseServerGenerator:
             return {}
         application_name = self._kubernetes_name(specification.project.package_name)
         secret_environment_names = self._secret_environment_names(specification)
-        return {
+        collector_enabled = specification.tooling.elk.kubernetes_collector_enabled
+        secret_template_names = sorted(
+            set(secret_environment_names)
+            | (set(_COLLECTOR_SECRET_ENVIRONMENT_NAMES) if collector_enabled else set())
+        )
+        files = {
             PurePosixPath("deploy", "kubernetes", "base-server.yaml"): (
                 self._render_manifest(
                     application_name=application_name,
@@ -50,12 +59,24 @@ class KubernetesBaseServerGenerator:
                 namespace=profile.namespace,
                 secret_name=profile.secret_name,
                 secret_environment_names=secret_environment_names,
+                collector_enabled=collector_enabled,
             ),
             PurePosixPath("deploy", "kubernetes", "secret.env.example"): "".join(
                 f"{environment_name}=\n"
-                for environment_name in secret_environment_names
+                for environment_name in secret_template_names
             ),
         }
+        if collector_enabled:
+            files[PurePosixPath("deploy", "kubernetes", "observability-filebeat.yaml")] = (
+                self._render_filebeat_collector_manifest(
+                    application_name=application_name,
+                    namespace=profile.namespace,
+                    secret_name=profile.secret_name,
+                    log_host_path=profile.log_host_path,
+                    version=specification.tooling.elk.version,
+                )
+            )
+        return files
 
     def plan(self, specification: ProjectSpec) -> GenerationPlan:
         rendered = self.render(specification)
@@ -111,6 +132,110 @@ class KubernetesBaseServerGenerator:
         if service.mode == "sentinel":
             return service.sentinel_urls_env
         return service.url_env
+
+    @staticmethod
+    def _render_filebeat_collector_manifest(
+        *,
+        application_name: str,
+        namespace: str,
+        secret_name: str,
+        log_host_path: str | None,
+        version: str,
+    ) -> str:
+        assert log_host_path is not None
+        return f"""apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {application_name}-filebeat-config
+  namespace: {namespace}
+data:
+  filebeat.yml: |
+    filebeat.inputs:
+      - type: filestream
+        id: {application_name}-application-json
+        paths:
+          - /var/log/application/*/*.log
+        parsers:
+          - ndjson:
+              target: ""
+              add_error_key: true
+    fields_under_root: true
+    fields:
+      autoforge.project: {application_name}
+      autoforge.environment: kubernetes
+      kubernetes.node.name: ${{NODE_NAME}}
+    output.elasticsearch:
+      hosts: ["${{ELASTICSEARCH_HOST:?Set ELASTICSEARCH_HOST}}"]
+      api_key: "${{ELASTICSEARCH_API_KEY:?Set ELASTICSEARCH_API_KEY}}"
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {application_name}-filebeat
+  namespace: {namespace}
+  labels:
+    app.kubernetes.io/name: {application_name}
+    app.kubernetes.io/component: log-collector
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {application_name}
+      app.kubernetes.io/component: log-collector
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {application_name}
+        app.kubernetes.io/component: log-collector
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: filebeat
+        image: docker.elastic.co/beats/filebeat:{version}
+        imagePullPolicy: IfNotPresent
+        args: ["-e", "--strict.perms=false"]
+        securityContext:
+          runAsUser: 0
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: ELASTICSEARCH_HOST
+          valueFrom:
+            secretKeyRef:
+              name: {secret_name}
+              key: ELASTICSEARCH_HOST
+        - name: ELASTICSEARCH_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {secret_name}
+              key: ELASTICSEARCH_API_KEY
+        volumeMounts:
+        - name: filebeat-config
+          mountPath: /usr/share/filebeat/filebeat.yml
+          subPath: filebeat.yml
+          readOnly: true
+        - name: application-logs
+          mountPath: /var/log/application
+          readOnly: true
+        - name: filebeat-data
+          mountPath: /usr/share/filebeat/data
+      volumes:
+      - name: filebeat-config
+        configMap:
+          name: {application_name}-filebeat-config
+      - name: application-logs
+        hostPath:
+          path: {log_host_path}
+          type: DirectoryOrCreate
+      - name: filebeat-data
+        hostPath:
+          path: {log_host_path}/.filebeat-data
+          type: DirectoryOrCreate
+"""
 
     @staticmethod
     def _render_manifest(
@@ -299,8 +424,31 @@ spec:
         namespace: str,
         secret_name: str,
         secret_environment_names: list[str],
+        collector_enabled: bool,
     ) -> str:
         required_keys = "".join(f"- `{name}`\n" for name in secret_environment_names)
+        collector_section = ""
+        if collector_enabled:
+            collector_section = f"""
+## Filebeat node collector
+
+`observability-filebeat.yaml` creates one Filebeat DaemonSet Pod per eligible
+node. It reads only the generated application log hostPath and persists its
+registry at `{application_name}`'s `.filebeat-data` directory on that node.
+
+The same Secret must also provide `ELASTICSEARCH_HOST` and
+`ELASTICSEARCH_API_KEY`. Use a TLS Elasticsearch endpoint and an API key scoped
+only to event publishing. The manifest does not grant Kubernetes API access,
+does not create Elasticsearch/Kibana, and does not use privileged mode.
+
+```powershell
+kubectl apply --namespace {namespace} -f observability-filebeat.yaml
+kubectl rollout status --namespace {namespace} daemonset/{application_name}-filebeat
+```
+
+Clusters that prohibit hostPath mounts require an approved node-log collector
+policy before this manifest can run.
+"""
         return f"""# {application_name} Kubernetes base_server
 
 This directory is generated from `autoforge.yaml`. It creates the Proxy/App
@@ -343,4 +491,4 @@ development (such as Docker Desktop): a hostPath is node-local and cannot
 preserve one replica's files when another node runs it. Production deployments
 must centralize stdout through a log collector. If a file-retention policy is
 also required, use a PVC/PV with an access mode appropriate for the replicas.
-"""
+{collector_section}"""

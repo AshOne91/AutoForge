@@ -53,11 +53,15 @@ FastAPI / worker
 
 1. 현재 단계: 개발용 Compose 오버레이로 파일 로그를 Elasticsearch에 전달하고 Kibana에서 확인한다.
 2. 다음 단계: 실제 KIS에서 생성 플래그를 켜고 Compose 병합 검증을 수행한다.
-3. 운영 단계: 보안 인증/TLS, Elasticsearch 운영 방식, Kubernetes Filebeat/Fluent Bit
-   DaemonSet을 별도 명세와 배포 프로파일로 추가한다.
+3. 현재 Kubernetes 단계: `tooling.elk.kubernetes_collector_enabled`가 참이면
+   Filebeat ConfigMap과 노드별 DaemonSet을 생성한다. 중앙 Elasticsearch 주소와 API
+   키는 생성물에 쓰지 않고 기존 Kubernetes Secret에서 주입한다.
+4. 향후 운영 단계: TLS 인증서 신뢰 체인, 중앙 Elasticsearch 운영 방식, collector
+   리소스 정책과 클러스터별 배포 정책을 별도 명세로 추가한다.
 
 개발 오버레이는 보안이 꺼져 있고 localhost에만 포트를 열므로 운영에 재사용하지 않는다.
-운영 인증·클러스터·DaemonSet은 이번 단계에서 생성하지 않는다.
+Kubernetes collector는 Elasticsearch/Kibana를 만들지 않으며, Secret에 TLS endpoint와
+최소 권한 API 키가 준비된 뒤에만 적용한다.
 
 ## 검증 순서
 
