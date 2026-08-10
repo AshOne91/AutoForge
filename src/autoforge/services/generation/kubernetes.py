@@ -51,6 +51,10 @@ class KubernetesBaseServerGenerator:
                 secret_name=profile.secret_name,
                 secret_environment_names=secret_environment_names,
             ),
+            PurePosixPath("deploy", "kubernetes", "secret.env.example"): "".join(
+                f"{environment_name}=\n"
+                for environment_name in secret_environment_names
+            ),
         }
 
     def plan(self, specification: ProjectSpec) -> GenerationPlan:
@@ -189,6 +193,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        - name: LOG_DIRECTORY
+          value: /app/logs
 {application_environment}        readinessProbe:
           httpGet:
             path: /health
@@ -310,7 +316,14 @@ cluster.
 
 The Secret must provide these keys before the Deployment starts:
 
-{required_keys}Create or rotate it outside Git, for example:
+{required_keys}Start from the generated zero-value template, fill it locally,
+and keep the completed file out of Git:
+
+```powershell
+Copy-Item secret.env.example kis_secret.env
+```
+
+Create or rotate the Secret only after filling the values:
 
 ```powershell
 kubectl create secret generic {secret_name} --namespace {namespace} --from-env-file=kis_secret.env

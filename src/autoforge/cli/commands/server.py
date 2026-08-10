@@ -12,6 +12,7 @@ from autoforge.composition import (
 )
 from autoforge.core.config.loader import ConfigLoader
 from autoforge.infrastructure.http import GitHubWebhookSettings
+from autoforge.infrastructure.observability import configure_logging
 
 app = typer.Typer()
 
@@ -119,6 +120,7 @@ def server(
 
     try:
         settings = ConfigLoader.load(config)
+        configure_logging(settings.logging)
         if github_webhook is not None and not settings.git_automation.enabled:
             raise ValueError("GitHub webhook requires enabled git_automation")
         asyncio.run(

@@ -46,6 +46,19 @@ def test_publish_event_to_subscribed_handlers() -> None:
     assert bus.handlers(SampleEvent) == [first_handler, second_handler]
 
 
+def test_base_event_subscription_observes_subclass_events() -> None:
+    bus = EventBus()
+    handler = RecordingHandler()
+    event = SampleEvent()
+
+    bus.subscribe(Event, handler)
+
+    asyncio.run(bus.publish(event))
+
+    assert handler.events == [event]
+    assert bus.handlers(SampleEvent) == [handler]
+
+
 def test_handlers_returns_snapshot_and_unsubscribe_removes_handler() -> None:
     bus = EventBus()
     handler = RecordingHandler()

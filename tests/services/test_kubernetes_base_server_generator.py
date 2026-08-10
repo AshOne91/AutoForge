@@ -82,6 +82,9 @@ def test_render_creates_zero_secret_proxy_and_application_topology() -> None:
 
     manifest = files[PurePosixPath("deploy", "kubernetes", "base-server.yaml")]
     readme = files[PurePosixPath("deploy", "kubernetes", "README.md")]
+    secret_environment = files[
+        PurePosixPath("deploy", "kubernetes", "secret.env.example")
+    ]
 
     assert "kind: ConfigMap" in manifest
     assert "default.conf.template" in manifest
@@ -99,8 +102,15 @@ def test_render_creates_zero_secret_proxy_and_application_topology() -> None:
     assert "key: RABBITMQ_URL" in manifest
     assert "key: KIS_APP_KEY" in manifest
     assert "mountPath: /app/logs" in manifest
+    assert "name: LOG_DIRECTORY" in manifest
+    assert "value: /app/logs" in manifest
     assert "change-me" not in manifest
+    assert "IDENTITY_DATABASE_URL=\n" in secret_environment
+    assert "KIS_APP_KEY=\n" in secret_environment
+    assert "=" in secret_environment
+    assert "postgresql://" not in secret_environment
     assert "kubectl create secret generic kis-runtime" in readme
+    assert "Copy-Item secret.env.example kis_secret.env" in readme
     assert "kubectl apply" in readme
     assert "Secret values" in readme
 

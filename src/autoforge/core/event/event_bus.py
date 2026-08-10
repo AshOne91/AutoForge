@@ -62,7 +62,12 @@ class EventBus:
         ]
 
     def subscriptions(self, event_type: type[Event]) -> tuple[EventSubscription, ...]:
-        return tuple(self._subscriptions.get(event_type, ()))
+        return tuple(
+            subscription
+            for parent_type in event_type.__mro__
+            if issubclass(parent_type, Event)
+            for subscription in self._subscriptions.get(parent_type, ())
+        )
 
     async def publish(self, event: Event) -> EventDispatchResult:
         subscriptions = self.subscriptions(type(event))

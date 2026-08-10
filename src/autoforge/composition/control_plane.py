@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -10,7 +11,9 @@ from typing import Protocol
 from fastapi import FastAPI
 
 from autoforge.application.generation import GenerationSubmissionService
-from autoforge.core.event import EventBus
+from autoforge.application.observability import StructuredLoggingEventHandler
+from autoforge.core.event import Event, EventBus
+from autoforge.core.event.dispatch import HandlerFailurePolicy
 from autoforge.infrastructure.http import (
     ControlPlaneHTTPSettings,
     GitHubWebhookSettings,
@@ -84,11 +87,17 @@ async def create_control_plane_runtime(
     try:
         sessions = sqlalchemy_asyncio.async_sessionmaker(engine, expire_on_commit=False)
         job_store = PostgreSQLJobStore(sessions)
+        event_bus = EventBus()
+        event_bus.subscribe(
+            Event,
+            StructuredLoggingEventHandler(logging.getLogger(__name__)),
+            failure_policy=HandlerFailurePolicy.OBSERVATIONAL,
+        )
         service = GenerationSubmissionService(
             source_root=settings.source_root,
             output_root=settings.output_root,
             job_store=job_store,
-            event_bus=EventBus(),
+            event_bus=event_bus,
         )
         app = create_control_plane_app(
             service=service,

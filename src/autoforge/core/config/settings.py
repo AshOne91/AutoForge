@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
@@ -15,7 +17,10 @@ class WorkspaceConfig(ConfigModel):
 
 
 class LoggingConfig(ConfigModel):
-    level: str
+    level: str = "INFO"
+    directory: Path = Path(".autoforge/logs")
+    max_bytes: int = Field(default=10 * 1024 * 1024, ge=1)
+    backup_count: int = Field(default=7, ge=1)
 
 
 class PluginConfig(ConfigModel):

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import dataclass, field
 from importlib import import_module
 from pathlib import Path
@@ -16,12 +17,14 @@ from autoforge.application.generation import (
     GenerationWorkerSettings,
 )
 from autoforge.application.generation.worker import GenerationWorkerProtocol
+from autoforge.application.observability import StructuredLoggingEventHandler
 from autoforge.composition.git_automation import (
     GitAutomationComponents,
     create_git_automation_components,
 )
 from autoforge.core.config import GitAutomationConfig
-from autoforge.core.event import EventBus
+from autoforge.core.event import Event, EventBus
+from autoforge.core.event.dispatch import HandlerFailurePolicy
 from autoforge.infrastructure.process import AsyncioProcessRunner
 from autoforge.infrastructure.workspace import IsolatedWorkspaceManager
 from autoforge.services.validation import ProjectValidator
@@ -114,6 +117,11 @@ async def create_generation_worker_runtime(
         )
         job_store = PostgreSQLJobStore(sessions)
         event_bus = EventBus()
+        event_bus.subscribe(
+            Event,
+            StructuredLoggingEventHandler(logging.getLogger(__name__)),
+            failure_policy=HandlerFailurePolicy.OBSERVATIONAL,
+        )
         runner = process_runner or AsyncioProcessRunner()
         pipeline = GenerationJobPipeline(
             job_store=job_store,

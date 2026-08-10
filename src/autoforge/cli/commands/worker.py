@@ -15,6 +15,7 @@ from autoforge.composition import (
 )
 from autoforge.core.config import GitAutomationConfig
 from autoforge.core.config.loader import ConfigLoader
+from autoforge.infrastructure.observability import configure_logging
 from autoforge.infrastructure.process import shutdown_signal_handlers
 
 app = typer.Typer()
@@ -73,6 +74,7 @@ def worker(
 
     try:
         settings = ConfigLoader.load(config)
+        configure_logging(settings.logging)
         resolved_output_root = output_root or Path(settings.workspace.output)
         resolved_workspace_root = isolated_workspace_root or (
             resolved_output_root / ".autoforge" / "workspaces"

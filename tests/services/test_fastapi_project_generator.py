@@ -61,6 +61,8 @@ def test_render_returns_minimum_fastapi_project_files() -> None:
         PurePosixPath("src/game_server/__init__.py"),
         PurePosixPath("src/game_server/main.py"),
         PurePosixPath("src/game_server/modules/__init__.py"),
+        PurePosixPath("src/game_server/infrastructure/__init__.py"),
+        PurePosixPath("src/game_server/infrastructure/observability.py"),
         PurePosixPath("src/game_server/application/__init__.py"),
         PurePosixPath("src/game_server/application/app_factory.py"),
         PurePosixPath("src/game_server/application/generated/__init__.py"),
@@ -96,6 +98,7 @@ def test_render_gitignore_covers_validation_build_artifacts() -> None:
     assert "build/" in gitignore
     assert "dist/" in gitignore
     assert ".autoforge/dist/" in gitignore
+    assert "logs/" in gitignore
 
 
 def test_render_pyproject_includes_declared_ruff_exclusions() -> None:
@@ -105,6 +108,11 @@ def test_render_pyproject_includes_declared_ruff_exclusions() -> None:
 
     pyproject = tomllib.loads(files[PurePosixPath("pyproject.toml")])
 
+    assert pyproject["project"]["optional-dependencies"]["test"] == [
+        "httpx",
+        "pytest",
+        "ruff",
+    ]
     assert pyproject["tool"]["ruff"]["extend-exclude"] == [
         "reference",
         "manual_probe.py",
@@ -140,6 +148,21 @@ def test_app_factory_registers_module_routers() -> None:
     assert "import MODULE_ROUTERS" in app_factory
     assert "for router in MODULE_ROUTERS:" in app_factory
     assert "app.include_router(router)" in app_factory
+    assert "configure_logging()" in app_factory
+    assert "install_request_logging(app)" in app_factory
+
+
+def test_observability_records_safe_request_metadata() -> None:
+    files = FastAPIProjectGenerator().render(project_specification())
+    observability = files[
+        PurePosixPath("src/game_server/infrastructure/observability.py")
+    ]
+
+    assert "LOG_DIRECTORY" in observability
+    assert "X-Request-ID" in observability
+    assert "request.url.path" in observability
+    assert "request.url.query" not in observability
+    assert "RotatingFileHandler" in observability
 
 
 def test_session_service_generates_and_registers_lifespan() -> None:
@@ -164,6 +187,8 @@ def test_session_service_generates_and_registers_lifespan() -> None:
     assert lifespan_path in files
     assert "AsyncExitStack" in files[lifespan_path]
     assert "session_store_lifespan(app)" in files[lifespan_path]
+    assert "application starting" in files[lifespan_path]
+    assert "application stopping" in files[lifespan_path]
     assert "from game_server.application.generated.lifespan import lifespan" in (
         app_factory
     )
@@ -250,6 +275,7 @@ def test_rendered_python_and_toml_are_valid() -> None:
     assert pyproject["project"]["optional-dependencies"]["test"] == [
         "httpx",
         "pytest",
+        "ruff",
     ]
     assert pyproject["tool"]["pytest"]["ini_options"]["testpaths"] == ["tests"]
     assert pyproject["tool"]["ruff"]["lint"]["isort"]["known-first-party"] == [

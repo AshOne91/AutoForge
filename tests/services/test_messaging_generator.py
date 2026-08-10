@@ -99,6 +99,12 @@ def test_render_generates_transport_outbox_relay_and_migration() -> None:
     assert "raise MessagePublishError" in rabbitmq
     assert "message.process(requeue=False)" in rabbitmq
     assert "message rejected after handler failure" in rabbitmq
+    relay_runner = files[PurePosixPath("scripts/run_outbox_relay.py")]
+    worker_runner = files[PurePosixPath("scripts/run_message_worker.py")]
+    assert "configure_logging()" in relay_runner
+    assert "configure_logging()" in worker_runner
+    assert "LOGGER.info('outbox relay starting')" in relay_runner
+    assert "LOGGER.info('message worker starting')" in worker_runner
     assert ".with_for_update(skip_locked=True)" in relay
     assert "except MessagePublishError as error" in relay
     assert "except Exception" not in relay

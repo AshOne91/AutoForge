@@ -96,6 +96,7 @@ def test_environment_generator_creates_store_specific_async_runners() -> None:
     assert '["account", "ACCOUNT_1_URL"]' in runner
     assert '["account", "ACCOUNT_2_URL"]' in runner
     assert "command.upgrade(config, 'heads')" in runner
+    assert "configure_logging()" in runner
 
 
 def test_baseline_generator_is_scaffolded_and_store_scoped() -> None:
