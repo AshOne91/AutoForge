@@ -9,6 +9,7 @@ from autoforge.core.specification import (
     ApplicationSpec,
     DatabaseShardSpec,
     DatabaseStoreSpec,
+    DurableJobSpec,
     ElkSpec,
     KubernetesSpec,
     ProjectInfo,
@@ -20,7 +21,7 @@ from autoforge.services.generation.kubernetes import KubernetesBaseServerGenerat
 
 
 def base_server_specification(
-    *, enabled: bool = False, collector_enabled: bool = False
+    *, enabled: bool = False, collector_enabled: bool = False, durable_jobs: bool = False
 ) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
@@ -57,6 +58,16 @@ def base_server_specification(
                     outbox_stores=["identity"],
                 ),
             ],
+            durable_jobs=[
+                DurableJobSpec(
+                    name="news_collection",
+                    store="identity",
+                    event_type="news.collection.requested",
+                    routing_key="news.collection.requested",
+                )
+            ]
+            if durable_jobs
+            else [],
         ),
         tooling={
             "elk": {
@@ -123,6 +134,20 @@ def test_render_creates_zero_secret_proxy_and_application_topology() -> None:
     assert "kubectl apply" in readme
     assert "Secret values" in readme
     assert "hostPath is node-local" in readme
+
+
+def test_render_adds_durable_job_api_token_only_for_durable_jobs() -> None:
+    files = KubernetesBaseServerGenerator().render(
+        base_server_specification(enabled=True, durable_jobs=True)
+    )
+
+    manifest = files[PurePosixPath("deploy", "kubernetes", "base-server.yaml")]
+    secret_environment = files[
+        PurePosixPath("deploy", "kubernetes", "secret.env.example")
+    ]
+
+    assert "key: DURABLE_JOB_API_TOKEN" in manifest
+    assert "DURABLE_JOB_API_TOKEN=\n" in secret_environment
 
 
 def test_plan_marks_base_server_manifest_generated() -> None:

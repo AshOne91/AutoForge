@@ -118,6 +118,8 @@ class KubernetesBaseServerGenerator:
             environment_names.add(
                 KubernetesBaseServerGenerator._service_environment_name(service)
             )
+        if specification.application.durable_jobs:
+            environment_names.add("DURABLE_JOB_API_TOKEN")
         environment_names.update(
             specification.tooling.kubernetes.additional_secret_env_names
         )

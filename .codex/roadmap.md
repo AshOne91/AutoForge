@@ -47,14 +47,25 @@ consumer slice in `kis-auto-trading`, in this order:
 Verified on 2026-08-10 against the generated KIS Compose profile: PostgreSQL
 created `identity`, `automation`, `account_shard_1`, and `account_shard_2`;
 the three-node Redis Cluster reported `cluster_state:ok`; RabbitMQ passed its
-healthcheck. The next environment realization step is Airflow runtime
-validation with its private service identity.
+healthcheck. Private service identity for the generated durable-job API is
+also complete; the next environment realization step is Airflow runtime
+validation using that identity. Local Airflow runtime validation is now
+complete; the next environment step is connecting the generated application
+container for end-to-end trigger and polling.
+The KIS Airflow container reached healthy status, registered
+`durable_job_news_collection`, and reported no DAG import errors.
+The generated migration and application containers also reached healthy status;
+an unauthenticated durable-job request returned 401, while Airflow created and
+queried a `requested` job through the internal application service. The generated
+Outbox relay and durable-job worker then moved a real `news_collection` job to
+`failed` through RabbitMQ. That terminal state is expected until the user-owned
+business handler is implemented.
 
 Each step is a separate testable contract. The Durable Job trigger/status,
 Outbox, worker lifecycle, and static Airflow DAG contracts are complete.
-The next consumer contract is a real KIS declaration and a local/integration
-environment profile; Airflow runtime validation follows the durable Job worker
-flow. Airflow owns scheduling, retry, timeout, and dependency orchestration,
+The KIS declaration, local/integration profile, local Airflow runtime, application
+container, Outbox relay, and durable-job worker are validated. Airflow owns scheduling,
+retry, timeout, and dependency orchestration,
 not business processing. Do not introduce deployment, Kubernetes, Redis Cluster
 topology, or cloud-specific behavior before a consumer requirement and an
 owning generator contract exist.
@@ -69,7 +80,10 @@ owning generator contract exist.
 - [x] Durable Job trigger/status API contract
 - [x] Durable Job worker lifecycle contract
 - [x] Airflow DAG scaffold and trigger/status contract (static generation)
-- [ ] Airflow environment/deployment validation and private service identity
+- [x] Durable Job private service identity contract
+- [x] Airflow local runtime and private service identity validation
+- [x] Airflow authenticated application trigger/status validation
+- [x] Outbox relay and durable-job worker container validation
 - [ ] Metrics Handler
 - [ ] artifact publishing
 - [ ] deployment plugins

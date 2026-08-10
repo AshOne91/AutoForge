@@ -7,6 +7,7 @@ from autoforge.core.specification import (
     ApplicationSpec,
     DatabaseShardSpec,
     DatabaseStoreSpec,
+    DurableJobSpec,
     ProjectInfo,
     ProjectSpec,
     ServiceSpec,
@@ -14,7 +15,9 @@ from autoforge.core.specification import (
 from autoforge.services.generation.local_environment import LocalEnvironmentGenerator
 
 
-def integration_specification(*, enabled: bool = False) -> ProjectSpec:
+def integration_specification(
+    *, enabled: bool = False, durable_jobs: bool = False, application: bool = False
+) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
         project=ProjectInfo(
@@ -56,8 +59,24 @@ def integration_specification(*, enabled: bool = False) -> ProjectSpec:
                     outbox_stores=["automation"],
                 ),
             ],
+            durable_jobs=[
+                DurableJobSpec(
+                    name="news_collection",
+                    store="automation",
+                    event_type="news.collection.requested",
+                    routing_key="news.collection.requested",
+                    schedule="0 * * * *",
+                )
+            ]
+            if durable_jobs
+            else [],
         ),
-        tooling={"local_environment": {"enabled": enabled}},
+        tooling={
+            "local_environment": {
+                "enabled": enabled,
+                "application_enabled": application,
+            }
+        },
     )
 
 
@@ -100,6 +119,52 @@ def test_render_creates_disposable_kis_integration_services() -> None:
     assert "POSTGRES_PORT=25432" in environment
     assert "RABBITMQ_AMQP_PORT=25672" in environment
     assert "RABBITMQ_URL=amqp://autoforge:change-me@rabbitmq:5672/" in environment
+
+
+def test_render_adds_airflow_for_durable_jobs() -> None:
+    files = LocalEnvironmentGenerator().render(
+        integration_specification(enabled=True, durable_jobs=True)
+    )
+
+    compose = files[PurePosixPath("environment", "compose.integration.yml")]
+    environment = files[PurePosixPath("environment", ".env.example")]
+    databases = files[
+        PurePosixPath("environment", "postgres-init", "00-databases.sql")
+    ]
+    readme = files[PurePosixPath("environment", "README.md")]
+
+    assert "image: apache/airflow:2.10.5-python3.12" in compose
+    assert "DURABLE_JOB_API_TOKEN: ${DURABLE_JOB_API_TOKEN:?set DURABLE_JOB_API_TOKEN}" in compose
+    assert "../airflow/dags:/opt/airflow/dags:ro" in compose
+    assert "airflow-home:/opt/airflow" in compose
+    assert "DURABLE_JOB_API_TOKEN=change-me" in environment
+    assert 'CREATE DATABASE "airflow";' in databases
+    assert "Airflow" in readme
+
+
+def test_render_connects_docker_application_to_airflow() -> None:
+    files = LocalEnvironmentGenerator().render(
+        integration_specification(enabled=True, durable_jobs=True, application=True)
+    )
+
+    compose = files[PurePosixPath("environment", "compose.integration.yml")]
+    environment = files[PurePosixPath("environment", ".env.example")]
+    readme = files[PurePosixPath("environment", "README.md")]
+
+    assert "  migrate:" in compose
+    assert "command: [\"python\", \"scripts/migrate.py\"]" in compose
+    assert "  application:" in compose
+    assert "pull_policy: never" in compose
+    assert "  outbox-relay:" in compose
+    assert "command: [\"python\", \"scripts/run_outbox_relay.py\"]" in compose
+    assert "  durable-job-worker:" in compose
+    assert "command: [\"python\", \"scripts/run_durable_job_worker.py\"]" in compose
+    assert "condition: service_completed_successfully" in compose
+    assert "DURABLE_JOB_API_URL: ${DURABLE_JOB_API_URL:-http://application:8000}" in compose
+    assert "DURABLE_JOB_API_TOKEN: ${DURABLE_JOB_API_TOKEN:?set DURABLE_JOB_API_TOKEN}" in compose
+    assert "APPLICATION_PORT=28000" in environment
+    assert "DURABLE_JOB_API_URL=http://application:8000" in environment
+    assert "migrations run before the generated application starts" in readme
 
 
 def test_plan_marks_environment_files_generated() -> None:

@@ -58,6 +58,7 @@ def test_durable_job_generator_emits_atomic_request_contract() -> None:
         PurePosixPath("src/kis_auto_trading/infrastructure/durable_jobs/repository.py"),
         PurePosixPath("src/kis_auto_trading/infrastructure/durable_jobs/worker.py"),
         PurePosixPath("src/kis_auto_trading/application/durable_job_handler.py"),
+        PurePosixPath("scripts/run_durable_job_worker.py"),
         PurePosixPath("migrations/account/versions/0003_durable_jobs.py"),
         PurePosixPath("airflow/dags/news_collection.py"),
     }
@@ -78,6 +79,7 @@ def test_durable_job_generator_emits_atomic_request_contract() -> None:
     handler = files[
         PurePosixPath("src/kis_auto_trading/application/durable_job_handler.py")
     ]
+    runner = files[PurePosixPath("scripts/run_durable_job_worker.py")]
     dag = files[PurePosixPath("airflow/dags/news_collection.py")]
     revision = files[PurePosixPath("migrations/account/versions/0003_durable_jobs.py")]
 
@@ -94,10 +96,16 @@ def test_durable_job_generator_emits_atomic_request_contract() -> None:
     assert "raise TypeError('durable job payload must be an object')" in worker
     assert "raise" in worker
     assert "class ApplicationDurableJobHandler" in handler
+    assert "DURABLE_JOB_QUEUE =" in runner
+    assert ".durable-jobs" in runner
+    assert "ApplicationDurableJobHandler" in runner
+    assert "routing_keys=tuple(DURABLE_JOB_EVENT_TYPES)" in runner
     assert "schedule='0 * * * *'" in dag
     assert "get_current_context()['data_interval_start']" in dag
     assert "run_key = f'{JOB_TYPE}:{data_interval_start.isoformat()}'" in dag
     assert "DURABLE_JOB_NEWS_COLLECTION_PAYLOAD_JSON" in dag
+    assert "DURABLE_JOB_API_TOKEN" in dag
+    assert "'Authorization': f'Bearer {api_token}'" in dag
     assert "execution_timeout=timedelta(seconds=TIMEOUT_SECONDS)" in dag
     assert "# noqa" not in dag
     assert "af_account_outbox_0001" in revision
@@ -142,4 +150,8 @@ def test_fastapi_project_registers_durable_job_endpoints() -> None:
     assert "@router.post(" in router
     assert "status.HTTP_202_ACCEPTED" in router
     assert "ShardTarget(store=definition.store)" in router
+    assert "from secrets import compare_digest" in router
+    assert "DURABLE_JOB_API_TOKEN" in router
+    assert "Header" in router
+    assert "dependencies=[Depends(_require_durable_job_api_token)]" in router
     assert "app.include_router(durable_jobs_router)" in app_factory

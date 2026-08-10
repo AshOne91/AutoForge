@@ -28,10 +28,12 @@ RabbitMQ, Airflow가 실제로 연결되는지를 단계적으로 검증하기 �
   연결 환경변수 계약을 표현한다.
 - Dockerfile Generator는 생성 애플리케이션의 빌드만 담당한다.
 - Redis Session과 RabbitMQ Outbox는 생성 계약과 단위 테스트가 있다.
-- Airflow는 Durable Job `schedule`이 있을 때 DAG 소스만 생성한다.
+- Airflow는 Durable Job `schedule`이 있을 때 DAG 소스와 local runtime을 생성한다.
 
-아직 Compose Generator, Airflow 실행 이미지, 운영 배포 Generator는 없다. 이는
-누락이 아니라 배포 토폴로지를 추측하지 않기 위한 의도된 경계다.
+Compose Generator와 KIS local/integration profile은 있다. Durable Job이 선언되면
+고정된 Airflow 실행 이미지와 paused DAG 런타임도 생성된다. Airflow의 운영용
+scheduled 배포 Generator와 애플리케이션 컨테이너 조합은 아직 없다. 이는 운영
+토폴로지를 추측하지 않기 위한 의도된 경계다.
 
 ## 향후 환경 profile의 역할
 
@@ -42,7 +44,7 @@ RabbitMQ, Airflow가 실제로 연결되는지를 단계적으로 검증하기 �
 | --- | --- | --- | --- |
 | `local` | PostgreSQL, Redis standalone, RabbitMQ | 개발자 재현 | 아니오 |
 | `integration` | 격리된 임시 서비스 | 실제 I/O 회귀 테스트 | 아니오 |
-| `scheduled` | local/integration + Airflow | Durable Job DAG 검증 | 아니오 |
+| `scheduled` | local/integration + Airflow | Durable Job DAG 검증 | local profile에서만 |
 | `production` | 외부 서비스 endpoint와 Secret 참조 | 운영 배포 문서·검증 | 예, 별도 선택 |
 
 Redis Cluster/Sentinel, DB 복제, RabbitMQ HA, Kubernetes, AWS는 `local`의 기본값이
@@ -81,9 +83,9 @@ user-owned
    Redis 연결, RabbitMQ topology 선언을 확인한다.
 5. **수직 통합 검증**: `trigger API -> JobRecord + Outbox -> RabbitMQ -> Worker ->
    status API`를 실제 컨테이너에서 검증한다.
-6. **Airflow 검증**: 5단계가 통과한 뒤 DAG의 trigger, polling, retry, timeout을
-   Airflow 환경에서 검증한다. 내부 API는 private network와 service identity를 전제로
-   한다.
+6. **Airflow 검증**: 5단계가 통과한 뒤 DAG import와 runtime health를 먼저 검증하고,
+   애플리케이션 컨테이너가 연결되면 trigger, polling, retry, timeout을 검증한다.
+   내부 API는 private network와 service identity를 전제로 한다.
 7. **CI 재현**: 단위 테스트와 컨테이너 통합 테스트를 분리해 CI에서 반복한다.
 8. **운영 profile 확장**: HA, Cluster, cloud provider, Kubernetes는 실제 부하·보안·
    비용 요구가 확인된 뒤 도입한다.
@@ -101,6 +103,17 @@ user-owned
 
 ## 현재 다음 행동
 
-현재 KIS에는 Durable Job 선언과 News/RAG coordinator Global DB 선택이 없다. 따라서
-다음 코드 변경은 Compose나 Airflow 설치가 아니라, KIS 수직 흐름의 명세 결정을
-확인한 뒤 최소 local/integration profile 계약을 설계하는 일이다.
+현재 KIS에는 `news_collection` Durable Job 선언, `automation` coordinator Global DB,
+그리고 local/integration Compose profile이 있다. Durable Job 내부 API는
+`DURABLE_JOB_API_TOKEN` 기반의 private service identity를 생성하며, Airflow
+컨테이너가 이 토큰과 생성 DAG를 주입받아 Healthy 상태로 기동되는 것까지 검증했다.
+생성된 migration과 애플리케이션 컨테이너도 Healthy 상태로 검증했다. Airflow는
+같은 Compose 네트워크에서 인증된 trigger와 status 조회를 수행했고, 무인증 요청은
+401로 거부됐다. Compose application profile은 같은 local image에서 Outbox relay와
+durable-job worker도 기동한다. Worker는 기존 RabbitMQ transport를 재사용하되
+`<service-queue>.durable-jobs` 전용 큐에 Durable Job event type만 bind한다.
+
+2026-08-10 실제 Compose 검증에서 `news_collection` 요청은 Outbox와 RabbitMQ를
+거쳐 `failed` 상태로 전이했다. 이는 사용자 소유 `ApplicationDurableJobHandler`가
+명시적으로 미구현 예외를 내기 때문이며, 인프라 실패가 아니다. 해당 handler가 실제
+업무를 구현하면 같은 경로는 `succeeded` 상태를 만든다.

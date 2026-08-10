@@ -1,11 +1,18 @@
 from pathlib import PurePosixPath
 
 from autoforge.core.generation import FileOwnership, Generator, content_hash
-from autoforge.core.specification import ApplicationSpec, ProjectInfo, ProjectSpec
+from autoforge.core.specification import (
+    ApplicationSpec,
+    DatabaseStoreSpec,
+    ProjectInfo,
+    ProjectSpec,
+)
 from autoforge.services.generation import DockerfileGenerator
 
 
-def project_specification(*, enabled: bool = False) -> ProjectSpec:
+def project_specification(
+    *, enabled: bool = False, has_database: bool = False
+) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
         project=ProjectInfo(
@@ -14,7 +21,13 @@ def project_specification(*, enabled: bool = False) -> ProjectSpec:
             version="0.1.0",
             description="모듈형 FastAPI 게임 서버",
         ),
-        application=ApplicationSpec(),
+        application=ApplicationSpec(
+            databases=[
+                DatabaseStoreSpec(name="identity", global_url_env="IDENTITY_DATABASE_URL")
+            ]
+            if has_database
+            else []
+        ),
         tooling={"docker": {"enabled": enabled}},
     )
 
@@ -39,10 +52,20 @@ def test_render_creates_expected_dockerfile_when_enabled() -> None:
     assert "FROM python:3.12-slim" in dockerfile
     assert "WORKDIR /app" in dockerfile
     assert "COPY src ./src" in dockerfile
-    assert 'RUN pip install --no-cache-dir ".[test]"' in dockerfile
+    assert 'RUN pip install --no-cache-dir .' in dockerfile
     assert 'CMD ["uvicorn", "game_server.main:app"' in dockerfile
     assert "secret" not in dockerfile.lower()
     assert "deploy" not in dockerfile.lower()
+
+
+def test_render_includes_migration_files_for_database_projects() -> None:
+    dockerfile = DockerfileGenerator().render(
+        project_specification(enabled=True, has_database=True)
+    )[PurePosixPath("Dockerfile")]
+
+    assert "COPY alembic.ini ./" in dockerfile
+    assert "COPY migrations ./migrations" in dockerfile
+    assert "COPY scripts ./scripts" in dockerfile
 
 
 def test_plan_matches_rendered_content_hashes() -> None:

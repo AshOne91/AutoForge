@@ -32,6 +32,7 @@ class DockerfileGenerator:
         return {
             PurePosixPath("Dockerfile"): self._render_dockerfile(
                 specification.project.package_name,
+                has_database=bool(specification.application.databases),
             )
         }
 
@@ -61,16 +62,30 @@ class DockerfileGenerator:
         )
 
     @staticmethod
-    def _render_dockerfile(package_name: str) -> str:
+    def _render_dockerfile(package_name: str, *, has_database: bool) -> str:
+        migration_files = ""
+        if has_database:
+            migration_files = (
+                "COPY alembic.ini ./\n"
+                "COPY migrations ./migrations\n"
+                "COPY scripts ./scripts\n"
+            )
         return (
             "FROM python:3.12-slim\n"
+            "\n"
+            "ENV PYTHONDONTWRITEBYTECODE=1 \\\n"
+            "    PYTHONUNBUFFERED=1 \\\n"
+            "    PIP_DISABLE_PIP_VERSION_CHECK=1 \\\n"
+            "    PIP_ROOT_USER_ACTION=ignore\n"
             "\n"
             "WORKDIR /app\n"
             "\n"
             "COPY pyproject.toml README.md ./\n"
             "COPY src ./src\n"
             "\n"
-            'RUN pip install --no-cache-dir ".[test]"\n'
+            + migration_files
+            + "\n"
+            + 'RUN pip install --no-cache-dir .\n'
             "\n"
             'EXPOSE 8000\n'
             "\n"

@@ -38,24 +38,37 @@ class LocalEnvironmentGenerator:
             raise ValueError("local environment supports one RabbitMQ service")
         if not specification.application.databases and redis_mode is None and not rabbitmq_services:
             raise ValueError("local environment requires a declared database or service")
+        has_durable_jobs = bool(specification.application.durable_jobs)
+        has_application = (
+            has_durable_jobs
+            and specification.tooling.local_environment.application_enabled
+        )
 
         files = {
             PurePosixPath("environment", "compose.integration.yml"): self._render_compose(
                 specification,
                 redis_mode=redis_mode,
                 has_rabbitmq=bool(rabbitmq_services),
+                has_durable_jobs=has_durable_jobs,
+                has_application=has_application,
             ),
             PurePosixPath("environment", ".env.example"): self._render_env(
                 specification,
                 redis_mode=redis_mode,
                 has_rabbitmq=bool(rabbitmq_services),
+                has_durable_jobs=has_durable_jobs,
+                has_application=has_application,
             ),
             PurePosixPath("environment", "README.md"): self._render_readme(
                 redis_mode=redis_mode,
                 has_rabbitmq=bool(rabbitmq_services),
+                has_durable_jobs=has_durable_jobs,
+                has_application=has_application,
             ),
         }
         database_names = self._database_names(specification.application.databases)
+        if has_durable_jobs and "airflow" not in database_names:
+            database_names.append("airflow")
         if database_names:
             files[
                 PurePosixPath("environment", "postgres-init", "00-databases.sql")
@@ -112,6 +125,8 @@ class LocalEnvironmentGenerator:
         *,
         redis_mode: str | None,
         has_rabbitmq: bool,
+        has_durable_jobs: bool,
+        has_application: bool,
     ) -> str:
         services: list[str] = []
         if specification.application.databases:
@@ -122,11 +137,20 @@ class LocalEnvironmentGenerator:
             services.extend(self._render_redis_cluster())
         if has_rabbitmq:
             services.append(self._render_rabbitmq())
+        if has_application:
+            services.append(self._render_migrate(specification))
+            services.append(self._render_application(specification, redis_mode=redis_mode))
+            if has_durable_jobs:
+                services.append(self._render_outbox_relay(specification))
+                services.append(self._render_durable_job_worker(specification))
+        if has_durable_jobs:
+            services.append(self._render_airflow(has_application=has_application))
         return (
             f"name: {specification.project.package_name}-integration\n"
             "\n"
             "services:\n"
             + "\n".join(services)
+            + ("\nvolumes:\n  airflow-home:\n" if has_durable_jobs else "")
         )
 
     @staticmethod
@@ -221,12 +245,172 @@ class LocalEnvironmentGenerator:
             "      retries: 20\n"
         )
 
+    @staticmethod
+    def _render_database_environment(specification: ProjectSpec) -> str:
+        lines: list[str] = []
+        for database in specification.application.databases:
+            targets = [(database.name, database.global_url_env)]
+            targets.extend(
+                (f"{database.name}_shard_{shard.shard_id}", shard.url_env)
+                for shard in database.shards
+            )
+            for database_name, environment_name in targets:
+                if environment_name is not None:
+                    lines.append(
+                        "      "
+                        f"{environment_name}: postgresql+asyncpg://${{POSTGRES_USER:-autoforge}}:${{POSTGRES_PASSWORD:-change-me}}@postgres:5432/{database_name}\n"
+                    )
+        return "".join(lines)
+
+    @staticmethod
+    def _application_image(specification: ProjectSpec) -> str:
+        return specification.project.package_name.replace("_", "-") + ":local"
+
+    def _render_migrate(self, specification: ProjectSpec) -> str:
+        image = self._application_image(specification)
+        return (
+            "  migrate:\n"
+            "    build:\n"
+            "      context: ..\n"
+            "      dockerfile: Dockerfile\n"
+            f"    image: ${{APPLICATION_IMAGE:-{image}}}\n"
+            "    pull_policy: never\n"
+            "    command: [\"python\", \"scripts/migrate.py\"]\n"
+            "    environment:\n"
+            + self._render_database_environment(specification)
+            + "    depends_on:\n"
+            "      postgres:\n"
+            "        condition: service_healthy\n"
+            "    restart: \"no\"\n"
+        )
+
+    def _render_application(
+        self, specification: ProjectSpec, *, redis_mode: str | None
+    ) -> str:
+        image = self._application_image(specification)
+        redis_environment = ""
+        redis_dependency = ""
+        if redis_mode == "standalone":
+            redis_environment = "      REDIS_URL: ${REDIS_URL:-redis://redis:6379}\n"
+            redis_dependency = "      redis:\n        condition: service_healthy\n"
+        elif redis_mode == "cluster":
+            redis_environment = (
+                "      REDIS_CLUSTER_URL: ${REDIS_CLUSTER_URL:-redis://redis-7000:7000}\n"
+            )
+            redis_dependency = (
+                "      redis-cluster-init:\n"
+                "        condition: service_completed_successfully\n"
+            )
+        return (
+            "  application:\n"
+            f"    image: ${{APPLICATION_IMAGE:-{image}}}\n"
+            "    pull_policy: never\n"
+            "    environment:\n"
+            + self._render_database_environment(specification)
+            + redis_environment
+            + "      DURABLE_JOB_API_TOKEN: ${DURABLE_JOB_API_TOKEN:?set DURABLE_JOB_API_TOKEN}\n"
+            "      LOG_DIRECTORY: /app/logs\n"
+            "    ports:\n"
+            "      - \"${APPLICATION_PORT:-28000}:8000\"\n"
+            "    volumes:\n"
+            "      - ../logs:/app/logs\n"
+            "    depends_on:\n"
+            "      migrate:\n"
+            "        condition: service_completed_successfully\n"
+            + redis_dependency
+            + "    healthcheck:\n"
+            "      test: [\"CMD\", \"python\", \"-c\", \"from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health').read()\"]\n"
+            "      interval: 5s\n"
+            "      timeout: 3s\n"
+            "      retries: 20\n"
+        )
+
+    def _render_outbox_relay(self, specification: ProjectSpec) -> str:
+        image = self._application_image(specification)
+        return (
+            "  outbox-relay:\n"
+            f"    image: ${{APPLICATION_IMAGE:-{image}}}\n"
+            "    pull_policy: never\n"
+            "    command: [\"python\", \"scripts/run_outbox_relay.py\"]\n"
+            "    environment:\n"
+            + self._render_database_environment(specification)
+            + "      RABBITMQ_URL: ${RABBITMQ_URL:?set RABBITMQ_URL}\n"
+            "    depends_on:\n"
+            "      migrate:\n"
+            "        condition: service_completed_successfully\n"
+            "      rabbitmq:\n"
+            "        condition: service_healthy\n"
+        )
+
+    def _render_durable_job_worker(self, specification: ProjectSpec) -> str:
+        image = self._application_image(specification)
+        return (
+            "  durable-job-worker:\n"
+            f"    image: ${{APPLICATION_IMAGE:-{image}}}\n"
+            "    pull_policy: never\n"
+            "    command: [\"python\", \"scripts/run_durable_job_worker.py\"]\n"
+            "    environment:\n"
+            + self._render_database_environment(specification)
+            + "      RABBITMQ_URL: ${RABBITMQ_URL:?set RABBITMQ_URL}\n"
+            "    depends_on:\n"
+            "      migrate:\n"
+            "        condition: service_completed_successfully\n"
+            "      rabbitmq:\n"
+            "        condition: service_healthy\n"
+        )
+
+    @staticmethod
+    def _render_airflow(*, has_application: bool) -> str:
+        api_url = (
+            "http://application:8000"
+            if has_application
+            else "http://host.docker.internal:8000"
+        )
+        application_dependency = ""
+        if has_application:
+            application_dependency = (
+                "      application:\n"
+                "        condition: service_healthy\n"
+                "      outbox-relay:\n"
+                "        condition: service_started\n"
+                "      durable-job-worker:\n"
+                "        condition: service_started\n"
+            )
+        return (
+            "  airflow:\n"
+            "    image: apache/airflow:2.10.5-python3.12\n"
+            "    depends_on:\n"
+            "      postgres:\n"
+            "        condition: service_healthy\n"
+            + application_dependency
+            + "    environment:\n"
+            "      AIRFLOW__CORE__EXECUTOR: SequentialExecutor\n"
+            "      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-autoforge}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/airflow\n"
+            "      AIRFLOW__CORE__LOAD_EXAMPLES: \"false\"\n"
+            "      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: \"true\"\n"
+            f"      DURABLE_JOB_API_URL: ${{DURABLE_JOB_API_URL:-{api_url}}}\n"
+            "      DURABLE_JOB_API_TOKEN: ${DURABLE_JOB_API_TOKEN:?set DURABLE_JOB_API_TOKEN}\n"
+            "    volumes:\n"
+            "      - ../airflow/dags:/opt/airflow/dags:ro\n"
+            "      - airflow-home:/opt/airflow\n"
+            "    ports:\n"
+            "      - \"${AIRFLOW_PORT:-28080}:8080\"\n"
+            "    command: standalone\n"
+            "    healthcheck:\n"
+            "      test: [\"CMD-SHELL\", \"curl --fail http://localhost:8080/health || exit 1\"]\n"
+            "      interval: 10s\n"
+            "      timeout: 5s\n"
+            "      retries: 30\n"
+        )
+
     def _render_env(
         self,
         specification: ProjectSpec,
         *,
         redis_mode: str | None,
         has_rabbitmq: bool,
+        has_durable_jobs: bool,
+        has_application: bool,
     ) -> str:
         lines = [
             "# Copy to .env and replace sample credentials before sharing the file.\n",
@@ -253,10 +437,31 @@ class LocalEnvironmentGenerator:
                     "RABBITMQ_URL=amqp://autoforge:change-me@rabbitmq:5672/\n",
                 ]
             )
+        if has_durable_jobs:
+            durable_job_api_url = (
+                "http://application:8000"
+                if has_application
+                else "http://host.docker.internal:8000"
+            )
+            lines.extend(
+                [
+                    "AIRFLOW_PORT=28080\n",
+                    f"DURABLE_JOB_API_URL={durable_job_api_url}\n",
+                    "DURABLE_JOB_API_TOKEN=change-me\n",
+                ]
+            )
+        if has_application:
+            lines.append("APPLICATION_PORT=28000\n")
         return "".join(lines)
 
     @staticmethod
-    def _render_readme(*, redis_mode: str | None, has_rabbitmq: bool) -> str:
+    def _render_readme(
+        *,
+        redis_mode: str | None,
+        has_rabbitmq: bool,
+        has_durable_jobs: bool,
+        has_application: bool,
+    ) -> str:
         services = ["PostgreSQL"]
         if redis_mode == "cluster":
             services.append("three-node Redis Cluster")
@@ -264,6 +469,8 @@ class LocalEnvironmentGenerator:
             services.append("Redis")
         if has_rabbitmq:
             services.append("RabbitMQ")
+        if has_durable_jobs:
+            services.extend(["Airflow", "Outbox relay", "durable-job worker"])
         return (
             "# Generated integration environment\n"
             "\n"
@@ -276,6 +483,13 @@ class LocalEnvironmentGenerator:
             "```\n"
             "\n"
             "Run application containers on the Compose network. The Redis Cluster URL uses\n"
-            "Docker service DNS and is intentionally not a host-process URL. Airflow, the\n"
-            "application container, and message workers are separate later contracts.\n"
+            "Docker service DNS and is intentionally not a host-process URL. Airflow is\n"
+            "generated paused and reads the durable-job API token from .env. When the\n"
+            "application profile is enabled, the outbox relay and durable-job worker run\n"
+            "from the same local image.\n"
+            + (
+                "When Docker is enabled, migrations run before the generated application starts.\n"
+                if has_application
+                else "Enable the local application profile to generate the application service for Airflow calls.\n"
+            )
         )

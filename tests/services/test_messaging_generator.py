@@ -95,6 +95,9 @@ def test_render_generates_transport_outbox_relay_and_migration() -> None:
     ]
     assert "publisher_confirms=True" in rabbitmq
     assert "mandatory=True" in rabbitmq
+    assert "queue_name: str = QUEUE_NAME" in rabbitmq
+    assert "routing_keys: tuple[str, ...] = (ROUTING_KEY,)" in rabbitmq
+    assert "for routing_key in routing_keys:" in rabbitmq
     assert "except CONNECTION_EXCEPTIONS as error" in rabbitmq
     assert "raise MessagePublishError" in rabbitmq
     assert "message.process(requeue=False)" in rabbitmq

@@ -343,6 +343,7 @@ class LocalEnvironmentSpec(StrictSpecModel):
     """Generate a disposable Docker integration environment for declared services."""
 
     enabled: bool = False
+    application_enabled: bool = False
 
 
 class CiProvider(StrEnum):

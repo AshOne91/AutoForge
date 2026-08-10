@@ -10,7 +10,7 @@ from autoforge.core.generation import (
     content_hash,
     specification_hash,
 )
-from autoforge.core.specification import DurableJobSpec, ProjectSpec
+from autoforge.core.specification import DurableJobSpec, ProjectSpec, ServiceSpec
 
 DURABLE_JOB_GENERATOR_ID: Final = "autoforge.generator.service.durable_jobs"
 DURABLE_JOB_GENERATOR_VERSION: Final = "0.1.0"
@@ -31,6 +31,13 @@ class DurableJobGenerator:
         jobs = specification.application.durable_jobs
         if not jobs:
             return {}
+        rabbitmq_services = [
+            service
+            for service in specification.application.services
+            if service.kind == "rabbitmq"
+        ]
+        if len(rabbitmq_services) != 1:
+            raise ValueError("durable jobs require one RabbitMQ service")
         package = specification.project.package_name
         root = PurePosixPath("src", package, "infrastructure", "durable_jobs")
         files = {
@@ -42,6 +49,12 @@ class DurableJobGenerator:
             PurePosixPath(
                 "src", package, "application", "durable_job_handler.py"
             ): self._render_handler_scaffold(package),
+            PurePosixPath("scripts", "run_durable_job_worker.py"): (
+                self._render_worker_runner(
+                    specification,
+                    rabbitmq_services[0],
+                )
+            ),
         }
         for store in sorted({job.store for job in jobs}):
             files[
@@ -377,6 +390,69 @@ class DurableJobGenerator:
         )
 
     @staticmethod
+    def _render_worker_runner(
+        specification: ProjectSpec,
+        service: ServiceSpec,
+    ) -> str:
+        durable_stores = {job.store for job in specification.application.durable_jobs}
+        database_environments = {
+            database.name: database.global_url_env
+            for database in specification.application.databases
+            if database.name in durable_stores and database.global_url_env is not None
+        }
+        event_types = [job.event_type for job in specification.application.durable_jobs]
+        package = specification.project.package_name
+        return (
+            "import asyncio\n"
+            "import os\n"
+            "\n"
+            "import aio_pika\n"
+            "from sqlalchemy.ext.asyncio import create_async_engine\n"
+            "\n"
+            f"from {package}.application.durable_job_handler import (\n"
+            "    ApplicationDurableJobHandler,\n"
+            ")\n"
+            f"from {package}.application.observability import LOGGER, configure_logging\n"
+            f"from {package}.infrastructure.database.session import AsyncSessionRegistry\n"
+            f"from {package}.infrastructure.durable_jobs.worker import DurableJobMessageHandler\n"
+            f"from {package}.infrastructure.messaging.rabbitmq import RabbitMQConsumer\n"
+            "\n"
+            f"RABBITMQ_URL_ENV = {json.dumps(service.connection_url_env)}\n"
+            f"DURABLE_JOB_QUEUE = {json.dumps(service.queue + '.durable-jobs')}\n"
+            f"DURABLE_JOB_EVENT_TYPES = {json.dumps(event_types)}\n"
+            f"GLOBAL_DATABASE_URL_ENVS = {json.dumps(database_environments, sort_keys=True)}\n"
+            "\n"
+            "\n"
+            "async def main() -> None:\n"
+            "    configure_logging()\n"
+            "    LOGGER.info('durable job worker starting')\n"
+            "    engines = {\n"
+            "        store: create_async_engine(os.environ[environment_name], pool_pre_ping=True)\n"
+            "        for store, environment_name in GLOBAL_DATABASE_URL_ENVS.items()\n"
+            "    }\n"
+            "    registry = AsyncSessionRegistry(engines, {})\n"
+            "    connection = await aio_pika.connect_robust(os.environ[RABBITMQ_URL_ENV])\n"
+            "    consumer = RabbitMQConsumer(connection)\n"
+            "    handler = DurableJobMessageHandler(registry, ApplicationDurableJobHandler())\n"
+            "    try:\n"
+            "        await consumer.consume(\n"
+            "            handler,\n"
+            "            queue_name=DURABLE_JOB_QUEUE,\n"
+            "            routing_keys=tuple(DURABLE_JOB_EVENT_TYPES),\n"
+            "        )\n"
+            "        await asyncio.Future()\n"
+            "    finally:\n"
+            "        await connection.close()\n"
+            "        for engine in engines.values():\n"
+            "            await engine.dispose()\n"
+            "        LOGGER.info('durable job worker stopped')\n"
+            "\n"
+            "\n"
+            "if __name__ == '__main__':\n"
+            "    asyncio.run(main())\n"
+        )
+
+    @staticmethod
     def _render_airflow_dag(job: DurableJobSpec) -> str:
         payload_env = f"DURABLE_JOB_{job.name.upper()}_PAYLOAD_JSON"
         return (
@@ -400,10 +476,14 @@ class DurableJobGenerator:
             "\n"
             "def _request(method: str, path: str, body: dict[str, object] | None = None) -> dict[str, object]:\n"
             "    base_url = os.environ['DURABLE_JOB_API_URL'].rstrip('/')\n"
+            "    api_token = os.environ['DURABLE_JOB_API_TOKEN']\n"
             "    data = json.dumps(body).encode() if body is not None else None\n"
             "    request = Request(\n"
             "        f'{base_url}{path}', data=data, method=method,\n"
-            "        headers={'Content-Type': 'application/json'},\n"
+            "        headers={\n"
+            "            'Authorization': f'Bearer {api_token}',\n"
+            "            'Content-Type': 'application/json',\n"
+            "        },\n"
             "    )\n"
             "    with urlopen(request, timeout=TIMEOUT_SECONDS) as response:\n"
             "        payload = json.load(response)\n"
