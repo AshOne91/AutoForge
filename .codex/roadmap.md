@@ -114,9 +114,13 @@ These remain goals, not current implementation commitments:
 - Docker/Kubernetes/cloud deployment plugins after build contracts stabilize
 - generated-project validation in a second machine or multi-node environment
 
-The next architectural implementation target is the `identity + session +
-sharded profile` Blueprint. Do not add specification-only metadata: each
-Blueprint contract must change generated output and be validated by KIS.
+The `identity + session + sharded profile` Blueprint and the `scheduled
+ingestion` Blueprint are now implemented. The next concrete milestone is to
+run the generated scheduled-ingestion environment as an isolated Compose
+project and validate its application, migration, Airflow, RabbitMQ, outbox,
+and worker contracts together. Do not add specification-only metadata: each
+Blueprint contract must change generated output and be validated by KIS or an
+equivalent isolated generated-project environment.
 
 Reference order is deliberate: `common-tool` supplies generation intent,
 `game-server` supplies runtime composition meaning, and `base_server` supplies

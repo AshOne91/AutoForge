@@ -344,6 +344,13 @@ class LocalEnvironmentSpec(StrictSpecModel):
 
     enabled: bool = False
     application_enabled: bool = False
+    host_port_base: int | None = Field(
+        default=None,
+        ge=49152,
+        le=65400,
+        multiple_of=100,
+        description="Optional 100-port local host block for generated Compose services.",
+    )
 
 
 class CiProvider(StrEnum):

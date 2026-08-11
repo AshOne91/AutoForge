@@ -12,6 +12,7 @@ tooling:
   local_environment:
     enabled: true
     application_enabled: true
+    host_port_base: 49200
 
 application:
   framework: fastapi

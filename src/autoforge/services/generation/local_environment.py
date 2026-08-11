@@ -41,6 +41,7 @@ class LocalEnvironmentGenerator:
         has_durable_jobs = bool(specification.application.durable_jobs)
         has_application = specification.tooling.local_environment.application_enabled
         has_migration = has_application and bool(specification.application.databases)
+        host_port_base = specification.tooling.local_environment.host_port_base
 
         files = {
             PurePosixPath("environment", "compose.integration.yml"): self._render_compose(
@@ -50,6 +51,7 @@ class LocalEnvironmentGenerator:
                 has_durable_jobs=has_durable_jobs,
                 has_application=has_application,
                 has_migration=has_migration,
+                host_port_base=host_port_base,
             ),
             PurePosixPath("environment", ".env.example"): self._render_env(
                 specification,
@@ -57,6 +59,7 @@ class LocalEnvironmentGenerator:
                 has_rabbitmq=bool(rabbitmq_services),
                 has_durable_jobs=has_durable_jobs,
                 has_application=has_application,
+                host_port_base=host_port_base,
             ),
             PurePosixPath("environment", "README.md"): self._render_readme(
                 redis_mode=redis_mode,
@@ -128,16 +131,17 @@ class LocalEnvironmentGenerator:
         has_durable_jobs: bool,
         has_application: bool,
         has_migration: bool,
+        host_port_base: int | None,
     ) -> str:
         services: list[str] = []
         if specification.application.databases:
-            services.append(self._render_postgres())
+            services.append(self._render_postgres(host_port_base))
         if redis_mode == "standalone":
             services.append(self._render_redis_standalone())
         elif redis_mode == "cluster":
             services.extend(self._render_redis_cluster())
         if has_rabbitmq:
-            services.append(self._render_rabbitmq())
+            services.append(self._render_rabbitmq(host_port_base))
         if has_application:
             if has_migration:
                 services.append(self._render_migrate(specification))
@@ -147,13 +151,19 @@ class LocalEnvironmentGenerator:
                     redis_mode=redis_mode,
                     has_durable_jobs=has_durable_jobs,
                     has_migration=has_migration,
+                    host_port_base=host_port_base,
                 )
             )
             if has_durable_jobs:
                 services.append(self._render_outbox_relay(specification))
                 services.append(self._render_durable_job_worker(specification))
         if has_durable_jobs:
-            services.append(self._render_airflow(has_application=has_application))
+            services.append(
+                self._render_airflow(
+                    has_application=has_application,
+                    host_port_base=host_port_base,
+                )
+            )
         return (
             f"name: {specification.project.package_name}-integration\n"
             "\n"
@@ -163,7 +173,12 @@ class LocalEnvironmentGenerator:
         )
 
     @staticmethod
-    def _render_postgres() -> str:
+    def _host_port(host_port_base: int | None, *, default: int, offset: int) -> int:
+        return default if host_port_base is None else host_port_base + offset
+
+    @classmethod
+    def _render_postgres(cls, host_port_base: int | None) -> str:
+        postgres_port = cls._host_port(host_port_base, default=25432, offset=10)
         return (
             "  postgres:\n"
             "    image: postgres:16-alpine\n"
@@ -172,7 +187,7 @@ class LocalEnvironmentGenerator:
             "      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}\n"
             "      POSTGRES_DB: postgres\n"
             "    ports:\n"
-            "      - \"${POSTGRES_PORT:-25432}:5432\"\n"
+            f"      - \"${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{POSTGRES_PORT:-{postgres_port}}}:5432\"\n"
             "    volumes:\n"
             "      - ./postgres-init/00-databases.sql:/docker-entrypoint-initdb.d/00-databases.sql:ro\n"
             "    healthcheck:\n"
@@ -236,8 +251,10 @@ class LocalEnvironmentGenerator:
         )
         return nodes
 
-    @staticmethod
-    def _render_rabbitmq() -> str:
+    @classmethod
+    def _render_rabbitmq(cls, host_port_base: int | None) -> str:
+        amqp_port = cls._host_port(host_port_base, default=25672, offset=30)
+        management_port = cls._host_port(host_port_base, default=25673, offset=31)
         return (
             "  rabbitmq:\n"
             "    image: rabbitmq:4.1-management-alpine\n"
@@ -245,8 +262,8 @@ class LocalEnvironmentGenerator:
             "      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-autoforge}\n"
             "      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-change-me}\n"
             "    ports:\n"
-            "      - \"${RABBITMQ_AMQP_PORT:-25672}:5672\"\n"
-            "      - \"${RABBITMQ_MANAGEMENT_PORT:-25673}:15672\"\n"
+            f"      - \"${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{RABBITMQ_AMQP_PORT:-{amqp_port}}}:5672\"\n"
+            f"      - \"${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{RABBITMQ_MANAGEMENT_PORT:-{management_port}}}:15672\"\n"
             "    healthcheck:\n"
             "      test: [\"CMD-SHELL\", \"rabbitmq-diagnostics -q ping\"]\n"
             "      interval: 3s\n"
@@ -300,8 +317,10 @@ class LocalEnvironmentGenerator:
         redis_mode: str | None,
         has_durable_jobs: bool,
         has_migration: bool,
+        host_port_base: int | None,
     ) -> str:
         image = self._application_image(specification)
+        application_port = self._host_port(host_port_base, default=28000, offset=0)
         redis_environment = ""
         dependencies: list[str] = []
         if has_migration:
@@ -340,7 +359,7 @@ class LocalEnvironmentGenerator:
             + durable_job_environment
             + "      LOG_DIRECTORY: /app/logs\n"
             "    ports:\n"
-            "      - \"${APPLICATION_PORT:-28000}:8000\"\n"
+            f"      - \"${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{APPLICATION_PORT:-{application_port}}}:8000\"\n"
             "    volumes:\n"
             "      - ../logs:/app/logs\n"
             + depends_on
@@ -385,8 +404,11 @@ class LocalEnvironmentGenerator:
             "        condition: service_healthy\n"
         )
 
-    @staticmethod
-    def _render_airflow(*, has_application: bool) -> str:
+    @classmethod
+    def _render_airflow(
+        cls, *, has_application: bool, host_port_base: int | None
+    ) -> str:
+        airflow_port = cls._host_port(host_port_base, default=28080, offset=40)
         api_url = (
             "http://application:8000"
             if has_application
@@ -420,7 +442,7 @@ class LocalEnvironmentGenerator:
             "      - ../airflow/dags:/opt/airflow/dags:ro\n"
             "      - airflow-home:/opt/airflow\n"
             "    ports:\n"
-            "      - \"${AIRFLOW_PORT:-28080}:8080\"\n"
+            f"      - \"${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{AIRFLOW_PORT:-{airflow_port}}}:8080\"\n"
             "    command: standalone\n"
             "    healthcheck:\n"
             "      test: [\"CMD-SHELL\", \"curl --fail http://localhost:8080/health || exit 1\"]\n"
@@ -437,16 +459,23 @@ class LocalEnvironmentGenerator:
         has_rabbitmq: bool,
         has_durable_jobs: bool,
         has_application: bool,
+        host_port_base: int | None,
     ) -> str:
+        application_port = self._host_port(host_port_base, default=28000, offset=0)
+        postgres_port = self._host_port(host_port_base, default=25432, offset=10)
+        amqp_port = self._host_port(host_port_base, default=25672, offset=30)
+        management_port = self._host_port(host_port_base, default=25673, offset=31)
+        airflow_port = self._host_port(host_port_base, default=28080, offset=40)
         lines = [
             "# Copy to .env and replace sample credentials before sharing the file.\n",
+            "LOCAL_BIND_ADDRESS=127.0.0.1\n",
         ]
         if specification.application.databases:
             lines.extend(
                 [
                     "POSTGRES_USER=autoforge\n",
                     "POSTGRES_PASSWORD=change-me\n",
-                    "POSTGRES_PORT=25432\n",
+                    f"POSTGRES_PORT={postgres_port}\n",
                 ]
             )
         if redis_mode == "standalone":
@@ -458,8 +487,8 @@ class LocalEnvironmentGenerator:
                 [
                     "RABBITMQ_USER=autoforge\n",
                     "RABBITMQ_PASSWORD=change-me\n",
-                    "RABBITMQ_AMQP_PORT=25672\n",
-                    "RABBITMQ_MANAGEMENT_PORT=25673\n",
+                    f"RABBITMQ_AMQP_PORT={amqp_port}\n",
+                    f"RABBITMQ_MANAGEMENT_PORT={management_port}\n",
                     "RABBITMQ_URL=amqp://autoforge:change-me@rabbitmq:5672/\n",
                 ]
             )
@@ -471,13 +500,13 @@ class LocalEnvironmentGenerator:
             )
             lines.extend(
                 [
-                    "AIRFLOW_PORT=28080\n",
+                    f"AIRFLOW_PORT={airflow_port}\n",
                     f"DURABLE_JOB_API_URL={durable_job_api_url}\n",
                     "DURABLE_JOB_API_TOKEN=change-me\n",
                 ]
             )
         if has_application:
-            lines.append("APPLICATION_PORT=28000\n")
+            lines.append(f"APPLICATION_PORT={application_port}\n")
         return "".join(lines)
 
     @staticmethod

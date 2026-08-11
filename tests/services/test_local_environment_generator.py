@@ -16,7 +16,11 @@ from autoforge.services.generation.local_environment import LocalEnvironmentGene
 
 
 def integration_specification(
-    *, enabled: bool = False, durable_jobs: bool = False, application: bool = False
+    *,
+    enabled: bool = False,
+    durable_jobs: bool = False,
+    application: bool = False,
+    host_port_base: int | None = None,
 ) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
@@ -75,6 +79,7 @@ def integration_specification(
             "local_environment": {
                 "enabled": enabled,
                 "application_enabled": application,
+                "host_port_base": host_port_base,
             }
         },
     )
@@ -119,6 +124,8 @@ def test_render_creates_disposable_kis_integration_services() -> None:
     assert "POSTGRES_PORT=25432" in environment
     assert "RABBITMQ_AMQP_PORT=25672" in environment
     assert "RABBITMQ_URL=amqp://autoforge:change-me@rabbitmq:5672/" in environment
+    assert "LOCAL_BIND_ADDRESS=127.0.0.1" in environment
+    assert '"${LOCAL_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-25432}:5432"' in compose
 
 
 def test_render_adds_airflow_for_durable_jobs() -> None:
@@ -185,6 +192,27 @@ def test_render_connects_docker_application_to_airflow() -> None:
     assert "APPLICATION_PORT=28000" in environment
     assert "DURABLE_JOB_API_URL=http://application:8000" in environment
     assert "migrations run before the generated application starts" in readme
+
+
+def test_render_uses_the_declared_local_host_port_block() -> None:
+    files = LocalEnvironmentGenerator().render(
+        integration_specification(
+            enabled=True,
+            durable_jobs=True,
+            application=True,
+            host_port_base=49300,
+        )
+    )
+
+    compose = files[PurePosixPath("environment", "compose.integration.yml")]
+    environment = files[PurePosixPath("environment", ".env.example")]
+
+    assert "APPLICATION_PORT=49300" in environment
+    assert "POSTGRES_PORT=49310" in environment
+    assert "RABBITMQ_AMQP_PORT=49330" in environment
+    assert "RABBITMQ_MANAGEMENT_PORT=49331" in environment
+    assert "AIRFLOW_PORT=49340" in environment
+    assert '"${LOCAL_BIND_ADDRESS:-127.0.0.1}:${AIRFLOW_PORT:-49340}:8080"' in compose
 
 
 def test_plan_marks_environment_files_generated() -> None:
