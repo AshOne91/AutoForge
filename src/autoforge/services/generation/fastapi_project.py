@@ -58,6 +58,7 @@ class FastAPIProjectGenerator:
                 package_name=package_name,
                 version=project.version,
                 description=project.description,
+                dependencies=project.dependencies,
                 include_redis=any(
                     service.kind == "redis_session"
                     for service in specification.application.services
@@ -186,6 +187,7 @@ class FastAPIProjectGenerator:
         package_name: str,
         version: str,
         description: str,
+        dependencies: list[str],
         include_redis: bool,
         include_rabbitmq: bool,
         ruff_exclude: list[str],
@@ -193,6 +195,10 @@ class FastAPIProjectGenerator:
         redis_dependency = '    "redis>=5,<7",\n' if include_redis else ""
         rabbitmq_dependency = (
             '    "aio-pika>=9.5,<10",\n' if include_rabbitmq else ""
+        )
+        project_dependencies = "".join(
+            f"    {json.dumps(dependency, ensure_ascii=False)},\n"
+            for dependency in dependencies
         )
         ruff_configuration = ""
         if ruff_exclude:
@@ -219,6 +225,7 @@ class FastAPIProjectGenerator:
             f"{redis_dependency}"
             '    "sqlalchemy>=2.0,<3",\n'
             '    "uvicorn",\n'
+            f"{project_dependencies}"
             ']\n'
             "\n"
             "[project.optional-dependencies]\n"

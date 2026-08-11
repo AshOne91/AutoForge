@@ -44,6 +44,7 @@ class ProjectInfo(StrictSpecModel):
     package_name: str
     version: str
     description: str = ""
+    dependencies: list[str] = Field(default_factory=list)
 
     @field_validator("package_name")
     @classmethod
@@ -54,6 +55,15 @@ class ProjectInfo(StrictSpecModel):
     @classmethod
     def validate_version(cls, value: str) -> str:
         return validate_semantic_version(value)
+
+    @field_validator("dependencies")
+    @classmethod
+    def validate_dependencies(cls, values: list[str]) -> list[str]:
+        if any(not value for value in values):
+            raise ValueError("Project dependencies must not be empty")
+        if len(values) != len(set(values)):
+            raise ValueError("Project dependencies must be unique")
+        return values
 
 
 class ServiceSpec(StrictSpecModel):

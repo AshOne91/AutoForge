@@ -27,6 +27,7 @@ def project_specification(
     services: list[ServiceSpec] | None = None,
     databases: list[DatabaseStoreSpec] | None = None,
     ruff_exclude: list[str] | None = None,
+    dependencies: list[str] | None = None,
 ) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
@@ -35,6 +36,7 @@ def project_specification(
             package_name="game_server",
             version="0.1.0",
             description=description,
+            dependencies=dependencies or [],
         ),
         application=ApplicationSpec(
             modules=modules or [],
@@ -116,6 +118,16 @@ def test_render_pyproject_includes_declared_ruff_exclusions() -> None:
         "reference",
         "manual_probe.py",
     ]
+
+
+def test_render_pyproject_includes_declared_project_dependencies() -> None:
+    files = FastAPIProjectGenerator().render(
+        project_specification(dependencies=["yfinance>=0.2,<1"])
+    )
+
+    pyproject = tomllib.loads(files[PurePosixPath("pyproject.toml")])
+
+    assert pyproject["project"]["dependencies"][-1] == "yfinance>=0.2,<1"
 
 
 def test_render_empty_module_registry() -> None:

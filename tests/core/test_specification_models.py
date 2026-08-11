@@ -323,6 +323,19 @@ def test_project_spec_rejects_invalid_package_name(name: str) -> None:
         ProjectInfo(name="Game Server", package_name=name, version="0.1.0")
 
 
+@pytest.mark.parametrize("dependencies", [[""], ["yfinance", "yfinance"]])
+def test_project_spec_rejects_empty_or_duplicate_dependencies(
+    dependencies: list[str],
+) -> None:
+    with pytest.raises(ValidationError):
+        ProjectInfo(
+            name="Game Server",
+            package_name="game_server",
+            version="0.1.0",
+            dependencies=dependencies,
+        )
+
+
 def test_project_spec_rejects_unsupported_version_and_framework() -> None:
     with pytest.raises(ValidationError):
         ProjectSpec(

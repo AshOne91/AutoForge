@@ -96,9 +96,11 @@ def test_durable_job_generator_emits_atomic_request_contract() -> None:
     assert "raise TypeError('durable job payload must be an object')" in worker
     assert "raise" in worker
     assert "class ApplicationDurableJobHandler" in handler
+    assert "def create_durable_job_handler(" in handler
+    assert "session_registry: AsyncSessionRegistry" in handler
     assert "DURABLE_JOB_QUEUE =" in runner
     assert ".durable-jobs" in runner
-    assert "ApplicationDurableJobHandler" in runner
+    assert "create_durable_job_handler(registry)" in runner
     assert "routing_keys=tuple(DURABLE_JOB_EVENT_TYPES)" in runner
     assert "schedule='0 * * * *'" in dag
     assert "get_current_context()['data_interval_start']" in dag

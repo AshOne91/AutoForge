@@ -379,6 +379,7 @@ class DurableJobGenerator:
     @staticmethod
     def _render_handler_scaffold(package: str) -> str:
         return (
+            f"from {package}.infrastructure.database.session import AsyncSessionRegistry\n"
             f"from {package}.infrastructure.durable_jobs.worker import DurableJobExecution\n"
             "\n"
             "\n"
@@ -387,6 +388,13 @@ class DurableJobGenerator:
             "        self, execution: DurableJobExecution\n"
             "    ) -> dict[str, object] | None:\n"
             "        raise NotImplementedError('implement the durable job business handler')\n"
+            "\n"
+            "\n"
+            "def create_durable_job_handler(\n"
+            "    session_registry: AsyncSessionRegistry,\n"
+            ") -> ApplicationDurableJobHandler:\n"
+            "    del session_registry\n"
+            "    return ApplicationDurableJobHandler()\n"
         )
 
     @staticmethod
@@ -410,7 +418,7 @@ class DurableJobGenerator:
             "from sqlalchemy.ext.asyncio import create_async_engine\n"
             "\n"
             f"from {package}.application.durable_job_handler import (\n"
-            "    ApplicationDurableJobHandler,\n"
+            "    create_durable_job_handler,\n"
             ")\n"
             f"from {package}.application.observability import LOGGER, configure_logging\n"
             f"from {package}.infrastructure.database.session import AsyncSessionRegistry\n"
@@ -433,7 +441,9 @@ class DurableJobGenerator:
             "    registry = AsyncSessionRegistry(engines, {})\n"
             "    connection = await aio_pika.connect_robust(os.environ[RABBITMQ_URL_ENV])\n"
             "    consumer = RabbitMQConsumer(connection)\n"
-            "    handler = DurableJobMessageHandler(registry, ApplicationDurableJobHandler())\n"
+            "    handler = DurableJobMessageHandler(\n"
+            "        registry, create_durable_job_handler(registry)\n"
+            "    )\n"
             "    try:\n"
             "        await consumer.consume(\n"
             "            handler,\n"
