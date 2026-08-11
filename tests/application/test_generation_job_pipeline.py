@@ -108,6 +108,29 @@ def _write_specifications(root: Path) -> GenerationJobRequest:
     )
 
 
+def _write_identity_account_specifications(root: Path) -> GenerationJobRequest:
+    request = _write_specifications(root)
+    request.project_path.write_text(
+        'spec_version: "1"\n'
+        "project:\n"
+        "  name: Sample\n"
+        "  package_name: sample\n"
+        '  version: "0.1.0"\n'
+        "application:\n"
+        "  modules: [identity, account]\n",
+        encoding="utf-8",
+    )
+    (request.specifications_path / "identity.yaml").write_text(
+        'spec_version: "1"\n'
+        "module:\n"
+        "  name: identity\n"
+        "  display_name: Identity\n"
+        "  route_prefix: /api/identity\n",
+        encoding="utf-8",
+    )
+    return request
+
+
 def _subscribe_lifecycle(bus: EventBus) -> RecordingHandler:
     handler = RecordingHandler()
     for event_type in (
@@ -154,6 +177,31 @@ def test_generation_pipeline_generates_validates_and_persists_job(
             ValidationCompletedEvent,
         ]
         assert {event.correlation_id for event in handler.events} == {"job-001"}
+
+    asyncio.run(scenario())
+
+
+def test_generation_pipeline_composes_all_declared_modules(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        pipeline = GenerationJobPipeline(
+            job_store=InMemoryJobStore(),
+            event_bus=EventBus(),
+            validator=SuccessfulValidator(),
+        )
+
+        execution = await pipeline.run(
+            _write_identity_account_specifications(tmp_path),
+            job_id="job-identity-account",
+        )
+
+        assert execution.job.manifest is not None
+        assert {unit.unit_id for unit in execution.job.manifest.units} == {
+            "project",
+            "module:identity",
+            "module:account",
+        }
+        assert (tmp_path / "output/src/sample/modules/identity/generated/router.py").is_file()
+        assert (tmp_path / "output/src/sample/modules/account/generated/router.py").is_file()
 
     asyncio.run(scenario())
 

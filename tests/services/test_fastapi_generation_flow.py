@@ -78,6 +78,17 @@ def tutorial_specification() -> ModuleSpec:
     )
 
 
+def empty_module_specification(name: str) -> ModuleSpec:
+    return ModuleSpec(
+        spec_version="1",
+        module=ModuleInfo(
+            name=name,
+            display_name=name.title(),
+            route_prefix=f"/api/{name}",
+        ),
+    )
+
+
 def apply_generator(
     generator: FastAPIProjectGenerator | FastAPIModuleGenerator,
     specification: ProjectSpec | ModuleSpec,
@@ -150,6 +161,44 @@ async def test_generated_tutorial_router_is_registered_and_callable(
         endpoint_result.stdout,
         endpoint_result.stderr,
     )
+
+
+def test_generated_project_applies_multiple_module_routers(
+    tmp_path: Path,
+) -> None:
+    workspace = Workspace(tmp_path)
+    specification = ProjectSpec(
+        spec_version="1",
+        project=ProjectInfo(
+            name="Identity Server",
+            package_name="identity_server",
+            version="0.1.0",
+            description="Identity and account modules",
+        ),
+        application=ApplicationSpec(modules=["identity", "account"]),
+    )
+
+    apply_generator(FastAPIProjectGenerator(), specification, workspace)
+    apply_generator(
+        FastAPIModuleGenerator("identity_server"),
+        empty_module_specification("identity"),
+        workspace,
+    )
+    apply_generator(
+        FastAPIModuleGenerator("identity_server"),
+        empty_module_specification("account"),
+        workspace,
+    )
+
+    registry = (
+        tmp_path
+        / "src/identity_server/application/generated/module_registry.py"
+    ).read_text(encoding="utf-8")
+
+    assert (tmp_path / "src/identity_server/modules/identity/generated/router.py").is_file()
+    assert (tmp_path / "src/identity_server/modules/account/generated/router.py").is_file()
+    assert "identity_server.modules.identity.generated.router" in registry
+    assert "identity_server.modules.account.generated.router" in registry
 
 
 def test_generated_project_has_a_complete_docker_build_context(

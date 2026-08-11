@@ -258,6 +258,61 @@ def test_database_store_generates_and_registers_lifespan() -> None:
     assert "postgresql+asyncpg://" in health_test
 
 
+def test_render_composes_identity_session_and_sharded_profile_foundation() -> None:
+    session = ServiceSpec(
+        name="session",
+        kind="redis_session",
+        namespace="game_session",
+        ttl_seconds=3600,
+        mode="cluster",
+        cluster_url_env="GAME_REDIS_CLUSTER_URL",
+    )
+    identity = DatabaseStoreSpec(
+        name="identity",
+        global_url_env="IDENTITY_DATABASE_URL",
+    )
+    account = DatabaseStoreSpec(
+        name="account",
+        shards=[
+            DatabaseShardSpec(
+                shard_id="1",
+                url_env="ACCOUNT_SHARD_1_DATABASE_URL",
+            ),
+            DatabaseShardSpec(
+                shard_id="2",
+                url_env="ACCOUNT_SHARD_2_DATABASE_URL",
+            ),
+        ],
+    )
+
+    files = FastAPIProjectGenerator().render(
+        project_specification(
+            modules=["identity", "account"],
+            services=[session],
+            databases=[identity, account],
+        )
+    )
+
+    module_registry = files[
+        PurePosixPath("src/game_server/application/generated/module_registry.py")
+    ]
+    lifespan = files[
+        PurePosixPath("src/game_server/application/generated/lifespan.py")
+    ]
+    health_test = files[PurePosixPath("tests/test_health.py")]
+
+    assert "game_server.modules.identity.generated.router" in module_registry
+    assert "game_server.modules.account.generated.router" in module_registry
+    assert "    identity_router," in module_registry
+    assert "    account_router," in module_registry
+    assert "database_lifespan(app)" in lifespan
+    assert "session_store_lifespan(app)" in lifespan
+    assert 'monkeypatch.setenv("GAME_REDIS_CLUSTER_URL"' in health_test
+    assert 'monkeypatch.setenv("IDENTITY_DATABASE_URL"' in health_test
+    assert 'monkeypatch.setenv("ACCOUNT_SHARD_1_DATABASE_URL"' in health_test
+    assert 'monkeypatch.setenv("ACCOUNT_SHARD_2_DATABASE_URL"' in health_test
+
+
 def test_rendered_python_and_toml_are_valid() -> None:
     files = FastAPIProjectGenerator().render(project_specification())
 
