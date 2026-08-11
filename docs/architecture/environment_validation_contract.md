@@ -113,6 +113,11 @@ user-owned
 durable-job worker도 기동한다. Worker는 기존 RabbitMQ transport를 재사용하되
 `<service-queue>.durable-jobs` 전용 큐에 Durable Job event type만 bind한다.
 
+AutoForge의 Metrics Handler는 이벤트 payload를 읽지 않고 `event_type`과
+`event_version`만 `MetricsSink`에 기록한다. 현재는 외부 관측 백엔드를 선택하지
+않았으므로 sink는 주입 경계로만 제공하며, 테스트·local 실행에는 메모리 구현을
+사용한다.
+
 2026-08-10 실제 Compose 검증에서 `news_collection` 요청은 Outbox와 RabbitMQ를
 거쳐 `failed` 상태로 전이했다. 이는 사용자 소유 `ApplicationDurableJobHandler`가
 명시적으로 미구현 예외를 내기 때문이며, 인프라 실패가 아니다. 해당 handler가 실제

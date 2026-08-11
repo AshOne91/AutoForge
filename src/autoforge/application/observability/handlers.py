@@ -2,6 +2,7 @@ import logging
 
 from autoforge.core.audit import AuditRecord, AuditSink
 from autoforge.core.event import Event, EventHandler
+from autoforge.core.metrics import MetricPoint, MetricsSink
 
 
 class StructuredLoggingEventHandler(EventHandler[Event]):
@@ -45,5 +46,23 @@ class AuditEventHandler(EventHandler[Event]):
                 causation_id=event.causation_id,
                 job_id=event.job_id,
                 producer=event.producer,
+            )
+        )
+
+
+class MetricsEventHandler(EventHandler[Event]):
+    """Record one low-cardinality event metric without inspecting its payload."""
+
+    def __init__(self, sink: MetricsSink) -> None:
+        self._sink = sink
+
+    async def handle(self, event: Event) -> None:
+        await self._sink.record(
+            MetricPoint(
+                name="autoforge.events.received",
+                labels=(
+                    ("event_type", event.event_type),
+                    ("event_version", event.event_version),
+                ),
             )
         )

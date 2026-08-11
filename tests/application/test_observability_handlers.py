@@ -6,10 +6,12 @@ from pytest import LogCaptureFixture
 
 from autoforge.application.observability import (
     AuditEventHandler,
+    MetricsEventHandler,
     StructuredLoggingEventHandler,
 )
 from autoforge.core.event import Event
 from autoforge.infrastructure.audit import InMemoryAuditSink
+from autoforge.infrastructure.metrics import InMemoryMetricsSink
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -60,5 +62,25 @@ def test_audit_handler_appends_envelope_without_payload() -> None:
         assert record.correlation_id == "correlation-1"
         assert record.job_id == "job-2"
         assert not hasattr(record, "secret")
+
+    asyncio.run(scenario())
+
+
+def test_metrics_handler_records_low_cardinality_envelope_labels() -> None:
+    async def scenario() -> None:
+        sink = InMemoryMetricsSink()
+        handler = MetricsEventHandler(sink)
+        event = SensitiveEvent(secret="must-not-be-measured", producer="test")
+
+        await handler.handle(event)
+
+        points = await sink.points()
+        assert len(points) == 1
+        assert points[0].name == "autoforge.events.received"
+        assert points[0].labels == (
+            ("event_type", "SensitiveEvent"),
+            ("event_version", "1"),
+        )
+        assert "must-not-be-measured" not in repr(points[0])
 
     asyncio.run(scenario())

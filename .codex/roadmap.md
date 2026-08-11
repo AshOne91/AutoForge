@@ -48,10 +48,8 @@ Verified on 2026-08-10 against the generated KIS Compose profile: PostgreSQL
 created `identity`, `automation`, `account_shard_1`, and `account_shard_2`;
 the three-node Redis Cluster reported `cluster_state:ok`; RabbitMQ passed its
 healthcheck. Private service identity for the generated durable-job API is
-also complete; the next environment realization step is Airflow runtime
-validation using that identity. Local Airflow runtime validation is now
-complete; the next environment step is connecting the generated application
-container for end-to-end trigger and polling.
+also complete. Local Airflow runtime validation is complete, including DAG
+registration and private service identity wiring.
 The KIS Airflow container reached healthy status, registered
 `durable_job_news_collection`, and reported no DAG import errors.
 The generated migration and application containers also reached healthy status;
@@ -84,7 +82,8 @@ owning generator contract exist.
 - [x] Airflow local runtime and private service identity validation
 - [x] Airflow authenticated application trigger/status validation
 - [x] Outbox relay and durable-job worker container validation
-- [ ] Metrics Handler
+- [x] envelope-only Metrics Handler and sink contract
+- [ ] external metrics backend adapter (Prometheus/OpenTelemetry, when selected)
 - [ ] artifact publishing
 - [ ] deployment plugins
 - [ ] additional infrastructure/cloud automation
