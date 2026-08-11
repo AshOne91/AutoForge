@@ -1,5 +1,11 @@
 # KIS HA Kubernetes 참조 청사진
 
+> **문서 역할: REFERENCE BLUEPRINT**
+> 이 문서는 KIS가 지향하는 HA 토폴로지와 AutoForge 검증 기준을 설명한다.
+> 현재 AutoForge 구현 또는 배포 상태의 정본이 아니다. 생성 계약은
+> [`system_design.md`](../architecture/system_design.md), Docker·Storage·Observability
+> 계약은 해당 Canonical Architecture를 따른다.
+
 ## 목적과 상태
 
 `kis-auto-trading`은 24시간 동작하는 KIS Open API 자동매매 서비스이며, 동시에

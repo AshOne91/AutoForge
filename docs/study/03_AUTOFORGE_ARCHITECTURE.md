@@ -1,5 +1,13 @@
 # 3권: AutoForge 아키텍처 이해하기
 
+> **문서 역할: STUDY**
+> 이 문서는 개념을 쉽게 설명한다. 정확한 현재 구조와 계약은
+> [`system_design.md`](../architecture/system_design.md),
+> [`generation_contract.md`](../architecture/generation_contract.md),
+> [`specification_design.md`](../architecture/specification_design.md),
+> [`event_driven_architecture.md`](../architecture/event_driven_architecture.md),
+> [`plugin_system.md`](../architecture/plugin_system.md)가 소유한다.
+
 ## 1. 왜 FastAPI 코드를 자동 생성하는가
 
 2권에서 만든 작은 서버도 파일과 기능이 늘어나면 반복 작업이 생긴다.
@@ -162,21 +170,21 @@ Import
 → wheel build
 ```
 
-하나라도 실패하면 검증 실패다. 향후 Git 자동화는 검증 성공 결과만
-Commit하도록 설계할 예정이다.
+하나라도 실패하면 검증 실패다. Git Delivery가 설정된 Worker도 검증에 성공한
+결과만 Commit한다.
 
 ## 11. Plugin은 무엇인가
 
-AutoForge가 FastAPI만 영원히 지원한다면 구현을 직접 연결해도 된다. 하지만
-앞으로 DB, Queue, Git Provider와 CI/CD 기능이 추가된다.
+AutoForge의 Generator와 Validator 구현은 같은 등록·조회 계약으로 조립할 수
+있어야 한다.
 
 Plugin은 기능을 추가하거나 교체하기 위한 일정한 연결 규격이다.
 
 ```text
 Generator Plugin
 Validator Plugin
-향후 Database Plugin
-향후 Git Provider Plugin
+Database Generator Plugin
+Docker/환경 Generator Plugin
 ```
 
 Metadata는 Plugin의 이름, 버전, 기능과 필요한 권한을 설명한다.
@@ -202,30 +210,17 @@ EventBus:
 "생성이 끝났다"는 사건을 Logging과 Audit Handler에 전달한다.
 ```
 
-Pipeline은 순서를 결정하고 EventBus는 사건을 알린다. 현재 전체 Pipeline
-실행기는 아직 구현하지 않았다.
+Pipeline은 순서를 결정하고 EventBus는 사건을 알린다. 실제
+`GenerationJobPipeline`은 준비/복원, 생성, 검증 순서를 소유하고 Worker가 선택적
+Git Delivery를 이어서 수행한다. EventBus는 이 순서를 대신 실행하지 않는다.
 
-## 14. 현재와 미래
+## 14. 구현 상태를 확인하는 곳
 
-현재 완료:
+학습 문서는 구현 완료 목록과 다음 작업을 소유하지 않는다.
 
-- Project/Module 명세와 생성
-- Router, Schema, Handler Scaffold
-- 사용자 코드 보존
-- Plan, Manifest, Workspace
-- Import, pytest, Ruff, wheel 검증
-- Generator/Validator Plugin과 Built-in Catalog
-
-아직 없음:
-
-- DatabaseSpec과 Repository 생성
-- 전체 실행 Pipeline
-- Git Commit/Push/PR 자동화
-- Webhook과 CI/CD
-- AI 생성
-
-다음 단계는 DB 구현을 서두르기보다 DatabaseSpec과 Repository 파일
-소유권을 먼저 정하는 것이다.
+- 최신 구현 상태: [`.codex/current_status.md`](../../.codex/current_status.md)
+- 장기 계획: [`.codex/roadmap.md`](../../.codex/roadmap.md)
+- 바로 다음 작업: [`.codex/next_task.md`](../../.codex/next_task.md)
 
 ## 이번 권에서 기억할 것
 
@@ -238,5 +233,6 @@ Validator가 생성 프로젝트의 실행 가능성을 확인한다.
 Plugin은 기능 확장을 위한 연결 규격이다.
 ```
 
-다음: [4권: 실제 코드 읽기](04_READING_AUTOFORGE_CODE.md)
+정확한 필드와 보장은 위 Canonical Architecture 링크에서 확인한다.
 
+다음: [4권: 실제 코드 읽기](04_READING_AUTOFORGE_CODE.md)

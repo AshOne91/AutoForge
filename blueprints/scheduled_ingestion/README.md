@@ -1,5 +1,11 @@
 # Scheduled Ingestion Blueprint
 
+이 문서는 이 Blueprint의 입력·생성 방법과 소비자 소유 경계만 설명한다. 전체
+명세·Event/Pipeline·환경 계약은
+[`specification_design.md`](../../docs/architecture/specification_design.md),
+[`event_driven_architecture.md`](../../docs/architecture/event_driven_architecture.md),
+[`environment_validation_contract.md`](../../docs/architecture/environment_validation_contract.md)를 따른다.
+
 이 Blueprint는 반복 실행되는 외부 데이터 수집의 공통 실행 기반을 생성한다.
 
 - PostgreSQL durable-job store와 migration

@@ -1,8 +1,7 @@
 # Docker Build 계약
 
 이 문서는 AutoForge가 생성하는 프로젝트의 Docker Build 책임 범위를 정의한다.
-현재 단계에서는 Dockerfile 생성 기능을 구현하지 않는다. 먼저 생성기와 검증기가
-따라야 할 경계를 고정해, 이후 기능 추가가 배포 로직과 섞이지 않도록 한다.
+`DockerfileGenerator`는 이 계약에 따라 선택적으로 Dockerfile을 생성한다.
 
 ## 목적
 
@@ -12,7 +11,7 @@ Docker Build 계약의 목적은 생성된 FastAPI 프로젝트를 동일한 입
 
 ## build-only 책임
 
-향후 Docker Build Plugin은 다음만 책임진다.
+Dockerfile Generator는 다음만 책임진다.
 
 - 애플리케이션 실행에 필요한 소스와 패키지 설치 단계 정의
 - Python 3.12 기반 이미지와 명시적인 실행 명령 정의
@@ -34,9 +33,9 @@ Docker 파일은 다른 Generator가 소유한 파일을 직접 수정하지 않
 `GenerationPlan`의 소유권과 manifest 검증으로 탐지해야 한다. Docker 관련 설정이
 `ProjectSpec`에 없으면 Docker 생성물은 출력하지 않는 것이 기본값이다.
 
-## 검증 전략
+## 검증 계약
 
-구현 시 다음 순서로 검증한다.
+다음 조건을 검증한다.
 
 1. 명세가 비활성화된 경우 Docker 파일이 생성되지 않는지 확인한다.
 2. 활성화된 경우 Dockerfile 경로·소유권·명세 해시가 계획에 포함되는지 확인한다.
@@ -44,7 +43,7 @@ Docker 파일은 다른 Generator가 소유한 파일을 직접 수정하지 않
 4. 프로젝트의 기존 import, pytest, Ruff 검증과 Docker 계약 검증을 분리한다.
 5. 실제 이미지 빌드는 Docker가 설치된 환경의 별도 통합 검증으로 둔다.
 
-## 단계 구분
+## 책임 분리
 
-이번 단계는 계약 문서와 테스트 범위만 확정한다. Artifact publishing, deployment,
-cloud credential 및 Kubernetes·Compose 설정은 후속 Plugin 계약으로 별도 정의한다.
+Artifact publishing, deployment, cloud credential 및 Kubernetes·Compose 설정은
+Docker build 계약에 포함하지 않고 각 전용 계약에서 정의한다.

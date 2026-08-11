@@ -1,5 +1,12 @@
 # AutoForge Codex 개발환경 구축 가이드
 
+> **문서 역할: GUIDE**
+> 이 문서는 개발 도구 설치와 점검 절차를 설명한다. Agent 정책이나 Model Routing
+> 정책의 정본이 아니다. 정책이 다르면 [`AGENTS.md`](../../AGENTS.md)와
+> [`.agents/skills/`](../../.agents/skills/)를 따르고, Architecture는
+> [`../architecture/system_design.md`](../architecture/system_design.md)를 따른다.
+> 도구 버전과 외부 CLI 화면은 설치 시점에 따라 달라질 수 있다.
+
 > **목적**
 > AutoForge를 처음 받는 개발자가 Windows + VS Code/Codex 환경에서 동일한 AI 개발환경을 재현할 수 있도록, 실제 구축 과정에서 검증한 설정·명령·문제 해결 경험을 한 문서에 정리한다.
 >
@@ -216,24 +223,10 @@ trust_level = "trusted"
 
 ## 모델 기본 정책
 
-기본 라우팅:
-
-```text
-Luna → Terra → Sol
-```
-
-권장 의미:
-
-```text
-Luna / low     기본·탐색·기계적 작업
-Luna / medium  일반 코드 변경
-Terra          Luna로 부족하다는 증거가 있을 때
-Sol            고난도 아키텍처/복합 디버깅의 hard gate
-```
-
-한 작업 도중 모델을 자주 바꾸지 않는다.
-
-**복잡한 기술을 쓰는 프로젝트 = 항상 비싼 모델이 필요한 작업**은 아니다.
+이 구축 가이드는 Model Routing 규칙을 정의하지 않는다. 작업별 모델·추론 수준과
+라우팅 대기 절차는
+[`model-routing/SKILL.md`](../../.agents/skills/model-routing/SKILL.md)가 소유하고,
+사람을 위한 설명은 [`model_routing.md`](model_routing.md)를 따른다.
 
 ---
 
@@ -946,10 +939,10 @@ base_server
 C:\SKN12-FINAL-2TEAM\base_server
 ```
 
-현재 AutoForge 요약 분석본:
+AutoForge 역사 분석본:
 
 ```text
-C:\AutoForge\docs\architecture\common_tool_analysis.md
+C:\AutoForge\docs\reference\common_tool_analysis.md
 ```
 
 현재 KIS:

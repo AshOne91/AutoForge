@@ -1,5 +1,13 @@
 # AutoForge 코드·아키텍처 학습 가이드
 
+> **문서 역할: SNAPSHOT / STUDY (2026-07-30)**
+> 이 문서는 당시 코드와 구현 상태를 설명하는 학습 기록이다. 문서 안의 “현재”,
+> “아직 없음”, 테스트 개수와 다음 단계는 최신 사실이 아니다. 최신 학습 진입점은
+> [`study/README.md`](study/README.md), 정확한 계약은
+> [`architecture/system_design.md`](architecture/system_design.md)와 각 Canonical
+> Architecture, 최신 상태는 [`.codex/current_status.md`](../.codex/current_status.md)를
+> 따른다.
+
 - 작성일: 2026-07-30
 - 대상: Python과 FastAPI를 다시 공부하며 AutoForge를 이해하려는 개발자
 - 현재 기준: AutoForge v0.1.0, pytest 224개 통과

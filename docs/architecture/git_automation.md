@@ -1,8 +1,5 @@
 # Git Automation Architecture
 
-- 확정일: 2026-08-03
-- 현재 범위: repository submission과 Job별 격리 checkout 실행
-
 ## 목적과 책임 경계
 
 AutoForge는 사용자의 원본 working tree에서 직접 코드를 생성하지 않는다. Git Provider는
@@ -71,13 +68,13 @@ credential은 secret을 포함하지 않는 일회용 askpass helper와 process 
 전달한다. helper 파일에는 username과 password를 기록하지 않으며 Git 명령 직후 즉시
 삭제한다. 실제 secret 값은 URL과 command tuple에 포함하지 않는다.
 
-## 현재 구현과 남은 범위
+## Worker delivery lifecycle
 
-현재 `SubprocessGitProvider`는 안전한 clone, commit 해석, detached checkout과 clean
-working tree 검증을 구현한다. 원격 GenerationJob은 HTTP 제출 시 로컬 파일을 읽지 않고
-미계획 pending 상태로 저장된다. worker가 Job별 Workspace에 checkout한 뒤에만 명세를
-읽고, 생성 unit과 명세 hash 및 확정 commit SHA를 lease로 원자적으로 저장한다. 이후
-동일 checkout 안에서 Generation/Validation Pipeline을 실행한다.
+`SubprocessGitProvider`는 안전한 clone, commit 해석, detached checkout, clean
+working tree 검증과 검증된 commit/push를 제공한다. 원격 GenerationJob은 HTTP
+제출 시 로컬 파일을 읽지 않고 pending 상태로 저장된다. Worker가 Job별
+Workspace에 checkout한 뒤 명세 Hash와 확정 Commit SHA를 저장하고 같은 checkout에서
+Generation/Validation Pipeline을 실행한다.
 
 성공한 Workspace는 삭제하고, 설정에 따라 실패 Workspace는 분석용으로 보존할 수 있다.
 Windows의 읽기 전용 Git object도 안전하게 정리한다. 실제 로컬 repository 통합
@@ -91,11 +88,12 @@ Windows의 읽기 전용 Git object도 안전하게 정리한다. 실제 로컬 
 적용한다. unsigned commit은 명시적인 `--no-gpg-sign`, signed commit은 요청의 16진수
 fingerprint를 사용한다.
 
-Git commit 설정이 주입된 원격 worker는 검증 후 Job을 `committing`으로 저장하고,
+Git commit 설정이 주입된 Worker는 검증 후 Job을 `committing`으로 저장하고,
 manifest의 created/changed 파일과 `.autoforge/manifest.json`만 allowlist로 계산한다.
-commit 성공 후 결과 SHA·branch·변경 경로를 Job에 저장하고 `succeeded`로 전이한다.
-commit 실패는 `failed`로 저장한다. 각 단계는 GitCommitStarted/Completed/FailedEvent를
-발행한다. 로컬 CLI와 commit 설정이 없는 worker의 기존 검증 완료 동작은 유지한다.
+Commit 성공 후 Push 설정이 있으면 `pushing`, Pull Request 설정까지 있으면
+`opening_pull_request`를 거쳐 `succeeded`로 전이한다. 각 단계의 결과는 다음
+단계를 실행하기 전에 JobStore에 저장하며 실패는 `failed`로 저장한다. 설정되지
+않은 Delivery 단계는 건너뛴다.
 
 `push_validated()`는 현재 HEAD와 branch가 요청의 commit SHA·작업 branch와 정확히
 일치하는지 확인한다. policy의 작업 branch prefix만 허용하고 `main`, `master` 같은 보호
@@ -103,34 +101,10 @@ branch는 명령 실행 전에 거부한다. push 명령에는 force 계열 opti
 remote가 이미 같은 SHA이면 성공한 멱등 재호출로 처리하고, remote가 다른 이력으로
 진행된 non-fast-forward push는 Git의 안전 거부를 그대로 실패로 전파한다.
 
-push adapter는 실제 bare remote에서 검증했지만 아직 worker에 연결하지 않았다. 현재
-worker는 commit 직후 terminal `succeeded`이므로 다음 단계에서 `pushing` 상태를 추가해
-push 실패가 성공 Job으로 기록되지 않도록 한 뒤 연결한다.
+Worker는 `GitCommit*Event`, `GitPush*Event`, `PullRequest*Event`를 단계별로
+발행한다. Push와 Pull Request는 저장된 Commit SHA를 기준으로 fencing한다.
 
-남은 범위:
-
-- 원격 worker의 push 상태와 adapter 연결
-- Pull Request adapter
-- force push 금지, protected branch와 fork/PR 정책
-## Implementation status update (2026-08-07)
-
-The worker integration described as future work in the historical text below is
-now implemented. After a validated commit is created, a configured remote worker
-persists `pushing`, calls `push_validated()`, and then persists either:
-
-- `succeeded` with `GitPushResult`, or
-- `failed` with the push error type.
-
-The worker emits `GitPushStartedEvent`, `GitPushCompletedEvent`, and
-`GitPushFailedEvent`. PostgreSQL deployments add the state through
-`004_job_pushing_status.sql`, and abandoned `pushing` leases are recovered as
-failed Jobs. Workers without push settings preserve the existing commit-only or
-validation-only behavior.
-
-The remaining Git-automation scope starts at the Pull Request contract and its
-protected-branch policy. Statements below saying that push is not connected to the
-worker are retained only as historical context and are superseded by this update.
-## Pull Request contract boundary (2026-08-07)
+## Pull Request contract boundary
 
 Pull Request creation belongs to a hosting-service API, not to the local Git
 process adapter. `GitProvider` therefore remains responsible only for checkout,
@@ -145,9 +119,9 @@ heads and configured protected branches as bases. The head and base must differ.
 `create_or_get()` intentionally defines idempotent behavior. A hosting adapter must
 verify that the remote head branch still points to `expected_head_sha`, return an
 existing open Pull Request for the same head/base pair when present, and create a
-new one only when none exists. The concrete GitHub HTTP adapter and GenerationJob
-state integration are separate follow-up steps.
-## GitHub Pull Request adapter boundary (2026-08-07)
+new one only when none exists.
+
+## GitHub Pull Request adapter boundary
 
 `GitHubPullRequestProvider` implements the hosting-service contract through an
 injected async `GitHubApiClient`. The adapter validates the generated head and
@@ -161,11 +135,7 @@ head branch, base branch, and head SHA. All other malformed, ambiguous, stale, o
 unexpected responses fail closed. The API token is resolved immediately before
 the calls and appears only in the authorization header supplied to the transport.
 
-The current transport is an injected Protocol tested with scripted responses; no
-production HTTP client or live GitHub request is enabled yet. This keeps API logic
-testable without network access and leaves timeout, TLS, proxy, and retry policy to
-the concrete transport step.
-## GitHub HTTP transport boundary (2026-08-07)
+## GitHub HTTP transport boundary
 
 `HttpxGitHubApiClient` is the production async transport for the injected GitHub
 API contract. It uses a shared `httpx.AsyncClient` with TLS verification enabled,
@@ -178,7 +148,7 @@ transport exceptions are replaced with fixed messages that do not include reques
 headers, token values, URLs, or response bodies. The client exposes `aclose()` and
 an async context manager so the Application composition root can own connection
 pool shutdown explicitly.
-## GenerationJob Pull Request lifecycle (2026-08-07)
+## GenerationJob Pull Request lifecycle
 
 When Pull Request settings and a provider are configured, a successful push moves
 the Job to `opening_pull_request` instead of directly to `succeeded`. The worker
@@ -186,11 +156,11 @@ calls the idempotent provider with the persisted push SHA and branch, then store
 the exact `GitPullRequestResult` before completing the Job. Failure is persisted
 before `PullRequestFailedEvent` is published.
 
-Workers without Pull Request settings preserve the existing push-to-success path.
+Workers without Pull Request settings use the push-to-success path.
 Pull Request execution requires commit and push settings, so it cannot bypass the
 validated commit or remote SHA fencing stages.
 
-## Environment secret adapter (2026-08-07)
+## Environment secret adapter
 
 `EnvironmentSecretProvider` is a deployment-oriented adapter for the existing
 `SecretProvider` contract. It accepts an explicit mapping from a stored secret
@@ -199,11 +169,11 @@ the Git or GitHub adapter needs it. The mapping prevents lossy automatic name
 conversion and keeps secret values out of YAML, Job documents, URLs, and command
 arguments.
 
-It is intentionally not a global configuration reader. The future application
-composition root will receive the mapping from deployment configuration and inject
-this provider into both Git checkout/push and Pull Request adapters.
+It is intentionally not a global configuration reader. The application composition
+root receives the mapping from deployment configuration and injects this provider
+into both Git checkout/push and Pull Request adapters.
 
-## Configuration model boundary (2026-08-07)
+## Configuration model boundary
 
 `Settings.git_automation` is optional and disabled by default, so existing
 `autoforge.yaml` files keep their behavior. When enabled, it requires at least one
@@ -212,26 +182,10 @@ metadata limits. The mapping contains environment variable names only; it never
 contains resolved secret values.
 
 This model is configuration data, not a composition root. It does not instantiate
-HTTP clients, workers, database stores, or secret providers. Those dependencies will
-be assembled explicitly by the future worker/server entrypoint.
+HTTP clients, workers, database stores, or secret providers. The deployment
+entrypoint assembles those dependencies explicitly.
 
-## Git automation composition root (2026-08-07)
-
-`autoforge.composition`은 새로운 업무 계층이 아니라 배포 진입점이 소유하는 최외곽
-조립 경계다. `create_git_automation_components()`는 Git 자동화가 활성화된 경우에만
-다음 객체를 명시적으로 생성한다.
-
-- 환경 변수 이름만 가진 설정에서 `EnvironmentSecretProvider` 생성
-- 동일한 repository host, 작업 branch prefix와 보호 branch 정책을 Git push와 PR에 적용
-- `SubprocessGitProvider`, `HttpxGitHubApiClient`, `GitHubPullRequestProvider` 조립
-- worker에 주입할 commit, push와 Pull Request 설정 생성
-
-HTTP 연결 풀은 `GitAutomationComponents.aclose()`로 composition root가 직접 종료한다.
-비활성 설정은 `None`을 반환하므로 기존 로컬 CLI와 생성 흐름에는 Git 권한이나 네트워크
-클라이언트가 추가되지 않는다. 이 단계는 worker 자체를 실행하지 않으며, 다음 배포
-진입점에서 JobStore, Pipeline, Workspace와 함께 주입할 준비만 완료한다.
-
-## Git automation composition root (2026-08-07)
+## Git automation composition root
 
 `autoforge.composition`은 새로운 업무 계층이 아니라 배포 진입점이 소유하는 최외곽
 조립 경계다. `create_git_automation_components()`는 Git 자동화가 활성화된 경우에만
@@ -244,5 +198,5 @@ HTTP 연결 풀은 `GitAutomationComponents.aclose()`로 composition root가 직
 
 HTTP 연결 풀은 `GitAutomationComponents.aclose()`로 composition root가 직접 종료한다.
 비활성 설정은 `None`을 반환하므로 기존 로컬 CLI와 생성 흐름에는 Git 권한이나 네트워크
-클라이언트가 추가되지 않는다. 이 단계는 worker 자체를 실행하지 않으며, 다음 배포
-진입점에서 JobStore, Pipeline, Workspace와 함께 주입할 준비만 완료한다.
+클라이언트가 추가되지 않는다. 배포 진입점은 이 객체를 JobStore, Pipeline,
+Workspace와 함께 Worker에 주입한다.

@@ -143,7 +143,7 @@ Primary repository:
 
 Detailed historical architecture analysis:
 
-`C:\AutoForge\docs\architecture\common_tool_analysis.md`
+`C:\AutoForge\docs\reference\common_tool_analysis.md`
 
 Use that analysis before opening the external historical repositories when it
 already answers the architectural question.
@@ -226,7 +226,7 @@ Preferred order:
 1. current task/context
 2. current AutoForge symbol using Serena
 3. current KIS symbol when validating consumer behavior
-4. `docs/architecture/common_tool_analysis.md`
+4. `docs/reference/common_tool_analysis.md`
 5. exact relevant location in external historical repository
 
 Never scan all three historical repositories simply because this Skill was

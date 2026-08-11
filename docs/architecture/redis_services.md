@@ -6,18 +6,9 @@ AutoForge가 생성하는 Application은 Redis client를 Handler와 Domain에서
 호출하지 않는다. Application은 작은 기술 중립 Protocol에 의존하고 Redis는 그
 Protocol을 구현하는 Infrastructure Adapter다.
 
-Redis 기능을 하나의 거대한 `RedisService`로 합치지 않는다.
-
-```text
-SessionStore       로그인 세션과 TTL
-CacheStore         재계산 가능한 조회 결과
-IdempotencyStore   중복 요청 차단
-DistributedLock   분산 임계 구역
-RateLimitStore     요청 빈도 제한
-```
-
-현재 첫 구현은 `SessionStore`만 지원한다. 나머지는 실제 수직 흐름에서 필요할 때
-각각 독립 계약으로 추가한다.
+Redis 기능을 하나의 거대한 `RedisService`로 합치지 않는다. 이 문서는 로그인
+세션과 TTL을 소유하는 `SessionStore` 계약만 정의한다. 다른 사용 사례는
+`SessionStore`에 기능을 추가하지 않고 별도 계약을 가져야 한다.
 
 ## SessionStore 계약
 
@@ -81,16 +72,16 @@ Redis는 세션의 빠른 조회와 폐기를 담당하지만 계정과 개인�
 - Fake는 테스트 편의를 위해 장애를 숨기는 구현이 아니라 동일한 TTL과 폐기 계약을
   검증하는 구현이다.
 
-## 아직 구현하지 않은 범위
+## Topology
 
-- JWT 또는 opaque access token 발급
-- refresh token rotation
-- 분산 lock, rate limit과 idempotency Adapter
-- Redis Cluster/Sentinel topology
-- 실제 Redis 통합 테스트
+`ServiceSpec.mode`는 `standalone`, `sentinel`, `cluster`를 구분한다. 생성된
+provider는 각각 `url_env`, `sentinel_urls_env`와 `sentinel_master`, 또는
+`cluster_url_env`를 사용한다. 연결 주소와 credential은 명세나 생성 코드에 넣지
+않고 런타임 환경에서 주입한다.
 
-다음 단계는 이 SessionStore를 kis-auto-trading 명세에 적용하고, 생성된 Fake를
-사용해 로그인 Application Handler의 성공·실패 흐름을 먼저 검증하는 것이다.
+Topology 선택은 `SessionStore` Protocol을 바꾸지 않는다. 로컬 환경 Generator는
+standalone과 cluster를 실현하며 sentinel을 standalone으로 묵시적으로 대체하지
+않는다.
 
 ## FastAPI 수명주기와 Dependency
 

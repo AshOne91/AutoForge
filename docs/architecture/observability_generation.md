@@ -1,7 +1,5 @@
 # 관측성(로그) 자동생성 방향
 
-작성일: 2026-08-10
-
 ## 목적
 
 AutoForge가 만든 FastAPI 서비스는 먼저 JSON 로그를 stdout과 파일에 남긴다.
@@ -49,21 +47,20 @@ FastAPI / worker
 생성 결과가 잘못되면 KIS 파일을 직접 고치지 않고 AutoForge 명세·생성기부터 수정한
 뒤 KIS를 재생성한다.
 
-## 단계별 진행
+## Runtime boundaries
 
-1. 현재 단계: 개발용 Compose 오버레이로 파일 로그를 Elasticsearch에 전달하고 Kibana에서 확인한다.
-2. 다음 단계: 실제 KIS에서 생성 플래그를 켜고 Compose 병합 검증을 수행한다.
-3. 현재 Kubernetes 단계: `tooling.elk.kubernetes_collector_enabled`가 참이면
-   Filebeat ConfigMap과 노드별 DaemonSet을 생성한다. 중앙 Elasticsearch 주소와 API
-   키는 생성물에 쓰지 않고 기존 Kubernetes Secret에서 주입한다.
-4. 향후 운영 단계: TLS 인증서 신뢰 체인, 중앙 Elasticsearch 운영 방식, collector
-   리소스 정책과 클러스터별 배포 정책을 별도 명세로 추가한다.
+- `central` 모드는 로컬 개발용 Elasticsearch, Kibana와 Filebeat를 생성한다.
+- `collector` 모드는 Filebeat만 생성하고 Elasticsearch 주소를 환경 변수로 받는다.
+- `tooling.elk.kubernetes_collector_enabled`는 Filebeat ConfigMap과 DaemonSet만
+  생성하며 중앙 Elasticsearch나 credential을 생성하지 않는다.
+- 운영 환경의 TLS, 인증, 중앙 저장소와 collector 리소스 정책은 생성물 밖의
+  배포 책임이다.
 
 개발 오버레이는 보안이 꺼져 있고 localhost에만 포트를 열므로 운영에 재사용하지 않는다.
 Kubernetes collector는 Elasticsearch/Kibana를 만들지 않으며, Secret에 TLS endpoint와
 최소 권한 API 키가 준비된 뒤에만 적용한다.
 
-## 검증 순서
+## 검증 계약
 
 1. ELK Generator 단위 테스트
 2. AutoForge 전체 테스트 및 린트

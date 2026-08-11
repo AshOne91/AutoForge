@@ -1,11 +1,18 @@
 # 참고 프로젝트 적용 전략
 
+> **문서 역할: REFERENCE**
+> 이 문서는 참고 프로젝트의 계보와 비교 기준을 보존한다. 현재 AutoForge
+> Architecture나 구현 상태를 정의하지 않으며, 현재 계약은
+> [`system_design.md`](../architecture/system_design.md)와 각 Canonical Architecture,
+> 구현 상태와 계획은 [`.codex/current_status.md`](../../.codex/current_status.md)와
+> [`.codex/roadmap.md`](../../.codex/roadmap.md)를 따른다.
+
 ## 목적
 
 AutoForge와 `kis-auto-trading`은 이미 검증된 참고 프로젝트의 구조와 문제 해결
 경험을 활용한다. 참고 코드를 무조건 복사하거나 반대로 모두 새로 만들지 않는다.
 
-이 문서는 각 프로젝트의 역할과 코드 채택 기준을 고정한다.
+이 문서는 각 프로젝트를 분석할 때 사용한 역할과 코드 채택 기준을 기록한다.
 
 ## 프로젝트 관계
 
@@ -35,9 +42,10 @@ SKN12는 AutoForge의 소스 코드가 아니다. SKN12가 해결하려던 요�
 KIS의 Proxy/App/Secret 분리, Kubernetes 토폴로지와 AutoForge 생성 경계는
 `kis_ha_reference_blueprint.md`에 별도로 고정한다.
 
-## AutoForge의 책임
+## 분석 당시 AutoForge 목표 역할
 
-AutoForge는 다음 산출물을 명세에서 생성한다.
+다음 목록은 참고 프로젝트 분석으로 도출한 목표 범위이며 현재 구현 목록이나
+독립적인 Generation Contract가 아니다.
 
 - Project와 Application 골격
 - Domain Module 구조
@@ -55,7 +63,7 @@ AutoForge는 다음 산출물을 명세에서 생성한다.
 
 AutoForge는 실제 투자 판단, 주문 정책 또는 사용자별 위험 규칙을 소유하지 않는다.
 
-## kis-auto-trading의 책임
+## 분석 당시 kis-auto-trading 역할
 
 `kis-auto-trading`은 다음을 소유한다.
 
@@ -160,8 +168,6 @@ Python과 FastAPI에서 어떤 경계로 보존할지 판단하는 기준이다.
 
 `base_server`는 이 계보를 FastAPI와 async lifecycle로 옮긴 운영 참고 구현이다. 다만 전역 `ServiceContainer`와 정적 서비스 접근은 그대로 계승하지 않고, AutoForge에서는 명시적 dependency provider와 lifespan으로 대체한다.
 
-AutoForge의 다음 확장은 모든 참고 코드를 복제하는 것이 아니라, API·Worker·Workflow가 동일한 명세와 소유권 계약에서 조립되는 하나의 수직 슬라이스를 검증하는 것이다. 첫 슬라이스는 Durable Job, Outbox, trigger/status API, RabbitMQ worker scaffold, Airflow DAG scaffold 순서로 진행한다.
-
 ### JavaBaseWebServer
 
 가져올 것:
@@ -185,23 +191,16 @@ AutoForge의 다음 확장은 모든 참고 코드를 복제하는 것이 아니
 Global에 두고 개인정보 Profile을 Shard에 두려는 목표가 있으므로, 이 차이는
 복사 과정에서 숨기지 않고 명시적인 배치 정책 변경으로 취급한다.
 
-## 생성 경계
+## 생성 경계와 연결
 
-```text
-AutoForge GENERATED
-  Type, Schema, Router/Consumer wiring, ORM Record, Migration, 설정 골격
+기존 C#의 partial class는 생성 코드와 사용자 확장 코드를 분리하려는 참고
+사례다. AutoForge가 채택한 정확한 GENERATED/SCAFFOLDED/USER_OWNED 규칙은
+[`generation_contract.md`](../architecture/generation_contract.md)가 소유한다.
 
-AutoForge SCAFFOLDED
-  Handler, Repository Adapter 확장점, Service Adapter 확장점
+## 참고 프로젝트에서 도출한 Runtime 요구
 
-kis-auto-trading USER_OWNED
-  인증 정책, Portfolio/Order/AutoTrade 규칙, KIS 연동 정책, 위험 관리
-```
-
-기존 C#의 partial class가 제공한 안전한 확장 경계를 Python에서는 파일 소유권과
-Manifest로 대체한다. 반복 생성 시 SCAFFOLDED와 USER_OWNED 파일은 덮어쓰지 않는다.
-
-## 필수 외부 서비스
+다음 항목은 KIS 소비자 요구 분석이며 모든 생성 프로젝트에 강제되는 기본값이
+아니다. 실제 Service 선택은 ProjectSpec과 각 Canonical Architecture를 따른다.
 
 ### Redis
 
@@ -215,7 +214,8 @@ Redis는 `kis-auto-trading`의 필수 기반 Service다.
 - 실시간 데이터 보조
 
 Redis는 영속 업무 데이터의 원장이 아니며 RabbitMQ를 대신하지 않는다.
-구체적인 공통 규격과 첫 SessionStore 계약은 `redis_services.md`를 따른다.
+구체적인 SessionStore 계약은
+[`redis_services.md`](../architecture/redis_services.md)를 따른다.
 
 ### RabbitMQ
 

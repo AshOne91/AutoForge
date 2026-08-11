@@ -34,6 +34,6 @@ chore
 
 One feature per PR.
 
-Every PR must compile.
+Every PR must pass the smallest relevant pytest and generated-project validation scope.
 
 Every PR must update documentation.

@@ -9,22 +9,6 @@ AutoForge는 일회성 프로젝트 Scaffold 도구가 아니다. 서버 개발�
 Application 연결, API/Packet, Model, Router, Service, DB Schema, Repository,
 Test, CI/CD 설정을 명세로 관리하는 생성 및 자동화 플랫폼이다.
 
-## 참고 구현에서 확인한 생성 범위
-
-`common-tool`의 실제 Generator와 생성 결과는 다음과 같다.
-
-| C# Generator | 확인된 생성 결과 | AutoForge 대응 |
-|---|---|---|
-| GenerateTemplate | Model, Protocol, Packet, Controller, Template, Define, Impl | Module, Schema, Router, Handler Scaffold |
-| GenerateDatabase | UserDB, DBTable, DBLoad, DBSave | DB Model, Repository, Persistence Adapter |
-| GenerateSql | Table 및 Load/Save Procedure SQL | Migration 또는 DB별 DDL Plugin |
-| GenerateController | Application과 Template 연결 | Application Module Registry |
-| GenerateApplication | Project, Config, Entry, App, Controller | FastAPI Application Blueprint |
-| GenerateTable | CSV 기반 Table Class | Data Table Generator |
-
-AutoForge는 이 구조를 Python으로 단순 번역하지 않는다. 안전한 반복 생성,
-검증, 확장, Git 및 CI/CD 자동화를 추가한 구조로 재설계한다.
-
 ## 생성 단위
 
 ### Project
@@ -72,15 +56,8 @@ DB Schema 명세에서 저장 계층 코드를 생성한다.
 - Migration 또는 DDL
 - 테스트용 Fake Repository
 
-첫 구현에서는 DB 공급자를 강제하지 않는다. SQLAlchemy, Alembic, MySQL
-전용 SQL 등은 계약 검증 후 Plugin으로 확장한다.
-
 Database 생성의 Schema, Repository, Data Placement, Runtime Topology,
 Transaction/Outbox 경계는 `database_generation.md`에서 정의한다.
-
-Database 기능은 `kis-auto-trading`의 실제 Module 명세로 함께 검증한다.
-실제 프로젝트에서 먼저 수작업으로 반복 골격을 늘린 뒤 Generator가 따라가는
-방식은 사용하지 않는다.
 
 ## 생성 파일 소유권
 
@@ -185,14 +162,15 @@ GenerationManifest는 실제 실행 결과를 기록한다.
 
 - 작업 ID
 - ProjectSpec 버전과 Hash
-- 실행한 Plugin 목록과 버전
 - 생성 파일 목록
 - 파일별 소유권
-- 이전 및 새 내용 Hash
+- Generator ID와 버전
+- 명세 Hash와 내용 Hash
 - 생성, 변경, 동일, 건너뜀, 충돌, 실패 상태
-- 검증 결과
 
 Manifest 경로는 Workspace를 기준으로 한 상대 경로만 사용한다.
+GenerationJobManifest는 여러 GenerationUnit의 Manifest를 Job 단위로 묶고
+Job ID, Unit ID, 명세 버전·Hash와 전체 상대 경로의 중복을 검증한다.
 
 ## 반복 생성 규칙
 
@@ -215,15 +193,14 @@ GENERATED 파일에만 허용한다. 현재 파일 Hash가 Manifest Content Hash
 
 ## 생성 과정의 Event
 
-Generator와 Pipeline은 다음 Event를 발행할 수 있다.
+Generator와 Pipeline은 다음 수명주기 Event를 발행한다.
 
-- GenerationPlanned
-- GenerationStarted
-- FileGenerated
-- FilePreserved
-- FileConflictDetected
-- GenerationCompleted
-- GenerationFailed
+- `GenerationJobPlannedEvent`
+- `GenerationStartedEvent`
+- `GenerationCompletedEvent`
+- `GenerationFailedEvent`
+- 검증 시작·완료·실패 Event
+- Git Commit·Push·Pull Request Event
 
 Event는 상태 알림과 Logging, Audit, Metrics뿐 아니라 AutoForge 주요
 컴포넌트 사이의 통신 경계에도 사용한다. EventBus는 업무 로직이나 실행
@@ -245,19 +222,3 @@ Application Handler가 처리 결과를 Event로 발행한다. 상세 경계는
 8. Manifest 기록 성공
 
 검증 실패 시 Git Commit, Push, Pull Request를 실행하지 않는다.
-
-## 첫 번째 수직 기능
-
-첫 번째 구현은 다음 시나리오를 증명해야 한다.
-
-1. ProjectSpec으로 최소 FastAPI 프로젝트 생성
-2. Tutorial ModuleSpec으로 Schema, Router, Handler 골격, Test 생성
-3. Application Registry에 Tutorial Module 자동 연결
-4. 사용자가 Handler에 비즈니스 로직 작성
-5. ModuleSpec에 Endpoint 추가
-6. AutoForge 재실행
-7. 기존 Handler 보존
-8. GENERATED 파일만 갱신
-9. 전체 테스트 통과
-
-이 시나리오가 검증된 후 DB, Git, Webhook, CI/CD 범위를 확장한다.

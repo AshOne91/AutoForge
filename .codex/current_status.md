@@ -21,15 +21,20 @@ AutoForge currently has working foundations for:
 - persistent worker/server entry points
 - GitHub webhook verification and delivery deduplication
 - GitHub Actions/Jenkins validation configuration generation
+- generated Dockerfile and local/integration Compose environments
+- PostgreSQL, Redis Cluster, RabbitMQ, migration, application, Airflow, Outbox relay,
+  and durable-job worker runtime validation
+- ELK and Kubernetes base-server generation
+- opt-in RAG infrastructure with Qdrant, Elasticsearch, and Ollama
+- opt-in MinIO S3-compatible local storage
+- Identity/Session/Sharded Profile and Scheduled Ingestion input Blueprints
 
 ## Docker work
 
-The build-only Docker contract is documented.
-
-The minimal optional Dockerfile Generator is implemented and verified.
-
-Artifact publishing, deployment, cloud credentials, Kubernetes, and Compose are
-outside this bounded Dockerfile task.
+The optional Dockerfile Generator and generated-project daemon build are verified.
+Local/integration Compose and Kubernetes base manifests are generated under their
+own contracts. Artifact publishing, live deployment, and cloud credentials are not
+owned by the Dockerfile Generator.
 
 ## Development tooling
 

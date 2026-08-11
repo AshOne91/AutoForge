@@ -1,5 +1,13 @@
 # AutoForge 프로젝트 가이드
 
+> **문서 역할: SNAPSHOT (2026-07-29)**
+> 이 문서의 “현재”, “부분 구현”, “구현 예정”은 작성 당시 상태를 뜻하며 최신
+> Architecture나 구현 상태의 정본이 아니다. 최신 계약은
+> [`architecture/system_design.md`](architecture/system_design.md)와 각 Canonical
+> Architecture, 최신 상태와 계획은 [`.codex/current_status.md`](../.codex/current_status.md),
+> [`.codex/roadmap.md`](../.codex/roadmap.md),
+> [`.codex/next_task.md`](../.codex/next_task.md)를 따른다.
+
 - 기준일: 2026-07-29
 - 최종 갱신일: 2026-07-30
 - 프로젝트 버전: 0.1.0

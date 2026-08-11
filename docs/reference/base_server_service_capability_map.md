@@ -2,6 +2,13 @@
 
 기준일: 2026-08-11
 
+> **문서 역할: SNAPSHOT / REFERENCE**
+> 이 표의 “현재”, “완료”, “다음”은 2026-08-11 당시 판단을 뜻한다. 최신 구현
+> 상태나 Roadmap의 정본으로 사용하지 않는다. 최신 정보는
+> [`.codex/current_status.md`](../../.codex/current_status.md),
+> [`.codex/roadmap.md`](../../.codex/roadmap.md),
+> [`.codex/next_task.md`](../../.codex/next_task.md)를 따른다.
+
 ## 목적
 
 AutoForge의 목표는 `base_server` 코드를 복사하는 것이 아니다. 검증된

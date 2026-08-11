@@ -6,19 +6,23 @@ AutoForge 명세는 하나의 거대한 파일에 모든 내용을 넣지 않는
 
 ```text
 ProjectSpec
+├── ProjectInfo
 ├── ApplicationSpec
-├── ModuleSpec 목록
-│   ├── ModelSpec
-│   ├── EndpointSpec 또는 MessageSpec
-│   └── DatabaseSpec
-├── ServiceSpec 목록
-├── ValidationSpec
-└── DeliverySpec
+│   ├── Module 참조
+│   ├── ServiceSpec 목록
+│   ├── DatabaseStoreSpec 목록
+│   └── DurableJobSpec 목록
+└── ToolingSpec
+
+ModuleSpec
+├── ModuleInfo
+├── ModelSpec 목록
+├── EndpointSpec 목록
+└── 선택적 DatabaseSpec
 ```
 
-현재 ProjectSpec, ApplicationSpec, ModuleSpec, ModelSpec, EndpointSpec과
-DatabaseSpec의 첫 수직 단면까지 구현되어 있다. ServiceSpec, ValidationSpec과
-DeliverySpec은 아직 명세 모델로 구현하지 않았다.
+ProjectSpec은 프로젝트 조립과 도구 설정을 소유하고, 별도 ModuleSpec은 각
+도메인의 HTTP·Model·Database 계약을 소유한다.
 
 ## ProjectSpec
 
@@ -38,15 +42,16 @@ application:
   modules:
     - tutorial
 
-generation:
-  docker: false
-  ci_provider: none
+tooling:
+  docker:
+    enabled: false
 ```
 
-### ToolingSpec (구현됨)
+### ToolingSpec
 
-생성 프로젝트의 재현 가능한 개발 도구 설정을 프로젝트 명세에 선언한다. 현재
-계약은 명시적으로 보존한 참고 자료를 위한 Ruff 제외 경로를 지원한다.
+생성 프로젝트의 재현 가능한 개발·실행 환경 설정을 선언한다. ToolingSpec은
+Ruff 제외 경로와 CI, Docker, ELK, RAG, Storage, Kubernetes,
+Local Environment 명세를 포함한다.
 
 ```yaml
 tooling:
@@ -58,23 +63,6 @@ tooling:
 Workspace 상대 POSIX 경로만 허용한다. 절대경로, 드라이브 경로, `..`, 역슬래시와
 중복 경로는 거부한다. `pyproject.toml`은 GENERATED 파일이므로 직접 수정하지 않고
 이 명세를 변경한 뒤 재생성한다.
-
-### ToolingSpec (implemented)
-
-Generated projects declare reproducible development-tool settings in the project
-specification. The current contract supports Ruff exclusions for explicitly preserved
-reference material.
-
-```yaml
-tooling:
-  ruff_exclude:
-    - base_server
-    - test.py
-```
-
-Only Workspace-relative POSIX paths are accepted. Absolute paths, drive paths, `..`,
-backslashes and duplicates are rejected. Because `pyproject.toml` is GENERATED, projects
-change this specification and regenerate instead of editing that file by hand.
 
 출력 경로는 ProjectSpec에 포함하지 않는다. 출력 위치는 CLI 또는
 GenerationJob이 지정한다.
@@ -89,23 +77,13 @@ framework: fastapi
 modules:
   - tutorial
 services: []
+databases: []
+durable_jobs: []
 ```
 
-향후 다음 항목을 확장할 수 있다.
-
-- Middleware
-- lifespan Hook
-- CORS
-- API Prefix
-- Service 초기화 순서
-
-첫 MVP에서는 복잡한 Middleware와 외부 Service를 포함하지 않는다.
-
-현재 구현은 `framework`와 Module 목록만 지원한다. game-server 분석 결과,
-Application은 장기적으로 API, Worker, Scheduler 같은 실행 역할, 역할별 Module,
-Service와 Adapter, lifespan 초기화와 역순 종료를 조립하는 Composition Root여야
-한다. 이 요구를 현재 명세 버전에 즉시 추가하지 않고 실제 수직 흐름에서 필요한
-최소 계약부터 검증한다.
+ApplicationSpec은 FastAPI Framework, Module 참조, Redis/RabbitMQ Service,
+Runtime Database Store와 Outbox 기반 Durable Job을 선언한다. 이름과 참조의
+중복·누락은 명세 검증 단계에서 거부한다.
 
 ## ModuleSpec
 
@@ -148,50 +126,20 @@ endpoints:
     handler: complete_step
 ```
 
-## Packet과 HTTP API의 관계
+## HTTP API 계약
 
-`common-tool`의 Packet과 Protocol 개념은 전송 방식과 분리해 일반화한다.
+ModuleSpec의 EndpointSpec은 Pydantic Request/Response Schema, FastAPI Router와
+Handler 연결을 정의한다. HTTP 이외의 Transport Message는 이 명세 버전의
+계약에 포함하지 않는다.
 
-```text
-MessageSpec
-├── HTTP Endpoint
-├── WebSocket Message
-├── Queue Message
-└── 내부 Event
-```
-
-첫 MVP는 HTTP Endpoint만 지원한다.
-
-| C# 개념 | FastAPI 첫 구현 |
-|---|---|
-| Request Packet | Pydantic Request Schema |
-| Response Packet | Pydantic Response Schema |
-| Protocol Controller | FastAPI Router |
-| Callback | Handler Method |
-| Packet Model | Pydantic Model |
-| Protocol ID | 선택적 Operation ID |
-
-WebSocket Packet과 Queue Message는 동일 Type System을 재사용하는 후속
-Generator로 확장한다.
-
-Protocol ID는 배포된 생산자와 소비자가 같은 동작을 식별하기 위한 안정적인
-계약이다. HTTP operation ID, WebSocket message type, Queue routing key와 내부
-Event type은 서로 다른 전송 방식에서도 동일한 업무 동작에서 파생될 수 있다.
-현재는 HTTP만 생성하며 MessageSpec은 아직 구현하지 않는다.
-
-## Module과 Template의 관계
-
-game-server의 Template은 렌더링 파일이 아니라 Account, Item, Shop 같은 업무
-모듈이다. AutoForge의 Module은 이 책임을 계승하되 정적 Context와 callback을
-그대로 옮기지 않는다.
+## Module 책임 경계
 
 ```text
 Module Specification
   ├─ Domain Model
-  ├─ API/Message 계약
+  ├─ HTTP API 계약
   ├─ Persistence 계약
-  ├─ Service 의존성(후속)
-  └─ Lifecycle 요구(후속)
+  └─ 생성 파일 소유권
 
 Application Composition
   └─ 선택한 Module, Transport와 Adapter를 연결
@@ -204,7 +152,7 @@ Application Service가 담당한다. EventBus도 Module 업무를 직접 실행�
 
 명세의 Type을 Python 구현과 직접 결합하지 않는다.
 
-첫 MVP Type:
+지원 Type:
 
 - string
 - integer
@@ -264,11 +212,11 @@ HTTP Path는 `/`로 시작해야 하며 `..`, 역슬래시, 빈 Segment를 허�
 
 ## DatabaseSpec
 
-후속 단계의 기본 형태는 다음과 같다.
+기본 형태는 다음과 같다.
 
 ```yaml
 database:
-  provider: sqlalchemy
+  provider: agnostic
   tables:
     - name: tutorial_progress
       fields:
@@ -280,17 +228,12 @@ database:
           default: 0
 ```
 
-현재 PostgreSQL Global/Shard DDL, 기술 중립 Repository/Fake, SQLAlchemy async
-기반 구조, ORM Record와 Repository Adapter까지 생성한다. Alembic 실행 환경과
-실제 DB 접속 통합은 아직 구현하지 않았다.
-
-향후 Database Plugin은 다음을 생성할 수 있다.
+Database 명세로 다음 생성물을 만든다.
 
 - SQLAlchemy Model
 - Repository Protocol
 - Repository 구현 골격
-- Alembic Migration
-- DB별 DDL
+- PostgreSQL DDL
 - Fake Repository
 
 Database 관련 정보는 다음 책임으로 분리한다.
@@ -304,94 +247,19 @@ Schema 명세에는 host, password 같은 운영 접속 정보를 넣지 않는�
 라우팅이 실패하면 Global DB로 자동 대체하지 않으며, 명시적인 오류 정책을
 사용한다.
 
-상세 경계와 첫 실제 검증 대상은 `database_generation.md`를 따른다.
+상세 경계는 `database_generation.md`를 따른다. Repository와 Transaction은
+다음 원칙을 지킨다.
 
-game-server의 UserDB/DBLoad/DBSave는 한 Table CRUD보다 넓은 사용자 Aggregate
-로드와 저장을 수행한다. 현재 Repository의 `find_by_id`와 `save`는 의도적으로
-작은 첫 계약이다. Aggregate 조립, Unit of Work와 변경 추적은 다음 원칙으로
-확장한다.
-
-- 실제 서비스 흐름에서 필요한 경우에만 계약을 추가한다.
 - Transaction은 Repository가 아니라 request/job Unit of Work가 소유한다.
 - Global과 Shard 작업을 암묵적으로 한 Transaction처럼 취급하지 않는다.
 - Shard routing 실패 시 Global로 대체하지 않는다.
 - 물리 Shard 수와 DSN은 운영 설정이며 업무 명세에 Secret으로 기록하지 않는다.
 
-## 현재 계약과 장기 확장 후보
-
-| 영역 | 현재 구현 | 장기 후보 |
-|---|---|---|
-| Application | FastAPI, Module 목록 | 실행 역할, Service/Module composition |
-| Interface | HTTP Endpoint | WebSocket, Queue Message, Event |
-| Persistence | Table, Repository, Placement | Aggregate load/save, 관계, UoW 정책 |
-| Runtime DB | async Session, ShardRouter | replica/read policy, topology reference |
-| External Service | 미구현 | Redis/RabbitMQ capability와 wiring |
-| Delivery | 미구현 | Docker, Kubernetes, CI/CD, Git |
-
-장기 후보는 구현 완료를 의미하지 않으며 현재 명세가 수용해야 할 방향만 기록한다.
-
 ## Plugin Metadata와 명세 호환성
 
-Plugin은 지원하는 명세 버전과 기능을 Metadata로 선언한다.
-
-```yaml
-plugin_id: autoforge.generator.fastapi
-version: "1.0.0"
-api_version: "1"
-plugin_type: generator
-
-capabilities:
-  - project.generate
-  - module.generate
-  - endpoint.http.generate
-
-supports:
-  spec_versions:
-    - "1"
-
-permissions:
-  workspace_write: true
-  network: false
-  subprocess: false
-  git: false
-```
-
-Pipeline은 실행 전에 필요한 Capability와 Plugin 호환성을 확인한다.
-
-## ValidationSpec
-
-후속 명세 예:
-
-```yaml
-validation:
-  steps:
-    - import
-    - pytest
-    - ruff
-    - package_build
-```
-
-각 단계는 Validator Plugin으로 확장할 수 있다. 한 단계라도 실패하면
-Delivery 단계로 진행하지 않는다.
-
-## DeliverySpec
-
-Git과 CI/CD 자동화 단계에서 추가한다.
-
-```yaml
-delivery:
-  provider: github
-  branch_prefix: autoforge/
-  create_pull_request: true
-
-ci:
-  provider: github_actions
-  workflows:
-    - test
-    - build
-```
-
-Token, Password, Private Key 같은 비밀정보는 명세 파일에 저장하지 않는다.
+Plugin은 지원 명세 버전과 Capability를 Metadata로 선언하고 Pipeline은 실행
+전에 호환성을 확인한다. Metadata 필드와 권한 계약은 `plugin_system.md`가
+소유한다. Token, Password, Private Key 같은 비밀정보는 명세에 저장하지 않고
 실행 환경의 Secret Provider에서 주입한다.
 
 ## 명세 진화 원칙

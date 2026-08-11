@@ -1,5 +1,11 @@
 # JavaBaseWebServer DB와 Redis 분석
 
+> **문서 역할: REFERENCE**
+> 이 문서는 외부 참고 구현과 2026-07-31 연결 검증 기록을 보존한다.
+> 현재 AutoForge 계약과 구현 상태의 정본이 아니며, DB와 Redis 계약은
+> [`database_generation.md`](../architecture/database_generation.md)와
+> [`redis_services.md`](../architecture/redis_services.md)를 따른다.
+
 ## 분석 대상
 
 `C:\JavaBaseWebServer`는 C# game-server 구조를 Spring Boot로 옮기면서 DB와 Redis를
@@ -59,7 +65,7 @@ AutoForge
 
 ## KIS 적용 판단
 
-Java DB는 MySQL이고 현재 kis-auto-trading의 생성 Persistence는 PostgreSQL과
+Java DB는 MySQL이고 분석 당시 kis-auto-trading의 생성 Persistence는 PostgreSQL과
 asyncpg 기준이다. 따라서 Java의 MySQL DSN과 계정을 KIS DB 설정으로 복사하지
 않는다. 필요하다면 향후 MySQL Provider Plugin의 실제 통합 테스트 기준으로 쓴다.
 

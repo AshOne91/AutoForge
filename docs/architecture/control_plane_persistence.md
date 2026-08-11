@@ -1,6 +1,5 @@
 # AutoForge Control Plane Persistence
 
-- 확정일: 2026-08-03
 - 범위: GenerationJob 상태, idempotent trigger claim, audit envelope
 
 ## 목적
@@ -8,9 +7,7 @@
 Webhook과 worker가 여러 인스턴스로 실행되면 프로세스 메모리는 Job 상태의 원본이
 될 수 없다. AutoForge 제어면 PostgreSQL은 다음 상태를 영속화한다.
 
-PostgreSQL은 현재 AutoForge와 생성 대상 서비스의 기본 관계형 DB Provider다.
-MySQL 선택 모드는 아직 없으며, 이 제어면 계약을 변경하지 않는 별도 Provider
-Plugin은 PostgreSQL 기반 자동화가 안정화된 이후 추가한다.
+PostgreSQL은 AutoForge 제어면의 관계형 DB Provider다.
 
 ```text
 autoforge_generation_jobs
@@ -66,11 +63,10 @@ worker는 pending Job을 `FOR UPDATE SKIP LOCKED` 후보 선택과 조건부 UPD
 한다. lease가 만료된 뒤 이전 worker가 늦게 결과를 저장해도 새 token과 일치하지 않아
 거부된다. heartbeat도 현재 token이 유효하고 아직 만료되지 않은 경우에만 연장된다.
 
-pending Job은 실행을 시작하지 않았으므로 만료 lease takeover가 안전하다. 반면
-generating/validating Job은 파일 적용 중 중단됐을 수 있다. Checkout Workspace의 완전한
-초기화·재생성이 아직 없으므로 다른 worker가 자동으로 이어 쓰지 않고
-`error=JobLeaseExpired`인 failed 상태로 복구한다. 안전한 재시도는 이후 새 격리
-Workspace와 새 Job으로 수행한다.
+pending Job은 실행을 시작하지 않았으므로 만료 lease takeover를 허용한다. 반면
+generating/validating Job의 만료 lease는 다른 Worker가 이어 쓰지 않고
+`error=JobLeaseExpired`인 failed 상태로 복구한다. 재시도는 새 격리 Workspace와
+새 Job으로 수행한다.
 
 ### Audit idempotency
 
@@ -161,10 +157,3 @@ pip install -e ".[server]"
 
 PostgreSQL adapter module도 기본 `infrastructure.job` import에서 자동 import하지 않아
 server extra가 없는 로컬 CLI의 import를 깨뜨리지 않는다.
-
-## 아직 남은 범위
-
-- Git checkout 기반 Job별 격리 Workspace
-- PostgreSQL Multi-AZ 배포 계약
-- backup/restore, 보존 기간과 개인정보 삭제 정책
-- Metrics projection

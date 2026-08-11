@@ -10,7 +10,12 @@
 2. [2권: FastAPI 서버를 손으로 만들기](02_FASTAPI_FIRST_SERVER.md)
 3. [3권: AutoForge 아키텍처 이해하기](03_AUTOFORGE_ARCHITECTURE.md)
 4. [4권: AutoForge 실제 코드 읽기](04_READING_AUTOFORGE_CODE.md)
-5. [상세 참고서](../AUTOFORGE_STUDY_GUIDE_2026-07-30.md)
+5. [2026-07-30 상세 학습 Snapshot](../AUTOFORGE_STUDY_GUIDE_2026-07-30.md)
+
+이 시리즈는 이해를 돕는 STUDY 문서다. 정확한 현재 계약은
+[`system_design.md`](../architecture/system_design.md)와 연결된 Canonical
+Architecture가 소유하고, 구현 상태는
+[`.codex/current_status.md`](../../.codex/current_status.md)가 소유한다.
 
 한 번에 모두 읽을 필요는 없다. 각 권의 “이번 권에서 기억할 것”을 이해하면
 다음 권으로 넘어간다.
@@ -50,4 +55,3 @@ AutoForge로 구조 생성과 검증 자동화
 | Pydantic | 입력 데이터의 형태와 값을 검사하는 도구 |
 | pytest | 코드가 예상대로 동작하는지 자동으로 확인하는 도구 |
 | AutoForge | 반복되는 FastAPI 프로젝트 구조를 만들고 검증하는 도구 |
-

@@ -1,5 +1,10 @@
 # 4권: AutoForge 실제 코드 읽기
 
+> **문서 역할: STUDY / CODE READING GUIDE**
+> 이 문서는 코드를 읽는 순서를 안내한다. Architecture 정본은
+> [`system_design.md`](../architecture/system_design.md)와 연결된 Canonical
+> Architecture가 소유한다.
+
 ## 1. 코드를 읽는 방법
 
 파일을 처음부터 끝까지 외우지 않는다. 다음 질문을 하나씩 답한다.
@@ -51,6 +56,7 @@ class ProjectSpec(StrictSpecModel):
     spec_version: Literal["1"]
     project: ProjectInfo
     application: ApplicationSpec
+    tooling: ToolingSpec
 ```
 
 해석:
@@ -59,6 +65,7 @@ class ProjectSpec(StrictSpecModel):
 - `spec_version`에는 현재 문자열 `"1"`만 허용된다.
 - `project`에는 `ProjectInfo` 객체가 필요하다.
 - `application`에는 `ApplicationSpec` 객체가 필요하다.
+- `tooling`에는 생성 도구와 실행 환경 선택을 담은 `ToolingSpec`이 들어간다.
 
 `field_validator`는 필드 하나를 검사하고 `model_validator`는 여러 필드의
 관계를 검사한다.
@@ -274,4 +281,3 @@ create_project_validator_plugins
 더 자세한 사전식 설명은
 [AutoForge 상세 학습 가이드](../AUTOFORGE_STUDY_GUIDE_2026-07-30.md)를
 참고한다.
-

@@ -40,4 +40,4 @@ focused test
 ## Model routing
 
 Use the `model-routing` Skill for substantial development tasks.
-The default cost-oriented route is Luna, escalating only with concrete evidence.
+This derived memory does not define model defaults or approval behavior.

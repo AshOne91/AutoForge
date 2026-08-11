@@ -1,5 +1,9 @@
 # Model Routing & Cost Control Guidance
 
+> This is a human-readable guide. The authoritative policy is
+> [`.agents/skills/model-routing/SKILL.md`](../../.agents/skills/model-routing/SKILL.md).
+> If this guide and the Skill differ, follow the Skill.
+
 ## 0. Purpose
 
 Model routing is a strict cost-control procedure.
@@ -34,9 +38,7 @@ A more expensive model must be justified by concrete technical evidence.
 sufficient reasons by themselves.
 
 
-# ============================================================
 # 1. CURRENT SETTING VS RECOMMENDED SETTING
-# ============================================================
 
 Always distinguish between:
 
@@ -65,17 +67,15 @@ It may only report:
 The user changes the actual setting.
 
 
-# ============================================================
 # 2. DEFAULT ROUTE
-# ============================================================
 
 Unless concrete evidence justifies otherwise, start routing from:
 
-GPT-5.4 Mini / Medium
+GPT-5.6 Luna / Medium
 
 For purely mechanical work, prefer:
 
-GPT-5.4 Mini / Light
+GPT-5.6 Luna / Light
 
 
 IMPORTANT:
@@ -87,9 +87,7 @@ The agent does NOT need to justify staying on a cheap model.
 The agent MUST justify moving to a more expensive model or reasoning level.
 
 
-# ============================================================
 # 3. AVAILABLE MODELS
-# ============================================================
 
 Available models:
 
@@ -103,8 +101,6 @@ Available models:
 
 Default cost-oriented routing order:
 
-GPT-5.4 Mini
-    ↓
 GPT-5.6 Luna
     ↓
 GPT-5.6 Terra
@@ -112,17 +108,15 @@ GPT-5.6 Terra
 GPT-5.6 Sol
 
 
-GPT-5.4 and GPT-5.5 are NOT default routing choices.
+GPT-5.4 Mini, GPT-5.4, and GPT-5.5 are NOT default routing choices.
 
-Use GPT-5.4 or GPT-5.5 only when there is a concrete capability,
+Use them only when there is a concrete capability,
 compatibility, regression-testing, or implementation reason to prefer them.
 
 Do not select them merely because they are available.
 
 
-# ============================================================
 # 4. AVAILABLE REASONING LEVELS
-# ============================================================
 
 Available reasoning levels:
 
@@ -140,9 +134,7 @@ Medium
 Use Light whenever the task is sufficiently mechanical.
 
 
-# ============================================================
 # 5. CRITICAL COMPLEXITY RULE
-# ============================================================
 
 The presence of a complex technology does NOT automatically make the requested
 task complex.
@@ -205,52 +197,20 @@ If the requested change:
 - has a bounded scope,
 - and can be verified with focused tests,
 
-prefer Mini or Luna even if the subsystem itself is sophisticated.
+prefer Luna even if the subsystem itself is sophisticated.
 
 
-# ============================================================
 # 6. MODEL GUIDANCE
-# ============================================================
 
 ## GPT-5.4 Mini
 
-This is the primary default model.
-
-Prefer Mini for:
-
-- locating files
-- searching symbols
-- reading code
-- explaining code
-- documentation
-- imports
-- renames
-- formatting
-- type hints
-- configuration changes
-- boilerplate
-- repetitive edits
-- simple tests
-- test scaffolding
-- simple pytest failures
-- existing-pattern implementations
-- small CRUD changes
-- localized bug fixes
-- small refactors
-- straightforward API additions
-- simple validation
-- simple migrations
-- well-specified bounded features
-
-Do not move away from Mini merely because multiple files are involved.
-
-If the logic is straightforward and existing patterns are available, Mini remains
-preferred.
+This is not a default routing choice. Use it only when the authoritative Skill's
+compatibility or capability exception applies.
 
 
 ## GPT-5.6 Luna
 
-Use Luna when Mini has a concrete reliability or comprehension risk.
+Luna is the default model for normal AutoForge development.
 
 Good Luna tasks include:
 
@@ -321,9 +281,7 @@ Typical Sol-class tasks include:
 - a bounded problem that Terra has already failed to solve
 
 
-# ============================================================
 # 7. HARD GATE FOR GPT-5.6 SOL
-# ============================================================
 
 GPT-5.6 Sol is PROHIBITED unless at least ONE of the following is true:
 
@@ -376,9 +334,7 @@ If no hard-gate condition is satisfied:
 SOL MUST NOT BE RECOMMENDED.
 
 
-# ============================================================
 # 8. REASONING GUIDANCE
-# ============================================================
 
 ## Light
 
@@ -475,9 +431,7 @@ If that cannot be answered concretely:
 DO NOT RECOMMEND ULTRA.
 
 
-# ============================================================
 # 9. REASONING CEILING
-# ============================================================
 
 Use the following reasoning ceilings by default:
 
@@ -514,9 +468,7 @@ merely to increase confidence.
 Higher reasoning must address an identified reasoning requirement.
 
 
-# ============================================================
 # 10. ONE-DIMENSION ESCALATION RULE
-# ============================================================
 
 Never increase both model and reasoning simultaneously unless there is clear
 evidence that BOTH are insufficient.
@@ -578,9 +530,7 @@ Mini / Medium
 Only increase both dimensions after separate evidence shows both are inadequate.
 
 
-# ============================================================
 # 11. FAILURE AND ESCALATION POLICY
-# ============================================================
 
 Do not escalate after one failure.
 
@@ -625,9 +575,7 @@ higher-risk category such as:
 - financial-critical behavior
 
 
-# ============================================================
 # 12. DOWNGRADE POLICY
-# ============================================================
 
 A difficult task does NOT justify keeping an expensive model for the entire
 workflow.
@@ -647,12 +595,12 @@ Luna / Medium
 
 then
 
-Mini / Medium
+Luna / Medium
 → tests
 
 then
 
-Mini / Light
+Luna / Light
 → documentation
 
 
@@ -699,9 +647,7 @@ RECOMMENDED SETTING: <MODEL> / <REASONING>
 Do not keep Sol/Terra active merely because the session started with them.
 
 
-# ============================================================
 # 13. ROUTING INSPECTION BUDGET
-# ============================================================
 
 Model routing itself must be cheap.
 
@@ -727,9 +673,7 @@ DO NOT inspect the repository merely to generate the routing report.
 Routing should cost substantially less than doing the task itself.
 
 
-# ============================================================
 # 14. CONTEXT & TOKEN EFFICIENCY
-# ============================================================
 
 Minimize input context aggressively.
 
@@ -776,9 +720,7 @@ Do not inspect by default:
 Access these only when the task specifically requires them.
 
 
-# ============================================================
 # 15. SERENA MCP TOKEN-EFFICIENCY RULES
-# ============================================================
 
 When Serena MCP is available, prefer it for source-code exploration when it can
 reduce context usage.
@@ -820,9 +762,7 @@ Do not make unnecessary MCP calls when the answer is already available in the
 current context.
 
 
-# ============================================================
 # 16. MCP COST CONTROL
-# ============================================================
 
 More MCP servers do NOT automatically reduce token usage.
 
@@ -848,9 +788,7 @@ prefer Serena when useful.
 Do not invoke unrelated MCP servers merely because they are available.
 
 
-# ============================================================
 # 17. TASK DECOMPOSITION
-# ============================================================
 
 Prefer several cheap bounded tasks over one massive expensive task.
 
@@ -877,9 +815,7 @@ Large tasks should be decomposed so cheaper models can handle most phases.
 Do not route an entire multi-hour task according to its single hardest phase.
 
 
-# ============================================================
 # 18. TESTS AS A COST-SAVING QUALITY MECHANISM
-# ============================================================
 
 Prefer:
 
@@ -920,9 +856,7 @@ extra confidence.
 Escalate only when a material unresolved risk remains.
 
 
-# ============================================================
 # 19. TEST SCOPE CONTROL
-# ============================================================
 
 Do not automatically run the entire test suite after every small modification.
 
@@ -947,9 +881,7 @@ The full suite is appropriate when:
 Avoid repeatedly executing expensive tests when focused tests are sufficient.
 
 
-# ============================================================
 # 20. MODEL ROUTING REPORT
-# ============================================================
 
 For every NEW bounded development task, route before implementation.
 
@@ -1006,9 +938,7 @@ RECOMMENDED SETTING:
 <MODEL> / <REASONING>
 
 
-# ============================================================
 # 21. WHEN TO STOP AFTER ROUTING
-# ============================================================
 
 If UPGRADE is required for correctness:
 
@@ -1038,9 +968,7 @@ If KEEP:
 Proceed when the user's existing request already authorized implementation.
 
 
-# ============================================================
 # 22. SOL / HIGH-COST WARNING
-# ============================================================
 
 Whenever recommending:
 
@@ -1076,9 +1004,7 @@ If those fields cannot be answered concretely:
 DO NOT recommend the expensive setting.
 
 
-# ============================================================
 # 23. NO SPECULATIVE COST NUMBERS
-# ============================================================
 
 Do not invent estimated credit consumption.
 
@@ -1100,9 +1026,7 @@ Instead use relative cost:
 Actual credit consumption must be measured from real usage.
 
 
-# ============================================================
 # 24. EXAMPLES
-# ============================================================
 
 ## Example A
 
@@ -1112,7 +1036,7 @@ Task:
 
 Recommended:
 
-GPT-5.4 Mini / Light or Medium
+GPT-5.6 Luna / Light or Medium
 
 
 Reason:
@@ -1129,7 +1053,7 @@ Task:
 
 Recommended:
 
-GPT-5.4 Mini / Medium
+GPT-5.6 Luna / Medium
 
 
 Reason:
@@ -1175,8 +1099,6 @@ Task:
 
 Recommended:
 
-GPT-5.4 Mini / Medium
-or
 GPT-5.6 Luna / Medium
 
 
@@ -1231,9 +1153,7 @@ Ultra only if Extra High remains insufficient and the exceptional-risk rule is
 satisfied.
 
 
-# ============================================================
 # 25. FINAL ROUTING PRINCIPLE
-# ============================================================
 
 The agent's job is NOT:
 
@@ -1279,9 +1199,7 @@ Expensive settings require evidence.
 Cheap settings do not.
 
 
-# ============================================================
 # 26. CRITICAL COST CONSTRAINT
-# ============================================================
 
 AI credit consumption must remain tightly controlled.
 
@@ -1300,9 +1218,9 @@ Therefore:
 - more expensive models are NOT automatically higher quality for bounded tasks.
 
 
-If Mini or Luna plus focused tests can safely complete the task:
+If Luna plus focused tests can safely complete the task:
 
-USE MINI OR LUNA.
+USE LUNA.
 
 
 If Terra is sufficient:

@@ -14,60 +14,23 @@ AutoForge의 최종 구조는 세 축을 함께 유지한다.
   + Git 이벤트 및 CI/CD 자동화
 ```
 
-## 참고 아키텍처
-
-- `common-tool`: 명령 중심 생성 과정과 설정 기반 모델
-- `gameserver`: Application, Domain, Service, Tool 책임 분리
-- `base_server`: FastAPI Application, Router, Domain, Service, 설정, 테스트, Docker 구조
-
-참고 프로젝트를 복사하지 않고 유용한 책임 경계만 유지한다.
-
-참고 프로젝트의 역할, 채택·교체·폐기 기준과 두 저장소의 책임은
-`reference_project_strategy.md`를 따른다. SKN12 `base_server`는 AutoForge가
-있었다면 생성·조립했을 실제 서비스의 롤모델로 사용한다.
-
-`common-tool`이 생성하던 Application, Template, Packet, Protocol, DB 및
-Controller의 반복 코드는 AutoForge의 Project, Module, Schema, Router,
-Repository Generator로 재설계한다.
-
-## 로컬 MVP 흐름
+## 기본 실행 흐름
 
 ```text
-CLI
+CLI / Control Plane / Webhook Adapter
   → ProjectSpec 로딩 및 검증
   → GenerationJob 생성
   → 격리된 Workspace 준비
   → 생성 계획 작성
   → 파일 생성
-  → 파일 Manifest 작성
+  → GenerationManifest와 GenerationJobManifest 작성
   → 생성 프로젝트 검증
-  → 성공 또는 실패 결과 보고
+  → 선택적 Commit → Push → Pull Request
 ```
 
-AutoForge Core와 명세 검증은 GitHub, Webhook, Redis, Database, RabbitMQ와
-AI 없이 동작해야 한다. 반면 `kis-auto-trading`의 생성 Blueprint에는 관계형
-Database, Redis와 RabbitMQ를 필수 Runtime Service로 포함한다.
-
-## 생성될 기본 서버 구조
-
-```text
-generated-project/
-├── src/project_name/
-│   ├── __init__.py
-│   ├── main.py
-│   ├── config.py
-│   ├── routers/
-│   │   ├── __init__.py
-│   │   └── health.py
-│   ├── domain/__init__.py
-│   └── services/__init__.py
-├── tests/test_health.py
-├── pyproject.toml
-├── README.md
-└── Dockerfile
-```
-
-Dockerfile 생성 여부는 ProjectSpec으로 선택할 수 있다.
+Core 명세와 생성 계약은 GitHub, Webhook, Redis, Database, RabbitMQ 같은
+구체 인프라에 의존하지 않는다. 외부 입출력은 Adapter와 Composition Root가
+주입하며, 생성 대상에 필요한 Runtime Service는 ProjectSpec으로 선언한다.
 
 ## 핵심 개념
 
@@ -77,13 +40,15 @@ Dockerfile 생성 여부는 ProjectSpec으로 선택할 수 있다.
 
 ### GenerationJob
 
-ProjectSpec을 한 번 적용하는 작업이다. 작업 ID, 입력 출처, 상태, Workspace, 시각 정보, 구조화된 결과를 가진다. 향후 Webhook은 HTTP 요청 안에서 Generator를 실행하지 않고 GenerationJob을 생성한다.
+ProjectSpec을 한 번 적용하는 작업이다. 작업 ID, 입력 출처, 상태, Workspace,
+시각 정보와 구조화된 결과를 가진다. 요청 Adapter는 GenerationJob을 접수하고
+실제 생성과 검증은 요청 처리 밖의 Worker가 수행한다.
 
-현재 GenerationJob 계약은 Project와 Module을 `GenerationUnit`으로 구분한다.
+GenerationJob 계약은 Project와 Module을 `GenerationUnit`으로 구분한다.
 각 Unit은 기존 GenerationManifest를 그대로 보존하며 상위
 GenerationJobManifest가 Job ID, Unit ID, Specification 버전·Hash와 전체
-파일 경로 중복을 검증한다. Job 실행 조정과 상태 전이는 후속 Service가
-담당한다.
+파일 경로 중복을 검증한다. Application Pipeline과 Worker가 실행 조정과
+상태 전이를 담당한다.
 
 ### Workspace
 
@@ -91,11 +56,9 @@ GenerationJobManifest가 Job ID, Unit ID, Specification 버전·Hash와 전체
 
 ### 생성 계획과 파일 Manifest
 
-생성 계획은 실제 쓰기 전 디렉터리와 파일의 미리보기다. Dry-run은 계획만 반환한다. Manifest는 각 파일을 생성, 변경, 동일, 건너뜀, 충돌 상태로 기록한다.
-
-Application Module Registry는 ProjectSpec에 선언된 Module Router를 생성 코드로
-연결한다. `application/generated/module_registry.py`가 Router 튜플을 제공하고
-Application Factory가 Health Router 이후 선언 순서대로 등록한다.
+생성 계획은 실제 쓰기 전 디렉터리와 파일의 미리보기다. Dry-run은 계획만
+반환한다. Manifest는 각 파일의 소유권, 내용 Hash와 적용 상태를 기록한다.
+세부 필드와 반복 생성 규칙은 `generation_contract.md`가 소유한다.
 
 ### Generator
 
@@ -117,7 +80,7 @@ Import, pytest, lint, 패키지·빌드 검사를 순서대로 실행한다. 실
 - 비밀정보를 파일이나 명령 인자로 노출하지 않는다.
 - 외부 프로세스에 제한 시간을 적용한다.
 
-## 향후 Git 자동화
+## Git 자동화 경계
 
 ```text
 GitHub 이벤트
@@ -129,63 +92,30 @@ GitHub 이벤트
   → Commit → Push → Pull Request
 ```
 
-Webhook은 작업 접수 후 응답하며 기본 브랜치에 직접 Push하지 않는다.
+Webhook은 작업 접수 후 응답하며 기본 브랜치에 직접 Push하지 않는다. 구체
+상태 전이와 Provider 계약은 `git_automation.md`가 소유한다.
 
 ## Plugin 전략
 
-첫 FastAPI Generator는 일반 구현으로 작성한다. 실제 확장 지점이 확인된 이후 Project Blueprint, 모듈 Generator, 선택적 Service, 검증 작업을 Plugin으로 제공한다. Plugin은 Git에 직접 접근할 수 없고 PluginLoader는 계약 검증 이후 구현한다.
-
-Plugin은 최종 아키텍처의 핵심 확장 단위다. Generator, Validator, Builder,
-Git Provider, CI/CD, Deployment 기능을 Plugin으로 확장할 수 있다.
-
-Plugin Metadata는 ID, 버전, API 버전, 유형, Capability, 의존성, 지원 명세
-버전, 권한을 선언한다.
+Plugin은 Generator와 Validator 같은 확장 구현을 등록하는 단위다. Registry가
+등록 상태를 소유하고 PluginManager와 PluginLoader가 수명주기와 발견·검증을
+담당한다. Plugin은 선언된 Capability와 권한 범위를 벗어나지 않으며 구체
+계약은 `plugin_system.md`가 소유한다.
 
 ## EventBus와 Pipeline
 
-EventBus는 AutoForge 주요 컴포넌트 사이의 중앙 통신 메커니즘이다. Webhook,
-Pipeline, Task, Plugin, Generator, Git과 Notification의 주요 상태 변화는
-Event로 표현한다. EventBus 자체는 이 컴포넌트의 내부 구조나 업무 규칙을
-알지 않으며 Generic Event의 구독, 구독 해제와 비동기 전달만 담당한다.
-
-Pipeline은 하나의 Job 안에서 Task의 실행 순서와 실패·재시도·Timeout 정책을
-제어한다.
-
-```text
-ValidateSpec
-→ ResolvePlugins
-→ PrepareWorkspace
-→ PlanGeneration
-→ Generate
-→ Validate
-→ Test
-→ Build
-→ Delivery
-```
-
-Handler는 Event를 Application Service 동작에 연결하고 처리 결과를 다시
-Event로 발행한다. Logging, Audit, Metrics와 상태 추적도 Handler로 연결한다.
-Handler 등록 순서나 Event 연쇄만으로 Pipeline 순서를 숨기지 않는다.
-EventBus는 중앙 통신 수단이지만 중앙 업무 실행기는 아니다.
-
-Command는 실행 요청이고 Event는 이미 발생한 사실이다. 현재 EventBus는
-Event만 다루며 Command 전달 API는 첫 GenerationPipeline 구현 전에 별도로
-결정한다.
-
-상세 결정은 `event_driven_architecture.md`를 따른다.
+EventBus는 Generic Event의 구독, 구독 해제와 비동기 전달만 담당하며 업무
+순서를 실행하지 않는다. Pipeline은 하나의 Job 안에서 Task 순서와 실패 정책을
+소유한다. Handler는 상태 변화와 관찰 기능을 연결하되 등록 순서로 Workflow를
+숨기지 않는다. 상세 계약은 `event_driven_architecture.md`가 소유한다.
 
 ## 상세 문서
 
 - `generation_contract.md`: 파일 소유권, 반복 생성, Manifest, 검증 계약
 - `specification_design.md`: Project, Application, Module, API, Model, DB 명세
+- `database_generation.md`: DB 명세, 생성물, Runtime 경계
 - `event_driven_architecture.md`: EventBus, Handler, Pipeline과 Transport 경계
-- `kis_ha_reference_blueprint.md`: KIS의 Proxy/App/Secret 분리와 Kubernetes HA 생성 기준
-
-## 첫 번째 MVP 제외 범위
-
-- `base_server`의 모든 기능 재현
-- 금융, 채팅, AI 전용 Domain
-- Database 자동 구축
-- GitHub Webhook과 Git 자동화
-- 분산 작업 실행
-- AI가 작성한 운영 코드
+- `plugin_system.md`: Registry, PluginManager, PluginLoader 계약
+- `git_automation.md`: Git Provider와 Delivery 상태 전이
+- `control_plane_persistence.md`: Job 저장·임대·복구 계약
+- 나머지 인프라 정본은 각 `*_contract.md`, `*_policy.md`와 서비스별 문서가 소유한다.

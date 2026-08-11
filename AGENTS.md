@@ -49,11 +49,8 @@ routing is unnecessary.
 The agent may recommend KEEP, DOWNGRADE, or UPGRADE, but cannot silently change
 the user's current model or reasoning setting.
 
-Before every substantial task, report the current model/reasoning, recommended
-routing, and KEEP/DOWNGRADE/UPGRADE decision. After reporting, stop and wait for
-the user's separate follow-up approval before beginning work. Always stop after
-the routing report, even if the original request also contains an affirmative
-instruction or the recommendation is KEEP.
+The Skill is authoritative for routing criteria, report format, and whether a
+routing report requires the agent to stop. Do not duplicate those details here.
 
 ## Testing
 
@@ -80,6 +77,10 @@ After changes, report changed files, verification performed, and remaining issue
 Keep this file short.
 
 Put specialized procedures in `.agents/skills/` and load them only when relevant.
+
+For documentation creation, modification, merge, move, or deletion, use the
+`docs-governance` Skill. Prefer updating an existing authoritative document over
+creating a new document.
 
 ## Architecture lineage
 

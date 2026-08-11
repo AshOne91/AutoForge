@@ -27,10 +27,9 @@ not select or contain credentials. A generated runtime should receive only the
 configuration for its chosen environment, while secrets remain outside Git and
 outside generated manifests.
 
-## Current AutoForge scope
+## Generated boundary
 
-Generated local environments already mount `/app/logs` as writable runtime
-data. A future environment-configuration generator may add `/app/config:ro`
-only after a consumer declares a concrete non-secret configuration artifact.
-That future contract must preserve user-owned configuration and must not copy
-the Base Server pattern of mounting over application source paths.
+Generated local environments mount `/app/logs` as writable runtime data. No
+generator may emit an `/app/config:ro` mount unless the specification declares a
+concrete non-secret configuration artifact. Generated configuration must preserve
+user-owned files and must not mount over application source paths.

@@ -1,5 +1,10 @@
 # Identity Session Profile Blueprint
 
+이 문서는 이 Blueprint의 입력·생성 방법과 소비자 소유 경계만 설명한다. 전체
+명세와 생성 소유권 계약은
+[`specification_design.md`](../../docs/architecture/specification_design.md)와
+[`generation_contract.md`](../../docs/architecture/generation_contract.md)를 따른다.
+
 이 Blueprint는 FastAPI 기반 서버의 첫 공통 기반을 생성한다.
 
 - Global Identity PostgreSQL store
