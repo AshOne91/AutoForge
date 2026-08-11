@@ -73,6 +73,7 @@ services:
   qdrant:
     profiles: ["rag"]
     image: qdrant/qdrant:v{rag.qdrant_version}
+    networks: [rag]
     ports:
       - "${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{QDRANT_HTTP_PORT:-{base + 50}}}:6333"
       - "${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{QDRANT_GRPC_PORT:-{base + 51}}}:6334"
@@ -82,6 +83,7 @@ services:
   elasticsearch:
     profiles: ["rag"]
     image: docker.elastic.co/elasticsearch/elasticsearch:{rag.elasticsearch_version}
+    networks: [rag]
     environment:
       discovery.type: single-node
       xpack.security.enabled: "false"
@@ -94,10 +96,16 @@ services:
   ollama:
     profiles: ["inference"]
     image: ollama/ollama:{rag.ollama_version}
+    networks: [rag]
     ports:
       - "${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{OLLAMA_PORT:-{base + 70}}}:11434"
     volumes:
       - ollama-data:/root/.ollama
+
+networks:
+  rag:
+    name: ${{RAG_NETWORK_NAME:-{specification.project.package_name}-rag}}
+    external: true
 
 volumes:
   qdrant-storage:
@@ -110,6 +118,7 @@ volumes:
         base = specification.tooling.rag.host_port_base
         return f'''# Copy to .env. This local profile contains no credentials.
 LOCAL_BIND_ADDRESS=127.0.0.1
+RAG_NETWORK_NAME={specification.project.package_name}-rag
 QDRANT_URL=http://qdrant:6333
 QDRANT_HTTP_PORT={base + 50}
 QDRANT_GRPC_PORT={base + 51}
@@ -127,6 +136,16 @@ This optional overlay provides a local vector store (Qdrant), keyword search
 (Elasticsearch), and local inference runtime (Ollama) for
 `{specification.project.package_name}`. It does not create collections, indexes,
 documents, embeddings, prompts, or models.
+
+Create the shared network once before starting either the RAG overlay or the
+generated local environment. It lets separately managed Compose projects use
+service DNS without exposing internal container ports through the host.
+
+```powershell
+if (-not (docker network inspect {specification.project.package_name}-rag 2>$null)) {{
+  docker network create {specification.project.package_name}-rag
+}}
+```
 
 ```powershell
 Copy-Item deploy/rag/.env.example deploy/rag/.env

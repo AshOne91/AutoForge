@@ -1,6 +1,7 @@
 from pathlib import PurePosixPath
 
 import pytest
+import yaml
 
 from autoforge.core.generation import FileOwnership, Generator, content_hash
 from autoforge.core.specification import (
@@ -20,6 +21,7 @@ def integration_specification(
     enabled: bool = False,
     durable_jobs: bool = False,
     application: bool = False,
+    rag: bool = False,
     host_port_base: int | None = None,
 ) -> ProjectSpec:
     return ProjectSpec(
@@ -80,7 +82,8 @@ def integration_specification(
                 "enabled": enabled,
                 "application_enabled": application,
                 "host_port_base": host_port_base,
-            }
+            },
+            "rag": {"enabled": rag},
         },
     )
 
@@ -126,6 +129,32 @@ def test_render_creates_disposable_kis_integration_services() -> None:
     assert "RABBITMQ_URL=amqp://autoforge:change-me@rabbitmq:5672/" in environment
     assert "LOCAL_BIND_ADDRESS=127.0.0.1" in environment
     assert '"${LOCAL_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-25432}:5432"' in compose
+
+
+def test_render_connects_rag_consumers_to_the_shared_network() -> None:
+    files = LocalEnvironmentGenerator().render(
+        integration_specification(enabled=True, durable_jobs=True, application=True, rag=True)
+    )
+
+    compose = yaml.safe_load(
+        files[PurePosixPath("environment", "compose.integration.yml")]
+    )
+    environment = files[PurePosixPath("environment", ".env.example")]
+
+    assert compose["networks"]["rag"] == {
+        "name": "${RAG_NETWORK_NAME:-kis_auto_trading-rag}",
+        "external": True,
+    }
+    assert compose["services"]["application"]["networks"] == ["default", "rag"]
+    assert compose["services"]["durable-job-worker"]["networks"] == [
+        "default",
+        "rag",
+    ]
+    assert compose["services"]["durable-job-worker"]["restart"] == "unless-stopped"
+    assert "RAG_NETWORK_NAME=kis_auto_trading-rag" in environment
+    assert "RAG_ELASTICSEARCH_URL=http://elasticsearch:9200" in environment
+    assert "RAG_OLLAMA_URL=http://ollama:11434" in environment
+    assert "RAG_EMBEDDING_MODEL=embeddinggemma" in environment
 
 
 def test_render_adds_airflow_for_durable_jobs() -> None:

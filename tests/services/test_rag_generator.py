@@ -43,10 +43,17 @@ def test_rag_generator_renders_opt_in_local_services() -> None:
     assert "QDRANT_URL=http://qdrant:6333" in environment
     assert "ELASTICSEARCH_URL=http://elasticsearch:9200" in environment
     assert "OLLAMA_BASE_URL=http://ollama:11434" in environment
+    assert "RAG_NETWORK_NAME=kis_auto_trading-rag" in environment
     assert "no model is downloaded automatically" in readme
+    assert "docker network create kis_auto_trading-rag" in readme
     parsed = yaml.safe_load(compose)
     assert set(parsed["services"]) == {"qdrant", "elasticsearch", "ollama"}
     assert parsed["services"]["ollama"]["profiles"] == ["inference"]
+    assert parsed["networks"]["rag"] == {
+        "name": "${RAG_NETWORK_NAME:-kis_auto_trading-rag}",
+        "external": True,
+    }
+    assert all(service["networks"] == ["rag"] for service in parsed["services"].values())
 
 
 def test_rag_generator_plan_marks_all_outputs_generated() -> None:

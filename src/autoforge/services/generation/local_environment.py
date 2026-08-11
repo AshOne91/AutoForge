@@ -41,6 +41,7 @@ class LocalEnvironmentGenerator:
         has_durable_jobs = bool(specification.application.durable_jobs)
         has_application = specification.tooling.local_environment.application_enabled
         has_migration = has_application and bool(specification.application.databases)
+        has_rag = specification.tooling.rag.enabled
         host_port_base = specification.tooling.local_environment.host_port_base
 
         files = {
@@ -51,6 +52,7 @@ class LocalEnvironmentGenerator:
                 has_durable_jobs=has_durable_jobs,
                 has_application=has_application,
                 has_migration=has_migration,
+                has_rag=has_rag,
                 host_port_base=host_port_base,
             ),
             PurePosixPath("environment", ".env.example"): self._render_env(
@@ -59,6 +61,7 @@ class LocalEnvironmentGenerator:
                 has_rabbitmq=bool(rabbitmq_services),
                 has_durable_jobs=has_durable_jobs,
                 has_application=has_application,
+                has_rag=has_rag,
                 host_port_base=host_port_base,
             ),
             PurePosixPath("environment", "README.md"): self._render_readme(
@@ -131,6 +134,7 @@ class LocalEnvironmentGenerator:
         has_durable_jobs: bool,
         has_application: bool,
         has_migration: bool,
+        has_rag: bool,
         host_port_base: int | None,
     ) -> str:
         services: list[str] = []
@@ -151,12 +155,17 @@ class LocalEnvironmentGenerator:
                     redis_mode=redis_mode,
                     has_durable_jobs=has_durable_jobs,
                     has_migration=has_migration,
+                    has_rag=has_rag,
                     host_port_base=host_port_base,
                 )
             )
             if has_durable_jobs:
                 services.append(self._render_outbox_relay(specification))
-                services.append(self._render_durable_job_worker(specification))
+                services.append(
+                    self._render_durable_job_worker(
+                        specification, has_rag=has_rag
+                    )
+                )
         if has_durable_jobs:
             services.append(
                 self._render_airflow(
@@ -169,6 +178,14 @@ class LocalEnvironmentGenerator:
             "\n"
             "services:\n"
             + "\n".join(services)
+            + (
+                "\nnetworks:\n"
+                "  rag:\n"
+                f"    name: ${{RAG_NETWORK_NAME:-{specification.project.package_name}-rag}}\n"
+                "    external: true\n"
+                if has_rag
+                else ""
+            )
             + ("\nvolumes:\n  airflow-home:\n" if has_durable_jobs else "")
         )
 
@@ -292,6 +309,14 @@ class LocalEnvironmentGenerator:
     def _application_image(specification: ProjectSpec) -> str:
         return specification.project.package_name.replace("_", "-") + ":local"
 
+    @staticmethod
+    def _render_rag_environment() -> str:
+        return (
+            "      RAG_ELASTICSEARCH_URL: ${RAG_ELASTICSEARCH_URL:-http://elasticsearch:9200}\n"
+            "      RAG_OLLAMA_URL: ${RAG_OLLAMA_URL:-http://ollama:11434}\n"
+            "      RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-embeddinggemma}\n"
+        )
+
     def _render_migrate(self, specification: ProjectSpec) -> str:
         image = self._application_image(specification)
         return (
@@ -317,6 +342,7 @@ class LocalEnvironmentGenerator:
         redis_mode: str | None,
         has_durable_jobs: bool,
         has_migration: bool,
+        has_rag: bool,
         host_port_base: int | None,
     ) -> str:
         image = self._application_image(specification)
@@ -344,11 +370,13 @@ class LocalEnvironmentGenerator:
             if has_durable_jobs
             else ""
         )
+        rag_environment = self._render_rag_environment() if has_rag else ""
         depends_on = (
             "    depends_on:\n" + "".join(dependencies)
             if dependencies
             else ""
         )
+        rag_network = "    networks:\n      - default\n      - rag\n" if has_rag else ""
         return (
             "  application:\n"
             f"    image: ${{APPLICATION_IMAGE:-{image}}}\n"
@@ -357,11 +385,13 @@ class LocalEnvironmentGenerator:
             + self._render_database_environment(specification)
             + redis_environment
             + durable_job_environment
+            + rag_environment
             + "      LOG_DIRECTORY: /app/logs\n"
             "    ports:\n"
             f"      - \"${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{APPLICATION_PORT:-{application_port}}}:8000\"\n"
             "    volumes:\n"
             "      - ../logs:/app/logs\n"
+            + rag_network
             + depends_on
             + "    healthcheck:\n"
             "      test: [\"CMD\", \"python\", \"-c\", \"from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health').read()\"]\n"
@@ -387,17 +417,24 @@ class LocalEnvironmentGenerator:
             "        condition: service_healthy\n"
         )
 
-    def _render_durable_job_worker(self, specification: ProjectSpec) -> str:
+    def _render_durable_job_worker(
+        self, specification: ProjectSpec, *, has_rag: bool
+    ) -> str:
         image = self._application_image(specification)
+        rag_network = "    networks:\n      - default\n      - rag\n" if has_rag else ""
+        rag_environment = self._render_rag_environment() if has_rag else ""
         return (
             "  durable-job-worker:\n"
             f"    image: ${{APPLICATION_IMAGE:-{image}}}\n"
             "    pull_policy: never\n"
+            "    restart: unless-stopped\n"
             "    command: [\"python\", \"scripts/run_durable_job_worker.py\"]\n"
             "    environment:\n"
             + self._render_database_environment(specification)
             + "      RABBITMQ_URL: ${RABBITMQ_URL:?set RABBITMQ_URL}\n"
-            "    depends_on:\n"
+            + rag_environment
+            + rag_network
+            + "    depends_on:\n"
             "      migrate:\n"
             "        condition: service_completed_successfully\n"
             "      rabbitmq:\n"
@@ -459,6 +496,7 @@ class LocalEnvironmentGenerator:
         has_rabbitmq: bool,
         has_durable_jobs: bool,
         has_application: bool,
+        has_rag: bool,
         host_port_base: int | None,
     ) -> str:
         application_port = self._host_port(host_port_base, default=28000, offset=0)
@@ -507,6 +545,15 @@ class LocalEnvironmentGenerator:
             )
         if has_application:
             lines.append(f"APPLICATION_PORT={application_port}\n")
+        if has_rag:
+            lines.extend(
+                [
+                    f"RAG_NETWORK_NAME={specification.project.package_name}-rag\n",
+                    "RAG_ELASTICSEARCH_URL=http://elasticsearch:9200\n",
+                    "RAG_OLLAMA_URL=http://ollama:11434\n",
+                    "RAG_EMBEDDING_MODEL=embeddinggemma\n",
+                ]
+            )
         return "".join(lines)
 
     @staticmethod
