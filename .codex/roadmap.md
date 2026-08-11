@@ -27,6 +27,9 @@
 
 ### Current vertical-slice direction
 
+The target and phase order for base_server-class reusable Application Blueprints
+are fixed in `docs/architecture/base_server_blueprint_strategy.md`.
+
 After the Docker contract is verified, validate the generator against a real
 consumer slice in `kis-auto-trading`, in this order:
 
@@ -58,6 +61,12 @@ queried a `requested` job through the internal application service. The generate
 Outbox relay and durable-job worker then moved a real `news_collection` job to
 `failed` through RabbitMQ. That terminal state is expected until the user-owned
 business handler is implemented.
+
+On 2026-08-11, the same local Compose application also validated the KIS
+`signup -> login -> Redis session -> sharded profile update/read` HTTP path.
+This is the first proven reference for extracting an Application Blueprint;
+the generated infrastructure remains separate from KIS-owned credential and
+business-handler policy.
 
 Each step is a separate testable contract. The Durable Job trigger/status,
 Outbox, worker lifecycle, and static Airflow DAG contracts are complete.
@@ -104,6 +113,10 @@ These remain goals, not current implementation commitments:
 - Airflow-style scheduled ingestion as a replaceable orchestration adapter
 - Docker/Kubernetes/cloud deployment plugins after build contracts stabilize
 - generated-project validation in a second machine or multi-node environment
+
+The next architectural implementation target is the `identity + session +
+sharded profile` Blueprint. Do not add specification-only metadata: each
+Blueprint contract must change generated output and be validated by KIS.
 
 Reference order is deliberate: `common-tool` supplies generation intent,
 `game-server` supplies runtime composition meaning, and `base_server` supplies
