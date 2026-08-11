@@ -1,0 +1,34 @@
+spec_version: "1"
+
+project:
+  name: Base Server
+  package_name: base_server
+  version: "0.1.0"
+  description: Identity, Redis session, and sharded profile FastAPI foundation
+
+tooling:
+  local_environment:
+    enabled: true
+    application_enabled: false
+
+application:
+  framework: fastapi
+  modules:
+    - identity
+    - account
+  services:
+    - name: session
+      kind: redis_session
+      namespace: base_server_session
+      ttl_seconds: 3600
+      mode: cluster
+      cluster_url_env: REDIS_CLUSTER_URL
+  databases:
+    - name: identity
+      global_url_env: IDENTITY_DATABASE_URL
+    - name: account
+      shards:
+        - shard_id: "1"
+          url_env: ACCOUNT_SHARD_1_DATABASE_URL
+        - shard_id: "2"
+          url_env: ACCOUNT_SHARD_2_DATABASE_URL

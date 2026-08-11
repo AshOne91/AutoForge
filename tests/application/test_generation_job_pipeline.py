@@ -37,10 +37,13 @@ class RecordingHandler(EventHandler[Event]):
 
 
 class SuccessfulValidator:
+    def __init__(self, package_name: str = "sample") -> None:
+        self._package_name = package_name
+
     async def validate(
         self, *, package_name: str, workspace: Workspace
     ) -> ProjectValidationResult:
-        assert package_name == "sample"
+        assert package_name == self._package_name
         assert workspace.root.is_dir()
         return ProjectValidationResult(
             steps=(
@@ -202,6 +205,55 @@ def test_generation_pipeline_composes_all_declared_modules(tmp_path: Path) -> No
         }
         assert (tmp_path / "output/src/sample/modules/identity/generated/router.py").is_file()
         assert (tmp_path / "output/src/sample/modules/account/generated/router.py").is_file()
+
+    asyncio.run(scenario())
+
+
+def test_generation_pipeline_generates_identity_session_profile_blueprint(
+    tmp_path: Path,
+) -> None:
+    async def scenario() -> None:
+        blueprint = (
+            Path(__file__).parents[2] / "blueprints" / "identity_session_profile"
+        )
+        pipeline = GenerationJobPipeline(
+            job_store=InMemoryJobStore(),
+            event_bus=EventBus(),
+            validator=SuccessfulValidator("base_server"),
+        )
+
+        execution = await pipeline.run(
+            GenerationJobRequest(
+                project_path=blueprint / "autoforge.yaml",
+                specifications_path=blueprint / "specifications",
+                output_path=tmp_path / "output",
+            ),
+            job_id="job-identity-session-profile",
+        )
+
+        assert execution.job.manifest is not None
+        assert {unit.unit_id for unit in execution.job.manifest.units} == {
+            "project",
+            "module:identity",
+            "module:account",
+        }
+        assert (
+            tmp_path
+            / "output/src/base_server/modules/identity/handlers.py"
+        ).is_file()
+        assert (
+            tmp_path
+            / "output/src/base_server/modules/account/handlers.py"
+        ).is_file()
+        assert (
+            tmp_path / "output/environment/compose.integration.yml"
+        ).is_file()
+        compose = (
+            tmp_path / "output/environment/compose.integration.yml"
+        ).read_text(encoding="utf-8")
+        assert "postgres:" in compose
+        assert "redis-7000:" in compose
+        assert "application:" not in compose
 
     asyncio.run(scenario())
 

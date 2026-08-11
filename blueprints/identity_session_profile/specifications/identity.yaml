@@ -1,0 +1,143 @@
+spec_version: "1"
+
+module:
+  name: identity
+  display_name: Identity
+  route_prefix: /api/identity
+
+models:
+  - name: LoginAccount
+    fields:
+      - name: user_id
+        type:
+          kind: uuid
+      - name: email
+        type:
+          kind: string
+      - name: password_hash
+        type:
+          kind: string
+      - name: is_active
+        type:
+          kind: boolean
+        default: true
+      - name: shard_id
+        type:
+          kind: string
+      - name: created_at
+        type:
+          kind: datetime
+
+endpoints:
+  - name: signup
+    method: POST
+    path: /signup
+    request:
+      fields:
+        - name: email
+          type:
+            kind: string
+        - name: password
+          type:
+            kind: string
+    response:
+      fields:
+        - name: user_id
+          type:
+            kind: uuid
+        - name: email
+          type:
+            kind: string
+        - name: is_active
+          type:
+            kind: boolean
+    handler: signup
+    dependencies:
+      - database_session_registry
+  - name: login
+    method: POST
+    path: /login
+    request:
+      fields:
+        - name: email
+          type:
+            kind: string
+        - name: password
+          type:
+            kind: string
+    response:
+      fields:
+        - name: user_id
+          type:
+            kind: uuid
+        - name: access_token
+          type:
+            kind: string
+        - name: token_type
+          type:
+            kind: string
+    handler: login
+    dependencies:
+      - session_store
+      - database_session_registry
+  - name: validate_session
+    method: POST
+    path: /session/validate
+    request:
+      fields:
+        - name: access_token
+          type:
+            kind: string
+    response:
+      fields:
+        - name: user_id
+          type:
+            kind: uuid
+        - name: shard_id
+          type:
+            kind: string
+    handler: validate_session
+    dependencies:
+      - session_store
+
+database:
+  provider: agnostic
+  tables:
+    - name: login_accounts
+      columns:
+        - name: user_id
+          type:
+            kind: uuid
+          primary_key: true
+        - name: email
+          type:
+            kind: string
+          unique: true
+        - name: password_hash
+          type:
+            kind: string
+        - name: is_active
+          type:
+            kind: boolean
+          default: true
+        - name: shard_id
+          type:
+            kind: string
+        - name: created_at
+          type:
+            kind: datetime
+  repositories:
+    - name: LoginAccountRepository
+      aggregate: LoginAccount
+      table: login_accounts
+      operations:
+        - find_by_id
+        - save
+      queries:
+        - name: find_by_email
+          column: email
+  placements:
+    - table: login_accounts
+      store: identity
+      mode: global
+      unresolved_policy: error

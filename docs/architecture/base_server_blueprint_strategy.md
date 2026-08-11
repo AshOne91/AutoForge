@@ -118,6 +118,15 @@ persistence를 end-to-end로 검증했다. 다음 AutoForge 작업은 이를 gen
 policy/business handler의 조합 계약을 추출하는 것이다. credential handling은 보안
 경계이므로 소비자 요구와 함께 설계한다.
 
+2026-08-11 기준으로 이 조합은 기존 Pipeline에서 이미 실제 실행된다. Pipeline은
+`autoforge.yaml`의 `application.modules`와 `specifications/*.yaml`의 선언 일치를
+검증한 뒤 Project unit과 모든 Module unit을 함께 생성한다. 이를 바로 소비하는
+`blueprints/identity_session_profile` 입력 Blueprint를 제공한다. 이는 새로운
+metadata 전용 `BlueprintSpec`이 아니라, 기존 `autoforge generate` 명령으로 Router,
+schema, Global/Shard persistence, Redis session contract를 생성하는 실제 입력이다.
+생성되는 `handlers.py`는 SCAFFOLDED이고 credential·token·shard-selection 정책은
+소비자가 구현한다.
+
 ### 3. Market ingestion Blueprint
 
 외부 API adapter, cache, durable job, Airflow, Outbox/Worker를 조합한다. AutoForge는

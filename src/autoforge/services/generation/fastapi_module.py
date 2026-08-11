@@ -315,6 +315,11 @@ class FastAPIModuleGenerator:
         )
         if model_names or schema_names:
             imports.append("")
+        if self._requires_database_registry(specification):
+            imports.append(
+                f"from {self._package_name}.infrastructure.database.session "
+                "import AsyncSessionRegistry"
+            )
         if self._requires_session_store(specification):
             imports.append(
                 f"from {self._package_name}.infrastructure.session_store.protocol "
@@ -324,11 +329,6 @@ class FastAPIModuleGenerator:
             imports.append(
                 f"from {self._package_name}.infrastructure.session_store.protocol "
                 "import SessionData"
-            )
-        if self._requires_database_registry(specification):
-            imports.append(
-                f"from {self._package_name}.infrastructure.database.session "
-                "import AsyncSessionRegistry"
             )
         if model_names:
             imports.append(f"from {module_path}.models import {', '.join(model_names)}")
