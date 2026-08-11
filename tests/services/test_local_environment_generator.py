@@ -119,6 +119,10 @@ def test_render_creates_disposable_kis_integration_services() -> None:
     assert "redis-7001:" in compose
     assert "redis-7002:" in compose
     assert "redis-cluster-init" in compose
+    assert "- |-\n        if redis-cli" in compose
+    assert "cluster nodes | grep -q '[0-9]-[0-9]'" in compose
+    assert "existing Redis cluster did not become healthy" in compose
+    assert "redis-7002:7002 --cluster-replicas 0 --cluster-yes" in compose
     assert "rabbitmq:4.1-management-alpine" in compose
     assert "CREATE DATABASE \"identity\";" in databases
     assert "CREATE DATABASE \"automation\";" in databases

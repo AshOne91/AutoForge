@@ -30,6 +30,8 @@ AutoForge currently has working foundations for:
   through an explicit external named network; both local search paths are runtime-verified
 - opt-in MinIO S3-compatible local storage
 - Identity/Session/Sharded Profile and Scheduled Ingestion input Blueprints
+- KIS validation slice: Yahoo Finance news collection → PostgreSQL canonical records
+  → durable `news_index` handoff → selectable search-backend indexing is runtime-verified
 
 ## Docker work
 
@@ -37,6 +39,11 @@ The optional Dockerfile Generator and generated-project daemon build are verifie
 Local/integration Compose and Kubernetes base manifests are generated under their
 own contracts. Artifact publishing, live deployment, and cloud credentials are not
 owned by the Dockerfile Generator.
+
+Generated Compose reuses its application image tag. Runtime verification therefore
+rebuilds the image after consumer source changes; Redis Cluster initialization is
+idempotent for a healthy existing local cluster and reports unhealthy runtime state
+without resetting unrelated services.
 
 ## Development tooling
 

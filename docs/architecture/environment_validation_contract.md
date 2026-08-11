@@ -61,6 +61,20 @@ user-owned
 
 ## 검증 계약
 
+## Runtime image and Redis cluster re-entry
+
+Generated Compose services reuse the configured application image tag. After a
+consumer source change, an operator must rebuild that image before treating a
+container run as evidence for the new source. Recreating only application,
+worker, or relay containers does not update their installed package.
+
+The local Redis Cluster initializer is idempotent: it creates a cluster only
+when no hash slots are assigned. If slots already exist, it waits a bounded time
+for `cluster_state:ok` and never issues a second cluster-create command. A
+previously unhealthy local cluster is runtime state, not a reason to reset
+PostgreSQL, RabbitMQ, or search data; only its explicitly identified disposable
+Redis containers and anonymous data volumes may be reset.
+
 1. 같은 명세는 같은 환경 파일과 Content Hash를 생성한다.
 2. 비활성화된 환경은 파일을 생성하지 않는다.
 3. 선언되지 않은 Service는 Compose에 추가하지 않는다.
