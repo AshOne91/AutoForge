@@ -1,0 +1,4 @@
+interface:
+  display_name: "AutoForge Vertical Slice"
+  short_description: "Reuse existing generators and build verified end-to-end slices"
+  default_prompt: "Use $autoforge-vertical-slice to implement this feature through existing specifications, generators, and runtime contracts."

@@ -85,3 +85,4 @@ creating a new document.
 ## Architecture lineage
 
 - For specification/generator/application architecture decisions rooted in common-tool, game-server, or base_server, use the `architecture-lineage` Skill.
+- For feature work spanning AutoForge and consumer projects, use `autoforge-vertical-slice`: reuse existing capabilities, build one verified end-to-end slice, and extend it incrementally.
