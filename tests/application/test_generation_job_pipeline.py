@@ -289,6 +289,8 @@ def test_generation_pipeline_generates_scheduled_ingestion_blueprint(
         ).is_file()
         assert (tmp_path / "output/airflow/dags/scheduled_ingestion.py").is_file()
         assert (tmp_path / "output/scripts/run_durable_job_worker.py").is_file()
+        assert (tmp_path / "output/deploy/rag/compose.rag.yaml").is_file()
+        assert (tmp_path / "output/deploy/storage/compose.storage.yaml").is_file()
 
     asyncio.run(scenario())
 

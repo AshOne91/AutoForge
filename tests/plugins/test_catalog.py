@@ -25,12 +25,14 @@ from autoforge.services.generation.messaging import MESSAGING_GENERATOR_ID
 from autoforge.services.generation.postgresql_ddl import (
     POSTGRESQL_DDL_GENERATOR_ID,
 )
+from autoforge.services.generation.rag import RAG_INFRASTRUCTURE_GENERATOR_ID
 from autoforge.services.generation.repository import REPOSITORY_GENERATOR_ID
 from autoforge.services.generation.session_store import SESSION_STORE_GENERATOR_ID
 from autoforge.services.generation.sqlalchemy import (
     SQLALCHEMY_MODEL_GENERATOR_ID,
     SQLALCHEMY_PROJECT_GENERATOR_ID,
 )
+from autoforge.services.generation.storage import OBJECT_STORAGE_GENERATOR_ID
 from autoforge.services.validation import (
     PROJECT_VALIDATOR_ID,
     ProcessResult,
@@ -73,10 +75,12 @@ def test_builtin_catalog_contains_expected_plugins() -> None:
         GENERATOR_ID,
         KUBERNETES_BASE_SERVER_GENERATOR_ID,
         LOCAL_ENVIRONMENT_GENERATOR_ID,
+        RAG_INFRASTRUCTURE_GENERATOR_ID,
         DURABLE_JOB_GENERATOR_ID,
         MESSAGING_GENERATOR_ID,
         SESSION_STORE_GENERATOR_ID,
         SQLALCHEMY_PROJECT_GENERATOR_ID,
+        OBJECT_STORAGE_GENERATOR_ID,
     ]
     assert catalog.generators.module.names() == [
         ALEMBIC_BASELINE_GENERATOR_ID,

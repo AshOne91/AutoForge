@@ -79,6 +79,21 @@ owning generator contract exist.
 
 ## Later
 
+### Base Server service capability completion
+
+The long-term target is to reimplement every Base Server service *responsibility*
+as a modern AutoForge capability, not to copy the legacy package tree into every
+generated project. The complete inventory, ownership boundary, and sequencing
+are fixed in `docs/architecture/base_server_service_capability_map.md`.
+
+- [x] RAG infrastructure profile (Qdrant, Elasticsearch, optional Ollama)
+- [ ] canonical ingestion/indexing handoff after a consumer chooses its record contract
+- [ ] Redis distributed lock after a real concurrency-critical consumer path exists
+- [ ] Realtime/WebSocket and notification Blueprint after a consumer path exists
+- [x] local MinIO S3-compatible object storage profile
+- [ ] cloud S3/object-storage provider after raw-document persistence is selected
+- [ ] external-provider resiliency adapter after a provider is selected
+
 - [ ] additional database providers such as MySQL
 - [x] managed Redis Cluster connection contract (verified against KIS cluster)
 - [ ] managed Redis Sentinel deployment verification (when selected by a consumer)
@@ -121,6 +136,14 @@ project and validate its application, migration, Airflow, RabbitMQ, outbox,
 and worker contracts together. Do not add specification-only metadata: each
 Blueprint contract must change generated output and be validated by KIS or an
 equivalent isolated generated-project environment.
+
+On 2026-08-11, that scheduled-ingestion runtime validation completed in an
+isolated generated Compose project: application health, migration, PostgreSQL,
+RabbitMQ, Airflow DAG registration, private API 401 protection, authenticated
+job creation, and the Outbox-to-Worker terminal path were verified. The empty
+scaffolded handler produced the expected `failed` terminal status. The next
+implementation belongs to KIS only after its external news provider, canonical
+schema, persistence target, and credential policy are selected.
 
 Reference order is deliberate: `common-tool` supplies generation intent,
 `game-server` supplies runtime composition meaning, and `base_server` supplies

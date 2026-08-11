@@ -256,6 +256,8 @@ class ToolingSpec(StrictSpecModel):
     ci: CiSpec = Field(default_factory=lambda: CiSpec())
     docker: DockerSpec = Field(default_factory=lambda: DockerSpec())
     elk: ElkSpec = Field(default_factory=lambda: ElkSpec())
+    rag: RagSpec = Field(default_factory=lambda: RagSpec())
+    storage: StorageSpec = Field(default_factory=lambda: StorageSpec())
     kubernetes: KubernetesSpec = Field(default_factory=lambda: KubernetesSpec())
     local_environment: LocalEnvironmentSpec = Field(
         default_factory=lambda: LocalEnvironmentSpec()
@@ -297,6 +299,29 @@ class ElkSpec(StrictSpecModel):
     kubernetes_collector_enabled: bool = False
 
     _validate_version = field_validator("version")(validate_semantic_version)
+
+
+class RagSpec(StrictSpecModel):
+    """Generate an optional local RAG infrastructure overlay."""
+
+    enabled: bool = False
+    qdrant_version: str = "1.18.3"
+    elasticsearch_version: str = "8.19.17"
+    ollama_version: str = "0.32.5"
+    host_port_base: int = Field(default=49400, ge=49152, le=65400, multiple_of=100)
+
+    _validate_qdrant_version = field_validator("qdrant_version")(validate_semantic_version)
+    _validate_elasticsearch_version = field_validator("elasticsearch_version")(
+        validate_semantic_version
+    )
+    _validate_ollama_version = field_validator("ollama_version")(validate_semantic_version)
+
+
+class StorageSpec(StrictSpecModel):
+    """Generate an optional local S3-compatible object storage overlay."""
+
+    enabled: bool = False
+    host_port_base: int = Field(default=49500, ge=49152, le=65400, multiple_of=100)
 
 
 class KubernetesSpec(StrictSpecModel):

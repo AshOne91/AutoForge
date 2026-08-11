@@ -64,6 +64,11 @@ from autoforge.services.generation.postgresql_ddl import (
     POSTGRESQL_DDL_GENERATOR_VERSION,
     PostgreSQLDDLGenerator,
 )
+from autoforge.services.generation.rag import (
+    RAG_INFRASTRUCTURE_GENERATOR_ID,
+    RAG_INFRASTRUCTURE_GENERATOR_VERSION,
+    RagInfrastructureGenerator,
+)
 from autoforge.services.generation.repository import (
     REPOSITORY_GENERATOR_ID,
     REPOSITORY_GENERATOR_VERSION,
@@ -80,6 +85,11 @@ from autoforge.services.generation.sqlalchemy import (
     SQLALCHEMY_PROJECT_GENERATOR_ID,
     SQLAlchemyInfrastructureGenerator,
     SQLAlchemyModelGenerator,
+)
+from autoforge.services.generation.storage import (
+    OBJECT_STORAGE_GENERATOR_ID,
+    OBJECT_STORAGE_GENERATOR_VERSION,
+    ObjectStorageGenerator,
 )
 
 
@@ -179,6 +189,18 @@ def create_fastapi_generator_plugins(
     )
     project_registry.register(
         GeneratorPluginAdapter(
+            RagInfrastructureGenerator(),
+            PluginMetadata(
+                name=RAG_INFRASTRUCTURE_GENERATOR_ID,
+                version=RAG_INFRASTRUCTURE_GENERATOR_VERSION,
+                description="Local Qdrant, Elasticsearch and optional Ollama RAG overlay Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
+    project_registry.register(
+        GeneratorPluginAdapter(
             LocalEnvironmentGenerator(),
             PluginMetadata(
                 name=LOCAL_ENVIRONMENT_GENERATOR_ID,
@@ -220,6 +242,18 @@ def create_fastapi_generator_plugins(
                 name=SESSION_STORE_GENERATOR_ID,
                 version=SESSION_STORE_GENERATOR_VERSION,
                 description="SessionStore Protocol, Fake와 Redis Adapter Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
+    project_registry.register(
+        GeneratorPluginAdapter(
+            ObjectStorageGenerator(),
+            PluginMetadata(
+                name=OBJECT_STORAGE_GENERATOR_ID,
+                version=OBJECT_STORAGE_GENERATOR_VERSION,
+                description="Local MinIO S3-compatible object storage overlay Generator",
                 capabilities=(PluginCapability.GENERATOR,),
                 supported_specification_versions=("1",),
             ),

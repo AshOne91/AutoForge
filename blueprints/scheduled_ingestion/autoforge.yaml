@@ -13,6 +13,12 @@ tooling:
     enabled: true
     application_enabled: true
     host_port_base: 49300
+  rag:
+    enabled: true
+    host_port_base: 49400
+  storage:
+    enabled: true
+    host_port_base: 49500
 
 application:
   framework: fastapi
