@@ -32,6 +32,12 @@ Core 명세와 생성 계약은 GitHub, Webhook, Redis, Database, RabbitMQ 같�
 구체 인프라에 의존하지 않는다. 외부 입출력은 Adapter와 Composition Root가
 주입하며, 생성 대상에 필요한 Runtime Service는 ProjectSpec으로 선언한다.
 
+### Runtime Service 조합
+
+생성 프로젝트의 Service는 단순 라이브러리 호출이 아니라, 선택적으로 배포·확장·관측할 수 있는 Runtime 경계다. 각 Service는 자신의 설정, 수명주기, 상태 확인과 통신 계약을 소유하고, Application Composition Root 또는 명시적인 Event/Queue 계약으로 다른 Service와 조합된다. 모든 프로젝트에 모든 Service를 포함하지 않으며, ProjectSpec이 필요한 Service만 선택한다.
+
+예를 들어 수집, canonical 저장, 임베딩, keyword/vector 검색, RAG 응답은 서로 다른 Service가 될 수 있다. AutoForge는 이들의 공통 배포·설정·소유권 골격을 생성하고, 소비자 프로젝트는 선택한 Service를 실제 도메인 흐름으로 조합한다. 현재 구현된 Service와 향후 확장 순서는 [current_status.md](../../.codex/current_status.md)와 [roadmap.md](../../.codex/roadmap.md)가 소유한다.
+
 ## 핵심 개념
 
 ### ProjectSpec

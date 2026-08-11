@@ -13,7 +13,10 @@ generated project. The dated inventory is preserved as
 `docs/reference/base_server_service_capability_map.md`; this Roadmap owns future
 sequencing.
 
+- [ ] reusable service-composition contract: independently deployable services with explicit configuration, lifecycle, health, and Event/Queue boundaries
 - [ ] canonical ingestion/indexing handoff after a consumer chooses its record contract
+- [ ] KIS news vertical slice: canonical news record → durable indexing handoff → native Elasticsearch hybrid retrieval (BM25 + vector + RRF); Qdrant is an optional independently scalable vector-service expansion, not a first-slice requirement
+- [ ] embedding and reranking provider contracts after the selected consumer establishes an evaluation dataset and relevance target
 - [ ] Redis distributed lock after a real concurrency-critical consumer path exists
 - [ ] Realtime/WebSocket and notification Blueprint after a consumer path exists
 - [ ] cloud S3/object-storage provider after raw-document persistence is selected
