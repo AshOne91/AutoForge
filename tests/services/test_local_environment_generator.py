@@ -22,6 +22,7 @@ def integration_specification(
     durable_jobs: bool = False,
     application: bool = False,
     rag: bool = False,
+    rag_search_backend: str = "elasticsearch",
     host_port_base: int | None = None,
 ) -> ProjectSpec:
     return ProjectSpec(
@@ -83,7 +84,7 @@ def integration_specification(
                 "application_enabled": application,
                 "host_port_base": host_port_base,
             },
-            "rag": {"enabled": rag},
+            "rag": {"enabled": rag, "search_backend": rag_search_backend},
         },
     )
 
@@ -152,9 +153,38 @@ def test_render_connects_rag_consumers_to_the_shared_network() -> None:
     ]
     assert compose["services"]["durable-job-worker"]["restart"] == "unless-stopped"
     assert "RAG_NETWORK_NAME=kis_auto_trading-rag" in environment
-    assert "RAG_ELASTICSEARCH_URL=http://elasticsearch:9200" in environment
+    assert "RAG_SEARCH_BACKEND=elasticsearch" in environment
+    assert "RAG_SEARCH_URL=http://elasticsearch:9200" in environment
     assert "RAG_OLLAMA_URL=http://ollama:11434" in environment
     assert "RAG_EMBEDDING_MODEL=embeddinggemma" in environment
+
+
+def test_render_configures_rag_consumers_for_opensearch() -> None:
+    files = LocalEnvironmentGenerator().render(
+        integration_specification(
+            enabled=True,
+            durable_jobs=True,
+            application=True,
+            rag=True,
+            rag_search_backend="opensearch",
+        )
+    )
+
+    compose = yaml.safe_load(
+        files[PurePosixPath("environment", "compose.integration.yml")]
+    )
+    environment = files[PurePosixPath("environment", ".env.example")]
+
+    assert (
+        compose["services"]["application"]["environment"]["RAG_SEARCH_BACKEND"]
+        == "${RAG_SEARCH_BACKEND:-opensearch}"
+    )
+    assert (
+        compose["services"]["durable-job-worker"]["environment"]["RAG_SEARCH_URL"]
+        == "${RAG_SEARCH_URL:-http://opensearch:9200}"
+    )
+    assert "RAG_SEARCH_BACKEND=opensearch" in environment
+    assert "RAG_SEARCH_URL=http://opensearch:9200" in environment
 
 
 def test_render_adds_airflow_for_durable_jobs() -> None:

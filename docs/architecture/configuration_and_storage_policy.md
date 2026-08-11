@@ -40,18 +40,7 @@ Generated Compose overlays remain independently managed. When an optional servic
 must communicate with the generated application or worker, the generator emits an
 explicit non-secret network setting and attaches only the required services to the
 same external named network. The current RAG overlay uses `RAG_NETWORK_NAME` for
-this purpose; application and durable-job workers can resolve `qdrant` and
-`elasticsearch` by service DNS without relying on host ports or Docker Desktop
-specific host aliases. The external network is created once by the operator and
-is not deleted by either Compose overlay.
-
-## Local service connectivity
-
-Generated Compose overlays remain independently managed. When an optional service
-must communicate with the generated application or worker, the generator emits an
-explicit non-secret network setting and attaches only the required services to the
-same external named network. The current RAG overlay uses `RAG_NETWORK_NAME` for
-this purpose; application and durable-job workers can resolve `qdrant` and
-`elasticsearch` by service DNS without relying on host ports or Docker Desktop
-specific host aliases. The external network is created once by the operator and
-is not deleted by either Compose overlay.
+this purpose; application and durable-job workers can resolve `qdrant`, `ollama`,
+and the selected `elasticsearch` or `opensearch` service by DNS without relying on
+host ports or Docker Desktop-specific host aliases. The external network is created
+once by the operator and is not deleted by either Compose overlay.

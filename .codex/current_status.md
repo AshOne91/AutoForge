@@ -25,8 +25,9 @@ AutoForge currently has working foundations for:
 - PostgreSQL, Redis Cluster, RabbitMQ, migration, application, Airflow, Outbox relay,
   and durable-job worker runtime validation
 - ELK and Kubernetes base-server generation
-- opt-in RAG infrastructure with Qdrant, Elasticsearch, and Ollama, connected to
-  generated application/worker consumers through an explicit external named network
+- opt-in RAG infrastructure with Qdrant, Ollama, and one selectable search backend
+  (Elasticsearch or OpenSearch), connected to generated application/worker consumers
+  through an explicit external named network; both local search paths are runtime-verified
 - opt-in MinIO S3-compatible local storage
 - Identity/Session/Sharded Profile and Scheduled Ingestion input Blueprints
 

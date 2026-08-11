@@ -315,13 +315,18 @@ class RagSpec(StrictSpecModel):
     """Generate an optional local RAG infrastructure overlay."""
 
     enabled: bool = False
+    search_backend: Literal["elasticsearch", "opensearch"] = "elasticsearch"
     qdrant_version: str = "1.18.3"
     elasticsearch_version: str = "8.19.17"
+    opensearch_version: str = "2.19.6"
     ollama_version: str = "0.32.5"
     host_port_base: int = Field(default=49400, ge=49152, le=65400, multiple_of=100)
 
     _validate_qdrant_version = field_validator("qdrant_version")(validate_semantic_version)
     _validate_elasticsearch_version = field_validator("elasticsearch_version")(
+        validate_semantic_version
+    )
+    _validate_opensearch_version = field_validator("opensearch_version")(
         validate_semantic_version
     )
     _validate_ollama_version = field_validator("ollama_version")(validate_semantic_version)

@@ -310,9 +310,11 @@ class LocalEnvironmentGenerator:
         return specification.project.package_name.replace("_", "-") + ":local"
 
     @staticmethod
-    def _render_rag_environment() -> str:
+    def _render_rag_environment(specification: ProjectSpec) -> str:
+        search_backend = specification.tooling.rag.search_backend
         return (
-            "      RAG_ELASTICSEARCH_URL: ${RAG_ELASTICSEARCH_URL:-http://elasticsearch:9200}\n"
+            f"      RAG_SEARCH_BACKEND: ${{RAG_SEARCH_BACKEND:-{search_backend}}}\n"
+            f"      RAG_SEARCH_URL: ${{RAG_SEARCH_URL:-http://{search_backend}:9200}}\n"
             "      RAG_OLLAMA_URL: ${RAG_OLLAMA_URL:-http://ollama:11434}\n"
             "      RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-embeddinggemma}\n"
         )
@@ -370,7 +372,7 @@ class LocalEnvironmentGenerator:
             if has_durable_jobs
             else ""
         )
-        rag_environment = self._render_rag_environment() if has_rag else ""
+        rag_environment = self._render_rag_environment(specification) if has_rag else ""
         depends_on = (
             "    depends_on:\n" + "".join(dependencies)
             if dependencies
@@ -422,7 +424,7 @@ class LocalEnvironmentGenerator:
     ) -> str:
         image = self._application_image(specification)
         rag_network = "    networks:\n      - default\n      - rag\n" if has_rag else ""
-        rag_environment = self._render_rag_environment() if has_rag else ""
+        rag_environment = self._render_rag_environment(specification) if has_rag else ""
         return (
             "  durable-job-worker:\n"
             f"    image: ${{APPLICATION_IMAGE:-{image}}}\n"
@@ -546,10 +548,12 @@ class LocalEnvironmentGenerator:
         if has_application:
             lines.append(f"APPLICATION_PORT={application_port}\n")
         if has_rag:
+            search_backend = specification.tooling.rag.search_backend
             lines.extend(
                 [
                     f"RAG_NETWORK_NAME={specification.project.package_name}-rag\n",
-                    "RAG_ELASTICSEARCH_URL=http://elasticsearch:9200\n",
+                    f"RAG_SEARCH_BACKEND={search_backend}\n",
+                    f"RAG_SEARCH_URL=http://{search_backend}:9200\n",
                     "RAG_OLLAMA_URL=http://ollama:11434\n",
                     "RAG_EMBEDDING_MODEL=embeddinggemma\n",
                 ]

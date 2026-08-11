@@ -67,6 +67,18 @@ Workspace 상대 POSIX 경로만 허용한다. 절대경로, 드라이브 경로
 출력 경로는 ProjectSpec에 포함하지 않는다. 출력 위치는 CLI 또는
 GenerationJob이 지정한다.
 
+### RAG local search backend
+
+`tooling.rag.search_backend` selects exactly one local keyword-and-vector search
+service: `elasticsearch` (the default) or `opensearch`. The generated environment
+uses `RAG_SEARCH_BACKEND` and `RAG_SEARCH_URL`, so application and worker code do
+not depend on a provider-specific service name. Elasticsearch uses its
+`dense_vector` mapping; OpenSearch uses its `knn_vector` mapping.
+
+This contract covers generated local containers only. Managed cloud search
+services, including AWS OpenSearch Service authentication, are not generated or
+runtime-verified by this setting.
+
 ## ApplicationSpec
 
 어떤 Module과 Service를 Application에 연결할지 정의한다.

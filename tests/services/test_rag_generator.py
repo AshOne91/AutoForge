@@ -12,7 +12,9 @@ from autoforge.core.specification import (
 from autoforge.services.generation.rag import RagInfrastructureGenerator
 
 
-def specification(*, enabled: bool = False) -> ProjectSpec:
+def specification(
+    *, enabled: bool = False, search_backend: str = "elasticsearch"
+) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
         project=ProjectInfo(
@@ -21,7 +23,7 @@ def specification(*, enabled: bool = False) -> ProjectSpec:
             version="0.1.0",
         ),
         application=ApplicationSpec(),
-        tooling=ToolingSpec(rag=RagSpec(enabled=enabled)),
+        tooling=ToolingSpec(rag=RagSpec(enabled=enabled, search_backend=search_backend)),
     )
 
 
@@ -41,7 +43,8 @@ def test_rag_generator_renders_opt_in_local_services() -> None:
     assert "ollama/ollama:0.32.5" in compose
     assert '"${LOCAL_BIND_ADDRESS:-127.0.0.1}:${QDRANT_HTTP_PORT:-49450}:6333"' in compose
     assert "QDRANT_URL=http://qdrant:6333" in environment
-    assert "ELASTICSEARCH_URL=http://elasticsearch:9200" in environment
+    assert "RAG_SEARCH_BACKEND=elasticsearch" in environment
+    assert "RAG_SEARCH_URL=http://elasticsearch:9200" in environment
     assert "OLLAMA_BASE_URL=http://ollama:11434" in environment
     assert "RAG_NETWORK_NAME=kis_auto_trading-rag" in environment
     assert "no model is downloaded automatically" in readme
@@ -54,6 +57,28 @@ def test_rag_generator_renders_opt_in_local_services() -> None:
         "external": True,
     }
     assert all(service["networks"] == ["rag"] for service in parsed["services"].values())
+
+
+def test_rag_generator_renders_opensearch_instead_of_elasticsearch() -> None:
+    files = RagInfrastructureGenerator().render(
+        specification(enabled=True, search_backend="opensearch")
+    )
+
+    compose = files[PurePosixPath("deploy", "rag", "compose.rag.yaml")]
+    environment = files[PurePosixPath("deploy", "rag", ".env.example")]
+    parsed = yaml.safe_load(compose)
+
+    assert "opensearchproject/opensearch:2.19.6" in compose
+    assert "elasticsearch" not in parsed["services"]
+    assert set(parsed["services"]) == {"qdrant", "opensearch", "ollama"}
+    assert parsed["services"]["opensearch"]["environment"] == {
+        "discovery.type": "single-node",
+        "DISABLE_INSTALL_DEMO_CONFIG": "true",
+        "DISABLE_SECURITY_PLUGIN": "true",
+        "OPENSEARCH_JAVA_OPTS": "-Xms512m -Xmx512m",
+    }
+    assert "RAG_SEARCH_BACKEND=opensearch" in environment
+    assert "RAG_SEARCH_URL=http://opensearch:9200" in environment
 
 
 def test_rag_generator_plan_marks_all_outputs_generated() -> None:

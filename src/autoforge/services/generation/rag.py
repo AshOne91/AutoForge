@@ -67,6 +67,39 @@ class RagInfrastructureGenerator:
     def _render_compose(specification: ProjectSpec) -> str:
         rag = specification.tooling.rag
         base = rag.host_port_base
+        search_service = (
+            f'''  opensearch:
+    profiles: ["rag"]
+    image: opensearchproject/opensearch:{rag.opensearch_version}
+    networks: [rag]
+    environment:
+      discovery.type: single-node
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      DISABLE_SECURITY_PLUGIN: "true"
+      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{OPENSEARCH_PORT:-{base + 60}}}:9200"
+    volumes:
+      - rag-opensearch-data:/usr/share/opensearch/data
+
+'''
+            if rag.search_backend == "opensearch"
+            else f'''  elasticsearch:
+    profiles: ["rag"]
+    image: docker.elastic.co/elasticsearch/elasticsearch:{rag.elasticsearch_version}
+    networks: [rag]
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{ELASTICSEARCH_PORT:-{base + 60}}}:9200"
+    volumes:
+      - rag-elasticsearch-data:/usr/share/elasticsearch/data
+
+'''
+        )
+        search_volume = f"rag-{rag.search_backend}-data"
         return f'''name: {specification.project.package_name}-rag
 
 services:
@@ -80,20 +113,7 @@ services:
     volumes:
       - qdrant-storage:/qdrant/storage
 
-  elasticsearch:
-    profiles: ["rag"]
-    image: docker.elastic.co/elasticsearch/elasticsearch:{rag.elasticsearch_version}
-    networks: [rag]
-    environment:
-      discovery.type: single-node
-      xpack.security.enabled: "false"
-      ES_JAVA_OPTS: -Xms512m -Xmx512m
-    ports:
-      - "${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{ELASTICSEARCH_PORT:-{base + 60}}}:9200"
-    volumes:
-      - rag-elasticsearch-data:/usr/share/elasticsearch/data
-
-  ollama:
+{search_service}  ollama:
     profiles: ["inference"]
     image: ollama/ollama:{rag.ollama_version}
     networks: [rag]
@@ -109,31 +129,37 @@ networks:
 
 volumes:
   qdrant-storage:
-  rag-elasticsearch-data:
+  {search_volume}:
   ollama-data:
 '''
 
     @staticmethod
     def _render_env(specification: ProjectSpec) -> str:
-        base = specification.tooling.rag.host_port_base
+        rag = specification.tooling.rag
+        base = rag.host_port_base
+        search_name = rag.search_backend
+        search_port_name = f"{search_name.upper()}_PORT"
         return f'''# Copy to .env. This local profile contains no credentials.
 LOCAL_BIND_ADDRESS=127.0.0.1
 RAG_NETWORK_NAME={specification.project.package_name}-rag
 QDRANT_URL=http://qdrant:6333
 QDRANT_HTTP_PORT={base + 50}
 QDRANT_GRPC_PORT={base + 51}
-ELASTICSEARCH_URL=http://elasticsearch:9200
-ELASTICSEARCH_PORT={base + 60}
+RAG_SEARCH_BACKEND={search_name}
+RAG_SEARCH_URL=http://{search_name}:9200
+{search_name.upper()}_URL=http://{search_name}:9200
+{search_port_name}={base + 60}
 OLLAMA_BASE_URL=http://ollama:11434
 OLLAMA_PORT={base + 70}
 '''
 
     @staticmethod
     def _render_readme(specification: ProjectSpec) -> str:
+        search_name = specification.tooling.rag.search_backend.title()
         return f'''# Generated local RAG infrastructure
 
 This optional overlay provides a local vector store (Qdrant), keyword search
-(Elasticsearch), and local inference runtime (Ollama) for
+({search_name}), and local inference runtime (Ollama) for
 `{specification.project.package_name}`. It does not create collections, indexes,
 documents, embeddings, prompts, or models.
 
@@ -161,9 +187,9 @@ docker compose --env-file deploy/rag/.env -f deploy/rag/compose.rag.yaml --profi
 docker compose --env-file deploy/rag/.env -f deploy/rag/compose.rag.yaml exec ollama ollama pull <selected-model>
 ```
 
-Qdrant and Elasticsearch use named Docker volumes because they own persistent
+Qdrant and {search_name} use named Docker volumes because they own persistent
 data. Ports bind to `LOCAL_BIND_ADDRESS` and default to the configured local
-port block. `xpack.security.enabled` is disabled only for this local overlay.
+port block. Search-engine security is disabled only for this local overlay.
 Production requires authenticated, backed-up, cluster-aware service deployment;
 do not use this Compose file as a production topology.
 '''
