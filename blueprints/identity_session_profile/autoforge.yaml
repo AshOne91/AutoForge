@@ -7,9 +7,11 @@ project:
   description: Identity, Redis session, and sharded profile FastAPI foundation
 
 tooling:
+  docker:
+    enabled: true
   local_environment:
     enabled: true
-    application_enabled: false
+    application_enabled: true
 
 application:
   framework: fastapi

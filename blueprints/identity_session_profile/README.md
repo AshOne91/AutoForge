@@ -23,8 +23,9 @@ Copy-Item C:\work\my-server\environment\.env.example C:\work\my-server\environme
 docker compose --env-file .env -f compose.integration.yml up -d --wait
 ```
 
-현재 환경 프로파일은 PostgreSQL과 Redis Cluster만 제공한다. application 컨테이너와
-migration 실행은 durable-job/Airflow 통합 계약과 함께 별도 활성화한다.
+이 환경은 PostgreSQL과 Redis Cluster, migration, FastAPI application 컨테이너를
+함께 기동한다. durable-job, Airflow, RabbitMQ는 이 Blueprint 범위 밖이며 별도
+Application 조합에서 활성화한다.
 
 비밀번호 해싱, 토큰 형식, 권한, `user_id`에 대한 shard 선택 규칙은 이 Blueprint에
 포함하지 않는다. 해당 보안·업무 정책은 소비자 프로젝트가 소유한다.

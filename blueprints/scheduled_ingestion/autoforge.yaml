@@ -1,0 +1,39 @@
+spec_version: "1"
+
+project:
+  name: Scheduled Ingestion Server
+  package_name: ingestion_server
+  version: "0.1.0"
+  description: Scheduled ingestion foundation with durable jobs and transactional outbox
+
+tooling:
+  docker:
+    enabled: true
+  local_environment:
+    enabled: true
+    application_enabled: true
+
+application:
+  framework: fastapi
+  modules: []
+  services:
+    - name: domain_events
+      kind: rabbitmq
+      connection_url_env: RABBITMQ_URL
+      exchange: ingestion.domain.events
+      queue: ingestion.events
+      routing_key: ingestion.#
+      dead_letter_exchange: ingestion.domain.events.dlx
+      dead_letter_queue: ingestion.events.dead-letter
+      prefetch_count: 32
+      outbox_stores:
+        - automation
+  databases:
+    - name: automation
+      global_url_env: AUTOMATION_DATABASE_URL
+  durable_jobs:
+    - name: scheduled_ingestion
+      store: automation
+      event_type: ingestion.requested
+      routing_key: ingestion.requested
+      schedule: "0 * * * *"

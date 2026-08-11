@@ -142,6 +142,26 @@ def test_render_adds_airflow_for_durable_jobs() -> None:
     assert "Airflow" in readme
 
 
+def test_render_starts_application_without_durable_jobs() -> None:
+    files = LocalEnvironmentGenerator().render(
+        integration_specification(enabled=True, application=True)
+    )
+
+    compose = files[PurePosixPath("environment", "compose.integration.yml")]
+    environment = files[PurePosixPath("environment", ".env.example")]
+    readme = files[PurePosixPath("environment", "README.md")]
+
+    assert "  migrate:" in compose
+    assert "  application:" in compose
+    assert "  airflow:" not in compose
+    assert "  outbox-relay:" not in compose
+    assert "  durable-job-worker:" not in compose
+    assert "DURABLE_JOB_API_TOKEN:" not in compose
+    assert "DURABLE_JOB_API_TOKEN=" not in environment
+    assert "APPLICATION_PORT=28000" in environment
+    assert "The generated application is built from Dockerfile." in readme
+
+
 def test_render_connects_docker_application_to_airflow() -> None:
     files = LocalEnvironmentGenerator().render(
         integration_specification(enabled=True, durable_jobs=True, application=True)

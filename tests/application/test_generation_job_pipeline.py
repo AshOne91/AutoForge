@@ -253,7 +253,42 @@ def test_generation_pipeline_generates_identity_session_profile_blueprint(
         ).read_text(encoding="utf-8")
         assert "postgres:" in compose
         assert "redis-7000:" in compose
-        assert "application:" not in compose
+        assert "application:" in compose
+        assert "migrate:" in compose
+        assert "DURABLE_JOB_API_TOKEN:" not in compose
+        assert (tmp_path / "output/Dockerfile").is_file()
+
+    asyncio.run(scenario())
+
+
+def test_generation_pipeline_generates_scheduled_ingestion_blueprint(
+    tmp_path: Path,
+) -> None:
+    async def scenario() -> None:
+        blueprint = Path(__file__).parents[2] / "blueprints" / "scheduled_ingestion"
+        pipeline = GenerationJobPipeline(
+            job_store=InMemoryJobStore(),
+            event_bus=EventBus(),
+            validator=SuccessfulValidator("ingestion_server"),
+        )
+
+        execution = await pipeline.run(
+            GenerationJobRequest(
+                project_path=blueprint / "autoforge.yaml",
+                specifications_path=blueprint / "specifications",
+                output_path=tmp_path / "output",
+            ),
+            job_id="job-scheduled-ingestion",
+        )
+
+        assert execution.job.manifest is not None
+        assert [unit.unit_id for unit in execution.job.manifest.units] == ["project"]
+        assert (
+            tmp_path
+            / "output/src/ingestion_server/application/durable_job_handler.py"
+        ).is_file()
+        assert (tmp_path / "output/airflow/dags/scheduled_ingestion.py").is_file()
+        assert (tmp_path / "output/scripts/run_durable_job_worker.py").is_file()
 
     asyncio.run(scenario())
 

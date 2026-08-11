@@ -127,10 +127,20 @@ schema, Global/Shard persistence, Redis session contract를 생성하는 실제 
 생성되는 `handlers.py`는 SCAFFOLDED이고 credential·token·shard-selection 정책은
 소비자가 구현한다.
 
+같은 날짜에 이 Blueprint는 별도 Docker Compose 프로젝트에서 실제로 검증됐다.
+생성 Dockerfile build, PostgreSQL, Redis Cluster, migration, FastAPI application이
+순서대로 healthy가 되었고 `/health`는 `{"status":"ok"}`을 반환했다. 이 검증은
+일반 application profile이며 RabbitMQ, Airflow, durable job worker는 포함하지 않는다.
+그 서비스들은 소비자가 durable-job 조합을 선언할 때 기존 통합 profile로 추가한다.
+
 ### 3. Market ingestion Blueprint
 
 외부 API adapter, cache, durable job, Airflow, Outbox/Worker를 조합한다. AutoForge는
 공통 실행 경계를 생성하고 뉴스 수집·매매 전략 같은 업무는 KIS가 소유한다.
+
+`blueprints/scheduled_ingestion`은 이 단계의 실행 기반을 먼저 제공한다. 이는
+durable-job store, RabbitMQ/Outbox, Airflow, worker, Docker Compose까지만 생성한다.
+외부 API adapter와 실제 ingestion handler는 SCAFFOLDED 소비자 코드로 남긴다.
 
 ### 4. Realtime Blueprint
 

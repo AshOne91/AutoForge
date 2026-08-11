@@ -39,10 +39,8 @@ class LocalEnvironmentGenerator:
         if not specification.application.databases and redis_mode is None and not rabbitmq_services:
             raise ValueError("local environment requires a declared database or service")
         has_durable_jobs = bool(specification.application.durable_jobs)
-        has_application = (
-            has_durable_jobs
-            and specification.tooling.local_environment.application_enabled
-        )
+        has_application = specification.tooling.local_environment.application_enabled
+        has_migration = has_application and bool(specification.application.databases)
 
         files = {
             PurePosixPath("environment", "compose.integration.yml"): self._render_compose(
@@ -51,6 +49,7 @@ class LocalEnvironmentGenerator:
                 has_rabbitmq=bool(rabbitmq_services),
                 has_durable_jobs=has_durable_jobs,
                 has_application=has_application,
+                has_migration=has_migration,
             ),
             PurePosixPath("environment", ".env.example"): self._render_env(
                 specification,
@@ -64,6 +63,7 @@ class LocalEnvironmentGenerator:
                 has_rabbitmq=bool(rabbitmq_services),
                 has_durable_jobs=has_durable_jobs,
                 has_application=has_application,
+                has_migration=has_migration,
             ),
         }
         database_names = self._database_names(specification.application.databases)
@@ -127,6 +127,7 @@ class LocalEnvironmentGenerator:
         has_rabbitmq: bool,
         has_durable_jobs: bool,
         has_application: bool,
+        has_migration: bool,
     ) -> str:
         services: list[str] = []
         if specification.application.databases:
@@ -138,8 +139,16 @@ class LocalEnvironmentGenerator:
         if has_rabbitmq:
             services.append(self._render_rabbitmq())
         if has_application:
-            services.append(self._render_migrate(specification))
-            services.append(self._render_application(specification, redis_mode=redis_mode))
+            if has_migration:
+                services.append(self._render_migrate(specification))
+            services.append(
+                self._render_application(
+                    specification,
+                    redis_mode=redis_mode,
+                    has_durable_jobs=has_durable_jobs,
+                    has_migration=has_migration,
+                )
+            )
             if has_durable_jobs:
                 services.append(self._render_outbox_relay(specification))
                 services.append(self._render_durable_job_worker(specification))
@@ -285,22 +294,42 @@ class LocalEnvironmentGenerator:
         )
 
     def _render_application(
-        self, specification: ProjectSpec, *, redis_mode: str | None
+        self,
+        specification: ProjectSpec,
+        *,
+        redis_mode: str | None,
+        has_durable_jobs: bool,
+        has_migration: bool,
     ) -> str:
         image = self._application_image(specification)
         redis_environment = ""
-        redis_dependency = ""
+        dependencies: list[str] = []
+        if has_migration:
+            dependencies.append(
+                "      migrate:\n"
+                "        condition: service_completed_successfully\n"
+            )
         if redis_mode == "standalone":
             redis_environment = "      REDIS_URL: ${REDIS_URL:-redis://redis:6379}\n"
-            redis_dependency = "      redis:\n        condition: service_healthy\n"
+            dependencies.append("      redis:\n        condition: service_healthy\n")
         elif redis_mode == "cluster":
             redis_environment = (
                 "      REDIS_CLUSTER_URL: ${REDIS_CLUSTER_URL:-redis://redis-7000:7000}\n"
             )
-            redis_dependency = (
+            dependencies.append(
                 "      redis-cluster-init:\n"
                 "        condition: service_completed_successfully\n"
             )
+        durable_job_environment = (
+            "      DURABLE_JOB_API_TOKEN: ${DURABLE_JOB_API_TOKEN:?set DURABLE_JOB_API_TOKEN}\n"
+            if has_durable_jobs
+            else ""
+        )
+        depends_on = (
+            "    depends_on:\n" + "".join(dependencies)
+            if dependencies
+            else ""
+        )
         return (
             "  application:\n"
             f"    image: ${{APPLICATION_IMAGE:-{image}}}\n"
@@ -308,16 +337,13 @@ class LocalEnvironmentGenerator:
             "    environment:\n"
             + self._render_database_environment(specification)
             + redis_environment
-            + "      DURABLE_JOB_API_TOKEN: ${DURABLE_JOB_API_TOKEN:?set DURABLE_JOB_API_TOKEN}\n"
-            "      LOG_DIRECTORY: /app/logs\n"
+            + durable_job_environment
+            + "      LOG_DIRECTORY: /app/logs\n"
             "    ports:\n"
             "      - \"${APPLICATION_PORT:-28000}:8000\"\n"
             "    volumes:\n"
             "      - ../logs:/app/logs\n"
-            "    depends_on:\n"
-            "      migrate:\n"
-            "        condition: service_completed_successfully\n"
-            + redis_dependency
+            + depends_on
             + "    healthcheck:\n"
             "      test: [\"CMD\", \"python\", \"-c\", \"from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health').read()\"]\n"
             "      interval: 5s\n"
@@ -461,6 +487,7 @@ class LocalEnvironmentGenerator:
         has_rabbitmq: bool,
         has_durable_jobs: bool,
         has_application: bool,
+        has_migration: bool,
     ) -> str:
         services = ["PostgreSQL"]
         if redis_mode == "cluster":
@@ -483,13 +510,22 @@ class LocalEnvironmentGenerator:
             "```\n"
             "\n"
             "Run application containers on the Compose network. The Redis Cluster URL uses\n"
-            "Docker service DNS and is intentionally not a host-process URL. Airflow is\n"
-            "generated paused and reads the durable-job API token from .env. When the\n"
-            "application profile is enabled, the outbox relay and durable-job worker run\n"
-            "from the same local image.\n"
+            "Docker service DNS and is intentionally not a host-process URL.\n"
             + (
-                "When Docker is enabled, migrations run before the generated application starts.\n"
+                "The generated application is built from Dockerfile. "
+                + (
+                    "When Docker is enabled, migrations run before the generated "
+                    "application starts.\n"
+                    if has_migration
+                    else "No database migration service is required.\n"
+                )
                 if has_application
-                else "Enable the local application profile to generate the application service for Airflow calls.\n"
+                else "Enable the local application profile to generate the application service.\n"
+            )
+            + (
+                "Airflow is generated paused and reads the durable-job API token from .env. "
+                "The outbox relay and durable-job worker run from the same local image.\n"
+                if has_durable_jobs
+                else ""
             )
         )
