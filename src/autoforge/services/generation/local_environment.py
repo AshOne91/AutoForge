@@ -459,9 +459,9 @@ class LocalEnvironmentGenerator:
             if has_application
             else "http://host.docker.internal:8000"
         )
-        application_dependency = ""
+        scheduler_dependencies = ""
         if has_application:
-            application_dependency = (
+            scheduler_dependencies = (
                 "      application:\n"
                 "        condition: service_healthy\n"
                 "      outbox-relay:\n"
@@ -469,31 +469,60 @@ class LocalEnvironmentGenerator:
                 "      durable-job-worker:\n"
                 "        condition: service_started\n"
             )
-        return (
-            "  airflow:\n"
-            "    image: apache/airflow:2.10.5-python3.12\n"
-            "    depends_on:\n"
-            "      postgres:\n"
-            "        condition: service_healthy\n"
-            + application_dependency
-            + "    environment:\n"
+        environment = (
             "      AIRFLOW__CORE__EXECUTOR: SequentialExecutor\n"
             "      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-autoforge}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/airflow\n"
             "      AIRFLOW__CORE__LOAD_EXAMPLES: \"false\"\n"
             "      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: \"true\"\n"
             f"      DURABLE_JOB_API_URL: ${{DURABLE_JOB_API_URL:-{api_url}}}\n"
             "      DURABLE_JOB_API_TOKEN: ${DURABLE_JOB_API_TOKEN:?set DURABLE_JOB_API_TOKEN}\n"
-            "    volumes:\n"
+        )
+        volumes = (
             "      - ../airflow/dags:/opt/airflow/dags:ro\n"
             "      - airflow-home:/opt/airflow\n"
-            "    ports:\n"
+        )
+        return (
+            "  airflow-init:\n"
+            "    image: apache/airflow:2.10.5-python3.12\n"
+            "    depends_on:\n"
+            "      postgres:\n"
+            "        condition: service_healthy\n"
+            "    environment:\n"
+            + environment
+            + "    volumes:\n"
+            + volumes
+            + "    command: [\"airflow\", \"db\", \"migrate\"]\n"
+            "\n"
+            "  airflow-webserver:\n"
+            "    image: apache/airflow:2.10.5-python3.12\n"
+            "    depends_on:\n"
+            "      airflow-init:\n"
+            "        condition: service_completed_successfully\n"
+            "    environment:\n"
+            + environment
+            + "    volumes:\n"
+            + volumes
+            + "    ports:\n"
             f"      - \"${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{AIRFLOW_PORT:-{airflow_port}}}:8080\"\n"
-            "    command: standalone\n"
+            "    command: webserver\n"
             "    healthcheck:\n"
             "      test: [\"CMD-SHELL\", \"curl --fail http://localhost:8080/health || exit 1\"]\n"
             "      interval: 10s\n"
             "      timeout: 5s\n"
             "      retries: 30\n"
+            "\n"
+            "  airflow-scheduler:\n"
+            "    image: apache/airflow:2.10.5-python3.12\n"
+            "    depends_on:\n"
+            "      airflow-init:\n"
+            "        condition: service_completed_successfully\n"
+            + scheduler_dependencies
+            + "    environment:\n"
+            + environment
+            + "    volumes:\n"
+            + volumes
+            + "    command: scheduler\n"
+            "    restart: unless-stopped\n"
         )
 
     def _render_env(

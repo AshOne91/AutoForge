@@ -196,17 +196,23 @@ def test_render_adds_airflow_for_durable_jobs() -> None:
         integration_specification(enabled=True, durable_jobs=True)
     )
 
-    compose = files[PurePosixPath("environment", "compose.integration.yml")]
+    compose = yaml.safe_load(
+        files[PurePosixPath("environment", "compose.integration.yml")]
+    )
     environment = files[PurePosixPath("environment", ".env.example")]
     databases = files[
         PurePosixPath("environment", "postgres-init", "00-databases.sql")
     ]
     readme = files[PurePosixPath("environment", "README.md")]
 
-    assert "image: apache/airflow:2.10.5-python3.12" in compose
-    assert "DURABLE_JOB_API_TOKEN: ${DURABLE_JOB_API_TOKEN:?set DURABLE_JOB_API_TOKEN}" in compose
-    assert "../airflow/dags:/opt/airflow/dags:ro" in compose
-    assert "airflow-home:/opt/airflow" in compose
+    airflow = compose["services"]
+    assert {"airflow-init", "airflow-webserver", "airflow-scheduler"} <= set(airflow)
+    assert airflow["airflow-init"]["command"] == ["airflow", "db", "migrate"]
+    assert airflow["airflow-webserver"]["command"] == "webserver"
+    assert airflow["airflow-scheduler"]["command"] == "scheduler"
+    assert airflow["airflow-webserver"]["environment"]["DURABLE_JOB_API_TOKEN"] == "${DURABLE_JOB_API_TOKEN:?set DURABLE_JOB_API_TOKEN}"
+    assert "../airflow/dags:/opt/airflow/dags:ro" in airflow["airflow-scheduler"]["volumes"]
+    assert "airflow-home:/opt/airflow" in airflow["airflow-init"]["volumes"]
     assert "DURABLE_JOB_API_TOKEN=change-me" in environment
     assert 'CREATE DATABASE "airflow";' in databases
     assert "Airflow" in readme

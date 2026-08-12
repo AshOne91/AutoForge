@@ -53,16 +53,13 @@ AutoForge currently has working foundations for:
   a cancelled Job into a controlled failure without invoking a handler
 - `scripts/verify_scale_out.py` automates the Airflow cancellation assertion
   together with the PostgreSQL, RabbitMQ, Redis Cluster, and two-API checks
-- The same verifier executes the generated Airflow DAG through `dag.test()` with
-  real TaskInstance/XCom context against a deterministic `news_index` payload;
-  the real worker (Outbox, RabbitMQ, and handler) completes its zero-article
-  path, and Airflow observes `succeeded` and returns normally. It deliberately
-  does not claim an external news-provider call or a scheduled production DAG
-  run; the local standalone scheduler keeps DAGs paused by default, and shared
-  SequentialExecutor metadata retained retrying test runs, so scheduled-trigger
-  verification remains blocked until an isolated scheduler service and metadata
-  run are available; a one-off `docker compose run` scheduler did not reliably
-  process the trigger task in this profile
+- The generated local environment separates `airflow-init`, `airflow-webserver`,
+  and a long-running `airflow-scheduler`; KIS verifies the service process is
+  alive and still runs `dag.test()` for the deterministic `news_index` success
+  path with real TaskInstance/XCom context. Actual scheduled task execution is
+  intentionally not asserted in the shared Airflow metadata database: unpausing
+  a cron DAG also creates unrelated scheduled runs. External news-provider calls
+  and a production schedule remain unverified.
 - KIS terminal retry alert policy currently uses the structured Elasticsearch
   signal as the operator-facing baseline; external webhook/email/SMS delivery
   remains deferred until a destination, payload boundary, and delivery

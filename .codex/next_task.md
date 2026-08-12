@@ -1,30 +1,22 @@
 # Next Task
 
-## Next executable unit: verify scheduled Airflow execution
+## Next executable unit: isolate Airflow scheduler task validation
 
 The next executable work is in kis-auto-trading.
 
-OWNERSHIP: user-owned scale-out validation script
+OWNERSHIP: AutoForge local-environment validation contract
 
-EVIDENCE: `scripts/verify_scale_out.py` runs the generated Airflow service,
-discovers `durable_job_news_collection`, verifies the cancelled wait failure,
-and executes the generated DAG through Airflow `dag.test()` with real
-TaskInstance/XCom context against a worker-completed `news_index` Job. The
-cancellation contract is verified across PostgreSQL, Outbox relay, RabbitMQ,
-and the worker.
+EVIDENCE: AutoForge now renders `airflow-init`, `airflow-webserver`, and
+`airflow-scheduler`; KIS runs the same lifecycle in its user-owned scale-out
+profile. The scheduler process is live, but a shared Airflow metadata database
+cannot safely distinguish a test-triggered cron run from independently due runs.
 
-Exercise the generated schedule/task-run path in an isolated Airflow metadata
-run: unpause the DAG explicitly, use a unique logical date so Durable Job
-idempotency does not reuse an older run, and keep external news providers
-disabled. Reuse the existing API, worker, and Compose helpers; do not alter the
-generated DAG.
+Create a dedicated test metadata database or isolated Compose project for one
+Airflow scheduler-trigger test. It must start with an empty Airflow metadata
+database, use a unique logical date, cancel only the known test Job through the
+internal API, and remove only that test run's metadata. Do not substitute the
+KIS-owned `compose.integration.yaml`; it is a richer validation profile, not
+generated output.
 
-The shared local `SequentialExecutor` metadata retained prior manual validation
-runs and continued retrying them, so the scheduled-trigger helper was not kept
-in the repository. Provide an isolated Airflow scheduler service plus metadata
-database/run first; the attempted one-off scheduler container was not reliable
-in this Compose profile. Do not solve this by adding longer polling or direct
-production-state updates.
-
-Do not add a new scheduler, provider, retry framework, RAG reranking, or
+Do not add another scheduler, provider, retry framework, RAG reranking, or
 external alert channel in this slice.
