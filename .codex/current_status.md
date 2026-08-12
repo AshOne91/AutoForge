@@ -48,6 +48,9 @@ AutoForge currently has working foundations for:
   remain harmless when delivered because the worker's atomic claim skips their
   handler; KIS verifies API cancellation idempotency and the worker boundary
   against local PostgreSQL, the Outbox relay, RabbitMQ, and the live worker
+- KIS scale-out integration also runs the generated Airflow DAG against the
+  live token-protected API; DAG discovery is verified and its wait task turns
+  a cancelled Job into a controlled failure without invoking a handler
 - KIS terminal retry alert policy currently uses the structured Elasticsearch
   signal as the operator-facing baseline; external webhook/email/SMS delivery
   remains deferred until a destination, payload boundary, and delivery
