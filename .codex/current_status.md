@@ -53,11 +53,12 @@ AutoForge currently has working foundations for:
   a cancelled Job into a controlled failure without invoking a handler
 - `scripts/verify_scale_out.py` automates the Airflow cancellation assertion
   together with the PostgreSQL, RabbitMQ, Redis Cluster, and two-API checks
-- The same verifier executes the generated Airflow `trigger_job` and
-  `wait_for_job` functions against a deterministic `news_index` payload; the
-  real worker (Outbox, RabbitMQ, and handler) completes its zero-article path,
-  and Airflow observes `succeeded` and returns normally. It deliberately does
-  not claim an external news-provider call or a scheduled Airflow DAG run
+- The same verifier executes the generated Airflow DAG through `dag.test()` with
+  real TaskInstance/XCom context against a deterministic `news_index` payload;
+  the real worker (Outbox, RabbitMQ, and handler) completes its zero-article
+  path, and Airflow observes `succeeded` and returns normally. It deliberately
+  does not claim an external news-provider call or a scheduled production DAG
+  run
 - KIS terminal retry alert policy currently uses the structured Elasticsearch
   signal as the operator-facing baseline; external webhook/email/SMS delivery
   remains deferred until a destination, payload boundary, and delivery
