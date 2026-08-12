@@ -9,11 +9,12 @@ OWNERSHIP: user-owned
 EVIDENCE: the Yahoo provider enforces a positive timeout and classifies
 timeout/provider failures. KIS schedules up to three durable collection attempts
 with 2- and 4-second delays, logs a final failure, and its generated Filebeat
-profile has runtime-verified delivery to Elasticsearch. The durable-job handler
-remains scaffolded/preserved, so its business behavior is consumer-owned.
+profile has runtime-verified delivery to Elasticsearch with structured retry
+fields. The durable-job handler remains scaffolded/preserved, so its business
+behavior is consumer-owned.
 
-Choose whether the existing structured log signal should create an operator alert,
-and, if so, where it should go. Keep the canonical news record, idempotent
+Choose whether the existing structured log signal should create an active operator
+alert, and, if so, where it should go. Keep the canonical news record, idempotent
 persistence, `news_index` handoff, delayed-retry contract, and generated log
 collection unchanged.
 

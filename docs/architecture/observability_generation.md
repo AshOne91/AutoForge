@@ -49,6 +49,12 @@ FastAPI / worker
 
 ## Runtime boundaries
 
+Generated JSON logging allowlists durable-job event type, job type, job ID, run
+key, current attempt, and maximum attempts for safe operational filtering.
+
+Generated JSON logging allowlists durable-job event type, job type, job ID, run
+key, current attempt, and maximum attempts for safe operational filtering.
+
 - `central` 모드는 로컬 개발용 Elasticsearch, Kibana와 Filebeat를 생성한다.
 - `collector` 모드는 Filebeat만 생성하고 Elasticsearch 주소를 환경 변수로 받는다.
 - `tooling.elk.kubernetes_collector_enabled`는 Filebeat ConfigMap과 DaemonSet만

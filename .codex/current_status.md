@@ -37,7 +37,9 @@ AutoForge currently has working foundations for:
 - Yahoo provider failure boundary: positive timeout and timeout/provider error
   classification with preserved causes; KIS schedules bounded durable retries
   (three total attempts, delayed through the generated Outbox contract) and logs
-  an operator-visible error when retries are exhausted
+  an operator-visible structured error when retries are exhausted
+- KIS terminal retry logs are queryable in Elasticsearch by `event_type`,
+  `job_id`, `run_key`, `attempt`, and `max_attempts`
 - KIS validation slice: Yahoo Finance news collection → PostgreSQL canonical records
   → durable `news_index` handoff → selectable search-backend indexing is runtime-verified
 

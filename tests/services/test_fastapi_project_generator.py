@@ -174,6 +174,8 @@ def test_observability_records_safe_request_metadata() -> None:
     assert "request.url.path" in observability
     assert "request.url.query" not in observability
     assert "RotatingFileHandler" in observability
+    assert "'event_type', 'job_type', 'job_id'" in observability
+    assert "'run_key', 'attempt', 'max_attempts'" in observability
 
 
 def test_session_service_generates_and_registers_lifespan() -> None:
