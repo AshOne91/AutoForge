@@ -21,8 +21,10 @@ generated DAG.
 
 The shared local `SequentialExecutor` metadata retained prior manual validation
 runs and continued retrying them, so the scheduled-trigger helper was not kept
-in the repository. Provide an isolated Airflow metadata database/run first;
-do not solve this by adding longer polling or direct production-state updates.
+in the repository. Provide an isolated Airflow scheduler service plus metadata
+database/run first; the attempted one-off scheduler container was not reliable
+in this Compose profile. Do not solve this by adding longer polling or direct
+production-state updates.
 
 Do not add a new scheduler, provider, retry framework, RAG reranking, or
 external alert channel in this slice.

@@ -60,7 +60,9 @@ AutoForge currently has working foundations for:
   does not claim an external news-provider call or a scheduled production DAG
   run; the local standalone scheduler keeps DAGs paused by default, and shared
   SequentialExecutor metadata retained retrying test runs, so scheduled-trigger
-  verification remains blocked until an isolated metadata run is available
+  verification remains blocked until an isolated scheduler service and metadata
+  run are available; a one-off `docker compose run` scheduler did not reliably
+  process the trigger task in this profile
 - KIS terminal retry alert policy currently uses the structured Elasticsearch
   signal as the operator-facing baseline; external webhook/email/SMS delivery
   remains deferred until a destination, payload boundary, and delivery
