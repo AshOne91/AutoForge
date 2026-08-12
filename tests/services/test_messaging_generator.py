@@ -111,6 +111,11 @@ def test_render_generates_transport_outbox_relay_and_migration() -> None:
     assert ".with_for_update(skip_locked=True)" in relay
     assert "except MessagePublishError as error" in relay
     assert "except Exception" not in relay
+    repository = files[
+        PurePosixPath("src/kis_auto_trading/infrastructure/outbox/repository.py")
+    ]
+    assert "available_at: datetime | None = None" in repository
+    assert "available_at=available_at or occurred_at" in repository
     assert ".on_conflict_do_nothing(index_elements=['event_id'])" in inbox
     assert "af_account_outbox_0001" in revision
     assert "processed_messages" in revision

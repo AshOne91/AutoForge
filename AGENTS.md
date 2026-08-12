@@ -67,8 +67,12 @@ Every behavioral change requires appropriate verification.
 
 Before modifying code, check `git status` and preserve unrelated user changes.
 
-Do not commit, push, stash, reset, restore, or rewrite history unless explicitly
-requested.
+After a verified, bounded change, inspect the diff and automatically commit and
+push each affected repository separately. Pause and report instead when
+verification fails or is incomplete, ownership is unclear, unrelated changes are
+present, the action is destructive, or push is rejected.
+
+Do not stash, reset, restore, or rewrite history unless explicitly requested.
 
 After changes, report changed files, verification performed, and remaining issues.
 

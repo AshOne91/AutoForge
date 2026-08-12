@@ -86,6 +86,8 @@ def test_durable_job_generator_emits_atomic_request_contract() -> None:
     assert "news.collection.requested" in contracts
     assert "on_conflict_do_nothing(index_elements=['job_type', 'run_key'])" in repository
     assert "OutboxWriter(self._session).add(" in repository
+    assert "available_at: datetime | None = None" in repository
+    assert "available_at=available_at" in repository
     assert ".commit(" not in repository
     assert "message.event_type != definition.event_type" in worker
     assert "from typing import Protocol" in worker

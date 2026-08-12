@@ -30,6 +30,9 @@ AutoForge currently has working foundations for:
   through an explicit external named network; both local search paths are runtime-verified
 - opt-in MinIO S3-compatible local storage
 - Identity/Session/Sharded Profile and Scheduled Ingestion input Blueprints
+- Yahoo provider failure boundary: positive timeout and timeout/provider error
+  classification with preserved causes; KIS schedules bounded durable retries
+  (three total attempts, delayed through the generated Outbox contract)
 - KIS validation slice: Yahoo Finance news collection → PostgreSQL canonical records
   → durable `news_index` handoff → selectable search-backend indexing is runtime-verified
 
@@ -44,6 +47,10 @@ Generated Compose reuses its application image tag. Runtime verification therefo
 rebuilds the image after consumer source changes; Redis Cluster initialization is
 idempotent for a healthy existing local cluster and reports unhealthy runtime state
 without resetting unrelated services.
+
+The generated durable-job and Outbox repositories support a caller-supplied
+availability time, so consumer retries can be delayed without changing an event's
+original occurrence time.
 
 ## Development tooling
 
