@@ -1,21 +1,21 @@
 # Next Task
 
-## Next executable unit: durable-job cancellation contract
+## Next executable unit: durable-job cancellation integration validation
 
 The next executable work is in AutoForge.
 
 OWNERSHIP: AutoForge architecture and generation contract
 
-EVIDENCE: AutoForge already generates a token-protected trigger/status API and
-an Airflow DAG whose data-interval run key reaches the durable-job repository.
-KIS now runtime-verifies those generated endpoints. `base_server` also exposes
-an operator stop endpoint, but AutoForge has no durable-job cancellation state
-or API contract yet.
+EVIDENCE: AutoForge now generates a token-protected cancellation endpoint.
+`requested` Jobs transition to `cancelled`; duplicate cancellation is
+idempotent; `running` or terminal Jobs return a conflict; an already delivered
+message cannot invoke a cancelled Job's handler because worker claim is atomic.
 
-Define the smallest cancellation boundary: which requested or running Jobs may
-be cancelled, how a worker observes it, what remains in Outbox, and what status
-the GET endpoint returns. Do not imply that cancellation can undo an already
-completed external side effect.
+Run the same contract against the local PostgreSQL, RabbitMQ relay, and
+durable-job worker. Verify that cancellation commits before relay claim, status
+remains `cancelled`, and no handler-side canonical record is written. Do not
+reset unrelated local data or imply that cancellation reverses a completed
+external side effect.
 
 Do not add a new scheduler, provider, retry framework, RAG reranking, or
 external alert channel in this slice.

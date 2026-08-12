@@ -88,6 +88,7 @@ def test_durable_job_generator_emits_atomic_request_contract() -> None:
     assert "OutboxWriter(self._session).add(" in repository
     assert "available_at: datetime | None = None" in repository
     assert "available_at=available_at" in repository
+    assert "populate_existing=True" in repository
     assert ".commit(" not in repository
     assert "message.event_type != definition.event_type" in worker
     assert "from typing import Protocol" in worker
@@ -95,6 +96,7 @@ def test_durable_job_generator_emits_atomic_request_contract() -> None:
     assert "DurableJobStatus.RUNNING" in worker
     assert "DurableJobStatus.SUCCEEDED" in worker
     assert "DurableJobStatus.FAILED" in worker
+    assert "CANCELLED = 'cancelled'" in contracts
     assert "raise TypeError('durable job payload must be an object')" in worker
     assert "raise" in worker
     assert "class ApplicationDurableJobHandler" in handler
@@ -111,6 +113,7 @@ def test_durable_job_generator_emits_atomic_request_contract() -> None:
     assert "DURABLE_JOB_API_TOKEN" in dag
     assert "'Authorization': f'Bearer {api_token}'" in dag
     assert "execution_timeout=timedelta(seconds=TIMEOUT_SECONDS)" in dag
+    assert "raise RuntimeError('durable job cancelled')" in dag
     assert "# noqa" not in dag
     assert "af_account_outbox_0001" in revision
     assert "uq_durable_jobs_type_run_key" in revision
@@ -156,6 +159,11 @@ def test_fastapi_project_registers_durable_job_endpoints() -> None:
     assert "ShardTarget(store=definition.store)" in router
     assert "from secrets import compare_digest" in router
     assert "DURABLE_JOB_API_TOKEN" in router
+    assert "DurableJobStatus" in router
     assert "Header" in router
     assert "dependencies=[Depends(_require_durable_job_api_token)]" in router
+    assert "@router.delete('/{job_type}/{job_id}'" in router
+    assert "expected_status=DurableJobStatus.REQUESTED" in router
+    assert "status=DurableJobStatus.CANCELLED" in router
+    assert "if job is not None and job.status == DurableJobStatus.CANCELLED.value" in router
     assert "app.include_router(durable_jobs_router)" in app_factory

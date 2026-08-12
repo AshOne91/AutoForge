@@ -59,6 +59,19 @@ DB Schema 명세에서 저장 계층 코드를 생성한다.
 Database 생성의 Schema, Repository, Data Placement, Runtime Topology,
 Transaction/Outbox 경계는 `database_generation.md`에서 정의한다.
 
+### Durable Job
+
+Durable Job은 외부 scheduler가 직접 업무 handler를 호출하지 않고,
+token-protected /internal/jobs/{job_type} trigger/status API를 통해 Outbox와
+worker로 전달되는 생성 계약이다. (job_type, run_key)는 idempotency key이며
+동일한 요청은 같은 Job을 재사용한다.
+
+DELETE /internal/jobs/{job_type}/{job_id}는 아직 worker가 claim하지 않은
+requested Job만 cancelled로 전이한다. 이미 전달된 Outbox message는 삭제하지
+않지만 worker의 원자적 requested → running claim이 실패하므로 handler를 실행하지
+않는다. running, succeeded, failed Job은 취소할 수 없고, 취소는 완료된 외부
+부수 효과를 되돌리지 않는다.
+
 ## 생성 파일 소유권
 
 Python에는 C#의 `partial class`가 없으므로 파일 단위로 소유권을 분리한다.
