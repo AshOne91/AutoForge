@@ -47,6 +47,7 @@ AutoForge currently has working foundations for:
 - generated durable Jobs can cancel only before worker claim: cancelled messages
   remain harmless when delivered because the worker's atomic claim skips their
   handler; KIS verifies API cancellation idempotency and the worker boundary
+  against local PostgreSQL, the Outbox relay, RabbitMQ, and the live worker
 - KIS terminal retry alert policy currently uses the structured Elasticsearch
   signal as the operator-facing baseline; external webhook/email/SMS delivery
   remains deferred until a destination, payload boundary, and delivery
@@ -65,6 +66,11 @@ Generated Compose reuses its application image tag. Runtime verification therefo
 rebuilds the image after consumer source changes; Redis Cluster initialization is
 idempotent for a healthy existing local cluster and reports unhealthy runtime state
 without resetting unrelated services.
+
+The KIS scale-out integration profile reserves Redis Cluster's fixed
+`172.29.0.10`–`172.29.0.15` addresses and allocates other containers from
+`172.29.0.128/25`. This keeps partial service restarts from colliding with Redis
+node addresses.
 
 The generated durable-job and Outbox repositories support a caller-supplied
 availability time, so consumer retries can be delayed without changing an event's
