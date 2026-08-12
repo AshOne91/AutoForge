@@ -1,22 +1,21 @@
 # Next Task
 
-## Next executable unit: isolate Airflow scheduler task validation
+## Next executable unit: restore profile-event consumer after RabbitMQ recovery
 
 The next executable work is in kis-auto-trading.
 
-OWNERSHIP: AutoForge local-environment validation contract
+OWNERSHIP: kis-auto-trading user-owned integration runtime
 
-EVIDENCE: AutoForge now renders `airflow-init`, `airflow-webserver`, and
-`airflow-scheduler`; KIS runs the same lifecycle in its user-owned scale-out
-profile. The scheduler process is live, but a shared Airflow metadata database
-cannot safely distinguish a test-triggered cron run from independently due runs.
+EVIDENCE: the KIS full scale-out verifier reaches Outbox `published` after a
+RabbitMQ restart, but `kis.profile.events` has zero consumers and its event is
+not inserted into the Inbox. The durable-job queue still has its worker,
+isolating the defect to profile-event consumer lifecycle rather than broker or
+Outbox publication.
 
-Create a dedicated test metadata database or isolated Compose project for one
-Airflow scheduler-trigger test. It must start with an empty Airflow metadata
-database, use a unique logical date, cancel only the known test Job through the
-internal API, and remove only that test run's metadata. Do not substitute the
-KIS-owned `compose.integration.yaml`; it is a richer validation profile, not
-generated output.
+Trace the user-owned profile-event worker service and its Compose lifecycle.
+After a broker restart it must reconnect, redeclare the queue, consume the
+published event once, and write one Inbox record. Preserve the AutoForge
+generated environment and Durable Job worker contracts.
 
-Do not add another scheduler, provider, retry framework, RAG reranking, or
-external alert channel in this slice.
+Do not add a broker cluster, retry framework, or external alert channel in this
+slice.

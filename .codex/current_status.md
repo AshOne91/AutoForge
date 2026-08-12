@@ -54,11 +54,12 @@ AutoForge currently has working foundations for:
 - `scripts/verify_scale_out.py` automates the Airflow cancellation assertion
   together with the PostgreSQL, RabbitMQ, Redis Cluster, and two-API checks
 - The generated local environment separates `airflow-init`, `airflow-webserver`,
-  and a long-running `airflow-scheduler`; KIS verifies the service process is
-  alive and still runs `dag.test()` for the deterministic `news_index` success
-  path with real TaskInstance/XCom context. Actual scheduled task execution is
-  intentionally not asserted in the shared Airflow metadata database: unpausing
-  a cron DAG also creates unrelated scheduled runs. External news-provider calls
+  and a long-running `airflow-scheduler`; KIS validates actual scheduler task
+  execution in an isolated generated Compose project. It waits for scheduler
+  DAG registration, unpauses the isolated DAG, triggers one historical logical
+  date, confirms the Durable Job through the live API, and cancels it before
+  worker claim. The generated test project uses port block `59400` and removes
+  only its own containers, network, and volume. External news-provider calls
   and a production schedule remain unverified.
 - KIS's full RabbitMQ outage-recovery check currently reaches Outbox `published`
   but not Inbox processing for `kis.profile.events`: after broker restart that
