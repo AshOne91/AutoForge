@@ -19,9 +19,10 @@ idempotency does not reuse an older run, and keep external news providers
 disabled. Reuse the existing API, worker, and Compose helpers; do not alter the
 generated DAG.
 
-The shared local `SequentialExecutor` metadata currently contains prior manual
-validation runs, so this step must not rely on a short polling timeout or leave
-test runs active.
+The shared local `SequentialExecutor` metadata retained prior manual validation
+runs and continued retrying them, so the scheduled-trigger helper was not kept
+in the repository. Provide an isolated Airflow metadata database/run first;
+do not solve this by adding longer polling or direct production-state updates.
 
 Do not add a new scheduler, provider, retry framework, RAG reranking, or
 external alert channel in this slice.

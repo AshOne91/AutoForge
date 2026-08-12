@@ -58,8 +58,9 @@ AutoForge currently has working foundations for:
   the real worker (Outbox, RabbitMQ, and handler) completes its zero-article
   path, and Airflow observes `succeeded` and returns normally. It deliberately
   does not claim an external news-provider call or a scheduled production DAG
-  run; the local standalone scheduler keeps DAGs paused by default and needs an
-  isolated metadata run for a clean scheduled-trigger verification
+  run; the local standalone scheduler keeps DAGs paused by default, and shared
+  SequentialExecutor metadata retained retrying test runs, so scheduled-trigger
+  verification remains blocked until an isolated metadata run is available
 - KIS terminal retry alert policy currently uses the structured Elasticsearch
   signal as the operator-facing baseline; external webhook/email/SMS delivery
   remains deferred until a destination, payload boundary, and delivery
