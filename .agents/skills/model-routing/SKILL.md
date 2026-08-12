@@ -441,19 +441,20 @@ RECOMMENDED SETTING:
 
 ## Approval behavior
 
-If an UPGRADE is required for correctness:
+If SETTING CHANGE is DOWNGRADE or UPGRADE:
 
-stop after the report and wait for the user to change the setting and explicitly
-say to proceed.
+- stop before source exploration, tests, edits, external actions, or further
+  implementation planning;
+- wait for a subsequent user message that confirms or changes the setting and
+  explicitly authorizes progress.
 
-If DOWNGRADE is only a cost-saving recommendation and the current model is already
-sufficient:
+If SETTING CHANGE is KEEP, continue when the existing user request authorizes
+implementation. Do not require a duplicate approval.
 
-do not require duplicate approval if the user already authorized the task.
+If the current setting is unknown, do not report KEEP. Ask the user to confirm
+the current setting before continuing.
 
-If KEEP:
-
-continue when the existing user request already authorizes implementation.
+Do not silently change the user's selected model or reasoning level.
 
 ## High-cost warning
 
