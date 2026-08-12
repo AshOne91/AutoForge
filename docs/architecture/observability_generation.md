@@ -11,8 +11,8 @@ Elasticsearch나 Kibana를 직접 호출하지 않는다.
 
 ```text
 FastAPI / worker
-    -> JSON stdout + logs/<service>/*.log
-    -> Filebeat filestream (개발 Compose)
+    -> JSON stdout + logs/*.log or logs/<service>/*.log
+    -> Filebeat filestream + persistent read registry (개발 Compose)
     -> Elasticsearch
     -> Kibana
 ```

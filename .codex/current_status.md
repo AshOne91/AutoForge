@@ -25,6 +25,10 @@ AutoForge currently has working foundations for:
 - PostgreSQL, Redis Cluster, RabbitMQ, migration, application, Airflow, Outbox relay,
   and durable-job worker runtime validation
 - ELK and Kubernetes base-server generation
+- generated ELK Filebeat collection for both `logs/*.log` and
+  `logs/<service>/*.log`, with a persistent registry volume; KIS runtime
+  verification confirms terminal retry errors reach Elasticsearch without replay
+  after a Filebeat restart
 - opt-in RAG infrastructure with Qdrant, Ollama, and one selectable search backend
   (Elasticsearch or OpenSearch), connected to generated application/worker consumers
   through an explicit external named network; both local search paths are runtime-verified

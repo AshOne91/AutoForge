@@ -40,7 +40,10 @@ def test_elk_generator_renders_development_overlay_and_filebeat_config() -> None
     assert "xpack.security.enabled: \"false\"" in compose
     assert "${LOG_ROOT:-./logs}:/var/log/application:ro" in compose
     assert "type: filestream" in filebeat
+    assert "/var/log/application/*.log" in filebeat
+    assert "/var/log/application/*/*.log" in filebeat
     assert "ndjson:" in filebeat
+    assert "filebeat-data:/usr/share/filebeat/data" in compose
     assert "This is a local development profile." in readme
     assert set(yaml.safe_load(compose)["services"]) == {
         "elasticsearch",
@@ -71,5 +74,6 @@ def test_elk_collector_mode_generates_filebeat_only() -> None:
     readme = files[PurePosixPath("deploy", "observability", "README.md")]
 
     assert set(compose["services"]) == {"filebeat"}
+    assert "filebeat-data" in compose["volumes"]
     assert "${ELASTICSEARCH_HOST}" in filebeat
     assert "collector-only" in readme

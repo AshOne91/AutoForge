@@ -95,11 +95,13 @@ class ElkStackGenerator:
     volumes:
       - ${{LOG_ROOT:-./logs}}:/var/log/application:ro
       - ${{FILEBEAT_CONFIG:-./deploy/observability/filebeat.yml}}:/usr/share/filebeat/filebeat.yml:ro
+      - filebeat-data:/usr/share/filebeat/data
     depends_on:
       - elasticsearch
 
 volumes:
   elasticsearch-data:
+  filebeat-data:
 """
 
     @staticmethod
@@ -115,6 +117,10 @@ volumes:
     volumes:
       - ${{LOG_ROOT:-./logs}}:/var/log/application:ro
       - ${{FILEBEAT_CONFIG:-./deploy/observability/filebeat.yml}}:/usr/share/filebeat/filebeat.yml:ro
+      - filebeat-data:/usr/share/filebeat/data
+
+volumes:
+  filebeat-data:
 """
 
     @staticmethod
@@ -130,6 +136,7 @@ volumes:
     id: {package_name}-application-json
     enabled: true
     paths:
+      - /var/log/application/*.log
       - /var/log/application/*/*.log
     parsers:
       - ndjson:
@@ -174,7 +181,8 @@ output.elasticsearch:
 
 {description} It collects JSON-lines application logs for `{specification.project.package_name}`:
 
-- Filebeat reads `LOG_ROOT/*/*.log` as NDJSON.
+- Filebeat reads `LOG_ROOT/*.log` and `LOG_ROOT/*/*.log` as NDJSON.
+- Filebeat preserves its read registry in the `filebeat-data` volume.
 {storage}
 {access}
 
