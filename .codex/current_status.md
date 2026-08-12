@@ -40,6 +40,10 @@ AutoForge currently has working foundations for:
   an operator-visible structured error when retries are exhausted
 - KIS terminal retry logs are queryable in Elasticsearch by `event_type`,
   `job_id`, `run_key`, `attempt`, and `max_attempts`
+- KIS terminal retry alert policy currently uses the structured Elasticsearch
+  signal as the operator-facing baseline; external webhook/email/SMS delivery
+  remains deferred until a destination, payload boundary, and delivery
+  guarantee are explicitly selected
 - KIS validation slice: Yahoo Finance news collection → PostgreSQL canonical records
   → durable `news_index` handoff → selectable search-backend indexing is runtime-verified
 

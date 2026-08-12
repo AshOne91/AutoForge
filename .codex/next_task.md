@@ -1,26 +1,26 @@
 # Next Task
 
-## Next product decision: KIS terminal retry alert policy
+## Next executable unit: scheduler/trigger contract
 
-The next executable work is in `kis-auto-trading`, not AutoForge.
+The KIS terminal retry alert decision is complete for this slice: the
+structured Elasticsearch event is the operator-facing baseline. External
+webhook/email/SMS delivery is intentionally deferred until a destination,
+payload boundary, and delivery guarantee are selected.
 
-OWNERSHIP: user-owned
+The next executable work is in AutoForge.
 
-EVIDENCE: the Yahoo provider enforces a positive timeout and classifies
-timeout/provider failures. KIS schedules up to three durable collection attempts
-with 2- and 4-second delays, logs a final failure, and its generated Filebeat
-profile has runtime-verified delivery to Elasticsearch with structured retry
-fields. The durable-job handler remains scaffolded/preserved, so its business
-behavior is consumer-owned.
+OWNERSHIP: AutoForge architecture and generation contract
 
-Choose whether the existing structured log signal should create an active operator
-alert, and, if so, where it should go. Keep the canonical news record, idempotent
-persistence, `news_index` handoff, delayed-retry contract, and generated log
-collection unchanged.
+EVIDENCE: `base_server` has an in-process scheduler, distributed-lock option,
+and crawler execute/status/health/stop/data endpoints. AutoForge already owns
+durable Jobs, Outbox delivery, Airflow generation, worker leasing, and control
+plane persistence. The missing unit is the reusable contract that maps an
+external trigger to an idempotent durable Job without making an in-process
+timer the source of truth.
 
-Do not add another provider, a retry framework, RAG reranking, or an AutoForge
-generator change in this slice unless the focused consumer work exposes a shared
-contract defect.
+Keep the canonical news record, idempotent persistence, `news_index` handoff,
+delayed-retry contract, and generated log collection unchanged.
 
-The next AutoForge change is justified only if this consumer-owned work reveals
-a reusable generated-environment or specification defect.
+Do not add another provider, a retry framework, RAG reranking, or external alert
+channel in this slice. The next change should be limited to the existing
+durable-job/trigger path and its focused tests.
