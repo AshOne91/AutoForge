@@ -32,7 +32,8 @@ AutoForge currently has working foundations for:
 - Identity/Session/Sharded Profile and Scheduled Ingestion input Blueprints
 - Yahoo provider failure boundary: positive timeout and timeout/provider error
   classification with preserved causes; KIS schedules bounded durable retries
-  (three total attempts, delayed through the generated Outbox contract)
+  (three total attempts, delayed through the generated Outbox contract) and logs
+  an operator-visible error when retries are exhausted
 - KIS validation slice: Yahoo Finance news collection → PostgreSQL canonical records
   → durable `news_index` handoff → selectable search-backend indexing is runtime-verified
 
