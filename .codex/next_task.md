@@ -1,26 +1,21 @@
 # Next Task
 
-## Next executable unit: scheduler/trigger contract
-
-The KIS terminal retry alert decision is complete for this slice: the
-structured Elasticsearch event is the operator-facing baseline. External
-webhook/email/SMS delivery is intentionally deferred until a destination,
-payload boundary, and delivery guarantee are selected.
+## Next executable unit: durable-job cancellation contract
 
 The next executable work is in AutoForge.
 
 OWNERSHIP: AutoForge architecture and generation contract
 
-EVIDENCE: `base_server` has an in-process scheduler, distributed-lock option,
-and crawler execute/status/health/stop/data endpoints. AutoForge already owns
-durable Jobs, Outbox delivery, Airflow generation, worker leasing, and control
-plane persistence. The missing unit is the reusable contract that maps an
-external trigger to an idempotent durable Job without making an in-process
-timer the source of truth.
+EVIDENCE: AutoForge already generates a token-protected trigger/status API and
+an Airflow DAG whose data-interval run key reaches the durable-job repository.
+KIS now runtime-verifies those generated endpoints. `base_server` also exposes
+an operator stop endpoint, but AutoForge has no durable-job cancellation state
+or API contract yet.
 
-Keep the canonical news record, idempotent persistence, `news_index` handoff,
-delayed-retry contract, and generated log collection unchanged.
+Define the smallest cancellation boundary: which requested or running Jobs may
+be cancelled, how a worker observes it, what remains in Outbox, and what status
+the GET endpoint returns. Do not imply that cancellation can undo an already
+completed external side effect.
 
-Do not add another provider, a retry framework, RAG reranking, or external alert
-channel in this slice. The next change should be limited to the existing
-durable-job/trigger path and its focused tests.
+Do not add a new scheduler, provider, retry framework, RAG reranking, or
+external alert channel in this slice.

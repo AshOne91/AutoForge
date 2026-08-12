@@ -40,6 +40,10 @@ AutoForge currently has working foundations for:
   an operator-visible structured error when retries are exhausted
 - KIS terminal retry logs are queryable in Elasticsearch by `event_type`,
   `job_id`, `run_key`, `attempt`, and `max_attempts`
+- generated KIS durable-job endpoints are runtime-verified for Bearer-token
+  authentication, idempotent `(job_type, run_key)` requests, `automation` store
+  routing, and status retrieval; generated Airflow uses those endpoints rather
+  than an in-process timer
 - KIS terminal retry alert policy currently uses the structured Elasticsearch
   signal as the operator-facing baseline; external webhook/email/SMS delivery
   remains deferred until a destination, payload boundary, and delivery

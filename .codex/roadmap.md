@@ -17,10 +17,6 @@ sequencing.
 - [ ] canonical ingestion/indexing handoff after a consumer chooses its record contract
 - [ ] embedding and reranking provider contracts after the selected consumer establishes an evaluation dataset and relevance target
 - [ ] Redis distributed lock after a real concurrency-critical consumer path exists
-- [ ] scheduler/trigger Blueprint after a consumer path exists: durable schedule
-  ownership, idempotent trigger/status endpoints, external scheduler integration,
-  and multi-instance execution protection; do not recreate an in-process timer
-  as the source of truth
 - [ ] Realtime/WebSocket and notification Blueprint after a consumer path exists:
   event-driven fan-out, in-app persistence, channel adapters, deduplication,
   rate limiting, and delivery/error observability
