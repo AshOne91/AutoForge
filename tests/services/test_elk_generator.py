@@ -44,6 +44,7 @@ def test_elk_generator_renders_development_overlay_and_filebeat_config() -> None
     assert "/var/log/application/*/*.log" in filebeat
     assert "ndjson:" in filebeat
     assert "filebeat-data:/usr/share/filebeat/data" in compose
+    assert "news_collection_retries_exhausted" in readme
     assert "This is a local development profile." in readme
     assert set(yaml.safe_load(compose)["services"]) == {
         "elasticsearch",
