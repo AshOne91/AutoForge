@@ -91,6 +91,20 @@ standalone과 cluster를 실현하며 sentinel을 standalone으로 묵시적으�
 검증하기 위한 로컬 기준선이다. 모든 노드가 같은 Docker host에 있으므로 host 또는
 가용 영역 장애까지 격리하는 운영 HA 설계는 아니다.
 
+`ServiceSpec.mode`는 생성 애플리케이션의 연결 의미를 선택할 뿐, 운영 Redis
+provider나 배포 토폴로지를 선택하지 않는다. 소비 프로젝트가 provider와 가용성
+요구사항을 명시하기 전까지 AutoForge는 runtime Secret의 연결 계약만 생성하며,
+ElastiCache·MemoryDB·Sentinel·Redis StatefulSet 같은 provider별 운영 Redis
+manifest는 생성하지 않는다. `cluster`를 Sentinel로 묵시적으로 대체하지 않는 것과
+같이, 로컬 Compose Cluster를 운영 배포 모델로 묵시적으로 승격하지 않는다.
+
+`ServiceSpec.mode`는 생성 애플리케이션의 연결 의미를 선택할 뿐, 운영 Redis
+provider나 배포 토폴로지를 선택하지 않는다. 소비 프로젝트가 provider와 가용성
+요구사항을 명시하기 전까지 AutoForge는 runtime Secret의 연결 계약만 생성하며,
+ElastiCache·MemoryDB·Sentinel·Redis StatefulSet 같은 provider별 운영 Redis
+manifest는 생성하지 않는다. `cluster`를 Sentinel로 묵시적으로 대체하지 않는 것과
+같이, 로컬 Compose Cluster를 운영 배포 모델로 묵시적으로 승격하지 않는다.
+
 ## FastAPI 수명주기와 Dependency
 
 `redis_session`을 선택한 Project에는 다음 연결 코드도 생성한다.

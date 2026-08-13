@@ -119,6 +119,8 @@ def test_render_creates_zero_secret_proxy_and_application_topology() -> None:
     assert "key: IDENTITY_DATABASE_URL" in manifest
     assert "key: ACCOUNT_SHARD_1_DATABASE_URL" in manifest
     assert "key: REDIS_CLUSTER_URL" in manifest
+    assert "redis-server" not in manifest
+    assert "image: redis:" not in manifest
     assert "key: RABBITMQ_URL" in manifest
     assert "key: KIS_APP_KEY" in manifest
     assert "mountPath: /app/logs" in manifest

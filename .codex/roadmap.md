@@ -30,7 +30,9 @@ sequencing.
 - [ ] Kubernetes or managed PostgreSQL HA deployment contract with multi-node
   placement, persistent volumes, backups, restore drills, and production
   observability after a deployment provider is selected
-- [ ] managed Redis Sentinel deployment verification (when selected by a consumer)
+- [ ] consumer/provider-selected Redis HA deployment contract: managed Cluster,
+  Sentinel, or an explicitly selected alternative with topology, persistence,
+  failover, secret, and recovery verification
 - [ ] host bootstrap/deployment contract for Docker auto-start, AWS Launch Template
   UserData, image refresh, and secret injection after registry and host ownership
   boundaries are explicit

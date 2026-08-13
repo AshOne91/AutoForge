@@ -1,18 +1,18 @@
 # Next Task
 
-## Next executable unit: distinguish local recovery from production Redis HA
+## Next executable unit: record the first production Redis deployment target
 
 OWNERSHIP: AutoForge environment validation contract, validated through
 kis-auto-trading
 
-EVIDENCE: The isolated generated-environment check now verifies a six-node
-Redis restart, full Compose network recreation with persisted Redis volumes,
-and manual recovery of an intentionally leaderless local Patroni cluster using
-an explicitly named candidate. It proves only a single-host Docker recovery
-path.
+EVIDENCE: The generated Kubernetes manifest injects `REDIS_CLUSTER_URL` from a
+Secret and intentionally contains no Redis server image or workload. The local
+Compose Cluster remains a single-host validation environment, not a production
+deployment choice.
 
-Define the smallest production-boundary decision for managed Redis topology:
-whether the first deployment target requires managed Redis Cluster, Sentinel,
-or no generated production Redis manifest. Preserve the current local Compose
-contract and do not add a provider-specific deployment implementation until a
-consumer and provider are selected.
+Before adding a provider-specific deployment contract, record the KIS production
+target together with the selected Redis offering, availability zone/region
+requirements, network boundary, backup/restore objective, and owner of secrets.
+Then implement one generated deployment slice for that explicit target. Do not
+infer AWS, managed Cluster, Sentinel, or an in-cluster Redis operator from the
+local Compose topology.
