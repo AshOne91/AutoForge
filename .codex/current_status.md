@@ -95,7 +95,11 @@ Docker integration topology; it does not claim multi-host, Kubernetes, backup,
 or managed-database production HA.
 `kis-auto-trading/scripts/verify_generated_postgres_ha.py` repeats that check in
 an isolated Compose project and removes only its own containers, network, and
-named volumes.
+named volumes. The same check starts the generated FastAPI application, verifies
+its Compose healthcheck and `GET /health`, stops the active Patroni leader, and
+confirms that the unchanged application container becomes healthy again after
+HAProxy promotes a replacement writer. This is a local failover recovery check;
+it does not claim every in-flight request is transparently retried.
 
 The KIS scale-out integration profile reserves Redis Cluster's fixed
 `172.29.0.10`–`172.29.0.15` addresses and allocates other containers from
