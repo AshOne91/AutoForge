@@ -421,6 +421,11 @@ class LocalEnvironmentGenerator:
             "    pull_policy: never\n"
             "    restart: unless-stopped\n"
             "    command: [\"python\", \"scripts/run_outbox_relay.py\"]\n"
+            "    healthcheck:\n"
+            '      test: ["CMD", "python", "-c", "import asyncio, os, aio_pika; connection = asyncio.run(aio_pika.connect(os.environ[\'RABBITMQ_URL\'], timeout=2)); asyncio.run(connection.close())"]\n'
+            "      interval: 10s\n"
+            "      timeout: 3s\n"
+            "      retries: 3\n"
             "    environment:\n"
             + self._render_database_environment(specification)
             + "      RABBITMQ_URL: ${RABBITMQ_URL:?set RABBITMQ_URL}\n"

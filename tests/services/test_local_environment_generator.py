@@ -299,6 +299,9 @@ def test_render_marks_runtime_services_restartable() -> None:
         "-c",
         "import asyncio, os, aio_pika; connection = asyncio.run(aio_pika.connect(os.environ['RABBITMQ_URL'], timeout=2)); asyncio.run(connection.close())",
     ]
+    assert services["outbox-relay"]["healthcheck"]["test"] == services[
+        "durable-job-worker"
+    ]["healthcheck"]["test"]
 
 
 def test_render_uses_durable_worker_restart_policy_from_specification() -> None:

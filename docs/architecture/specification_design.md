@@ -102,8 +102,8 @@ Runtime Database Store와 Outbox 기반 Durable Job을 선언한다. 이름과 �
 `durable-job-worker` 구성의 생명주기 경계만 소유한다. worker의 이벤트·큐
 계약은 각 `DurableJobSpec`과 RabbitMQ `ServiceSpec`이 소유하고, 의존 서비스
 준비 상태는 생성된 Compose `depends_on` health 조건으로 표현하고, worker
-자체의 RabbitMQ 연결 가능 여부는 기존 `aio-pika`를 사용하는 생성된 Compose
-healthcheck으로 표현한다.
+worker와 relay의 RabbitMQ 연결 가능 여부는 기존 `aio-pika`를 사용하는
+생성된 Compose healthcheck으로 표현한다.
 
 ## ModuleSpec
 
