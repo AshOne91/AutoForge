@@ -30,7 +30,10 @@ sequencing.
 - [ ] Kubernetes or managed PostgreSQL HA deployment contract with multi-node
   placement, persistent volumes, backups, restore drills, and production
   observability after a deployment provider is selected
-- [ ] consumer/provider-selected Redis HA deployment contract: managed Cluster,
+- [ ] self-hosted single-host operating profile with Docker auto-start, durable
+  volumes, log retention, backup/restore drills, health checks, and operator
+  recovery for the generated service HA baseline
+- [ ] later provider-selected Redis HA deployment contract: managed Cluster,
   Sentinel, or an explicitly selected alternative with topology, persistence,
   failover, secret, and recovery verification
 - [ ] host bootstrap/deployment contract for Docker auto-start, AWS Launch Template
@@ -62,3 +65,12 @@ authoritative when references disagree.
 
 Implement one bounded contract at a time.
 Do not create empty future architecture merely to represent roadmap items.
+
+## Capability proof target
+
+The project is intended to demonstrate platform-level engineering, not promise a
+particular salary. A credible senior/platform portfolio requires repeatable proof
+that one specification can produce a runnable service, its persistence and
+observability boundaries, a deployment profile, and a failure-recovery test. The
+near-term proof target is the single-host operating profile; multi-host and cloud
+deployment are later evidence, not prerequisites for this baseline.

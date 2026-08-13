@@ -98,12 +98,11 @@ ElastiCache·MemoryDB·Sentinel·Redis StatefulSet 같은 provider별 운영 Red
 manifest는 생성하지 않는다. `cluster`를 Sentinel로 묵시적으로 대체하지 않는 것과
 같이, 로컬 Compose Cluster를 운영 배포 모델로 묵시적으로 승격하지 않는다.
 
-`ServiceSpec.mode`는 생성 애플리케이션의 연결 의미를 선택할 뿐, 운영 Redis
-provider나 배포 토폴로지를 선택하지 않는다. 소비 프로젝트가 provider와 가용성
-요구사항을 명시하기 전까지 AutoForge는 runtime Secret의 연결 계약만 생성하며,
-ElastiCache·MemoryDB·Sentinel·Redis StatefulSet 같은 provider별 운영 Redis
-manifest는 생성하지 않는다. `cluster`를 Sentinel로 묵시적으로 대체하지 않는 것과
-같이, 로컬 Compose Cluster를 운영 배포 모델로 묵시적으로 승격하지 않는다.
+첫 운영 기준선은 단일 물리 Docker host의 self-hosted Redis Cluster다. 이는
+Redis container 장애와 재시작을 복구하는 서비스 HA 검증 대상이며, host 장애까지
+격리하는 물리적 HA가 아니다. 다른 host 또는 관리형 Redis로 확장할 때도 생성
+애플리케이션의 runtime Secret 연결 계약은 유지하고 provider별 배포 계약만
+추가한다.
 
 ## FastAPI 수명주기와 Dependency
 

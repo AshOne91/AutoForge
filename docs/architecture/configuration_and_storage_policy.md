@@ -49,3 +49,18 @@ this purpose; application and durable-job workers can resolve `qdrant`, `ollama`
 and the selected `elasticsearch` or `opensearch` service by DNS without relying on
 host ports or Docker Desktop-specific host aliases. The external network is created
 once by the operator and is not deleted by either Compose overlay.
+
+## First operating target
+
+The first operating target is a self-hosted single physical Docker host. The
+generated services may still use replicas, Redis Cluster, PostgreSQL HA, durable
+volumes, health checks, and restart policies so that service or container failures
+are recoverable without a redesign. This is service-level HA, not protection from
+loss of the physical host.
+
+The disposable integration Compose profile remains a verification environment and
+must not be treated as the production deployment profile. A later operating profile
+must keep the same secret and storage boundaries while adding host bootstrapping,
+backup/restore, log retention, and operator recovery procedures. AWS or another
+cloud provider is a later deployment target, not an implicit dependency of this
+single-host baseline.
