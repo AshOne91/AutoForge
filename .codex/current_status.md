@@ -104,9 +104,12 @@ after a broker restart under `restart: unless-stopped`. Host Docker auto-start
 and AWS Launch Template UserData remain deployment concerns outside the
 disposable integration profile. KIS live verification also keeps the generated
 application HTTP healthcheck healthy across a PostgreSQL restart; that endpoint
-now also probes internal PostgreSQL and Redis TCP reachability. A direct KIS
-probe fails while PostgreSQL is stopped and succeeds after recovery. The probe
-does not authenticate SQL/Redis commands or validate external managed stores.
+now also probes internal PostgreSQL and Redis reachability. Redis Cluster mode
+uses `require_full_coverage=True` and `PING`; KIS live verification reports
+`cluster_state:ok`, zero failed slots, three known nodes, and stable healthy
+checks. A direct KIS probe fails while PostgreSQL is stopped and succeeds after
+recovery. The probe does not authenticate SQL commands or validate external
+managed stores.
 
 The generated durable-job and Outbox repositories support a caller-supplied
 availability time, so consumer retries can be delayed without changing an event's
