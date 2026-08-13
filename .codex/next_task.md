@@ -1,19 +1,19 @@
 # Next Task
 
-## Next executable unit: implement the single-host operating profile
+## Next executable unit: verify the generated single-host operating profile live
 
 OWNERSHIP: AutoForge environment validation contract, validated through
 kis-auto-trading
 
-EVIDENCE: The generated Kubernetes manifest injects `REDIS_CLUSTER_URL` from a
-Secret and intentionally contains no Redis server image or workload. The local
-Compose Cluster already verifies container-level Redis recovery on one Docker
-host, but it is still an integration profile rather than an operator-facing
-deployment profile.
+EVIDENCE: KIS now selects `tooling.single_host`. AutoForge generated a tracked
+`deploy/single-host` overlay with Nginx, three application replicas, restart
+policy, and a configurable `/app/logs` host bind mount. Docker Compose validates
+the merge with `environment/compose.integration.yml` without starting containers.
 
-Define and generate one self-hosted single-host operating slice with explicit
-restart policy, named-volume ownership, secret injection, health checks, log
-paths, and operator start/stop instructions. Keep it separate from the disposable
-integration profile. Do not infer AWS, managed Cluster, Sentinel, or an
-in-cluster Redis operator from the local topology; those are later provider
-contracts.
+Run that generated KIS profile under an isolated Compose project with non-source
+test environment files and a non-conflicting public port. Verify Nginx `/health`,
+three healthy application containers, and a controlled application-container
+restart through the proxy; then remove only that isolated project's containers,
+network, and volumes. Do not use production credentials or modify the generated
+profile for the test. Host bootstrap, off-host backup, TLS, managed Redis, and
+multi-host deployment remain later contracts.

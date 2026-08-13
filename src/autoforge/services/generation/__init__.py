@@ -37,6 +37,7 @@ from autoforge.services.generation.runner import (
     GenerationRunnerError,
 )
 from autoforge.services.generation.session_store import SessionStoreGenerator
+from autoforge.services.generation.single_host import SingleHostOperatingGenerator
 from autoforge.services.generation.sqlalchemy import (
     SQLAlchemyInfrastructureGenerator,
     SQLAlchemyModelGenerator,
@@ -72,6 +73,7 @@ __all__ = [
     "SQLAlchemyInfrastructureGenerator",
     "SQLAlchemyModelGenerator",
     "SessionStoreGenerator",
+    "SingleHostOperatingGenerator",
     "StoredManifest",
     "create_fastapi_generator_plugins",
 ]

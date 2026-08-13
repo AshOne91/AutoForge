@@ -58,9 +58,10 @@ volumes, health checks, and restart policies so that service or container failur
 are recoverable without a redesign. This is service-level HA, not protection from
 loss of the physical host.
 
-The disposable integration Compose profile remains a verification environment and
-must not be treated as the production deployment profile. A later operating profile
-must keep the same secret and storage boundaries while adding host bootstrapping,
-backup/restore, log retention, and operator recovery procedures. AWS or another
-cloud provider is a later deployment target, not an implicit dependency of this
-single-host baseline.
+The disposable integration Compose profile remains a verification environment.
+When explicitly selected, the generated single-host overlay composes with it to
+add the public Nginx entry point, application replicas, and a configurable log
+bind mount; it is not an implicit promotion of the integration profile. Host
+bootstrapping, backup/restore, retention, and operator recovery procedures remain
+later operating work. AWS or another cloud provider is a later deployment target,
+not an implicit dependency of this single-host baseline.

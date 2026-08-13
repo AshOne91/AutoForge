@@ -89,6 +89,13 @@ nodes through their current Compose addresses before checking topology; this
 recovers six-node Redis topology after a full Docker network recreation without
 resetting unrelated services or Redis volumes.
 
+The opt-in `tooling.single_host` Generator produces a generated Compose operating
+overlay for a declared local application environment. KIS generation verifies the
+generated Nginx public entry point, three application replicas, restart policy,
+and configurable host log mount merge cleanly with the generated integration
+Compose profile. A live isolated start/health/restart drill and host
+backup/bootstrap procedures remain unverified.
+
 KIS runtime verification confirms the generated PostgreSQL HA mode elects one
 leader with two streaming replicas, exposes the existing `postgres:5432` writer
 contract through HAProxy, and promotes a replacement leader after the active

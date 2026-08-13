@@ -276,6 +276,7 @@ class ToolingSpec(StrictSpecModel):
     rag: RagSpec = Field(default_factory=lambda: RagSpec())
     storage: StorageSpec = Field(default_factory=lambda: StorageSpec())
     kubernetes: KubernetesSpec = Field(default_factory=lambda: KubernetesSpec())
+    single_host: SingleHostSpec = Field(default_factory=lambda: SingleHostSpec())
     local_environment: LocalEnvironmentSpec = Field(
         default_factory=lambda: LocalEnvironmentSpec()
     )
@@ -300,6 +301,20 @@ class ToolingSpec(StrictSpecModel):
             raise ValueError("Kubernetes log collector requires tooling.kubernetes.enabled")
         if not self.kubernetes.log_host_path:
             raise ValueError("Kubernetes log collector requires log_host_path")
+        return self
+
+    @model_validator(mode="after")
+    def validate_single_host_profile(self) -> ToolingSpec:
+        if not self.single_host.enabled:
+            return self
+        if not self.local_environment.enabled:
+            raise ValueError(
+                "single-host profile requires tooling.local_environment.enabled"
+            )
+        if not self.local_environment.application_enabled:
+            raise ValueError(
+                "single-host profile requires local_environment.application_enabled"
+            )
         return self
 
 
@@ -399,6 +414,13 @@ class LocalEnvironmentSpec(StrictSpecModel):
         multiple_of=100,
         description="Optional 100-port local host block for generated Compose services.",
     )
+
+
+class SingleHostSpec(StrictSpecModel):
+    """Generate a Docker Compose operating overlay for one physical host."""
+
+    enabled: bool = False
+    application_replicas: int = Field(default=3, ge=1)
 
 
 class CiProvider(StrEnum):

@@ -79,6 +79,11 @@ from autoforge.services.generation.session_store import (
     SESSION_STORE_GENERATOR_VERSION,
     SessionStoreGenerator,
 )
+from autoforge.services.generation.single_host import (
+    SINGLE_HOST_GENERATOR_ID,
+    SINGLE_HOST_GENERATOR_VERSION,
+    SingleHostOperatingGenerator,
+)
 from autoforge.services.generation.sqlalchemy import (
     SQLALCHEMY_GENERATOR_VERSION,
     SQLALCHEMY_MODEL_GENERATOR_ID,
@@ -206,6 +211,18 @@ def create_fastapi_generator_plugins(
                 name=LOCAL_ENVIRONMENT_GENERATOR_ID,
                 version=LOCAL_ENVIRONMENT_GENERATOR_VERSION,
                 description="선언된 서비스용 로컬 Docker 통합 환경 Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
+    project_registry.register(
+        GeneratorPluginAdapter(
+            SingleHostOperatingGenerator(),
+            PluginMetadata(
+                name=SINGLE_HOST_GENERATOR_ID,
+                version=SINGLE_HOST_GENERATOR_VERSION,
+                description="단일 물리 Docker host 운영 오버레이 Generator",
                 capabilities=(PluginCapability.GENERATOR,),
                 supported_specification_versions=("1",),
             ),

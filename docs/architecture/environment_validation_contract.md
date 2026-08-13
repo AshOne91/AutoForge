@@ -38,9 +38,17 @@ Outbox relay와 worker를 같은 환경 계약에 연결한다.
 
 이 계약은 로컬·통합 검증 환경만 소유하며 운영 HA 토폴로지를 정의하지 않는다.
 
+`tooling.single_host.enabled`는 별도 Single Host Operating Generator를 선택한다.
+이는 `local_environment.enabled`와 `application_enabled`가 만든 dependency runtime을
+그대로 재사용하는 Docker Compose overlay이며, Nginx 공개 진입점, 애플리케이션 replica,
+restart policy, 그리고 `/app/logs` host bind mount를 추가한다. 따라서 integration
+Compose를 운영 배포 모델로 승격하는 것이 아니라, 명시적으로 선택된 generated overlay를
+두 파일과 함께 실행한다. 이 첫 slice는 container 장애에 대한 service-level HA만
+제공하며 물리 host 장애, TLS, 백업/복구, host bootstrap은 소유하지 않는다.
+
 ## 생성 산출물과 소유권
 
-Environment Generator의 소유권 경계는 다음과 같다.
+생성된 환경 산출물의 소유권 경계는 다음과 같다.
 
 ```text
 generated-owned
@@ -48,10 +56,16 @@ generated-owned
   environment/.env.example
   environment/README.md
   environment/postgres-init/00-databases.sql  # database가 있을 때
+  deploy/single-host/compose.override.yml    # single_host가 선택될 때
+  deploy/single-host/runtime.env.example
+  deploy/single-host/nginx/default.conf.template
+  deploy/single-host/README.md
 
 user-owned
   environment/compose.override.yml
   .env
+  environment/.env
+  deploy/single-host/runtime.env
   운영 provider별 Secret과 접근 정책
 ```
 

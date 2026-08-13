@@ -40,6 +40,7 @@ from autoforge.services.generation.postgresql_ddl import (
 from autoforge.services.generation.rag import RAG_INFRASTRUCTURE_GENERATOR_ID
 from autoforge.services.generation.repository import REPOSITORY_GENERATOR_ID
 from autoforge.services.generation.session_store import SESSION_STORE_GENERATOR_ID
+from autoforge.services.generation.single_host import SINGLE_HOST_GENERATOR_ID
 from autoforge.services.generation.sqlalchemy import (
     SQLALCHEMY_MODEL_GENERATOR_ID,
     SQLALCHEMY_PROJECT_GENERATOR_ID,
@@ -62,6 +63,7 @@ def test_fastapi_generator_plugins_register_real_generators() -> None:
         DURABLE_JOB_GENERATOR_ID,
         MESSAGING_GENERATOR_ID,
         SESSION_STORE_GENERATOR_ID,
+        SINGLE_HOST_GENERATOR_ID,
         SQLALCHEMY_PROJECT_GENERATOR_ID,
         OBJECT_STORAGE_GENERATOR_ID,
     ]

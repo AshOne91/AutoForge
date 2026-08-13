@@ -1,0 +1,143 @@
+from pathlib import PurePosixPath
+
+from autoforge.core.generation import (
+    FileOwnership,
+    GenerationPlan,
+    PlannedAction,
+    PlannedFile,
+    content_hash,
+    specification_hash,
+)
+from autoforge.core.specification import ProjectSpec
+
+SINGLE_HOST_GENERATOR_ID = "autoforge.generator.single-host"
+SINGLE_HOST_GENERATOR_VERSION = "0.1.0"
+
+
+class SingleHostOperatingGenerator:
+    """Generate the public proxy overlay for a local Docker service environment."""
+
+    @property
+    def generator_id(self) -> str:
+        return SINGLE_HOST_GENERATOR_ID
+
+    @property
+    def generator_version(self) -> str:
+        return SINGLE_HOST_GENERATOR_VERSION
+
+    def render(self, specification: ProjectSpec) -> dict[PurePosixPath, str]:
+        profile = specification.tooling.single_host
+        if not profile.enabled:
+            return {}
+
+        return {
+            PurePosixPath("deploy", "single-host", "compose.override.yml"): self._render_compose(
+                application_replicas=profile.application_replicas
+            ),
+            PurePosixPath("deploy", "single-host", "runtime.env.example"): self._render_environment(),
+            PurePosixPath("deploy", "single-host", "nginx", "default.conf.template"): self._render_nginx(),
+            PurePosixPath("deploy", "single-host", "README.md"): self._render_readme(
+                specification,
+                application_replicas=profile.application_replicas,
+            ),
+        }
+
+    def plan(self, specification: ProjectSpec) -> GenerationPlan:
+        rendered = self.render(specification)
+        spec_hash = specification_hash(specification)
+        return GenerationPlan(
+            specification_version=specification.spec_version,
+            specification_hash=spec_hash,
+            files=[
+                PlannedFile(
+                    relative_path=path,
+                    generator_id=self.generator_id,
+                    generator_version=self.generator_version,
+                    ownership=FileOwnership.GENERATED,
+                    action=PlannedAction.CREATE,
+                    specification_hash=spec_hash,
+                    expected_content_hash=content_hash(content),
+                    source="project:single-host",
+                )
+                for path, content in sorted(rendered.items(), key=lambda item: item[0].as_posix())
+            ],
+        )
+
+    @staticmethod
+    def _render_compose(*, application_replicas: int) -> str:
+        return f"""services:
+  application:
+    deploy:
+      replicas: {application_replicas}
+    volumes:
+      - ${{LOG_ROOT:-../logs}}:/app/logs
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    environment:
+      UPSTREAM_HOST: application
+      NGINX_ENVSUBST_FILTER: UPSTREAM_HOST
+    ports:
+      - "${{PUBLIC_BIND_ADDRESS:-0.0.0.0}}:${{PUBLIC_HTTP_PORT:-28000}}:80"
+    volumes:
+      - ../deploy/single-host/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    depends_on:
+      application:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+"""
+
+    @staticmethod
+    def _render_environment() -> str:
+        return """# Compose runtime settings for the single-host public proxy.\nPUBLIC_BIND_ADDRESS=0.0.0.0\nPUBLIC_HTTP_PORT=28000\nLOG_ROOT=../logs\n"""
+
+    @staticmethod
+    def _render_nginx() -> str:
+        return """resolver 127.0.0.11 ipv6=off valid=10s;
+
+server {
+  listen 80;
+
+  location / {
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Instance-Name $hostname;
+    set $upstream ${UPSTREAM_HOST}:8000;
+    proxy_pass http://$upstream;
+  }
+}
+"""
+
+    @staticmethod
+    def _render_readme(
+        specification: ProjectSpec, *, application_replicas: int
+    ) -> str:
+        return f"""# Generated single-host operating overlay
+
+This generated overlay keeps `environment/compose.integration.yml` as the
+dependency runtime and adds one public Nginx entry point with
+`application` scaled to {application_replicas} replicas. It is service-level HA on
+one Docker host: it recovers containers, not loss of the physical machine.
+
+```powershell
+Copy-Item environment/.env.example environment/.env
+Copy-Item deploy/single-host/runtime.env.example deploy/single-host/runtime.env
+# Replace every sample credential in environment/.env before starting.
+docker compose --env-file environment/.env --env-file deploy/single-host/runtime.env -f environment/compose.integration.yml -f deploy/single-host/compose.override.yml up -d --wait
+docker compose --env-file environment/.env --env-file deploy/single-host/runtime.env -f environment/compose.integration.yml -f deploy/single-host/compose.override.yml down
+```
+
+The public proxy listens on `PUBLIC_BIND_ADDRESS:PUBLIC_HTTP_PORT`; application,
+database, Redis, RabbitMQ, and Airflow host ports remain governed by the integration
+environment. `LOG_ROOT` is a host bind mount so file logs survive application
+container recreation. Keep `environment/.env` outside Git. Configure host firewall,
+TLS termination, off-host backup, and Docker service auto-start before exposing the
+host to an untrusted network.
+"""
