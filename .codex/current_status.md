@@ -61,10 +61,10 @@ AutoForge currently has working foundations for:
   worker claim. The generated test project uses port block `59400` and removes
   only its own containers, network, and volume. External news-provider calls
   and a production schedule remain unverified.
-- KIS's full RabbitMQ outage-recovery check currently reaches Outbox `published`
-  but not Inbox processing for `kis.profile.events`: after broker restart that
-  queue has no profile-event consumer. This is a separate consumer lifecycle
-  defect, not an Airflow scheduler regression.
+- KIS's full RabbitMQ outage-recovery check verifies that a profile update
+  committed during a broker outage is published after RabbitMQ recovery and
+  processed exactly once by the `kis.profile.events` consumer; repeated delivery
+  preserves one Inbox record.
 - KIS terminal retry alert policy currently uses the structured Elasticsearch
   signal as the operator-facing baseline; external webhook/email/SMS delivery
   remains deferred until a destination, payload boundary, and delivery

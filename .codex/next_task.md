@@ -1,21 +1,21 @@
 # Next Task
 
-## Next executable unit: restore profile-event consumer after RabbitMQ recovery
+## Next executable unit: define the first reusable service-composition slice
 
-The next executable work is in kis-auto-trading.
+The next executable work spans AutoForge and kis-auto-trading.
 
-OWNERSHIP: kis-auto-trading user-owned integration runtime
+OWNERSHIP: AutoForge generation contract, validated through kis-auto-trading
 
-EVIDENCE: the KIS full scale-out verifier reaches Outbox `published` after a
-RabbitMQ restart, but `kis.profile.events` has zero consumers and its event is
-not inserted into the Inbox. The durable-job queue still has its worker,
-isolating the defect to profile-event consumer lifecycle rather than broker or
-Outbox publication.
+EVIDENCE: KIS now runs independent API, Outbox relay, profile-event worker,
+durable-job worker, Airflow, and observability services. The Roadmap still lacks
+the reusable AutoForge contract that describes independently deployable service
+composition with explicit configuration, lifecycle, health, and Event/Queue
+boundaries.
 
-Trace the user-owned profile-event worker service and its Compose lifecycle.
-After a broker restart it must reconnect, redeclare the queue, consume the
-published event once, and write one Inbox record. Preserve the AutoForge
-generated environment and Durable Job worker contracts.
+Trace the existing generated environment and KIS-owned override boundaries. Add
+only the smallest specification and generation contract that can express one
+existing worker service without changing current API, Outbox, or Durable Job
+ownership. Validate it through one generated KIS service slice.
 
-Do not add a broker cluster, retry framework, or external alert channel in this
-slice.
+Do not introduce a generic service framework, broker cluster, or unrelated
+deployment abstraction in this slice.
