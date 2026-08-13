@@ -76,12 +76,20 @@ Redis는 세션의 빠른 조회와 폐기를 담당하지만 계정과 개인�
 
 `ServiceSpec.mode`는 `standalone`, `sentinel`, `cluster`를 구분한다. 생성된
 provider는 각각 `url_env`, `sentinel_urls_env`와 `sentinel_master`, 또는
-`cluster_url_env`를 사용한다. 연결 주소와 credential은 명세나 생성 코드에 넣지
-않고 런타임 환경에서 주입한다.
+`cluster_url_env`와 `cluster_startup_nodes_env`를 사용한다. 연결 주소와 credential은
+명세나 생성 코드에 넣지 않고 런타임 환경에서 주입한다. `cluster_url_env`는 기본
+연결 URL이고, `cluster_startup_nodes_env`는 쉼표로 구분한 Redis URL 목록이다. 후자는
+기본 시드 노드가 장애여도 새 client가 다른 노드에서 cluster map을 다시 얻도록 한다.
 
 Topology 선택은 `SessionStore` Protocol을 바꾸지 않는다. 로컬 환경 Generator는
 standalone과 cluster를 실현하며 sentinel을 standalone으로 묵시적으로 대체하지
 않는다.
+
+로컬 `cluster` 환경의 고정 기준선은 7000–7005의 여섯 Redis 노드다. 초기화기는
+`--cluster-replicas 1`로 세 primary와 세 replica를 만들고, 각 노드의 `/data`를
+명명된 Compose volume에 보존한다. 이는 한 Redis container 장애 뒤 slot failover를
+검증하기 위한 로컬 기준선이다. 모든 노드가 같은 Docker host에 있으므로 host 또는
+가용 영역 장애까지 격리하는 운영 HA 설계는 아니다.
 
 ## FastAPI 수명주기와 Dependency
 
@@ -90,7 +98,7 @@ standalone과 cluster를 실현하며 sentinel을 standalone으로 묵시적으�
 ```text
 FastAPI lifespan 시작
   → url_env가 가리키는 환경변수 확인
-  → Redis async client 생성
+  → Redis async client 생성 (cluster는 다중 시작 노드 사용)
   → RedisSessionStore를 app.state에 등록
 
 HTTP Handler

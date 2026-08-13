@@ -159,6 +159,10 @@ def test_cluster_provider_uses_async_cluster_discovery_contract() -> None:
 
     ast.parse(provider)
     assert 'REDIS_CLUSTER_URL_ENV = "KIS_REDIS_CLUSTER_URL"' in provider
+    assert 'REDIS_CLUSTER_STARTUP_NODES_ENV = "REDIS_CLUSTER_STARTUP_NODES"' in provider
+    assert "def _cluster_startup_nodes() -> list[ClusterNode]:" in provider
+    assert "startup_nodes=_cluster_startup_nodes() or None" in provider
+    assert "from redis.cluster import ClusterNode" in provider
     assert "from redis.asyncio.cluster import RedisCluster" in provider
     assert "RedisCluster.from_url(" in provider
     assert "require_full_coverage=True" in provider

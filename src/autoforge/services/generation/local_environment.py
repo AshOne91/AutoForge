@@ -29,6 +29,14 @@ class LocalEnvironmentGenerator:
         if not specification.tooling.local_environment.enabled:
             return {}
         redis_mode = self._redis_mode(specification.application.services)
+        redis_service = next(
+            (
+                service
+                for service in specification.application.services
+                if service.kind == "redis_session"
+            ),
+            None,
+        )
         rabbitmq_services = [
             service
             for service in specification.application.services
@@ -48,6 +56,7 @@ class LocalEnvironmentGenerator:
             PurePosixPath("environment", "compose.integration.yml"): self._render_compose(
                 specification,
                 redis_mode=redis_mode,
+                redis_service=redis_service,
                 has_rabbitmq=bool(rabbitmq_services),
                 has_durable_jobs=has_durable_jobs,
                 has_application=has_application,
@@ -58,6 +67,7 @@ class LocalEnvironmentGenerator:
             PurePosixPath("environment", ".env.example"): self._render_env(
                 specification,
                 redis_mode=redis_mode,
+                redis_service=redis_service,
                 has_rabbitmq=bool(rabbitmq_services),
                 has_durable_jobs=has_durable_jobs,
                 has_application=has_application,
@@ -130,6 +140,7 @@ class LocalEnvironmentGenerator:
         specification: ProjectSpec,
         *,
         redis_mode: str | None,
+        redis_service: ServiceSpec | None,
         has_rabbitmq: bool,
         has_durable_jobs: bool,
         has_application: bool,
@@ -153,6 +164,7 @@ class LocalEnvironmentGenerator:
                 self._render_application(
                     specification,
                     redis_mode=redis_mode,
+                    redis_service=redis_service,
                     has_durable_jobs=has_durable_jobs,
                     has_migration=has_migration,
                     has_rag=has_rag,
@@ -186,8 +198,19 @@ class LocalEnvironmentGenerator:
                 if has_rag
                 else ""
             )
-            + ("\nvolumes:\n  airflow-home:\n" if has_durable_jobs else "")
+            + self._render_volumes(redis_mode=redis_mode, has_durable_jobs=has_durable_jobs)
         )
+
+    @staticmethod
+    def _render_volumes(*, redis_mode: str | None, has_durable_jobs: bool) -> str:
+        names = (
+            [f"redis-{port}-data" for port in range(7000, 7006)]
+            if redis_mode == "cluster"
+            else []
+        )
+        if has_durable_jobs:
+            names.append("airflow-home")
+        return "\nvolumes:\n" + "".join(f"  {name}:\n" for name in names) if names else ""
 
     @staticmethod
     def _host_port(host_port_base: int | None, *, default: int, offset: int) -> int:
@@ -241,38 +264,45 @@ class LocalEnvironmentGenerator:
                 "      - --cluster-enabled\n      - yes\n"
                 "      - --cluster-config-file\n      - nodes.conf\n"
                 "      - --cluster-node-timeout\n      - \"5000\"\n"
-                "      - --appendonly\n      - no\n"
+                "      - --appendonly\n      - yes\n"
+                "    volumes:\n"
+                f"      - redis-{port}-data:/data\n"
                 "    healthcheck:\n"
                 f"      test: [\"CMD-SHELL\", \"redis-cli -p {port} ping | grep -q PONG\"]\n"
                 "      interval: 3s\n"
                 "      timeout: 3s\n"
                 "      retries: 20\n"
             )
-            for port in (7000, 7001, 7002)
+            for port in range(7000, 7006)
         ]
+        cluster_nodes = " ".join(
+            f"redis-{port}:{port}" for port in range(7000, 7006)
+        )
+        dependencies = "".join(
+            f"      redis-{port}:\n        condition: service_healthy\n"
+            for port in range(7000, 7006)
+        )
         nodes.append(
             "  redis-cluster-init:\n"
             "    image: redis:7-alpine\n"
             "    depends_on:\n"
-            "      redis-7000:\n"
-            "        condition: service_healthy\n"
-            "      redis-7001:\n"
-            "        condition: service_healthy\n"
-            "      redis-7002:\n"
-            "        condition: service_healthy\n"
-            "    command:\n"
+            + dependencies
+            + "    command:\n"
             "      - /bin/sh\n"
             "      - -c\n"
             "      - |-\n"
             "        if redis-cli -h redis-7000 -p 7000 cluster nodes | grep -q '[0-9]-[0-9]'; then\n"
             "          for _ in $(seq 1 20); do\n"
-            "            redis-cli -h redis-7000 -p 7000 cluster info | grep -q 'cluster_state:ok' && exit 0\n"
+            "            topology=$(redis-cli -h redis-7000 -p 7000 cluster nodes)\n"
+            "            masters=$(printf '%s\\n' \"$$topology\" | awk '$3 ~ /master/ && $8 == \"connected\" { count++ } END { print count + 0 }')\n"
+            "            replicas=$(printf '%s\\n' \"$$topology\" | awk '$3 ~ /slave/ && $8 == \"connected\" { count++ } END { print count + 0 }')\n"
+            "            redis-cli -h redis-7000 -p 7000 cluster info | grep -q 'cluster_state:ok' && [ \"$$masters\" -eq 3 ] && [ \"$$replicas\" -eq 3 ] && exit 0\n"
             "            sleep 1\n"
             "          done\n"
-            "          echo 'existing Redis cluster did not become healthy' >&2\n"
+            "          echo 'existing Redis cluster did not meet the 3-primary/3-replica topology' >&2\n"
             "          exit 1\n"
             "        fi\n"
-            "        exec redis-cli --cluster create redis-7000:7000 redis-7001:7001 redis-7002:7002 --cluster-replicas 0 --cluster-yes\n"
+            f"        exec redis-cli --cluster create {cluster_nodes} --cluster-replicas 1 --cluster-yes\n"
             "    restart: \"no\"\n"
         )
         return nodes
@@ -352,6 +382,7 @@ class LocalEnvironmentGenerator:
         specification: ProjectSpec,
         *,
         redis_mode: str | None,
+        redis_service: ServiceSpec | None,
         has_durable_jobs: bool,
         has_migration: bool,
         has_rag: bool,
@@ -371,7 +402,10 @@ class LocalEnvironmentGenerator:
             dependencies.append("      redis:\n        condition: service_healthy\n")
         elif redis_mode == "cluster":
             redis_environment = (
-                "      REDIS_CLUSTER_URL: ${REDIS_CLUSTER_URL:-redis://redis-7000:7000}\n"
+                f"      {redis_service.cluster_url_env}: "
+                f"${{{redis_service.cluster_url_env}:-redis://redis-7000:7000}}\n"
+                f"      {redis_service.cluster_startup_nodes_env}: "
+                f"${{{redis_service.cluster_startup_nodes_env}:-redis://redis-7000:7000,redis://redis-7001:7001,redis://redis-7002:7002,redis://redis-7003:7003,redis://redis-7004:7004,redis://redis-7005:7005}}\n"
             )
             dependencies.append(
                 "      redis-cluster-init:\n"
@@ -388,10 +422,6 @@ class LocalEnvironmentGenerator:
             dependency_targets.append(("postgres", 5432))
         if redis_mode == "standalone":
             dependency_targets.append(("redis", 6379))
-        elif redis_mode == "cluster":
-            dependency_targets.extend(
-                [("redis-7000", 7000), ("redis-7001", 7001), ("redis-7002", 7002)]
-            )
         dependency_probe = (
             "[socket.create_connection(target, 2).close() for target in "
             f"{dependency_targets!r}]"
@@ -401,9 +431,11 @@ class LocalEnvironmentGenerator:
         healthcheck_imports = "from urllib.request import urlopen; import socket"
         healthcheck_probe = f"urlopen('http://127.0.0.1:8000/health').read(); {dependency_probe}"
         if redis_mode == "cluster":
-            healthcheck_imports += "; import asyncio, os; from redis.asyncio.cluster import RedisCluster"
+            healthcheck_imports += "; import asyncio, os; from urllib.parse import urlparse; from redis.cluster import ClusterNode; from redis.asyncio.cluster import RedisCluster"
             healthcheck_probe += (
-                "; client=RedisCluster.from_url(os.environ['REDIS_CLUSTER_URL'], "
+                f"; startup_nodes=[ClusterNode(urlparse(value).hostname, urlparse(value).port or 6379) for value in os.environ['{redis_service.cluster_startup_nodes_env}'].split(',')]; "
+                f"client=RedisCluster.from_url(os.environ['{redis_service.cluster_url_env}'], "
+                "startup_nodes=startup_nodes, "
                 "decode_responses=True, require_full_coverage=True); "
                 "asyncio.run(client.ping())"
             )
@@ -579,6 +611,7 @@ class LocalEnvironmentGenerator:
         specification: ProjectSpec,
         *,
         redis_mode: str | None,
+        redis_service: ServiceSpec | None,
         has_rabbitmq: bool,
         has_durable_jobs: bool,
         has_application: bool,
@@ -605,7 +638,12 @@ class LocalEnvironmentGenerator:
         if redis_mode == "standalone":
             lines.append("REDIS_URL=redis://redis:6379\n")
         elif redis_mode == "cluster":
-            lines.append("REDIS_CLUSTER_URL=redis://redis-7000:7000\n")
+            lines.extend(
+                [
+                    f"{redis_service.cluster_url_env}=redis://redis-7000:7000\n",
+                    f"{redis_service.cluster_startup_nodes_env}=redis://redis-7000:7000,redis://redis-7001:7001,redis://redis-7002:7002,redis://redis-7003:7003,redis://redis-7004:7004,redis://redis-7005:7005\n",
+                ]
+            )
         if has_rabbitmq:
             lines.extend(
                 [

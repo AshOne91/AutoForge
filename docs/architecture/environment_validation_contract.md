@@ -70,10 +70,12 @@ worker, or relay containers does not update their installed package.
 
 The local Redis Cluster initializer is idempotent: it creates a cluster only
 when no hash slots are assigned. If slots already exist, it waits a bounded time
-for `cluster_state:ok` and never issues a second cluster-create command. A
-previously unhealthy local cluster is runtime state, not a reason to reset
-PostgreSQL, RabbitMQ, or search data; only its explicitly identified disposable
-Redis containers and anonymous data volumes may be reset.
+for `cluster_state:ok` with three connected primaries and three connected
+replicas; it never issues a second cluster-create command. A topology mismatch
+fails clearly instead of silently rebuilding a cluster. A previously unhealthy
+local cluster is runtime state, not a reason to reset PostgreSQL, RabbitMQ, or
+search data; only its explicitly identified Redis containers and named Redis
+volumes may be reset.
 
 1. 같은 명세는 같은 환경 파일과 Content Hash를 생성한다.
 2. 비활성화된 환경은 파일을 생성하지 않는다.

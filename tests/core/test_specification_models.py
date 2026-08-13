@@ -164,6 +164,7 @@ def test_application_service_requires_positive_ttl_and_unique_name() -> None:
     )
     assert cluster_service.mode == "cluster"
     assert cluster_service.cluster_url_env == "SESSION_CLUSTER_URL"
+    assert cluster_service.cluster_startup_nodes_env == "REDIS_CLUSTER_STARTUP_NODES"
 
     with pytest.raises(ValidationError, match="ttl_seconds must be positive"):
         ServiceSpec(

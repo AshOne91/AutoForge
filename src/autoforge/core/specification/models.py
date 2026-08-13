@@ -77,6 +77,10 @@ class ServiceSpec(StrictSpecModel):
         default="REDIS_CLUSTER_URL",
         pattern=r"^[A-Z][A-Z0-9_]*$",
     )
+    cluster_startup_nodes_env: str = Field(
+        default="REDIS_CLUSTER_STARTUP_NODES",
+        pattern=r"^[A-Z][A-Z0-9_]*$",
+    )
     sentinel_urls_env: str = Field(
         default="REDIS_SENTINEL_URLS",
         pattern=r"^[A-Z][A-Z0-9_]*$",

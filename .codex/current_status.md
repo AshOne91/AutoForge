@@ -105,15 +105,14 @@ and AWS Launch Template UserData remain deployment concerns outside the
 disposable integration profile. KIS live verification also keeps the generated
 application HTTP healthcheck healthy across a PostgreSQL restart; that endpoint
 now also probes internal PostgreSQL and Redis reachability. Redis Cluster mode
-uses `require_full_coverage=True` and `PING`; KIS live verification reports
-`cluster_state:ok`, zero failed slots, three known nodes, and stable healthy
-checks. A direct KIS probe fails while PostgreSQL is stopped and succeeds after
-recovery. The probe does not authenticate SQL commands or validate external
-managed stores. A KIS Redis node-failure check shows the expected topology
-limit: with three masters and zero replicas, stopping `redis-7000` changes the
-cluster to `cluster_state:fail` with 5461 failed slots and the application probe
-fails; restoring the node returns `cluster_state:ok`, zero failed slots, and a
-healthy application.
+uses `require_full_coverage=True`, `PING`, and a multi-node startup list. KIS
+live verification reports a six-node cluster with three primaries, three
+replicas, all 16,384 slots, and stable healthy checks. Stopping `redis-7000`
+promotes its replica `redis-7004`; the cluster stays `cluster_state:ok` with
+zero failed slots and the generated application stays healthy. Restoring 7000
+returns it as a replica of the promoted primary. A direct KIS probe still fails
+while PostgreSQL is stopped and succeeds after recovery. The probe does not
+authenticate SQL commands or validate external managed stores.
 
 The generated durable-job and Outbox repositories support a caller-supplied
 availability time, so consumer retries can be delayed without changing an event's

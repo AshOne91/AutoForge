@@ -6,7 +6,7 @@ change container-internal ports or Kubernetes Service ports.
 ## Rules
 
 1. Services use their standard container ports: PostgreSQL `5432`, Redis
-   `6379` (or cluster `7000`-series), RabbitMQ `5672` and `15672`, FastAPI
+   `6379` (or cluster nodes `7000`–`7005`), RabbitMQ `5672` and `15672`, FastAPI
    `8000`, and Airflow `8080`.
 2. Containers communicate through Compose service names and container ports,
    never host ports.

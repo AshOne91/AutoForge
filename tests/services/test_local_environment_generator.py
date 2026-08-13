@@ -119,18 +119,22 @@ def test_render_creates_disposable_kis_integration_services() -> None:
     assert "image: postgres:16-alpine" in compose
     assert "redis-7000:" in compose
     assert "redis-7001:" in compose
-    assert "redis-7002:" in compose
+    for port in range(7000, 7006):
+        assert f"redis-{port}:" in compose
+        assert f"redis-{port}-data:/data" in compose
     assert "redis-cluster-init" in compose
     assert "- |-\n        if redis-cli" in compose
     assert "cluster nodes | grep -q '[0-9]-[0-9]'" in compose
-    assert "existing Redis cluster did not become healthy" in compose
-    assert "redis-7002:7002 --cluster-replicas 0 --cluster-yes" in compose
+    assert "existing Redis cluster did not meet the 3-primary/3-replica topology" in compose
+    assert "redis-7005:7005 --cluster-replicas 1 --cluster-yes" in compose
+    assert "$$topology" in compose
     assert "rabbitmq:4.1-management-alpine" in compose
     assert "CREATE DATABASE \"identity\";" in databases
     assert "CREATE DATABASE \"automation\";" in databases
     assert "CREATE DATABASE \"account_shard_1\";" in databases
     assert "CREATE DATABASE \"account_shard_2\";" in databases
     assert "REDIS_CLUSTER_URL=redis://redis-7000:7000" in environment
+    assert "REDIS_CLUSTER_STARTUP_NODES=redis://redis-7000:7000,redis://redis-7001:7001,redis://redis-7002:7002,redis://redis-7003:7003,redis://redis-7004:7004,redis://redis-7005:7005" in environment
     assert "POSTGRES_PORT=25432" in environment
     assert "RABBITMQ_AMQP_PORT=25672" in environment
     assert "RABBITMQ_URL=amqp://autoforge:change-me@rabbitmq:5672/" in environment
@@ -281,6 +285,9 @@ def test_render_marks_runtime_services_restartable() -> None:
         "redis-7000",
         "redis-7001",
         "redis-7002",
+        "redis-7003",
+        "redis-7004",
+        "redis-7005",
         "rabbitmq",
         "application",
         "outbox-relay",
@@ -306,7 +313,7 @@ def test_render_marks_runtime_services_restartable() -> None:
         "CMD",
         "python",
         "-c",
-        "from urllib.request import urlopen; import socket; import asyncio, os; from redis.asyncio.cluster import RedisCluster; urlopen('http://127.0.0.1:8000/health').read(); [socket.create_connection(target, 2).close() for target in [('postgres', 5432), ('redis-7000', 7000), ('redis-7001', 7001), ('redis-7002', 7002)]]; client=RedisCluster.from_url(os.environ['REDIS_CLUSTER_URL'], decode_responses=True, require_full_coverage=True); asyncio.run(client.ping())",
+        "from urllib.request import urlopen; import socket; import asyncio, os; from urllib.parse import urlparse; from redis.cluster import ClusterNode; from redis.asyncio.cluster import RedisCluster; urlopen('http://127.0.0.1:8000/health').read(); [socket.create_connection(target, 2).close() for target in [('postgres', 5432)]]; startup_nodes=[ClusterNode(urlparse(value).hostname, urlparse(value).port or 6379) for value in os.environ['REDIS_CLUSTER_STARTUP_NODES'].split(',')]; client=RedisCluster.from_url(os.environ['REDIS_CLUSTER_URL'], startup_nodes=startup_nodes, decode_responses=True, require_full_coverage=True); asyncio.run(client.ping())",
     ]
 
 
