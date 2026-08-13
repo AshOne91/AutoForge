@@ -1,16 +1,16 @@
 # Next Task
 
-## Next executable unit: verify generated application continuity across Redis Cluster failover
+## Next executable unit: verify Redis primary rejoin after Cluster failover
 
 OWNERSHIP: AutoForge generation contract, validated through kis-auto-trading
 
-EVIDENCE: The generated local environment already creates a six-node Redis
-Cluster and the KIS scale-out check verifies slot coverage, primary/replica
-promotion, and application health after a Redis node failure.
+EVIDENCE: The generated local environment creates a six-node Redis Cluster and
+the KIS scale-out check now verifies primary/replica promotion, unchanged API
+container health, session reads, and a new login after a Redis node failure.
 
-Extend that check to record the application container ID before the Redis
-primary failure and confirm the same container becomes healthy after its
-replica is promoted, without rebuilding or recreating the application.
+Extend that check to wait for the stopped Redis primary to rejoin as a replica
+after it is restarted in cleanup, while preserving the promoted primary and
+application health.
 
 Do not add Redis Sentinel/managed Redis deployment, new session semantics, or
 unrelated service orchestration in this slice.
