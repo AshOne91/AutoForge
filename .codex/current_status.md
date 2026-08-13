@@ -102,7 +102,9 @@ services remain non-restarting. The generated outbox relay also verifies its
 RabbitMQ connection; KIS live verification reaches `healthy` and reconnects
 after a broker restart under `restart: unless-stopped`. Host Docker auto-start
 and AWS Launch Template UserData remain deployment concerns outside the
-disposable integration profile.
+disposable integration profile. KIS live verification also keeps the generated
+application HTTP healthcheck healthy across a PostgreSQL restart; that endpoint
+currently proves HTTP process liveness, not database or Redis readiness.
 
 The generated durable-job and Outbox repositories support a caller-supplied
 availability time, so consumer retries can be delayed without changing an event's
