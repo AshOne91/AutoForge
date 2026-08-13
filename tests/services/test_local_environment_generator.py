@@ -253,6 +253,17 @@ def test_render_creates_postgresql_ha_environment() -> None:
         "endpoint",
         "health",
     ]
+    assert services["postgres-ha-0"]["depends_on"] == {
+        "etcd-0": {"condition": "service_healthy"},
+        "etcd-1": {"condition": "service_healthy"},
+        "etcd-2": {"condition": "service_healthy"},
+    }
+    assert services["postgres-ha-1"]["depends_on"]["postgres-ha-0"] == {
+        "condition": "service_healthy"
+    }
+    assert services["postgres-ha-2"]["depends_on"]["postgres-ha-1"] == {
+        "condition": "service_healthy"
+    }
     assert services["postgres-ha-init"]["restart"] == "no"
     assert "PGUSER_SUPERUSER" not in services["postgres-ha-0"]["environment"]
     assert services["postgres-ha-init"]["environment"]["POSTGRES_SUPERUSER"] == "postgres"

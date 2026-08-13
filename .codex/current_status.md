@@ -93,6 +93,9 @@ contract through HAProxy, and promotes a replacement leader after the active
 leader is stopped. The stopped node rejoins as a replica. This is a single-host
 Docker integration topology; it does not claim multi-host, Kubernetes, backup,
 or managed-database production HA.
+`kis-auto-trading/scripts/verify_generated_postgres_ha.py` repeats that check in
+an isolated Compose project and removes only its own containers, network, and
+named volumes.
 
 The KIS scale-out integration profile reserves Redis Cluster's fixed
 `172.29.0.10`–`172.29.0.15` addresses and allocates other containers from

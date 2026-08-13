@@ -370,7 +370,13 @@ class LocalEnvironmentGenerator:
             "        condition: service_healthy\n"
             "      etcd-2:\n"
             "        condition: service_healthy\n"
-            "    healthcheck:\n"
+            + (
+                f"      postgres-ha-{index - 1}:\n"
+                "        condition: service_healthy\n"
+                if index > 0
+                else ""
+            )
+            + "    healthcheck:\n"
             "      test: [\"CMD-SHELL\", \"curl -fsS http://localhost:8008/health || exit 1\"]\n"
             "      interval: 3s\n"
             "      timeout: 3s\n"
