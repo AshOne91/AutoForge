@@ -109,7 +109,11 @@ uses `require_full_coverage=True` and `PING`; KIS live verification reports
 `cluster_state:ok`, zero failed slots, three known nodes, and stable healthy
 checks. A direct KIS probe fails while PostgreSQL is stopped and succeeds after
 recovery. The probe does not authenticate SQL commands or validate external
-managed stores.
+managed stores. A KIS Redis node-failure check shows the expected topology
+limit: with three masters and zero replicas, stopping `redis-7000` changes the
+cluster to `cluster_state:fail` with 5461 failed slots and the application probe
+fails; restoring the node returns `cluster_state:ok`, zero failed slots, and a
+healthy application.
 
 The generated durable-job and Outbox repositories support a caller-supplied
 availability time, so consumer retries can be delayed without changing an event's
