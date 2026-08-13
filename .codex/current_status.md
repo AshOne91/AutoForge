@@ -101,6 +101,13 @@ confirms that the unchanged application container becomes healthy again after
 HAProxy promotes a replacement writer. This is a local failover recovery check;
 it does not claim every in-flight request is transparently retried.
 
+The same isolated check restarts all six generated Redis nodes, reruns the
+idempotent cluster initializer, verifies `cluster_state:ok`, three primaries,
+three replicas, all 16,384 slots, and recovers the unchanged application
+container. It deliberately does not test an all-Patroni-node shutdown: that
+leaves no writable primary, and safe recovery requires an operator-selected
+manual failover candidate after data assessment.
+
 The KIS scale-out integration profile reserves Redis Cluster's fixed
 `172.29.0.10`–`172.29.0.15` addresses and allocates other containers from
 `172.29.0.128/25`. This keeps partial service restarts from colliding with Redis

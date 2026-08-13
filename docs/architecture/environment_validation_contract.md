@@ -75,6 +75,12 @@ credential connecting through the writer endpoint, and promotion after stopping
 the leader. This is a local Docker integration check, not multi-host or
 Kubernetes production HA.
 
+An intentional simultaneous shutdown of all local Patroni nodes is not an
+automatic recovery guarantee. Patroni safely avoids choosing an arbitrary
+replica when no writable primary remains. Recovering that state requires an
+operator-selected manual failover candidate after data assessment; production
+orchestration, backup, and restore remain outside this local contract.
+
 ## Runtime image and Redis cluster re-entry
 
 Generated Compose services reuse the configured application image tag. After a
