@@ -444,6 +444,11 @@ class LocalEnvironmentGenerator:
             "    pull_policy: never\n"
             f'    restart: "{restart_policy}"\n'
             "    command: [\"python\", \"scripts/run_durable_job_worker.py\"]\n"
+            "    healthcheck:\n"
+            '      test: ["CMD", "python", "-c", "import os; os.kill(1, 0)"]\n'
+            "      interval: 10s\n"
+            "      timeout: 3s\n"
+            "      retries: 3\n"
             "    environment:\n"
             + self._render_database_environment(specification)
             + "      RABBITMQ_URL: ${RABBITMQ_URL:?set RABBITMQ_URL}\n"

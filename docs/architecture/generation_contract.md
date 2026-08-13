@@ -74,8 +74,9 @@ requested Job만 cancelled로 전이한다. 이미 전달된 Outbox message는 �
 
 생성된 `durable-job-worker`의 컨테이너 재시작 정책은
 `ApplicationSpec.durable_job_worker_restart_policy`에서 가져온다. 별도
-worker 헬스 엔드포인트를 만들지 않으며, migration과 RabbitMQ의 준비 상태는
-생성된 Compose `depends_on` 조건으로 검증한다.
+HTTP 헬스 엔드포인트 대신 PID 1 생존을 Compose healthcheck으로 표현하며,
+migration과 RabbitMQ의 준비 상태는 생성된 Compose `depends_on` 조건으로
+검증한다.
 
 ## 생성 파일 소유권
 

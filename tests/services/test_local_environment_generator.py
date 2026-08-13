@@ -293,6 +293,12 @@ def test_render_marks_runtime_services_restartable() -> None:
     assert services["migrate"]["restart"] == "no"
     assert services["redis-cluster-init"]["restart"] == "no"
     assert services["airflow-init"].get("restart") is None
+    assert services["durable-job-worker"]["healthcheck"]["test"] == [
+        "CMD",
+        "python",
+        "-c",
+        "import os; os.kill(1, 0)",
+    ]
 
 
 def test_render_uses_durable_worker_restart_policy_from_specification() -> None:

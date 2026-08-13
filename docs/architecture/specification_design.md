@@ -101,7 +101,8 @@ Runtime Database Store와 Outbox 기반 Durable Job을 선언한다. 이름과 �
 정책을 명시한다. 기본값은 `unless-stopped`이며, 이 필드는 현재 단일
 `durable-job-worker` 구성의 생명주기 경계만 소유한다. worker의 이벤트·큐
 계약은 각 `DurableJobSpec`과 RabbitMQ `ServiceSpec`이 소유하고, 의존 서비스
-준비 상태는 생성된 Compose `depends_on` health 조건으로 표현한다.
+준비 상태는 생성된 Compose `depends_on` health 조건으로 표현하고, worker
+자체의 생존 여부는 생성된 Compose healthcheck으로 표현한다.
 
 ## ModuleSpec
 
