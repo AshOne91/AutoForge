@@ -135,7 +135,8 @@ The KIS scale-out verification also records both API container IDs before a
 Redis primary failure. After replica promotion, both unchanged API containers
 remain Compose-healthy and answer `GET /health`; existing-session reads and a
 new login still pass. The stopped Redis primary is restarted during cleanup so
-the shared profile is not left degraded.
+the shared profile is not left degraded; the verification also waits for that
+node to rejoin as a replica of the promoted primary and rechecks API health.
 
 The generated durable-job and Outbox repositories support a caller-supplied
 availability time, so consumer retries can be delayed without changing an event's
