@@ -72,6 +72,11 @@ requested Job만 cancelled로 전이한다. 이미 전달된 Outbox message는 �
 않는다. running, succeeded, failed Job은 취소할 수 없고, 취소는 완료된 외부
 부수 효과를 되돌리지 않는다.
 
+생성된 `durable-job-worker`의 컨테이너 재시작 정책은
+`ApplicationSpec.durable_job_worker_restart_policy`에서 가져온다. 별도
+worker 헬스 엔드포인트를 만들지 않으며, migration과 RabbitMQ의 준비 상태는
+생성된 Compose `depends_on` 조건으로 검증한다.
+
 ## 생성 파일 소유권
 
 Python에는 C#의 `partial class`가 없으므로 파일 단위로 소유권을 분리한다.

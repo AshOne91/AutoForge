@@ -194,6 +194,9 @@ class ApplicationSpec(StrictSpecModel):
     services: list[ServiceSpec] = Field(default_factory=list)
     databases: list[DatabaseStoreSpec] = Field(default_factory=list)
     durable_jobs: list[DurableJobSpec] = Field(default_factory=list)
+    durable_job_worker_restart_policy: Literal[
+        "no", "on-failure", "always", "unless-stopped"
+    ] = "unless-stopped"
 
     @field_validator("modules")
     @classmethod

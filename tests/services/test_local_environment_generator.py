@@ -24,6 +24,7 @@ def integration_specification(
     rag: bool = False,
     rag_search_backend: str = "elasticsearch",
     host_port_base: int | None = None,
+    durable_job_worker_restart_policy: str = "unless-stopped",
 ) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
@@ -77,6 +78,7 @@ def integration_specification(
             ]
             if durable_jobs
             else [],
+            durable_job_worker_restart_policy=durable_job_worker_restart_policy,
         ),
         tooling={
             "local_environment": {
@@ -291,6 +293,21 @@ def test_render_marks_runtime_services_restartable() -> None:
     assert services["migrate"]["restart"] == "no"
     assert services["redis-cluster-init"]["restart"] == "no"
     assert services["airflow-init"].get("restart") is None
+
+
+def test_render_uses_durable_worker_restart_policy_from_specification() -> None:
+    specification = integration_specification(
+        enabled=True,
+        durable_jobs=True,
+        application=True,
+        durable_job_worker_restart_policy="on-failure",
+    )
+
+    compose = yaml.safe_load(LocalEnvironmentGenerator().render(specification)[
+        PurePosixPath("environment/compose.integration.yml")
+    ])
+
+    assert compose["services"]["durable-job-worker"]["restart"] == "on-failure"
 
 
 def test_render_uses_the_declared_local_host_port_block() -> None:

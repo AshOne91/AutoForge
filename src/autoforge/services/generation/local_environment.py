@@ -435,13 +435,14 @@ class LocalEnvironmentGenerator:
         self, specification: ProjectSpec, *, has_rag: bool
     ) -> str:
         image = self._application_image(specification)
+        restart_policy = specification.application.durable_job_worker_restart_policy
         rag_network = "    networks:\n      - default\n      - rag\n" if has_rag else ""
         rag_environment = self._render_rag_environment(specification) if has_rag else ""
         return (
             "  durable-job-worker:\n"
             f"    image: ${{APPLICATION_IMAGE:-{image}}}\n"
             "    pull_policy: never\n"
-            "    restart: unless-stopped\n"
+            f'    restart: "{restart_policy}"\n'
             "    command: [\"python\", \"scripts/run_durable_job_worker.py\"]\n"
             "    environment:\n"
             + self._render_database_environment(specification)

@@ -97,6 +97,12 @@ ApplicationSpec은 FastAPI Framework, Module 참조, Redis/RabbitMQ Service,
 Runtime Database Store와 Outbox 기반 Durable Job을 선언한다. 이름과 참조의
 중복·누락은 명세 검증 단계에서 거부한다.
 
+`durable_job_worker_restart_policy`는 Durable Job worker 컨테이너의 재시작
+정책을 명시한다. 기본값은 `unless-stopped`이며, 이 필드는 현재 단일
+`durable-job-worker` 구성의 생명주기 경계만 소유한다. worker의 이벤트·큐
+계약은 각 `DurableJobSpec`과 RabbitMQ `ServiceSpec`이 소유하고, 의존 서비스
+준비 상태는 생성된 Compose `depends_on` health 조건으로 표현한다.
+
 ## ModuleSpec
 
 도메인 모듈 하나를 정의한다.
