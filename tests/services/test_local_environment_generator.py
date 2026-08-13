@@ -306,7 +306,7 @@ def test_render_marks_runtime_services_restartable() -> None:
         "CMD",
         "python",
         "-c",
-        "from urllib.request import urlopen; import socket; urlopen('http://127.0.0.1:8000/health').read(); [socket.create_connection(target, 2).close() for target in [('postgres', 5432), ('redis-7000', 7000), ('redis-7001', 7001), ('redis-7002', 7002)]]",
+        "from urllib.request import urlopen; import socket; import asyncio, os; from redis.asyncio.cluster import RedisCluster; urlopen('http://127.0.0.1:8000/health').read(); [socket.create_connection(target, 2).close() for target in [('postgres', 5432), ('redis-7000', 7000), ('redis-7001', 7001), ('redis-7002', 7002)]]; client=RedisCluster.from_url(os.environ['REDIS_CLUSTER_URL'], decode_responses=True, require_full_coverage=True); asyncio.run(client.ping()); asyncio.run(client.aclose())",
     ]
 
 

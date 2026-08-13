@@ -398,6 +398,21 @@ class LocalEnvironmentGenerator:
             if dependency_targets
             else "[]"
         )
+        healthcheck_imports = "from urllib.request import urlopen; import socket"
+        healthcheck_probe = f"urlopen('http://127.0.0.1:8000/health').read(); {dependency_probe}"
+        if redis_mode == "cluster":
+            healthcheck_imports += "; import asyncio, os; from redis.asyncio.cluster import RedisCluster"
+            healthcheck_probe += (
+                "; client=RedisCluster.from_url(os.environ['REDIS_CLUSTER_URL'], "
+                "decode_responses=True, require_full_coverage=True); "
+                "asyncio.run(client.ping()); asyncio.run(client.aclose())"
+            )
+        elif redis_mode == "standalone":
+            healthcheck_imports += "; import asyncio, os; from redis.asyncio import Redis"
+            healthcheck_probe += (
+                "; client=Redis.from_url(os.environ['REDIS_URL']); "
+                "asyncio.run(client.ping()); asyncio.run(client.aclose())"
+            )
         depends_on = (
             "    depends_on:\n" + "".join(dependencies)
             if dependencies
@@ -423,7 +438,7 @@ class LocalEnvironmentGenerator:
             + depends_on
             + "    healthcheck:\n"
             '      test: ["CMD", "python", "-c", '
-            f'"from urllib.request import urlopen; import socket; urlopen(\'http://127.0.0.1:8000/health\').read(); {dependency_probe}"]\n'
+            f'"{healthcheck_imports}; {healthcheck_probe}"]\n'
             "      interval: 5s\n"
             "      timeout: 3s\n"
             "      retries: 20\n"
