@@ -405,13 +405,13 @@ class LocalEnvironmentGenerator:
             healthcheck_probe += (
                 "; client=RedisCluster.from_url(os.environ['REDIS_CLUSTER_URL'], "
                 "decode_responses=True, require_full_coverage=True); "
-                "asyncio.run(client.ping()); asyncio.run(client.aclose())"
+                "asyncio.run(client.ping())"
             )
         elif redis_mode == "standalone":
             healthcheck_imports += "; import asyncio, os; from redis.asyncio import Redis"
             healthcheck_probe += (
                 "; client=Redis.from_url(os.environ['REDIS_URL']); "
-                "asyncio.run(client.ping()); asyncio.run(client.aclose())"
+                "asyncio.run(client.ping())"
             )
         depends_on = (
             "    depends_on:\n" + "".join(dependencies)
