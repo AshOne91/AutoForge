@@ -28,6 +28,9 @@ sequencing.
 
 - [ ] additional database providers such as MySQL
 - [ ] managed Redis Sentinel deployment verification (when selected by a consumer)
+- [ ] host bootstrap/deployment contract for Docker auto-start, AWS Launch Template
+  UserData, image refresh, and secret injection after registry and host ownership
+  boundaries are explicit
 - [ ] external metrics backend adapter (Prometheus/OpenTelemetry, when selected)
 - [ ] artifact publishing
 - [ ] deployment plugins

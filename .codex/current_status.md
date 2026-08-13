@@ -89,6 +89,12 @@ The KIS scale-out integration profile reserves Redis Cluster's fixed
 `172.29.0.128/25`. This keeps partial service restarts from colliding with Redis
 node addresses.
 
+Generated local Compose marks long-running PostgreSQL, Redis, RabbitMQ,
+application, relay, worker, and Airflow services with `restart: unless-stopped`;
+one-shot migration and initialization services remain non-restarting. Host
+Docker auto-start and AWS Launch Template UserData remain deployment concerns
+outside the disposable integration profile.
+
 The generated durable-job and Outbox repositories support a caller-supplied
 availability time, so consumer retries can be delayed without changing an event's
 original occurrence time.

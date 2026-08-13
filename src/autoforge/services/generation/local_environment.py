@@ -199,6 +199,7 @@ class LocalEnvironmentGenerator:
         return (
             "  postgres:\n"
             "    image: postgres:16-alpine\n"
+            "    restart: unless-stopped\n"
             "    environment:\n"
             "      POSTGRES_USER: ${POSTGRES_USER:-autoforge}\n"
             "      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}\n"
@@ -219,6 +220,7 @@ class LocalEnvironmentGenerator:
         return (
             "  redis:\n"
             "    image: redis:7-alpine\n"
+            "    restart: unless-stopped\n"
             "    healthcheck:\n"
             "      test: [\"CMD-SHELL\", \"redis-cli ping | grep -q PONG\"]\n"
             "      interval: 3s\n"
@@ -232,6 +234,7 @@ class LocalEnvironmentGenerator:
             (
                 f"  redis-{port}:\n"
                 "    image: redis:7-alpine\n"
+                "    restart: unless-stopped\n"
                 "    command:\n"
                 "      - redis-server\n"
                 f"      - --port\n      - \"{port}\"\n"
@@ -281,6 +284,7 @@ class LocalEnvironmentGenerator:
         return (
             "  rabbitmq:\n"
             "    image: rabbitmq:4.1-management-alpine\n"
+            "    restart: unless-stopped\n"
             "    environment:\n"
             "      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-autoforge}\n"
             "      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-change-me}\n"
@@ -389,6 +393,7 @@ class LocalEnvironmentGenerator:
             "  application:\n"
             f"    image: ${{APPLICATION_IMAGE:-{image}}}\n"
             "    pull_policy: never\n"
+            "    restart: unless-stopped\n"
             "    environment:\n"
             + self._render_database_environment(specification)
             + redis_environment
@@ -414,6 +419,7 @@ class LocalEnvironmentGenerator:
             "  outbox-relay:\n"
             f"    image: ${{APPLICATION_IMAGE:-{image}}}\n"
             "    pull_policy: never\n"
+            "    restart: unless-stopped\n"
             "    command: [\"python\", \"scripts/run_outbox_relay.py\"]\n"
             "    environment:\n"
             + self._render_database_environment(specification)
@@ -505,6 +511,7 @@ class LocalEnvironmentGenerator:
             + "    ports:\n"
             f"      - \"${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{AIRFLOW_PORT:-{airflow_port}}}:8080\"\n"
             "    command: webserver\n"
+            "    restart: unless-stopped\n"
             "    healthcheck:\n"
             "      test: [\"CMD-SHELL\", \"curl --fail http://localhost:8080/health || exit 1\"]\n"
             "      interval: 10s\n"
@@ -623,6 +630,11 @@ class LocalEnvironmentGenerator:
             "docker compose --env-file .env -f compose.integration.yml up -d --wait\n"
             "docker compose --env-file .env -f compose.integration.yml down\n"
             "```\n"
+            "\n"
+            "Long-running services use `restart: unless-stopped`, so they recover "
+            "after the Docker engine restarts. The host must start Docker automatically; "
+            "AWS Launch Template UserData is a separate deployment concern and is not "
+            "part of this disposable integration profile.\n"
             "\n"
             "Run application containers on the Compose network. The Redis Cluster URL uses\n"
             "Docker service DNS and is intentionally not a host-process URL.\n"

@@ -236,6 +236,7 @@ def test_render_starts_application_without_durable_jobs() -> None:
     assert "DURABLE_JOB_API_TOKEN=" not in environment
     assert "APPLICATION_PORT=28000" in environment
     assert "The generated application is built from Dockerfile." in readme
+    assert "AWS Launch Template UserData is a separate deployment concern" in readme
 
 
 def test_render_connects_docker_application_to_airflow() -> None:
@@ -261,6 +262,35 @@ def test_render_connects_docker_application_to_airflow() -> None:
     assert "APPLICATION_PORT=28000" in environment
     assert "DURABLE_JOB_API_URL=http://application:8000" in environment
     assert "migrations run before the generated application starts" in readme
+
+
+def test_render_marks_runtime_services_restartable() -> None:
+    files = LocalEnvironmentGenerator().render(
+        integration_specification(enabled=True, durable_jobs=True, application=True)
+    )
+
+    compose = yaml.safe_load(
+        files[PurePosixPath("environment", "compose.integration.yml")]
+    )
+    services = compose["services"]
+
+    for service_name in (
+        "postgres",
+        "redis-7000",
+        "redis-7001",
+        "redis-7002",
+        "rabbitmq",
+        "application",
+        "outbox-relay",
+        "durable-job-worker",
+        "airflow-webserver",
+        "airflow-scheduler",
+    ):
+        assert services[service_name]["restart"] == "unless-stopped"
+
+    assert services["migrate"]["restart"] == "no"
+    assert services["redis-cluster-init"]["restart"] == "no"
+    assert services["airflow-init"].get("restart") is None
 
 
 def test_render_uses_the_declared_local_host_port_block() -> None:
