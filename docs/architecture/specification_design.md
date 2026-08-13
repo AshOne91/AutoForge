@@ -104,6 +104,9 @@ Runtime Database Store와 Outbox 기반 Durable Job을 선언한다. 이름과 �
 준비 상태는 생성된 Compose `depends_on` health 조건으로 표현하고, worker
 worker와 relay의 RabbitMQ 연결 가능 여부는 기존 `aio-pika`를 사용하는
 생성된 Compose healthcheck으로 표현한다.
+application의 `/health` Compose healthcheck은 생성된 내부 PostgreSQL 및
+Redis 대상의 TCP 연결 가능 여부도 확인한다. 외부 관리형 저장소의 인증된
+쿼리까지 이 로컬 healthcheck 계약에 포함하지 않는다.
 
 ## ModuleSpec
 

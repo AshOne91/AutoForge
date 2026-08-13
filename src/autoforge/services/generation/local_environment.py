@@ -383,6 +383,21 @@ class LocalEnvironmentGenerator:
             else ""
         )
         rag_environment = self._render_rag_environment(specification) if has_rag else ""
+        dependency_targets: list[tuple[str, int]] = []
+        if specification.application.databases:
+            dependency_targets.append(("postgres", 5432))
+        if redis_mode == "standalone":
+            dependency_targets.append(("redis", 6379))
+        elif redis_mode == "cluster":
+            dependency_targets.extend(
+                [("redis-7000", 7000), ("redis-7001", 7001), ("redis-7002", 7002)]
+            )
+        dependency_probe = (
+            "[socket.create_connection(target, 2).close() for target in "
+            f"{dependency_targets!r}]"
+            if dependency_targets
+            else "[]"
+        )
         depends_on = (
             "    depends_on:\n" + "".join(dependencies)
             if dependencies
@@ -407,7 +422,8 @@ class LocalEnvironmentGenerator:
             + rag_network
             + depends_on
             + "    healthcheck:\n"
-            "      test: [\"CMD\", \"python\", \"-c\", \"from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health').read()\"]\n"
+            '      test: ["CMD", "python", "-c", '
+            f'"from urllib.request import urlopen; import socket; urlopen(\'http://127.0.0.1:8000/health\').read(); {dependency_probe}"]\n'
             "      interval: 5s\n"
             "      timeout: 3s\n"
             "      retries: 20\n"

@@ -78,6 +78,11 @@ relay별 정책 필드를 만들지 않으며, 기존 `aio-pika` 연결 확인�
 healthcheck으로 표현한다. migration과 RabbitMQ의 초기 준비 상태는 생성된 Compose
 `depends_on` 조건으로 검증한다.
 
+생성된 application의 기존 `/health` 응답은 내부 PostgreSQL 및 Redis 서비스의
+TCP 연결 가능 여부도 함께 확인한다. 이는 인증된 쿼리나 Redis 명령 실행을
+대체하지 않으며, 애플리케이션 컨테이너가 의존 서비스의 네트워크 단절을
+healthy로 오판하지 않게 하는 최소 readiness 검사다.
+
 ## 생성 파일 소유권
 
 Python에는 C#의 `partial class`가 없으므로 파일 단위로 소유권을 분리한다.
