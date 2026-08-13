@@ -98,8 +98,11 @@ RabbitMQ connection using the existing `aio-pika` dependency, while migration
 and initial RabbitMQ readiness remain dependency-gated. KIS live Compose
 verification reaches `healthy`, and a RabbitMQ restart leaves the worker
 healthy without a worker restart. One-shot migration and initialization
-services remain non-restarting. Host Docker auto-start and AWS Launch Template
-UserData remain deployment concerns outside the disposable integration profile.
+services remain non-restarting. The generated outbox relay also verifies its
+RabbitMQ connection; KIS live verification reaches `healthy` and reconnects
+after a broker restart under `restart: unless-stopped`. Host Docker auto-start
+and AWS Launch Template UserData remain deployment concerns outside the
+disposable integration profile.
 
 The generated durable-job and Outbox repositories support a caller-supplied
 availability time, so consumer retries can be delayed without changing an event's
