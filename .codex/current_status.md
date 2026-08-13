@@ -93,11 +93,12 @@ Generated local Compose marks long-running PostgreSQL, Redis, RabbitMQ,
 application, relay, worker, and Airflow services with restart policies. The
 durable-job worker policy is explicitly configured by
 `ApplicationSpec.durable_job_worker_restart_policy` and defaults to
-`unless-stopped`. The generated worker also exposes a Compose process-liveness
-healthcheck while migration and RabbitMQ readiness remain dependency-gated.
-One-shot migration and initialization services remain non-restarting. Host
-Docker auto-start and AWS Launch Template UserData remain deployment concerns
-outside the disposable integration profile.
+`unless-stopped`. The generated worker healthcheck now verifies an actual
+RabbitMQ connection using the existing `aio-pika` dependency, while migration
+and initial RabbitMQ readiness remain dependency-gated. KIS live Compose
+verification reaches `healthy`. One-shot migration and initialization services
+remain non-restarting. Host Docker auto-start and AWS Launch Template UserData
+remain deployment concerns outside the disposable integration profile.
 
 The generated durable-job and Outbox repositories support a caller-supplied
 availability time, so consumer retries can be delayed without changing an event's
