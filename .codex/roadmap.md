@@ -27,6 +27,9 @@ sequencing.
 - [ ] external-provider resiliency adapter after a provider is selected
 
 - [ ] additional database providers such as MySQL
+- [ ] Kubernetes or managed PostgreSQL HA deployment contract with multi-node
+  placement, persistent volumes, backups, restore drills, and production
+  observability after a deployment provider is selected
 - [ ] managed Redis Sentinel deployment verification (when selected by a consumer)
 - [ ] host bootstrap/deployment contract for Docker auto-start, AWS Launch Template
   UserData, image refresh, and secret injection after registry and host ownership

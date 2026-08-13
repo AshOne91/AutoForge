@@ -1,21 +1,19 @@
 # Next Task
 
-## Next executable unit: codify Redis primary failover verification
-
-The next executable work spans AutoForge and kis-auto-trading.
+## Next executable unit: codify PostgreSQL HA failover verification
 
 OWNERSHIP: AutoForge generation contract, validated through kis-auto-trading
 
-EVIDENCE: AutoForge now generates a six-node local Redis Cluster with three
-primaries, three replicas, named per-node volumes, and multi-node startup URLs.
-KIS generation, static Compose validation, focused tests, isolated live startup,
-and a `redis-7000` stop/recovery pass. During the stop, `redis-7004` is promoted,
-the cluster keeps all 16,384 slots, and the generated application stays healthy.
+EVIDENCE: AutoForge generates an optional local three-node Patroni PostgreSQL
+cluster with a three-member etcd DCS and HAProxy at the existing `postgres:5432`
+writer endpoint. KIS generation, static Compose validation, focused tests, live
+startup, logical database initialization, leader promotion, and node recovery
+passed.
 
-Turn the demonstrated failover procedure into one isolated KIS runtime
-verification: start the generated Redis profile, stop one primary, wait for a
-replica promotion and full slot coverage, verify application health, then restore
-the node. Keep it separate from broker, Airflow, and external-provider tests.
+Turn the demonstrated procedure into one isolated KIS runtime verification:
+confirm one leader and two streaming replicas, stop the active leader, wait for
+HAProxy to reach the promoted writer, restore the stopped node, and confirm it
+rejoins as a replica.
 
-Do not add failover orchestration, a generic service framework, broker cluster,
-or unrelated deployment abstraction in this slice.
+Do not add read routing, a production database deployment framework, backup
+automation, or an unrelated service abstraction in this slice.

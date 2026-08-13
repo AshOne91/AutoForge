@@ -73,6 +73,18 @@ placement:
 `mode`가 `sharded`라면 routing key가 반드시 필요하다. 라우팅에 실패했을 때
 Global DB로 조용히 대체하지 않는다.
 
+### Local generated HA mode
+
+`tooling.local_environment.postgres_mode` defaults to `standalone`. When it is
+`ha`, generated local Compose keeps the existing application DSN contract
+(`postgres:5432`) but places HAProxy at that service name. HAProxy routes writes
+only to the Patroni primary; three Spilo PostgreSQL nodes use a three-member etcd
+DCS for leader election and streaming replication.
+
+This is a local integration topology, not a multi-host production database
+deployment. It intentionally does not add read splitting: Global/Shard routing
+chooses the logical database, while PostgreSQL HA chooses the current writer.
+
 ### Runtime Database Configuration
 
 환경별 실제 연결 정보는 생성 명세와 분리한다.

@@ -22,6 +22,9 @@ AutoForge currently has working foundations for:
 - GitHub webhook verification and delivery deduplication
 - GitHub Actions/Jenkins validation configuration generation
 - generated Dockerfile and local/integration Compose environments
+- optional local PostgreSQL HA Compose mode: three Patroni PostgreSQL nodes,
+  three etcd members, HAProxy writer endpoint, and idempotent logical-database
+  initialization
 - PostgreSQL, Redis Cluster, RabbitMQ, migration, application, Airflow, Outbox relay,
   and durable-job worker runtime validation
 - ELK and Kubernetes base-server generation
@@ -83,6 +86,13 @@ Generated Compose reuses its application image tag. Runtime verification therefo
 rebuilds the image after consumer source changes; Redis Cluster initialization is
 idempotent for a healthy existing local cluster and reports unhealthy runtime state
 without resetting unrelated services.
+
+KIS runtime verification confirms the generated PostgreSQL HA mode elects one
+leader with two streaming replicas, exposes the existing `postgres:5432` writer
+contract through HAProxy, and promotes a replacement leader after the active
+leader is stopped. The stopped node rejoins as a replica. This is a single-host
+Docker integration topology; it does not claim multi-host, Kubernetes, backup,
+or managed-database production HA.
 
 The KIS scale-out integration profile reserves Redis Cluster's fixed
 `172.29.0.10`–`172.29.0.15` addresses and allocates other containers from

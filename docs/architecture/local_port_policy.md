@@ -16,6 +16,9 @@ change container-internal ports or Kubernetes Service ports.
    be a 100-port boundary in the IANA dynamic/private range `49152-65400`.
 5. Within that block: application `+00`, PostgreSQL `+10`, RabbitMQ AMQP
    `+30`, RabbitMQ management `+31`, and Airflow `+40`.
+6. PostgreSQL HA mode keeps the same published PostgreSQL port: the internal
+   `postgres:5432` service is HAProxy. Patroni and etcd ports stay internal to
+   the Compose network.
 
 For example, a base of `49300` publishes the application on `49300`,
 PostgreSQL on `49310`, RabbitMQ on `49330`/`49331`, and Airflow on `49340`.

@@ -36,6 +36,11 @@ user-owned files and must not mount over application source paths.
 
 ## Local service connectivity
 
+In generated PostgreSQL HA mode, each Patroni node and each etcd member has its
+own named volume. HAProxy has no persistent data. These local volumes are runtime
+state: reset only an explicitly identified failed test node, never a whole Compose
+project or unrelated service volumes as a recovery shortcut.
+
 Generated Compose overlays remain independently managed. When an optional service
 must communicate with the generated application or worker, the generator emits an
 explicit non-secret network setting and attaches only the required services to the

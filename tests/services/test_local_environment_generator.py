@@ -23,6 +23,7 @@ def integration_specification(
     application: bool = False,
     rag: bool = False,
     rag_search_backend: str = "elasticsearch",
+    postgres_mode: str = "standalone",
     host_port_base: int | None = None,
     durable_job_worker_restart_policy: str = "unless-stopped",
 ) -> ProjectSpec:
@@ -84,6 +85,7 @@ def integration_specification(
             "local_environment": {
                 "enabled": enabled,
                 "application_enabled": application,
+                "postgres_mode": postgres_mode,
                 "host_port_base": host_port_base,
             },
             "rag": {"enabled": rag, "search_backend": rag_search_backend},
@@ -129,10 +131,11 @@ def test_render_creates_disposable_kis_integration_services() -> None:
     assert "redis-7005:7005 --cluster-replicas 1 --cluster-yes" in compose
     assert "$$topology" in compose
     assert "rabbitmq:4.1-management-alpine" in compose
-    assert "CREATE DATABASE \"identity\";" in databases
-    assert "CREATE DATABASE \"automation\";" in databases
-    assert "CREATE DATABASE \"account_shard_1\";" in databases
-    assert "CREATE DATABASE \"account_shard_2\";" in databases
+    assert "CREATE DATABASE %I" in databases
+    assert "('identity')" in databases
+    assert "('automation')" in databases
+    assert "('account_shard_1')" in databases
+    assert "('account_shard_2')" in databases
     assert "REDIS_CLUSTER_URL=redis://redis-7000:7000" in environment
     assert "REDIS_CLUSTER_STARTUP_NODES=redis://redis-7000:7000,redis://redis-7001:7001,redis://redis-7002:7002,redis://redis-7003:7003,redis://redis-7004:7004,redis://redis-7005:7005" in environment
     assert "POSTGRES_PORT=25432" in environment
@@ -220,8 +223,53 @@ def test_render_adds_airflow_for_durable_jobs() -> None:
     assert "../airflow/dags:/opt/airflow/dags:ro" in airflow["airflow-scheduler"]["volumes"]
     assert "airflow-home:/opt/airflow" in airflow["airflow-init"]["volumes"]
     assert "DURABLE_JOB_API_TOKEN=change-me" in environment
-    assert 'CREATE DATABASE "airflow";' in databases
+    assert "('airflow')" in databases
     assert "Airflow" in readme
+
+
+def test_render_creates_postgresql_ha_environment() -> None:
+    files = LocalEnvironmentGenerator().render(
+        integration_specification(
+            enabled=True,
+            durable_jobs=True,
+            application=True,
+            postgres_mode="ha",
+        )
+    )
+
+    compose = yaml.safe_load(
+        files[PurePosixPath("environment", "compose.integration.yml")]
+    )
+    environment = files[PurePosixPath("environment", ".env.example")]
+    haproxy_config = files[PurePosixPath("environment", "postgres-ha", "haproxy.cfg")]
+    services = compose["services"]
+
+    assert {f"etcd-{index}" for index in range(3)} <= set(services)
+    assert {f"postgres-ha-{index}" for index in range(3)} <= set(services)
+    assert services["postgres"]["image"] == "haproxy:3.0-alpine"
+    assert services["etcd-0"]["healthcheck"]["test"] == [
+        "CMD",
+        "/usr/local/bin/etcdctl",
+        "endpoint",
+        "health",
+    ]
+    assert services["postgres-ha-init"]["restart"] == "no"
+    assert "PGUSER_SUPERUSER" not in services["postgres-ha-0"]["environment"]
+    assert services["postgres-ha-init"]["environment"]["POSTGRES_SUPERUSER"] == "postgres"
+    assert services["postgres-ha-init"]["environment"]["POSTGRES_PASSWORD"] == "${POSTGRES_PASSWORD:-change-me}"
+    assert "CREATE ROLE %I LOGIN" in services["postgres-ha-init"]["command"][2]
+    assert "ALTER DATABASE %I OWNER TO %I" in services["postgres-ha-init"]["command"][2]
+    assert services["migrate"]["depends_on"] == {
+        "postgres-ha-init": {"condition": "service_completed_successfully"}
+    }
+    assert services["airflow-init"]["depends_on"] == {
+        "postgres-ha-init": {"condition": "service_completed_successfully"}
+    }
+    assert services["postgres-ha-0"]["environment"]["SPILO_CONFIGURATION"].count(
+        "synchronous_mode: true"
+    ) == 1
+    assert "POSTGRES_REPLICATION_PASSWORD=change-me-replication" in environment
+    assert "GET /primary" in haproxy_config
 
 
 def test_render_starts_application_without_durable_jobs() -> None:

@@ -29,6 +29,7 @@ class LocalEnvironmentGenerator:
         if not specification.tooling.local_environment.enabled:
             return {}
         redis_mode = self._redis_mode(specification.application.services)
+        postgres_mode = specification.tooling.local_environment.postgres_mode
         redis_service = next(
             (
                 service
@@ -51,10 +52,15 @@ class LocalEnvironmentGenerator:
         has_migration = has_application and bool(specification.application.databases)
         has_rag = specification.tooling.rag.enabled
         host_port_base = specification.tooling.local_environment.host_port_base
+        database_names = self._database_names(specification.application.databases)
+        if has_durable_jobs and "airflow" not in database_names:
+            database_names.append("airflow")
 
         files = {
             PurePosixPath("environment", "compose.integration.yml"): self._render_compose(
                 specification,
+                database_names=database_names,
+                postgres_mode=postgres_mode,
                 redis_mode=redis_mode,
                 redis_service=redis_service,
                 has_rabbitmq=bool(rabbitmq_services),
@@ -66,6 +72,7 @@ class LocalEnvironmentGenerator:
             ),
             PurePosixPath("environment", ".env.example"): self._render_env(
                 specification,
+                postgres_mode=postgres_mode,
                 redis_mode=redis_mode,
                 redis_service=redis_service,
                 has_rabbitmq=bool(rabbitmq_services),
@@ -76,19 +83,21 @@ class LocalEnvironmentGenerator:
             ),
             PurePosixPath("environment", "README.md"): self._render_readme(
                 redis_mode=redis_mode,
+                postgres_mode=postgres_mode,
                 has_rabbitmq=bool(rabbitmq_services),
                 has_durable_jobs=has_durable_jobs,
                 has_application=has_application,
                 has_migration=has_migration,
             ),
         }
-        database_names = self._database_names(specification.application.databases)
-        if has_durable_jobs and "airflow" not in database_names:
-            database_names.append("airflow")
         if database_names:
             files[
                 PurePosixPath("environment", "postgres-init", "00-databases.sql")
-            ] = "".join(f'CREATE DATABASE "{name}";\n' for name in database_names)
+            ] = self._render_database_initialization(database_names)
+        if postgres_mode == "ha" and database_names:
+            files[PurePosixPath("environment", "postgres-ha", "haproxy.cfg")] = (
+                self._render_postgres_ha_haproxy_config()
+            )
         return files
 
     def plan(self, specification: ProjectSpec) -> GenerationPlan:
@@ -139,6 +148,8 @@ class LocalEnvironmentGenerator:
         self,
         specification: ProjectSpec,
         *,
+        database_names: list[str],
+        postgres_mode: str,
         redis_mode: str | None,
         redis_service: ServiceSpec | None,
         has_rabbitmq: bool,
@@ -150,7 +161,10 @@ class LocalEnvironmentGenerator:
     ) -> str:
         services: list[str] = []
         if specification.application.databases:
-            services.append(self._render_postgres(host_port_base))
+            if postgres_mode == "ha":
+                services.extend(self._render_postgres_ha(database_names, host_port_base))
+            else:
+                services.append(self._render_postgres(host_port_base))
         if redis_mode == "standalone":
             services.append(self._render_redis_standalone())
         elif redis_mode == "cluster":
@@ -159,7 +173,7 @@ class LocalEnvironmentGenerator:
             services.append(self._render_rabbitmq(host_port_base))
         if has_application:
             if has_migration:
-                services.append(self._render_migrate(specification))
+                services.append(self._render_migrate(specification, postgres_mode))
             services.append(
                 self._render_application(
                     specification,
@@ -182,6 +196,7 @@ class LocalEnvironmentGenerator:
             services.append(
                 self._render_airflow(
                     has_application=has_application,
+                    postgres_mode=postgres_mode,
                     host_port_base=host_port_base,
                 )
             )
@@ -198,12 +213,23 @@ class LocalEnvironmentGenerator:
                 if has_rag
                 else ""
             )
-            + self._render_volumes(redis_mode=redis_mode, has_durable_jobs=has_durable_jobs)
+            + self._render_volumes(
+                postgres_mode=postgres_mode,
+                redis_mode=redis_mode,
+                has_durable_jobs=has_durable_jobs,
+            )
         )
 
     @staticmethod
-    def _render_volumes(*, redis_mode: str | None, has_durable_jobs: bool) -> str:
+    def _render_volumes(
+        *, postgres_mode: str, redis_mode: str | None, has_durable_jobs: bool
+    ) -> str:
         names = (
+            [f"postgres-ha-{index}-data" for index in range(3)]
+            + [f"etcd-{index}-data" for index in range(3)]
+            if postgres_mode == "ha"
+            else []
+        ) + (
             [f"redis-{port}-data" for port in range(7000, 7006)]
             if redis_mode == "cluster"
             else []
@@ -236,6 +262,192 @@ class LocalEnvironmentGenerator:
             "      interval: 3s\n"
             "      timeout: 3s\n"
             "      retries: 20\n"
+        )
+
+    @classmethod
+    def _render_postgres_ha(
+        cls, database_names: list[str], host_port_base: int | None
+    ) -> list[str]:
+        postgres_port = cls._host_port(host_port_base, default=25432, offset=10)
+        services = [cls._render_etcd(index) for index in range(3)]
+        services.extend(cls._render_postgres_ha_node(index) for index in range(3))
+        services.extend(
+            [
+                (
+                    "  postgres:\n"
+                    "    image: haproxy:3.0-alpine\n"
+                    "    restart: unless-stopped\n"
+                    "    ports:\n"
+                    f"      - \"${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{POSTGRES_PORT:-{postgres_port}}}:5432\"\n"
+                    "    volumes:\n"
+                    "      - ./postgres-ha/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro\n"
+                    "    depends_on:\n"
+                    "      postgres-ha-0:\n"
+                    "        condition: service_started\n"
+                    "      postgres-ha-1:\n"
+                    "        condition: service_started\n"
+                    "      postgres-ha-2:\n"
+                    "        condition: service_started\n"
+                    "    healthcheck:\n"
+                    "      test: [\"CMD-SHELL\", \"haproxy -c -f /usr/local/etc/haproxy/haproxy.cfg\"]\n"
+                    "      interval: 3s\n"
+                    "      timeout: 3s\n"
+                    "      retries: 20\n"
+                ),
+                cls._render_postgres_ha_init(database_names),
+            ]
+        )
+        return services
+
+    @staticmethod
+    def _render_etcd(index: int) -> str:
+        cluster = ",".join(
+            f"etcd-{member}=http://etcd-{member}:2380" for member in range(3)
+        )
+        return (
+            f"  etcd-{index}:\n"
+            "    image: quay.io/coreos/etcd:v3.5.18\n"
+            "    restart: unless-stopped\n"
+            "    command:\n"
+            "      - /usr/local/bin/etcd\n"
+            f"      - --name=etcd-{index}\n"
+            "      - --data-dir=/etcd-data\n"
+            f"      - --initial-advertise-peer-urls=http://etcd-{index}:2380\n"
+            "      - --listen-peer-urls=http://0.0.0.0:2380\n"
+            f"      - --advertise-client-urls=http://etcd-{index}:2379\n"
+            "      - --listen-client-urls=http://0.0.0.0:2379\n"
+            f"      - --initial-cluster={cluster}\n"
+            "      - --initial-cluster-state=new\n"
+            "      - --initial-cluster-token=autoforge-postgres-ha\n"
+            "    volumes:\n"
+            f"      - etcd-{index}-data:/etcd-data\n"
+            "    healthcheck:\n"
+            "      test: [\"CMD\", \"/usr/local/bin/etcdctl\", \"endpoint\", \"health\"]\n"
+            "      interval: 3s\n"
+            "      timeout: 3s\n"
+            "      retries: 20\n"
+        )
+
+    @staticmethod
+    def _render_postgres_ha_node(index: int) -> str:
+        return (
+            f"  postgres-ha-{index}:\n"
+            "    image: ghcr.io/zalando/spilo-16:3.3-p3\n"
+            "    restart: unless-stopped\n"
+            "    environment:\n"
+            "      SPILO_PROVIDER: local\n"
+            "      SCOPE: ${POSTGRES_HA_SCOPE:-autoforge-postgres}\n"
+            "      ETCD3_HOSTS: etcd-0:2379,etcd-1:2379,etcd-2:2379\n"
+            f"      RESTAPI_CONNECT_ADDRESS: postgres-ha-{index}\n"
+            "      PGPASSWORD_SUPERUSER: ${POSTGRES_PASSWORD:-change-me}\n"
+            "      PGUSER_STANDBY: replication\n"
+            "      PGPASSWORD_STANDBY: ${POSTGRES_REPLICATION_PASSWORD:-change-me-replication}\n"
+            "      ALLOW_NOSSL: \"true\"\n"
+            "      SPILO_CONFIGURATION: |-\n"
+            "        postgresql:\n"
+            f"          connect_address: postgres-ha-{index}:5432\n"
+            "        bootstrap:\n"
+            "          dcs:\n"
+            "            ttl: 10\n"
+            "            loop_wait: 3\n"
+            "            retry_timeout: 10\n"
+            "            maximum_lag_on_failover: 1048576\n"
+            "            synchronous_mode: true\n"
+            "            synchronous_mode_strict: false\n"
+            "            postgresql:\n"
+            "              parameters:\n"
+            "                wal_level: replica\n"
+            "                max_wal_senders: 10\n"
+            "                max_replication_slots: 10\n"
+            "                hot_standby: \"on\"\n"
+            "                synchronous_commit: \"on\"\n"
+            "    volumes:\n"
+            f"      - postgres-ha-{index}-data:/home/postgres/pgdata\n"
+            "    depends_on:\n"
+            "      etcd-0:\n"
+            "        condition: service_healthy\n"
+            "      etcd-1:\n"
+            "        condition: service_healthy\n"
+            "      etcd-2:\n"
+            "        condition: service_healthy\n"
+            "    healthcheck:\n"
+            "      test: [\"CMD-SHELL\", \"curl -fsS http://localhost:8008/health || exit 1\"]\n"
+            "      interval: 3s\n"
+            "      timeout: 3s\n"
+            "      retries: 30\n"
+        )
+
+    @staticmethod
+    def _render_postgres_ha_init(database_names: list[str]) -> str:
+        requested_databases = ", ".join(f"('{name}')" for name in database_names)
+        return (
+            "  postgres-ha-init:\n"
+            "    image: postgres:16-alpine\n"
+            "    environment:\n"
+            "      POSTGRES_SUPERUSER: postgres\n"
+            "      POSTGRES_USER: ${POSTGRES_USER:-autoforge}\n"
+            "      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}\n"
+            "      PGPASSWORD: ${POSTGRES_PASSWORD:-change-me}\n"
+            "    volumes:\n"
+            "      - ./postgres-init/00-databases.sql:/postgres-init/00-databases.sql:ro\n"
+            "    depends_on:\n"
+            "      postgres:\n"
+            "        condition: service_healthy\n"
+            "    command:\n"
+            "      - /bin/sh\n"
+            "      - -ec\n"
+            "      - |-\n"
+            "        until psql -h postgres -U $$POSTGRES_SUPERUSER -d postgres -c 'SELECT 1' >/dev/null 2>&1; do sleep 1; done\n"
+            "        psql -h postgres -U $$POSTGRES_SUPERUSER -d postgres -v ON_ERROR_STOP=1 -v application_user=\"$$POSTGRES_USER\" -v application_password=\"$$POSTGRES_PASSWORD\" <<'SQL'\n"
+            "        SELECT format('CREATE ROLE %I LOGIN', :'application_user')\n"
+            "        WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'application_user')\n"
+            "        \\gexec\n"
+            "        SELECT format('ALTER ROLE %I LOGIN PASSWORD %L', :'application_user', :'application_password')\n"
+            "        \\gexec\n"
+            "        SQL\n"
+            "        psql -h postgres -U $$POSTGRES_SUPERUSER -d postgres -v ON_ERROR_STOP=1 -f /postgres-init/00-databases.sql\n"
+            "        psql -h postgres -U $$POSTGRES_SUPERUSER -d postgres -v ON_ERROR_STOP=1 -v application_user=\"$$POSTGRES_USER\" <<'SQL'\n"
+            "        SELECT format('ALTER DATABASE %I OWNER TO %I', database_name, :'application_user')\n"
+            f"        FROM (VALUES {requested_databases}) AS requested(database_name)\n"
+            "        \\gexec\n"
+            "        SQL\n"
+            "    restart: \"no\"\n"
+        )
+
+    @staticmethod
+    def _render_database_initialization(database_names: list[str]) -> str:
+        requested_databases = ", ".join(f"('{name}')" for name in database_names)
+        return (
+            "SELECT format('CREATE DATABASE %I', database_name)\n"
+            f"FROM (VALUES {requested_databases}) AS requested(database_name)\n"
+            "WHERE NOT EXISTS (\n"
+            "  SELECT 1 FROM pg_database WHERE datname = requested.database_name\n"
+            ")\n"
+            "\\gexec\n"
+        )
+
+    @staticmethod
+    def _render_postgres_ha_haproxy_config() -> str:
+        return (
+            "global\n"
+            "  log stdout format raw local0\n"
+            "\n"
+            "defaults\n"
+            "  mode tcp\n"
+            "  timeout connect 5s\n"
+            "  timeout client 60s\n"
+            "  timeout server 60s\n"
+            "\n"
+            "frontend postgres-write\n"
+            "  bind *:5432\n"
+            "  default_backend postgres-primary\n"
+            "\n"
+            "backend postgres-primary\n"
+            "  option httpchk GET /primary\n"
+            "  http-check expect status 200\n"
+            "  server postgres-ha-0 postgres-ha-0:5432 check port 8008\n"
+            "  server postgres-ha-1 postgres-ha-1:5432 check port 8008\n"
+            "  server postgres-ha-2 postgres-ha-2:5432 check port 8008\n"
         )
 
     @staticmethod
@@ -359,7 +571,7 @@ class LocalEnvironmentGenerator:
             "      RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-embeddinggemma}\n"
         )
 
-    def _render_migrate(self, specification: ProjectSpec) -> str:
+    def _render_migrate(self, specification: ProjectSpec, postgres_mode: str) -> str:
         image = self._application_image(specification)
         return (
             "  migrate:\n"
@@ -372,9 +584,13 @@ class LocalEnvironmentGenerator:
             "    environment:\n"
             + self._render_database_environment(specification)
             + "    depends_on:\n"
-            "      postgres:\n"
-            "        condition: service_healthy\n"
-            "    restart: \"no\"\n"
+            + (
+                "      postgres-ha-init:\n"
+                "        condition: service_completed_successfully\n"
+                if postgres_mode == "ha"
+                else "      postgres:\n        condition: service_healthy\n"
+            )
+            + "    restart: \"no\"\n"
         )
 
     def _render_application(
@@ -531,7 +747,7 @@ class LocalEnvironmentGenerator:
 
     @classmethod
     def _render_airflow(
-        cls, *, has_application: bool, host_port_base: int | None
+        cls, *, has_application: bool, postgres_mode: str, host_port_base: int | None
     ) -> str:
         airflow_port = cls._host_port(host_port_base, default=28080, offset=40)
         api_url = (
@@ -565,9 +781,13 @@ class LocalEnvironmentGenerator:
             "  airflow-init:\n"
             "    image: apache/airflow:2.10.5-python3.12\n"
             "    depends_on:\n"
-            "      postgres:\n"
-            "        condition: service_healthy\n"
-            "    environment:\n"
+            + (
+                "      postgres-ha-init:\n"
+                "        condition: service_completed_successfully\n"
+                if postgres_mode == "ha"
+                else "      postgres:\n        condition: service_healthy\n"
+            )
+            + "    environment:\n"
             + environment
             + "    volumes:\n"
             + volumes
@@ -610,6 +830,7 @@ class LocalEnvironmentGenerator:
         self,
         specification: ProjectSpec,
         *,
+        postgres_mode: str,
         redis_mode: str | None,
         redis_service: ServiceSpec | None,
         has_rabbitmq: bool,
@@ -635,6 +856,13 @@ class LocalEnvironmentGenerator:
                     f"POSTGRES_PORT={postgres_port}\n",
                 ]
             )
+            if postgres_mode == "ha":
+                lines.extend(
+                    [
+                        "POSTGRES_REPLICATION_PASSWORD=change-me-replication\n",
+                        "POSTGRES_HA_SCOPE=autoforge-postgres\n",
+                    ]
+                )
         if redis_mode == "standalone":
             lines.append("REDIS_URL=redis://redis:6379\n")
         elif redis_mode == "cluster":
@@ -686,12 +914,17 @@ class LocalEnvironmentGenerator:
     def _render_readme(
         *,
         redis_mode: str | None,
+        postgres_mode: str,
         has_rabbitmq: bool,
         has_durable_jobs: bool,
         has_application: bool,
         has_migration: bool,
     ) -> str:
-        services = ["PostgreSQL"]
+        services = [
+            "three-node PostgreSQL HA cluster"
+            if postgres_mode == "ha"
+            else "PostgreSQL"
+        ]
         if redis_mode == "cluster":
             services.append("three-node Redis Cluster")
         elif redis_mode == "standalone":

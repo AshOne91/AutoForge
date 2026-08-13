@@ -391,6 +391,7 @@ class LocalEnvironmentSpec(StrictSpecModel):
 
     enabled: bool = False
     application_enabled: bool = False
+    postgres_mode: Literal["standalone", "ha"] = "standalone"
     host_port_base: int | None = Field(
         default=None,
         ge=49152,

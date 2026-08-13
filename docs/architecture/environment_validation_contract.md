@@ -61,6 +61,20 @@ user-owned
 
 ## 검증 계약
 
+## Local PostgreSQL HA mode
+
+When `tooling.local_environment.postgres_mode: ha` is selected for a project
+with database stores, generated Compose adds three etcd members, three Patroni
+PostgreSQL nodes, HAProxy at `postgres:5432`, and a one-shot initializer. The
+initializer uses the same generated SQL artifact as standalone PostgreSQL for
+logical databases, then creates the application login role and assigns database
+ownership.
+
+The acceptance check is one leader, two streaming replicas, an application
+credential connecting through the writer endpoint, and promotion after stopping
+the leader. This is a local Docker integration check, not multi-host or
+Kubernetes production HA.
+
 ## Runtime image and Redis cluster re-entry
 
 Generated Compose services reuse the configured application image tag. After a
