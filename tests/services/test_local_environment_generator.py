@@ -297,7 +297,7 @@ def test_render_marks_runtime_services_restartable() -> None:
         "CMD",
         "python",
         "-c",
-        "import os; os.kill(1, 0)",
+        "import asyncio, os, aio_pika; connection = asyncio.run(aio_pika.connect(os.environ['RABBITMQ_URL'], timeout=2)); asyncio.run(connection.close())",
     ]
 
 

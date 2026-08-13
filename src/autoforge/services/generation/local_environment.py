@@ -445,7 +445,7 @@ class LocalEnvironmentGenerator:
             f'    restart: "{restart_policy}"\n'
             "    command: [\"python\", \"scripts/run_durable_job_worker.py\"]\n"
             "    healthcheck:\n"
-            '      test: ["CMD", "python", "-c", "import os; os.kill(1, 0)"]\n'
+            '      test: ["CMD", "python", "-c", "import asyncio, os, aio_pika; connection = asyncio.run(aio_pika.connect(os.environ[\'RABBITMQ_URL\'], timeout=2)); asyncio.run(connection.close())"]\n'
             "      interval: 10s\n"
             "      timeout: 3s\n"
             "      retries: 3\n"
