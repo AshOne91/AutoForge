@@ -124,7 +124,13 @@ def test_render_creates_disposable_kis_integration_services() -> None:
     for port in range(7000, 7006):
         assert f"redis-{port}:" in compose
         assert f"redis-{port}-data:/data" in compose
+        assert f"- redis-{port}\n      - --cluster-preferred-endpoint-type" in compose
+    assert "- --cluster-announce-hostname" in compose
+    assert "- hostname" in compose
     assert "redis-cluster-init" in compose
+    assert "for port in 7001 7002 7003 7004 7005; do" in compose
+    assert "set -- $$(getent hosts redis-$$port)" in compose
+    assert 'cluster meet "$$1" "$$port"' in compose
     assert "- |-\n        if redis-cli" in compose
     assert "cluster nodes | grep -q '[0-9]-[0-9]'" in compose
     assert "existing Redis cluster did not meet the 3-primary/3-replica topology" in compose

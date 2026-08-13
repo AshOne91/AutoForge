@@ -89,13 +89,16 @@ container run as evidence for the new source. Recreating only application,
 worker, or relay containers does not update their installed package.
 
 The local Redis Cluster initializer is idempotent: it creates a cluster only
-when no hash slots are assigned. If slots already exist, it waits a bounded time
-for `cluster_state:ok` with three connected primaries and three connected
-replicas; it never issues a second cluster-create command. A topology mismatch
-fails clearly instead of silently rebuilding a cluster. A previously unhealthy
-local cluster is runtime state, not a reason to reset PostgreSQL, RabbitMQ, or
-search data; only its explicitly identified Redis containers and named Redis
-volumes may be reset.
+when no hash slots are assigned. Redis nodes advertise their Compose service
+hostnames to clients. If slots already exist, the initializer resolves each
+service's current Compose address and issues `CLUSTER MEET` before it waits a
+bounded time for `cluster_state:ok` with three connected primaries and three
+connected replicas. This lets the persisted six-node topology rejoin after a
+Docker network recreation without a second cluster-create command. A topology
+mismatch still fails clearly instead of silently rebuilding a cluster. A
+previously unhealthy local cluster is runtime state, not a reason to reset
+PostgreSQL, RabbitMQ, or search data; only its explicitly identified Redis
+containers and named Redis volumes may be reset.
 
 1. 같은 명세는 같은 환경 파일과 Content Hash를 생성한다.
 2. 비활성화된 환경은 파일을 생성하지 않는다.

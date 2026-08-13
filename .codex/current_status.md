@@ -83,9 +83,11 @@ own contracts. Artifact publishing, live deployment, and cloud credentials are n
 owned by the Dockerfile Generator.
 
 Generated Compose reuses its application image tag. Runtime verification therefore
-rebuilds the image after consumer source changes; Redis Cluster initialization is
-idempotent for a healthy existing local cluster and reports unhealthy runtime state
-without resetting unrelated services.
+rebuilds the image after consumer source changes. Redis Cluster nodes advertise
+Compose service hostnames and the idempotent initializer reintroduces persisted
+nodes through their current Compose addresses before checking topology; this
+recovers six-node Redis topology after a full Docker network recreation without
+resetting unrelated services or Redis volumes.
 
 KIS runtime verification confirms the generated PostgreSQL HA mode elects one
 leader with two streaming replicas, exposes the existing `postgres:5432` writer
@@ -104,9 +106,12 @@ it does not claim every in-flight request is transparently retried.
 The same isolated check restarts all six generated Redis nodes, reruns the
 idempotent cluster initializer, verifies `cluster_state:ok`, three primaries,
 three replicas, all 16,384 slots, and recovers the unchanged application
-container. It deliberately does not test an all-Patroni-node shutdown: that
-leaves no writable primary, and safe recovery requires an operator-selected
-manual failover candidate after data assessment.
+container. It also recreates the full Compose network, starts the three Patroni
+nodes in their intentional leaderless state, explicitly selects a fixed
+candidate, and verifies manual Patroni failover, HAProxy writer recovery, and
+the unchanged application's health. This is a bounded local operator-recovery
+check; it does not select a production candidate automatically or claim zero
+data loss.
 
 The KIS scale-out integration profile reserves Redis Cluster's fixed
 `172.29.0.10`–`172.29.0.15` addresses and allocates other containers from
