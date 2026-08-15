@@ -72,9 +72,10 @@ def test_render_adds_public_proxy_and_application_replicas() -> None:
         PurePosixPath("deploy", "single-host", "nginx", "default.conf.template"),
         PurePosixPath("deploy", "single-host", "README.md"),
     }
-    compose = yaml.safe_load(
-        files[PurePosixPath("deploy", "single-host", "compose.override.yml")]
-    )
+    compose_text = files[
+        PurePosixPath("deploy", "single-host", "compose.override.yml")
+    ]
+    compose = yaml.safe_load(compose_text.replace("!reset ", ""))
     runtime_environment = files[
         PurePosixPath("deploy", "single-host", "runtime.env.example")
     ]
@@ -87,10 +88,12 @@ def test_render_adds_public_proxy_and_application_replicas() -> None:
     assert compose["services"]["application"]["volumes"] == [
         "${LOG_ROOT:-../logs}:/app/logs"
     ]
+    assert "ports: !reset []" in compose_text
     assert compose["services"]["nginx"]["restart"] == "unless-stopped"
     assert compose["services"]["nginx"]["depends_on"]["application"] == {
         "condition": "service_healthy"
     }
+    assert "http://127.0.0.1/health" in compose_text
     assert "PUBLIC_BIND_ADDRESS=0.0.0.0" in runtime_environment
     assert "LOG_ROOT=../logs" in runtime_environment
     assert "resolver 127.0.0.11" in nginx

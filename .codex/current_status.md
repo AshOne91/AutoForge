@@ -93,8 +93,10 @@ The opt-in `tooling.single_host` Generator produces a generated Compose operatin
 overlay for a declared local application environment. KIS generation verifies the
 generated Nginx public entry point, three application replicas, restart policy,
 and configurable host log mount merge cleanly with the generated integration
-Compose profile. A live isolated start/health/restart drill and host
-backup/bootstrap procedures remain unverified.
+Compose profile. An isolated KIS Compose drill verifies Nginx `/health`, exactly
+three healthy application replicas, and recovery through the proxy after one
+application container is restarted. Host backup/bootstrap procedures remain
+unverified.
 
 KIS runtime verification confirms the generated PostgreSQL HA mode elects one
 leader with two streaming replicas, exposes the existing `postgres:5432` writer

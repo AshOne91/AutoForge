@@ -69,6 +69,7 @@ class SingleHostOperatingGenerator:
   application:
     deploy:
       replicas: {application_replicas}
+    ports: !reset []
     volumes:
       - ${{LOG_ROOT:-../logs}}:/app/logs
 
@@ -86,7 +87,7 @@ class SingleHostOperatingGenerator:
       application:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/health || exit 1"]
       interval: 5s
       timeout: 3s
       retries: 20
