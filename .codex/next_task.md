@@ -1,14 +1,14 @@
 # Next Task
 
-## Next executable unit: define the single-host Docker startup contract
+## Next executable unit: select a host bootstrap provider for Docker auto-start
 
 OWNERSHIP: AutoForge Kubernetes generator, validated through kis-auto-trading
 
-EVIDENCE: `tooling.local_environment.host_port_base: 49400` now drives both the
-generated integration services and the optional single-host public proxy. Focused
-generator tests and KIS generation validation pass.
+EVIDENCE: The platform-neutral startup contract now defines `restart:
+unless-stopped`, Docker daemon boot, and repeatable `docker compose ... up -d
+--wait`. Generated integration and single-host profiles use the explicit 49400
+port block.
 
-Specify the smallest platform-neutral contract for Docker restart policy,
-durable volumes, health checks, and operator startup after host reboot. Keep
-OS-specific service managers, AWS UserData, Kubernetes bootstrapping, and
-production backup/restore outside this unit.
+Choose one target provider (Windows Task Scheduler, Linux systemd, or AWS
+UserData) and add only its adapter and verification. Keep other providers,
+Kubernetes bootstrapping, and production backup/restore outside this unit.

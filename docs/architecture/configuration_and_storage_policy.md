@@ -58,6 +58,32 @@ volumes, health checks, and restart policies so that service or container failur
 are recoverable without a redesign. This is service-level HA, not protection from
 loss of the physical host.
 
+The single-host startup contract is deliberately platform-neutral:
+
+1. Runtime services use `restart: unless-stopped` where they are expected to
+   recover after a process or container failure.
+2. The Docker daemon must be configured by the host operator to start during
+   host boot.
+3. The operator starts or reconciles the named Compose project with
+   `docker compose ... up -d --wait` after boot; this is the portable recovery
+   command and is safe to repeat.
+4. Automatic host bootstrap (systemd, Windows Task Scheduler, cloud-init, or
+   AWS UserData) is a provider-specific adapter and is not silently generated
+   until a provider and ownership boundary are selected.
+
+The single-host startup contract is deliberately platform-neutral:
+
+1. Runtime services use `restart: unless-stopped` where they are expected to
+   recover after a process or container failure.
+2. The Docker daemon must be configured by the host operator to start during
+   host boot.
+3. The operator starts or reconciles the named Compose project with
+   `docker compose ... up -d --wait` after boot; this is the portable recovery
+   command and is safe to repeat.
+4. Automatic host bootstrap (systemd, Windows Task Scheduler, cloud-init, or
+   AWS UserData) is a provider-specific adapter and is not silently generated
+   until a provider and ownership boundary are selected.
+
 The disposable integration Compose profile remains a verification environment.
 When explicitly selected, the generated single-host overlay composes with it to
 add the public Nginx entry point, application replicas, and a configurable log
