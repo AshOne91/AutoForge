@@ -12,8 +12,12 @@ change container-internal ports or Kubernetes Service ports.
    never host ports.
 3. Published host ports bind to `127.0.0.1` by default. Set
    `LOCAL_BIND_ADDRESS` explicitly only when LAN access is intended.
-4. A Blueprint may declare `tooling.local_environment.host_port_base`. It must
-   be a 100-port boundary in the IANA dynamic/private range `49152-65400`.
+4. A Blueprint should declare `tooling.local_environment.host_port_base` for a
+   project-owned port block. It must be a 100-port boundary in the IANA
+   dynamic/private range `49152-65400`. When omitted, the generator preserves
+   legacy compatibility defaults (`28000`, `25432`, `25672`/`25673`, and
+   `28080`); those defaults are not a project allocation and must not be reused
+   across concurrent generated environments.
 5. Within that block: application `+00`, PostgreSQL `+10`, RabbitMQ AMQP
    `+30`, RabbitMQ management `+31`, and Airflow `+40`.
 6. PostgreSQL HA mode keeps the same published PostgreSQL port: the internal

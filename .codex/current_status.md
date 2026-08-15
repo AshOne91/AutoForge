@@ -104,10 +104,13 @@ architectural constants. Kubernetes exposes independent `proxy_replicas` and
 `application_replicas` settings; the single-host Compose profile exposes
 `application_replicas` and intentionally keeps one Nginx owner for its one public
 host port. Its basic readiness and liveness probes use `/health`; explicit
-SIGTERM/preStop draining, KIS OAuth token coordination, multi-node log
-persistence, and live cluster deployment remain unverified. The Kubernetes
-Nginx template still needs the forwarded client/protocol headers already present
-in the Compose template.
+SIGTERM/preStop draining, KIS OAuth token coordination, and multi-node log
+persistence remain unverified. A Docker Desktop Kubernetes check applied the
+generated profile, observed 2/2 proxy and 3/3 application readiness, returned
+`GET /health` through a temporary port-forward, and recovered one replaced Pod
+from each Deployment. This is a single-node validation, not multi-node HA proof.
+The Kubernetes Nginx template forwards `X-Real-IP`, `X-Forwarded-For`, and
+`X-Forwarded-Proto`.
 
 KIS runtime verification confirms the generated PostgreSQL HA mode elects one
 leader with two streaming replicas, exposes the existing `postgres:5432` writer

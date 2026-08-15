@@ -1,17 +1,15 @@
 # Next Task
 
-## Next executable unit: validate the generated Kubernetes HA profile on a cluster
+## Next executable unit: validate explicit local port blocks across generated profiles
 
 OWNERSHIP: AutoForge Kubernetes generator, validated through kis-auto-trading
 
-EVIDENCE: The Kubernetes specification exposes independent `proxy_replicas` and
-`application_replicas` values, the generator test proves non-default values
-render independently, and the generated Nginx template now forwards
-`X-Real-IP`, `X-Forwarded-For`, and `X-Forwarded-Proto`. The KIS manifest has
-been regenerated with the current 2-proxy/3-application values.
+EVIDENCE: `docs/architecture/local_port_policy.md` defines 100-port blocks and
+the KIS blueprint now declares `tooling.local_environment.host_port_base: 49400`.
+Generated local services therefore use 49400/49410/49430/49431/49440, while
+container-internal ports remain unchanged.
 
-When a disposable Kubernetes context is available, apply the generated manifest
-with non-production Secret values and verify both Deployments become ready,
-LoadBalancer-to-Nginx-to-ClusterIP routing works, and one proxy/application Pod
-can roll without losing readiness. Keep cluster credentials, managed databases,
-OAuth token coordination, and multi-node log storage outside this unit.
+Confirm the generated Compose config and KIS scale-out documentation enumerate
+all host bindings without collisions. Keep Kubernetes Service ports, cluster
+credentials, OAuth token coordination, and multi-node log storage outside this
+unit.
