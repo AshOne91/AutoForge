@@ -98,6 +98,17 @@ three healthy application replicas, and recovery through the proxy after one
 application container is restarted. Host backup/bootstrap procedures remain
 unverified.
 
+The generated Kubernetes profile currently selects two Nginx proxy replicas and
+three application replicas, but both counts are specification values rather than
+architectural constants. Kubernetes exposes independent `proxy_replicas` and
+`application_replicas` settings; the single-host Compose profile exposes
+`application_replicas` and intentionally keeps one Nginx owner for its one public
+host port. Its basic readiness and liveness probes use `/health`; explicit
+SIGTERM/preStop draining, KIS OAuth token coordination, multi-node log
+persistence, and live cluster deployment remain unverified. The Kubernetes
+Nginx template still needs the forwarded client/protocol headers already present
+in the Compose template.
+
 KIS runtime verification confirms the generated PostgreSQL HA mode elects one
 leader with two streaming replicas, exposes the existing `postgres:5432` writer
 contract through HAProxy, and promotes a replacement leader after the active

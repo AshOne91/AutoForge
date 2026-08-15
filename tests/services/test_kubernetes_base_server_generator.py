@@ -21,7 +21,12 @@ from autoforge.services.generation.kubernetes import KubernetesBaseServerGenerat
 
 
 def base_server_specification(
-    *, enabled: bool = False, collector_enabled: bool = False, durable_jobs: bool = False
+    *,
+    enabled: bool = False,
+    collector_enabled: bool = False,
+    durable_jobs: bool = False,
+    application_replicas: int = 3,
+    proxy_replicas: int = 2,
 ) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
@@ -78,6 +83,8 @@ def base_server_specification(
                 "enabled": enabled,
                 "image": "kis-auto-trading:latest",
                 "secret_name": "kis-runtime",
+                "application_replicas": application_replicas,
+                "proxy_replicas": proxy_replicas,
                 "log_host_path": "/run/desktop/mnt/host/c/kis-auto-trading/logs",
                 "additional_secret_env_names": ["KIS_APP_KEY"],
             }
@@ -136,6 +143,26 @@ def test_render_creates_zero_secret_proxy_and_application_topology() -> None:
     assert "kubectl apply" in readme
     assert "Secret values" in readme
     assert "hostPath is node-local" in readme
+
+
+def test_render_uses_independent_replica_values() -> None:
+    files = KubernetesBaseServerGenerator().render(
+        base_server_specification(
+            enabled=True,
+            application_replicas=5,
+            proxy_replicas=4,
+        )
+    )
+
+    manifest = files[PurePosixPath("deploy", "kubernetes", "base-server.yaml")]
+    deployments = {
+        document["metadata"]["labels"]["app.kubernetes.io/component"]: document
+        for document in yaml.safe_load_all(manifest)
+        if document.get("kind") == "Deployment"
+    }
+
+    assert deployments["application"]["spec"]["replicas"] == 5
+    assert deployments["proxy"]["spec"]["replicas"] == 4
 
 
 def test_render_adds_durable_job_api_token_only_for_durable_jobs() -> None:
