@@ -115,6 +115,8 @@ def test_render_creates_zero_secret_proxy_and_application_topology() -> None:
 
     assert "kind: ConfigMap" in manifest
     assert "default.conf.template" in manifest
+    assert "proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;" in manifest
+    assert "proxy_set_header X-Forwarded-Proto $scheme;" in manifest
     assert "replicas: 3" in manifest
     assert "replicas: 2" in manifest
     assert "name: kis-auto-trading-backend" in manifest
