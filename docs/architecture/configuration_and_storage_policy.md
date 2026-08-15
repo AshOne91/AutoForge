@@ -68,8 +68,10 @@ The single-host startup contract is deliberately platform-neutral:
    `docker compose ... up -d --wait` after boot; this is the portable recovery
    command and is safe to repeat.
 4. Automatic host bootstrap (systemd, Windows Task Scheduler, cloud-init, or
-   AWS UserData) is a provider-specific adapter and is not silently generated
-   until a provider and ownership boundary are selected.
+   AWS UserData) is a provider-specific adapter. The current supported selection
+   is `tooling.single_host.bootstrap_provider: windows_task_scheduler`, which
+   generates a repeatable PowerShell Compose-start script; registering the task
+   remains an explicit host-operator action.
 
 The single-host startup contract is deliberately platform-neutral:
 
@@ -81,8 +83,10 @@ The single-host startup contract is deliberately platform-neutral:
    `docker compose ... up -d --wait` after boot; this is the portable recovery
    command and is safe to repeat.
 4. Automatic host bootstrap (systemd, Windows Task Scheduler, cloud-init, or
-   AWS UserData) is a provider-specific adapter and is not silently generated
-   until a provider and ownership boundary are selected.
+   AWS UserData) is a provider-specific adapter. The current supported selection
+   is `tooling.single_host.bootstrap_provider: windows_task_scheduler`, which
+   generates a repeatable PowerShell Compose-start script; registering the task
+   remains an explicit host-operator action.
 
 The disposable integration Compose profile remains a verification environment.
 When explicitly selected, the generated single-host overlay composes with it to

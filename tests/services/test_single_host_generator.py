@@ -24,7 +24,11 @@ from autoforge.services.generation.single_host import (
 
 
 def single_host_specification(
-    *, enabled: bool = False, application_replicas: int = 3, host_port_base: int | None = None
+    *,
+    enabled: bool = False,
+    application_replicas: int = 3,
+    host_port_base: int | None = None,
+    bootstrap_provider: str = "none",
 ) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
@@ -45,7 +49,9 @@ def single_host_specification(
                 enabled=True, application_enabled=True, host_port_base=host_port_base
             ),
             single_host=SingleHostSpec(
-                enabled=enabled, application_replicas=application_replicas
+                enabled=enabled,
+                application_replicas=application_replicas,
+                bootstrap_provider=bootstrap_provider,
             ),
         ),
     )
@@ -112,6 +118,18 @@ def test_render_uses_local_port_block_for_single_host_proxy() -> None:
 
     assert 'PUBLIC_HTTP_PORT:-49300' in compose
     assert 'PUBLIC_HTTP_PORT=49300' in environment
+
+
+def test_render_adds_windows_bootstrap_only_when_selected() -> None:
+    files = SingleHostOperatingGenerator().render(
+        single_host_specification(enabled=True, bootstrap_provider="windows_task_scheduler")
+    )
+
+    bootstrap = files[PurePosixPath("deploy", "single-host", "windows", "start-compose.ps1")]
+
+    assert "docker compose" in bootstrap
+    assert "up -d --wait" in bootstrap
+    assert "runtime.env" in bootstrap
 
 
 def test_single_host_requires_local_application_environment() -> None:

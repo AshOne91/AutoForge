@@ -30,7 +30,7 @@ class SingleHostOperatingGenerator:
         if not profile.enabled:
             return {}
 
-        return {
+        files = {
             PurePosixPath("deploy", "single-host", "compose.override.yml"): self._render_compose(
                 application_replicas=profile.application_replicas,
                 public_port=specification.tooling.local_environment.host_port_base or 28000,
@@ -44,6 +44,11 @@ class SingleHostOperatingGenerator:
                 application_replicas=profile.application_replicas,
             ),
         }
+        if profile.bootstrap_provider == "windows_task_scheduler":
+            files[PurePosixPath("deploy", "single-host", "windows", "start-compose.ps1")] = (
+                self._render_windows_bootstrap()
+            )
+        return files
 
     def plan(self, specification: ProjectSpec) -> GenerationPlan:
         rendered = self.render(specification)
@@ -101,6 +106,20 @@ class SingleHostOperatingGenerator:
         return f"""# Compose runtime settings for the single-host public proxy.\nPUBLIC_BIND_ADDRESS=0.0.0.0\nPUBLIC_HTTP_PORT={public_port}\nLOG_ROOT=../logs\n"""
 
     @staticmethod
+    def _render_windows_bootstrap() -> str:
+        return r'''$ErrorActionPreference = "Stop"
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
+Set-Location $ProjectRoot
+
+docker compose `
+  --env-file environment\.env `
+  --env-file deploy\single-host\runtime.env `
+  -f environment\compose.integration.yml `
+  -f deploy\single-host\compose.override.yml `
+  up -d --wait
+'''
+
+    @staticmethod
     def _render_nginx() -> str:
         return """resolver 127.0.0.11 ipv6=off valid=10s;
 
@@ -123,6 +142,13 @@ server {
     def _render_readme(
         specification: ProjectSpec, *, application_replicas: int
     ) -> str:
+        bootstrap_note = (
+            "A Windows Task Scheduler adapter is generated at "
+            "`deploy/single-host/windows/start-compose.ps1`; register it to run "
+            "after Docker Desktop starts.\n"
+            if specification.tooling.single_host.bootstrap_provider == "windows_task_scheduler"
+            else ""
+        )
         return f"""# Generated single-host operating overlay
 
 This generated overlay keeps `environment/compose.integration.yml` as the
@@ -138,7 +164,7 @@ docker compose --env-file environment/.env --env-file deploy/single-host/runtime
 docker compose --env-file environment/.env --env-file deploy/single-host/runtime.env -f environment/compose.integration.yml -f deploy/single-host/compose.override.yml down
 ```
 
-The public proxy listens on `PUBLIC_BIND_ADDRESS:PUBLIC_HTTP_PORT`; application,
+{bootstrap_note}The public proxy listens on `PUBLIC_BIND_ADDRESS:PUBLIC_HTTP_PORT`; application,
 database, Redis, RabbitMQ, and Airflow host ports remain governed by the integration
 environment. `LOG_ROOT` is a host bind mount so file logs survive application
 container recreation. Keep `environment/.env` outside Git. Configure host firewall,

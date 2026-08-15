@@ -97,6 +97,10 @@ Compose profile. An isolated KIS Compose drill verifies Nginx `/health`, exactly
 three healthy application replicas, and recovery through the proxy after one
 application container is restarted. Host backup/bootstrap procedures remain
 unverified.
+The single-host specification now supports the explicit
+`windows_task_scheduler` bootstrap provider and generates a PowerShell script
+that reruns the named Compose project with `up -d --wait`; task registration and
+host reboot execution remain operator-level verification.
 
 The generated Kubernetes profile currently selects two Nginx proxy replicas and
 three application replicas, but both counts are specification values rather than
