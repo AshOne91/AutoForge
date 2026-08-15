@@ -1,15 +1,14 @@
 # Next Task
 
-## Next executable unit: validate explicit local port blocks across generated profiles
+## Next executable unit: define the single-host Docker startup contract
 
 OWNERSHIP: AutoForge Kubernetes generator, validated through kis-auto-trading
 
-EVIDENCE: `docs/architecture/local_port_policy.md` defines 100-port blocks and
-the KIS blueprint now declares `tooling.local_environment.host_port_base: 49400`.
-Generated local services therefore use 49400/49410/49430/49431/49440, while
-container-internal ports remain unchanged.
+EVIDENCE: `tooling.local_environment.host_port_base: 49400` now drives both the
+generated integration services and the optional single-host public proxy. Focused
+generator tests and KIS generation validation pass.
 
-Confirm the generated Compose config and KIS scale-out documentation enumerate
-all host bindings without collisions. Keep Kubernetes Service ports, cluster
-credentials, OAuth token coordination, and multi-node log storage outside this
-unit.
+Specify the smallest platform-neutral contract for Docker restart policy,
+durable volumes, health checks, and operator startup after host reboot. Keep
+OS-specific service managers, AWS UserData, Kubernetes bootstrapping, and
+production backup/restore outside this unit.

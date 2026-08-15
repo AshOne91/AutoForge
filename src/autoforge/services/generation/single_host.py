@@ -32,9 +32,12 @@ class SingleHostOperatingGenerator:
 
         return {
             PurePosixPath("deploy", "single-host", "compose.override.yml"): self._render_compose(
-                application_replicas=profile.application_replicas
+                application_replicas=profile.application_replicas,
+                public_port=specification.tooling.local_environment.host_port_base or 28000,
             ),
-            PurePosixPath("deploy", "single-host", "runtime.env.example"): self._render_environment(),
+            PurePosixPath("deploy", "single-host", "runtime.env.example"): self._render_environment(
+                public_port=specification.tooling.local_environment.host_port_base or 28000
+            ),
             PurePosixPath("deploy", "single-host", "nginx", "default.conf.template"): self._render_nginx(),
             PurePosixPath("deploy", "single-host", "README.md"): self._render_readme(
                 specification,
@@ -64,7 +67,7 @@ class SingleHostOperatingGenerator:
         )
 
     @staticmethod
-    def _render_compose(*, application_replicas: int) -> str:
+    def _render_compose(*, application_replicas: int, public_port: int) -> str:
         return f"""services:
   application:
     deploy:
@@ -80,7 +83,7 @@ class SingleHostOperatingGenerator:
       UPSTREAM_HOST: application
       NGINX_ENVSUBST_FILTER: UPSTREAM_HOST
     ports:
-      - "${{PUBLIC_BIND_ADDRESS:-0.0.0.0}}:${{PUBLIC_HTTP_PORT:-28000}}:80"
+      - "${{PUBLIC_BIND_ADDRESS:-0.0.0.0}}:${{PUBLIC_HTTP_PORT:-{public_port}}}:80"
     volumes:
       - ../deploy/single-host/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
     depends_on:
@@ -94,8 +97,8 @@ class SingleHostOperatingGenerator:
 """
 
     @staticmethod
-    def _render_environment() -> str:
-        return """# Compose runtime settings for the single-host public proxy.\nPUBLIC_BIND_ADDRESS=0.0.0.0\nPUBLIC_HTTP_PORT=28000\nLOG_ROOT=../logs\n"""
+    def _render_environment(*, public_port: int) -> str:
+        return f"""# Compose runtime settings for the single-host public proxy.\nPUBLIC_BIND_ADDRESS=0.0.0.0\nPUBLIC_HTTP_PORT={public_port}\nLOG_ROOT=../logs\n"""
 
     @staticmethod
     def _render_nginx() -> str:

@@ -20,7 +20,10 @@ change container-internal ports or Kubernetes Service ports.
    across concurrent generated environments.
 5. Within that block: application `+00`, PostgreSQL `+10`, RabbitMQ AMQP
    `+30`, RabbitMQ management `+31`, and Airflow `+40`.
-6. PostgreSQL HA mode keeps the same published PostgreSQL port: the internal
+6. When the optional single-host public proxy is enabled, it uses the same
+   application `+00` host port and removes the application's direct host
+   binding. This keeps one public owner for the port while allowing replicas.
+7. PostgreSQL HA mode keeps the same published PostgreSQL port: the internal
    `postgres:5432` service is HAProxy. Patroni and etcd ports stay internal to
    the Compose network.
 

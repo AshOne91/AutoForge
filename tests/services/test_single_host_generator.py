@@ -24,7 +24,7 @@ from autoforge.services.generation.single_host import (
 
 
 def single_host_specification(
-    *, enabled: bool = False, application_replicas: int = 3
+    *, enabled: bool = False, application_replicas: int = 3, host_port_base: int | None = None
 ) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
@@ -42,7 +42,7 @@ def single_host_specification(
         ),
         tooling=ToolingSpec(
             local_environment=LocalEnvironmentSpec(
-                enabled=True, application_enabled=True
+                enabled=True, application_enabled=True, host_port_base=host_port_base
             ),
             single_host=SingleHostSpec(
                 enabled=enabled, application_replicas=application_replicas
@@ -100,6 +100,18 @@ def test_render_adds_public_proxy_and_application_replicas() -> None:
     assert "set $upstream ${UPSTREAM_HOST}:8000;" in nginx
     assert "--env-file environment/.env" in readme
     assert "service-level HA" in readme
+
+
+def test_render_uses_local_port_block_for_single_host_proxy() -> None:
+    files = SingleHostOperatingGenerator().render(
+        single_host_specification(enabled=True, host_port_base=49300)
+    )
+
+    compose = files[PurePosixPath("deploy", "single-host", "compose.override.yml")]
+    environment = files[PurePosixPath("deploy", "single-host", "runtime.env.example")]
+
+    assert 'PUBLIC_HTTP_PORT:-49300' in compose
+    assert 'PUBLIC_HTTP_PORT=49300' in environment
 
 
 def test_single_host_requires_local_application_environment() -> None:
