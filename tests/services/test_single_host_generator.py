@@ -128,6 +128,7 @@ def test_render_adds_windows_bootstrap_only_when_selected() -> None:
     bootstrap = files[PurePosixPath("deploy", "single-host", "windows", "start-compose.ps1")]
 
     assert "docker compose" in bootstrap
+    assert "Docker engine did not become ready" in bootstrap
     assert "up -d --wait" in bootstrap
     assert "runtime.env" in bootstrap
 
