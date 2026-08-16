@@ -356,9 +356,9 @@ class RagSpec(StrictSpecModel):
 
 
 class StorageSpec(StrictSpecModel):
-    """Generate an optional local S3-compatible object storage overlay."""
+    """Generate the local S3-compatible object storage overlay by default."""
 
-    enabled: bool = False
+    enabled: bool = True
     host_port_base: int = Field(default=49500, ge=49152, le=65400, multiple_of=100)
 
 

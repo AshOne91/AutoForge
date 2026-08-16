@@ -165,7 +165,7 @@ def test_rag_infrastructure_generator_plugin_is_empty_until_enabled() -> None:
     assert PurePosixPath("deploy", "rag", "compose.rag.yaml") in rendered
 
 
-def test_object_storage_generator_plugin_is_empty_until_enabled() -> None:
+def test_object_storage_generator_plugin_renders_by_default_and_can_be_disabled() -> None:
     plugins = create_fastapi_generator_plugins("game_server")
     specification = ProjectSpec(
         spec_version="1",
@@ -177,14 +177,15 @@ def test_object_storage_generator_plugin_is_empty_until_enabled() -> None:
         application=ApplicationSpec(),
     )
 
-    assert plugins.project.get(OBJECT_STORAGE_GENERATOR_ID).render(specification) == {}
-
-    requested = specification.model_copy(
-        update={"tooling": ToolingSpec(storage=StorageSpec(enabled=True))}
-    )
-    rendered = plugins.project.get(OBJECT_STORAGE_GENERATOR_ID).render(requested)
+    rendered = plugins.project.get(OBJECT_STORAGE_GENERATOR_ID).render(specification)
 
     assert PurePosixPath("deploy", "storage", "compose.storage.yaml") in rendered
+
+    disabled = specification.model_copy(
+        update={"tooling": ToolingSpec(storage=StorageSpec(enabled=False))}
+    )
+
+    assert plugins.project.get(OBJECT_STORAGE_GENERATOR_ID).render(disabled) == {}
 
 
 def test_kubernetes_base_server_plugin_is_empty_until_enabled() -> None:

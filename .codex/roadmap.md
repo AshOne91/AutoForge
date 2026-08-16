@@ -26,7 +26,8 @@ sequencing.
 - [ ] cloud S3/object-storage provider after raw-document persistence is selected
 - [ ] external-provider resiliency adapter after a provider is selected
 
-- [ ] additional database providers such as MySQL
+- [ ] MySQL runtime provider slice: typed database runtime selection, generated
+  Compose profile, DSN/secret boundary, migrations, and focused validation
 - [ ] Kubernetes or managed PostgreSQL HA deployment contract with multi-node
   placement, persistent volumes, backups, restore drills, and production
   observability after a deployment provider is selected

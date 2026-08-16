@@ -12,7 +12,7 @@ from autoforge.core.specification import (
 from autoforge.services.generation.storage import ObjectStorageGenerator
 
 
-def specification(*, enabled: bool = False) -> ProjectSpec:
+def specification(*, enabled: bool = True) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
         project=ProjectInfo(
@@ -25,12 +25,18 @@ def specification(*, enabled: bool = False) -> ProjectSpec:
     )
 
 
-def test_object_storage_generator_is_empty_until_enabled() -> None:
-    assert ObjectStorageGenerator().render(specification()) == {}
+def test_object_storage_generator_renders_minio_by_default() -> None:
+    files = ObjectStorageGenerator().render(specification())
+
+    assert PurePosixPath("deploy", "storage", "compose.storage.yaml") in files
 
 
-def test_object_storage_generator_renders_opt_in_minio() -> None:
-    files = ObjectStorageGenerator().render(specification(enabled=True))
+def test_object_storage_generator_can_be_explicitly_disabled() -> None:
+    assert ObjectStorageGenerator().render(specification(enabled=False)) == {}
+
+
+def test_object_storage_generator_renders_default_minio_contract() -> None:
+    files = ObjectStorageGenerator().render(specification())
 
     compose = files[PurePosixPath("deploy", "storage", "compose.storage.yaml")]
     environment = files[PurePosixPath("deploy", "storage", ".env.example")]
@@ -48,7 +54,7 @@ def test_object_storage_generator_renders_opt_in_minio() -> None:
 
 
 def test_object_storage_generator_plan_marks_all_outputs_generated() -> None:
-    plan = ObjectStorageGenerator().plan(specification(enabled=True))
+    plan = ObjectStorageGenerator().plan(specification())
 
     assert len(plan.files) == 3
     assert {file.ownership.value for file in plan.files} == {"generated"}
