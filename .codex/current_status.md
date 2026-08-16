@@ -281,6 +281,11 @@ container was removed. A complete restore still requires a target with the same
 Spilo extensions and roles. Binary dumps are now copied with `docker cp` rather
 than PowerShell stdout redirection, which would corrupt custom-format archives.
 
+The same `identity.dump` was then restored successfully into a disposable
+`ghcr.io/zalando/spilo-16:3.3-p3` target using `--clean --if-exists
+--no-owner --no-privileges`; six public tables were verified and the labeled
+container was removed.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:
