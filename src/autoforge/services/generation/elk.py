@@ -93,8 +93,8 @@ class ElkStackGenerator:
     user: root
     command: ["filebeat", "-e", "--strict.perms=false", "-c", "/usr/share/filebeat/filebeat.yml"]
     volumes:
-      - ${{LOG_ROOT:-./logs}}:/var/log/application:ro
-      - ${{FILEBEAT_CONFIG:-./deploy/observability/filebeat.yml}}:/usr/share/filebeat/filebeat.yml:ro
+      - ${{LOG_ROOT:-../logs}}:/var/log/application:ro
+      - ${{FILEBEAT_CONFIG:-../deploy/observability/filebeat.yml}}:/usr/share/filebeat/filebeat.yml:ro
       - filebeat-data:/usr/share/filebeat/data
     depends_on:
       - elasticsearch
@@ -115,8 +115,8 @@ volumes:
       ELASTICSEARCH_HOST: ${{ELASTICSEARCH_HOST:?Set ELASTICSEARCH_HOST}}
     command: ["filebeat", "-e", "--strict.perms=false", "-c", "/usr/share/filebeat/filebeat.yml"]
     volumes:
-      - ${{LOG_ROOT:-./logs}}:/var/log/application:ro
-      - ${{FILEBEAT_CONFIG:-./deploy/observability/filebeat.yml}}:/usr/share/filebeat/filebeat.yml:ro
+      - ${{LOG_ROOT:-../logs}}:/var/log/application:ro
+      - ${{FILEBEAT_CONFIG:-../deploy/observability/filebeat.yml}}:/usr/share/filebeat/filebeat.yml:ro
       - filebeat-data:/usr/share/filebeat/data
 
 volumes:
@@ -192,7 +192,8 @@ Start it together with the application's integration Compose file:
 {startup}
 ```
 
-Set `LOG_ROOT` when logs are stored outside `./logs`. Set `ELASTICSEARCH_PORT`,
+Set `LOG_ROOT` when logs are stored outside the default `../logs` path used with
+the generated integration Compose file. Set `ELASTICSEARCH_PORT`,
 `KIBANA_PORT`, or `FILEBEAT_CONFIG` when the defaults conflict with the host.
 
 To find exhausted durable-job retries in the central profile, query the

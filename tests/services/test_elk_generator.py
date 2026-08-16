@@ -38,7 +38,8 @@ def test_elk_generator_renders_development_overlay_and_filebeat_config() -> None
 
     assert "docker.elastic.co/elasticsearch/elasticsearch:8.19.17" in compose
     assert "xpack.security.enabled: \"false\"" in compose
-    assert "${LOG_ROOT:-./logs}:/var/log/application:ro" in compose
+    assert "${LOG_ROOT:-../logs}:/var/log/application:ro" in compose
+    assert "${FILEBEAT_CONFIG:-../deploy/observability/filebeat.yml}" in compose
     assert "type: filestream" in filebeat
     assert "/var/log/application/*.log" in filebeat
     assert "/var/log/application/*/*.log" in filebeat
