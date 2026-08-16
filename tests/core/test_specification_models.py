@@ -157,6 +157,14 @@ def test_project_rejects_published_host_port_collisions() -> None:
         )
 
 
+def test_local_environment_database_provider_defaults_to_postgresql() -> None:
+    environment = LocalEnvironmentSpec()
+
+    assert environment.database_provider == "postgresql"
+    with pytest.raises(ValidationError):
+        LocalEnvironmentSpec(database_provider="mysql")
+
+
 def test_ci_spec_requires_a_test_workflow_and_unique_providers() -> None:
     ci = CiSpec(
         providers=[CiProvider.GITHUB_ACTIONS, CiProvider.JENKINS],

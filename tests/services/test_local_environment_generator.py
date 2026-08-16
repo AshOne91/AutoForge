@@ -24,6 +24,7 @@ def integration_specification(
     rag: bool = False,
     rag_search_backend: str = "elasticsearch",
     postgres_mode: str = "standalone",
+    database_provider: str = "postgresql",
     host_port_base: int | None = None,
     durable_job_worker_restart_policy: str = "unless-stopped",
 ) -> ProjectSpec:
@@ -85,6 +86,7 @@ def integration_specification(
             "local_environment": {
                 "enabled": enabled,
                 "application_enabled": application,
+                "database_provider": database_provider,
                 "postgres_mode": postgres_mode,
                 "host_port_base": host_port_base,
             },

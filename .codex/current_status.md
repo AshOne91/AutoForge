@@ -322,6 +322,9 @@ and passed against a disposable local MinIO container; unit tests continue to us
 injected fakes.
 `StorageSpec` now generates the local MinIO overlay by default while preserving
 an explicit disable switch and the Compose `storage` execution profile.
+`tooling.local_environment.database_provider` now explicitly owns runtime
+selection and defaults to the currently supported PostgreSQL provider; logical
+database schemas remain provider-agnostic.
 
 ## Development tooling
 

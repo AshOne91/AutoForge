@@ -407,6 +407,7 @@ class LocalEnvironmentSpec(StrictSpecModel):
 
     enabled: bool = False
     application_enabled: bool = False
+    database_provider: Literal["postgresql"] = "postgresql"
     postgres_mode: Literal["standalone", "ha"] = "standalone"
     host_port_base: int | None = Field(
         default=None,
