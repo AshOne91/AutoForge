@@ -34,6 +34,12 @@ PostgreSQL on `49310`, RabbitMQ on `49330`/`49331`, and Airflow on `49340`.
 The individual environment variables remain override points for a one-off
 debugging session.
 
+Before starting Compose with manually edited environment files, a consumer can
+run `python -m autoforge.main validate-ports --env-file <file>` once per file.
+Pass all files used by Compose in the same command; duplicate published host
+ports are rejected before containers start. This is a read-only preflight and
+does not replace `ProjectSpec` validation or allocate ports dynamically.
+
 ## Why
 
 IANA reserves `49152-65535` as dynamic/private ports; AutoForge uses a bounded
