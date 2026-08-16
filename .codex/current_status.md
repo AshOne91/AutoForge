@@ -257,6 +257,8 @@ The registered `AutoForge-kis-auto-trading-bootstrap` Task Scheduler job was
 also triggered manually. It completed without changing the existing healthy
 stack; Nginx and all three application replicas remained healthy and `/health`
 returned `200`. A physical host reboot remains an operator-controlled check.
+The read-only verbose task query confirms an `At logon time` trigger, the
+expected PowerShell action, `Interactive only` logon mode, and last result `0`.
 
 ## Development tooling
 
