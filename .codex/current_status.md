@@ -311,6 +311,8 @@ secret values.
 to each provider implementation without introducing an SDK.
 The client boundary is now explicitly provider-injected; no S3 SDK dependency is
 part of the core package yet.
+`S3CompatibleBackupTransfer` now provides the first infrastructure adapter with
+manifest-size validation and delegated remote verification.
 
 ## Development tooling
 

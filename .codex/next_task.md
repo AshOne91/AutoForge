@@ -1,6 +1,6 @@
 # Next Task
 
-## Next executable unit: implement the injected S3-compatible adapter
+## Next executable unit: choose the concrete S3 client implementation
 
 OWNERSHIP: AutoForge Kubernetes generator, validated through kis-auto-trading
 
@@ -15,5 +15,6 @@ compatible provider. `BackupArtifact`, `BackupTransfer`, and
 `S3StorageConfig` now carry the manifest, async transfer seam, and validated
 provider-neutral settings. `BackupTransfer.configuration` now exposes the
 settings to an adapter, while the core remains SDK-neutral. Implement one
-infrastructure adapter with an injected async S3-compatible client; keep upload
-scheduling and retention policy out of this unit.
+infrastructure adapter with an injected async S3-compatible client; that adapter
+now exists and is tested. Choose and integrate one concrete client library next;
+keep upload scheduling and retention policy out of this unit.

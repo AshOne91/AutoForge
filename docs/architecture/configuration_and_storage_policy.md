@@ -129,6 +129,11 @@ will provide an async S3-compatible client to the `BackupTransfer` implementatio
 The core package does not select or import a concrete SDK, so the same contract
 can use local MinIO, AWS S3, or another compatible endpoint.
 
+`autoforge.infrastructure.backup.S3CompatibleBackupTransfer` is the reference
+adapter. It validates the local manifest size, builds the configured object key,
+and delegates byte transfer and remote checksum verification to the injected
+client.
+
 The single-host startup contract is deliberately platform-neutral:
 
 1. Runtime services use `restart: unless-stopped` where they are expected to
