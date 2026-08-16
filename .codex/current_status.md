@@ -259,6 +259,9 @@ stack; Nginx and all three application replicas remained healthy and `/health`
 returned `200`. A physical host reboot remains an operator-controlled check.
 The read-only verbose task query confirms an `At logon time` trigger, the
 expected PowerShell action, `Interactive only` logon mode, and last result `0`.
+After the reboot, application `/app/logs` still mapped to the host
+`C:\kis-auto-trading\logs` bind mount, where recent per-container log files
+remained present with non-zero sizes.
 
 ## Development tooling
 
