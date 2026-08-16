@@ -290,6 +290,10 @@ container was removed.
 eight public tables were verified and its labeled disposable container was
 removed.
 
+`account_shard_2.dump` completed the same drill with eight public tables
+verified. All three generated database artifacts have now passed a disposable
+Spilo restore check; no live database was overwritten.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:
