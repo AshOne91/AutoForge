@@ -336,7 +336,8 @@ port guidance now comes from AutoForge, while the KIS-specific Spilo backup
 drill lives in its user-owned local integration operations document.
 `tooling.local_environment.database_provider` now explicitly owns runtime
 selection and defaults to the currently supported PostgreSQL provider; logical
-database schemas remain provider-agnostic.
+database schemas remain provider-agnostic. MySQL remains a deferred extension,
+not the active KIS delivery priority.
 
 ## Development tooling
 
