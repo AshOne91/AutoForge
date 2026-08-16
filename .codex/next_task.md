@@ -1,13 +1,13 @@
 # Next Task
 
-## Next executable unit: verify generated log collector ingestion
+## Next executable unit: assign the generated ELK host port block
 
 OWNERSHIP: AutoForge Kubernetes generator, validated through kis-auto-trading
 
-EVIDENCE: The Task Scheduler task and reboot recovery are verified. The
-application `/app/logs` bind mount retains JSON lifecycle and request records
-through an application restart.
+EVIDENCE: Filebeat now mounts the generated `../logs` and config paths correctly;
+Elasticsearch indexed the KIS JSON logs and returned `/health` records through
+the generated data stream.
 
-Run the smallest generated Filebeat/ELK or OpenSearch ingestion check against
-the persisted `logs/` directory. Keep multi-host storage, Linux/AWS bootstrap,
-and backup/restore outside this unit.
+Add an explicit project-owned host port block for Elasticsearch and Kibana and
+verify it does not collide with the 49400 application block. Keep collector
+security, multi-host storage, and production backup/restore outside this unit.
