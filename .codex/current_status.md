@@ -307,6 +307,8 @@ checksum `verify` seam; no provider SDK or credential implementation is bundled.
 `autoforge.core.backup.S3StorageConfig` now validates an HTTP(S) endpoint,
 bucket, normalized prefix, and paired credential references without storing
 secret values.
+`BackupTransfer.configuration` now connects that validated target configuration
+to each provider implementation without introducing an SDK.
 
 ## Development tooling
 

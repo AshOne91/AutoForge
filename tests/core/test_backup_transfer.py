@@ -1,9 +1,11 @@
 from pathlib import Path
 
-from autoforge.core.backup import BackupTransfer
+from autoforge.core.backup import BackupTransfer, S3StorageConfig
 
 
 class FakeBackupTransfer:
+    configuration = S3StorageConfig(endpoint="http://minio:9000", bucket="backups")
+
     async def put(self, artifact, *, source: Path) -> str:
         return f"memory://{artifact.name}"
 
@@ -14,4 +16,4 @@ class FakeBackupTransfer:
 def test_backup_transfer_seam_supports_provider_implementation() -> None:
     transfer: BackupTransfer = FakeBackupTransfer()
 
-    assert transfer is not None
+    assert transfer.configuration.bucket == "backups"

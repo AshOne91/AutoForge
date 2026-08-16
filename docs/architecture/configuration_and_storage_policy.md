@@ -114,6 +114,9 @@ and lowercase SHA-256 values before any adapter receives it.
 The transfer seam is `autoforge.core.backup.BackupTransfer`: providers implement
 `put(artifact, source)` and `verify(object_id, expected_sha256)` without changing
 the manifest or restore ownership contract.
+Each adapter also exposes its validated `S3StorageConfig` through the
+`configuration` property; the transfer seam does not resolve or persist secret
+values.
 
 The current provider-neutral configuration is
 `autoforge.core.backup.S3StorageConfig`. It contains an HTTP(S) endpoint, bucket,
