@@ -100,7 +100,10 @@ unverified.
 The single-host specification now supports the explicit
 `windows_task_scheduler` bootstrap provider and generates a PowerShell script
 that reruns the named Compose project with `up -d --wait`; task registration and
-host reboot execution remain operator-level verification.
+host reboot execution remain operator-level verification. On the Windows host,
+the task was registered successfully, the script started the generated
+49400/49410/49430/49431/49440 profile, all declared services became healthy, and
+Nginx returned `GET /health` with HTTP 200. A real logout/reboot drill remains.
 
 The generated Kubernetes profile currently selects two Nginx proxy replicas and
 three application replicas, but both counts are specification values rather than
