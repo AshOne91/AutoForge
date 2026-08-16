@@ -77,6 +77,8 @@ AutoForge currently has working foundations for:
 - A real Nginx request's `X-Request-ID` is persisted in the host JSON log; after
   restarting one application replica it remained present and all replicas plus
   Nginx returned healthy
+- After that restart, a new proxied `/health` record was ingested exactly once
+  into the Elasticsearch `filebeat-*` data stream with its request ID intact
 - generated durable Jobs can cancel only before worker claim: cancelled messages
   remain harmless when delivered because the worker's atomic claim skips their
   handler; KIS verifies API cancellation idempotency and the worker boundary
