@@ -1,6 +1,6 @@
 # Next Task
 
-## Next executable unit: select a concrete S3-compatible client boundary
+## Next executable unit: implement the injected S3-compatible adapter
 
 OWNERSHIP: AutoForge Kubernetes generator, validated through kis-auto-trading
 
@@ -14,5 +14,6 @@ by the generated MinIO overlay and later replaceable by AWS S3 or another
 compatible provider. `BackupArtifact`, `BackupTransfer`, and
 `S3StorageConfig` now carry the manifest, async transfer seam, and validated
 provider-neutral settings. `BackupTransfer.configuration` now exposes the
-settings to an adapter. Select a client boundary next; keep scheduling and
-retention policy out of this unit.
+settings to an adapter, while the core remains SDK-neutral. Implement one
+infrastructure adapter with an injected async S3-compatible client; keep upload
+scheduling and retention policy out of this unit.

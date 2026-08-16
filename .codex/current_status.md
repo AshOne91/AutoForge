@@ -309,6 +309,8 @@ bucket, normalized prefix, and paired credential references without storing
 secret values.
 `BackupTransfer.configuration` now connects that validated target configuration
 to each provider implementation without introducing an SDK.
+The client boundary is now explicitly provider-injected; no S3 SDK dependency is
+part of the core package yet.
 
 ## Development tooling
 

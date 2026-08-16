@@ -124,6 +124,11 @@ optional object-key prefix, and paired `SecretReference` values for access and
 secret keys. It stores references only; resolving credentials, selecting an SDK,
 and applying retention remain outside this core contract.
 
+The client boundary is intentionally injection-based: an infrastructure adapter
+will provide an async S3-compatible client to the `BackupTransfer` implementation.
+The core package does not select or import a concrete SDK, so the same contract
+can use local MinIO, AWS S3, or another compatible endpoint.
+
 The single-host startup contract is deliberately platform-neutral:
 
 1. Runtime services use `restart: unless-stopped` where they are expected to
