@@ -326,6 +326,8 @@ injected fakes.
 an explicit disable switch and the Compose `storage` execution profile.
 `S3StorageConfig.from_environment` now connects the generated `S3_*` settings to
 the provider-neutral backup contract without storing credential values in core.
+The `autoforge backup` preflight command now builds one artifact manifest,
+transfers it through the existing S3 adapter, and verifies the remote checksum.
 `tooling.local_environment.database_provider` now explicitly owns runtime
 selection and defaults to the currently supported PostgreSQL provider; logical
 database schemas remain provider-agnostic.

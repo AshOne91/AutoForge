@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Self
 
 import pytest
 import typer
@@ -12,6 +13,7 @@ from autoforge.application.generation import (
     GenerationValidationError,
 )
 from autoforge.cli.app import app
+from autoforge.cli.commands import backup as backup_command
 from autoforge.cli.commands.generate import (
     _validate_database_placements,
     _validate_endpoint_dependencies,
@@ -32,6 +34,69 @@ def test_version_works_without_project_config_file(
 
     assert result.exit_code == 0
     assert result.stdout.strip() == f"AutoForge v{__version__}"
+
+
+def test_backup_reports_invalid_kind(tmp_path: Path) -> None:
+    source = tmp_path / "backup.log"
+    source.write_text("backup", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        [
+            "backup",
+            "--source",
+            str(source),
+            "--name",
+            "backup.log",
+            "--kind",
+            "invalid",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "kind must be log or postgres_dump" in result.output
+
+
+def test_backup_preflight_transfers_and_verifies_artifact(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    source = tmp_path / "backup.log"
+    source.write_text("backup", encoding="utf-8")
+    monkeypatch.setenv("S3_ENDPOINT_URL", "http://minio:9000")
+    monkeypatch.setenv("S3_BUCKET", "backups")
+    monkeypatch.setenv("S3_PREFIX", "preflight")
+    monkeypatch.setenv("S3_ACCESS_KEY", "autoforge")
+    monkeypatch.setenv("S3_SECRET_KEY", "change-me")
+
+    class FakeClient:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            del args, kwargs
+
+        async def __aenter__(self) -> Self:
+            return self
+
+        async def __aexit__(self, *exc_info: object) -> None:
+            del exc_info
+
+        async def put_file(self, **kwargs: object) -> str:
+            assert kwargs["bucket"] == "backups"
+            assert kwargs["key"] == "preflight/backup.log"
+            return "s3://backups/preflight/backup.log"
+
+        async def verify_object(
+            self, object_id: str, *, expected_sha256: str
+        ) -> None:
+            assert object_id == "s3://backups/preflight/backup.log"
+            assert len(expected_sha256) == 64
+
+    monkeypatch.setattr(backup_command, "Aioboto3S3Client", FakeClient)
+    result = runner.invoke(
+        app,
+        ["backup", "--source", str(source), "--name", "backup.log"],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Verified backup artifact: s3://backups/preflight/backup.log" in result.output
 
 
 def test_generate_applies_specs_and_supports_repeated_run(tmp_path: Path) -> None:
