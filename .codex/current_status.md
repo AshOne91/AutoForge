@@ -106,6 +106,10 @@ the task was registered successfully, the script started the generated
 Nginx returned `GET /health` with HTTP 200. A real Windows reboot then restarted
 the same profile and returned HTTP 200 through Nginx again. This verifies the
 selected Windows bootstrap path on one host, not physical-host failure recovery.
+After the reboot drill, an application replica was restarted again; its
+container returned healthy, the host log file count remained stable, and the
+persisted per-process JSON file contained `application stopping`,
+`application starting`, and successful health-request records.
 
 The generated Kubernetes profile currently selects two Nginx proxy replicas and
 three application replicas, but both counts are specification values rather than
