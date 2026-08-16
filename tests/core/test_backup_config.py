@@ -18,6 +18,29 @@ def test_s3_storage_config_normalizes_prefix_without_storing_credentials() -> No
     assert "minio:9000" in config.endpoint
 
 
+def test_s3_storage_config_reads_generated_environment_contract() -> None:
+    config = S3StorageConfig.from_environment(
+        {
+            "S3_ENDPOINT_URL": "http://minio:9000",
+            "S3_BUCKET": "backups",
+            "S3_PREFIX": "backups",
+            "S3_ACCESS_KEY": "autoforge",
+            "S3_SECRET_KEY": "change-me",
+        }
+    )
+
+    assert config.endpoint == "http://minio:9000"
+    assert config.bucket == "backups"
+    assert config.prefix == "backups"
+    assert config.access_key_id == SecretReference("S3_ACCESS_KEY")
+    assert config.secret_access_key == SecretReference("S3_SECRET_KEY")
+
+
+def test_s3_storage_config_requires_generated_endpoint_and_bucket() -> None:
+    with pytest.raises(ValueError, match="S3_BUCKET"):
+        S3StorageConfig.from_environment({"S3_ENDPOINT_URL": "http://minio:9000"})
+
+
 @pytest.mark.parametrize(
     "kwargs",
     [

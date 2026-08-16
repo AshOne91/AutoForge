@@ -142,6 +142,10 @@ The current provider-neutral configuration is
 optional object-key prefix, and paired `SecretReference` values for access and
 secret keys. It stores references only; resolving credentials, selecting an SDK,
 and applying retention remain outside this core contract.
+`S3StorageConfig.from_environment` is the generated-runtime handoff: it reads
+the non-secret endpoint, bucket, and prefix values while retaining credential
+variable names as `SecretReference` objects. `EnvironmentSecretProvider` then
+resolves those references only when the selected infrastructure client opens.
 
 The client boundary is intentionally injection-based: an infrastructure adapter
 will provide an async S3-compatible client to the `BackupTransfer` implementation.
