@@ -105,6 +105,7 @@ def test_render_adds_public_proxy_and_application_replicas() -> None:
     assert "resolver 127.0.0.11" in nginx
     assert "set $upstream ${UPSTREAM_HOST}:8000;" in nginx
     assert "--env-file environment/.env" in readme
+    assert "port-collision" in readme
     assert "service-level HA" in readme
 
 
@@ -129,6 +130,8 @@ def test_render_adds_windows_bootstrap_only_when_selected() -> None:
 
     assert "docker compose" in bootstrap
     assert "Docker engine did not become ready" in bootstrap
+    assert "config --format json" in bootstrap
+    assert "Published host port collision" in bootstrap
     assert "up -d --wait" in bootstrap
     assert "runtime.env" in bootstrap
 

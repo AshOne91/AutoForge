@@ -119,12 +119,28 @@ do {
 } while ((Get-Date) -lt $deadline)
 if ($LASTEXITCODE -ne 0) { throw "Docker engine did not become ready within 5 minutes." }
 
-docker compose `
-  --env-file environment\.env `
-  --env-file deploy\single-host\runtime.env `
-  -f environment\compose.integration.yml `
-  -f deploy\single-host\compose.override.yml `
-  up -d --wait
+$composeArgs = @(
+  "--env-file", "environment\.env",
+  "--env-file", "deploy\single-host\runtime.env",
+  "-f", "environment\compose.integration.yml",
+  "-f", "deploy\single-host\compose.override.yml"
+)
+$composeConfig = docker compose @composeArgs config --format json
+if ($LASTEXITCODE -ne 0) { throw "Docker Compose configuration is invalid." }
+$config = $composeConfig | ConvertFrom-Json
+$published = @{}
+foreach ($service in $config.services.PSObject.Properties) {
+  foreach ($port in @($service.Value.ports)) {
+    if ($null -eq $port.published) { continue }
+    $publishedPort = [int]$port.published
+    if ($published.ContainsKey($publishedPort)) {
+      throw "Published host port collision: $publishedPort ($($published[$publishedPort]) and $($service.Name))"
+    }
+    $published[$publishedPort] = $service.Name
+  }
+}
+
+docker compose @composeArgs up -d --wait
 '''
 
     @staticmethod
@@ -172,7 +188,9 @@ docker compose --env-file environment/.env --env-file deploy/single-host/runtime
 docker compose --env-file environment/.env --env-file deploy/single-host/runtime.env -f environment/compose.integration.yml -f deploy/single-host/compose.override.yml down
 ```
 
-{bootstrap_note}The public proxy listens on `PUBLIC_BIND_ADDRESS:PUBLIC_HTTP_PORT`; application,
+{bootstrap_note}The Windows bootstrap performs a read-only Compose port-collision
+preflight before starting containers. The public proxy listens on
+`PUBLIC_BIND_ADDRESS:PUBLIC_HTTP_PORT`; application,
 database, Redis, RabbitMQ, and Airflow host ports remain governed by the integration
 environment. `LOG_ROOT` is a host bind mount so file logs survive application
 container recreation. Keep `environment/.env` outside Git. Configure host firewall,
