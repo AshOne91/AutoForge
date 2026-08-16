@@ -40,6 +40,10 @@ def test_elk_generator_renders_development_overlay_and_filebeat_config() -> None
     assert "xpack.security.enabled: \"false\"" in compose
     assert "${LOG_ROOT:-../logs}:/var/log/application:ro" in compose
     assert "${FILEBEAT_CONFIG:-../deploy/observability/filebeat.yml}" in compose
+    assert 'ELASTICSEARCH_PORT:-49600' in compose
+    assert 'KIBANA_PORT:-49601' in compose
+    assert 'default `49601`' in readme
+    assert '127.0.0.1:49600/filebeat-*/_search' in readme
     assert "type: filestream" in filebeat
     assert "/var/log/application/*.log" in filebeat
     assert "/var/log/application/*/*.log" in filebeat

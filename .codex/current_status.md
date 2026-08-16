@@ -33,7 +33,8 @@ AutoForge currently has working foundations for:
   verification confirms terminal retry errors reach Elasticsearch without replay
   after a Filebeat restart. The generated profile also ingested post-reboot
   application `/health` records into an Elasticsearch data stream; its Filebeat
-  mount path is aligned with the generated integration Compose project.
+  mount path is aligned with the generated integration Compose project. Central
+  Elasticsearch and Kibana now use the explicit `49600`/`49601` host block.
 - opt-in RAG infrastructure with Qdrant, Ollama, and one selectable search backend
   (Elasticsearch or OpenSearch), connected to generated application/worker consumers
   through an explicit external named network; both local search paths are runtime-verified

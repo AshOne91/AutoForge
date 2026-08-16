@@ -65,6 +65,7 @@ class ElkStackGenerator:
         if specification.tooling.elk.mode == "collector":
             return ElkStackGenerator._render_collector_compose(specification)
         version = specification.tooling.elk.version
+        host_port_base = specification.tooling.elk.host_port_base
         return f"""services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:{version}
@@ -74,7 +75,7 @@ class ElkStackGenerator:
       xpack.license.self_generated.type: basic
       ES_JAVA_OPTS: -Xms512m -Xmx512m
     ports:
-      - "127.0.0.1:${{ELASTICSEARCH_PORT:-9200}}:9200"
+      - "127.0.0.1:${{ELASTICSEARCH_PORT:-{host_port_base}}}:9200"
     volumes:
       - elasticsearch-data:/usr/share/elasticsearch/data
 
@@ -84,7 +85,7 @@ class ElkStackGenerator:
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
       XPACK_SECURITY_ENABLED: "false"
     ports:
-      - "127.0.0.1:${{KIBANA_PORT:-5601}}:5601"
+      - "127.0.0.1:${{KIBANA_PORT:-{host_port_base + 1}}}:5601"
     depends_on:
       - elasticsearch
 
@@ -155,6 +156,7 @@ output.elasticsearch:
     @staticmethod
     def _render_readme(specification: ProjectSpec) -> str:
         mode = specification.tooling.elk.mode
+        host_port_base = specification.tooling.elk.host_port_base
         if mode == "collector":
             startup = (
                 "$env:ELASTICSEARCH_HOST = \"http://central-elasticsearch:9200\"\n"
@@ -173,7 +175,7 @@ output.elasticsearch:
             else "- Filebeat forwards logs to the configured central Elasticsearch host."
         )
         access = (
-            "- Kibana is available at `http://127.0.0.1:$KIBANA_PORT` (default `5601`)."
+            f"- Kibana is available at `http://127.0.0.1:$KIBANA_PORT` (default `{host_port_base + 1}`)."
             if mode == "central"
             else "- This profile does not expose Elasticsearch or Kibana ports."
         )
@@ -201,7 +203,7 @@ structured event field:
 
 ```powershell
 $query = '{{"query":{{"term":{{"event_type":"news_collection_retries_exhausted"}}}}}}'
-Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:9200/filebeat-*/_search' `
+Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:{host_port_base}/filebeat-*/_search' `
   -ContentType 'application/json' -Body $query
 ```
 

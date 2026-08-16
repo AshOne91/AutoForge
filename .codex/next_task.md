@@ -1,13 +1,13 @@
 # Next Task
 
-## Next executable unit: assign the generated ELK host port block
+## Next executable unit: verify the OpenSearch observability backend path
 
 OWNERSHIP: AutoForge Kubernetes generator, validated through kis-auto-trading
 
 EVIDENCE: Filebeat now mounts the generated `../logs` and config paths correctly;
 Elasticsearch indexed the KIS JSON logs and returned `/health` records through
-the generated data stream.
+the generated data stream. Central Elasticsearch and Kibana use `49600`/`49601`.
 
-Add an explicit project-owned host port block for Elasticsearch and Kibana and
-verify it does not collide with the 49400 application block. Keep collector
-security, multi-host storage, and production backup/restore outside this unit.
+Validate the selectable OpenSearch path with its own project-owned port block
+and the same persisted log contract. Keep collector security, multi-host
+storage, and production backup/restore outside this unit.
