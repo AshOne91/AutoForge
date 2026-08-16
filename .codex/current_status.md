@@ -286,6 +286,10 @@ The same `identity.dump` was then restored successfully into a disposable
 --no-owner --no-privileges`; six public tables were verified and the labeled
 container was removed.
 
+`account_shard_1.dump` was restored with the same source-compatible procedure;
+eight public tables were verified and its labeled disposable container was
+removed.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:
