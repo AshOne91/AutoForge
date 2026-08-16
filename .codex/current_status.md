@@ -274,6 +274,13 @@ timestamped directory outside the repository. Each dump received a SHA-256
 checksum. The Compose `postgres` service is HAProxy, so the guide targets the
 `postgres-ha-0` database node for `pg_dump`.
 
+The `identity` dump was restored into a uniquely labeled disposable vanilla
+PostgreSQL container after excluding source-specific extension, ACL, and
+`metric_helpers` archive entries; two core public tables were verified and the
+container was removed. A complete restore still requires a target with the same
+Spilo extensions and roles. Binary dumps are now copied with `docker cp` rather
+than PowerShell stdout redirection, which would corrupt custom-format archives.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:
