@@ -253,6 +253,11 @@ all three application replicas and Nginx reached `healthy`, the proxy returned
 `GET /health` `200`, and `COMPOSE_IGNORE_ORPHANS=true` suppressed the expected
 warning from the separately managed ELK Compose project without removing it.
 
+The registered `AutoForge-kis-auto-trading-bootstrap` Task Scheduler job was
+also triggered manually. It completed without changing the existing healthy
+stack; Nginx and all three application replicas remained healthy and `/health`
+returned `200`. A physical host reboot remains an operator-controlled check.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:
