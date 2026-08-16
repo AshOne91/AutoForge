@@ -228,6 +228,14 @@ The generated durable-job and Outbox repositories support a caller-supplied
 availability time, so consumer retries can be delayed without changing an event's
 original occurrence time.
 
+The port-collision guard was also checked with explicit, non-default overrides:
+an application block at `49300`, RAG at `49400`, and central ELK at `49600`
+validate successfully. Reusing `49400` for the application and ELK blocks is
+rejected by `ProjectSpec` before generation. The KIS Compose defaults resolve to
+the non-overlapping application/PostgreSQL/RabbitMQ block (`49400`/`49410`/
+`49430-49431`); runtime environment overrides remain constrained by the same
+declared block policy rather than introducing a second allocator.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:

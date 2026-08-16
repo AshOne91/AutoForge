@@ -1,13 +1,14 @@
 # Next Task
 
-## Next executable unit: validate port override preservation
+## Next executable unit: document generated port blocks in the consumer guide
 
 OWNERSHIP: AutoForge Kubernetes generator, validated through kis-auto-trading
 
-EVIDENCE: `ProjectSpec` now rejects overlapping generated host-port offsets;
+EVIDENCE: `ProjectSpec` accepts explicit non-overlapping overrides (`49300`,
+`49400`, `49600`) and rejects an application/ELK collision at `49400`;
 AutoForge reports `486 passed, 6 skipped`, and the KIS specification regenerates
 successfully with its `49400`, `49500`, and `49600` allocations.
 
-Verify that explicit environment overrides remain valid within their declared
-blocks and do not bypass specification-level collision checks. Keep dynamic
-port allocation and deployment topology outside this unit.
+The next smallest documentation-only unit is to make the consumer guide point
+to the generated port-block contract. Do not add runtime dynamic allocation or
+change deployment topology in that unit.
