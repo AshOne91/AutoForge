@@ -54,6 +54,9 @@ AutoForge currently has working foundations for:
   authentication, idempotent `(job_type, run_key)` requests, `automation` store
   routing, and status retrieval; generated Airflow uses those endpoints rather
   than an in-process timer
+- KIS durable `news_collection` followed its generated `news_index` job through
+  the running worker and indexed ten Yahoo articles into OpenSearch with the
+  configured embedding model
 - generated durable Jobs can cancel only before worker claim: cancelled messages
   remain harmless when delivered because the worker's atomic claim skips their
   handler; KIS verifies API cancellation idempotency and the worker boundary

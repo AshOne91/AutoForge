@@ -1,15 +1,14 @@
 # Next Task
 
-## Next executable unit: verify durable news collection through OpenSearch
+## Next executable unit: restore host validation dependency parity
 
 OWNERSHIP: AutoForge Kubernetes generator, validated through kis-auto-trading
 
-EVIDENCE: The generated OpenSearch RAG profile responds on `49460`; a probe
-document survived an OpenSearch container restart and was then removed. With
-`embeddinggemma`, the KIS search client indexed and retrieved a live news probe
-using keyword plus vector search.
+EVIDENCE: `news_collection` succeeded, its generated `news_index` follow-up
+succeeded, and ten Yahoo articles were indexed into OpenSearch. Host-side
+durable handler tests cannot collect because the active `autoforge` environment
+does not contain `yfinance`.
 
-Run the generated durable news-collection path against the same OpenSearch and
-Ollama services, preserving its retry and outbox contracts. Keep model
-distribution, collector security, multi-host storage, and production
-backup/restore outside this unit.
+Align the developer validation environment with the generated KIS dependency
+contract, then rerun the durable handler tests. Keep unrelated dependency
+upgrades and production deployment changes outside this unit.
