@@ -37,7 +37,9 @@ AutoForge currently has working foundations for:
   Elasticsearch and Kibana now use the explicit `49600`/`49601` host block.
 - opt-in RAG infrastructure with Qdrant, Ollama, and one selectable search backend
   (Elasticsearch or OpenSearch), connected to generated application/worker consumers
-  through an explicit external named network; both local search paths are runtime-verified
+  through an explicit external named network; both local search paths are runtime-verified.
+  The KIS OpenSearch profile responds on `49460`, persists its named-volume data
+  across container restart, and exposes the generated hybrid-search client path.
 - opt-in MinIO S3-compatible local storage
 - Identity/Session/Sharded Profile and Scheduled Ingestion input Blueprints
 - Yahoo provider failure boundary: positive timeout and timeout/provider error

@@ -1,13 +1,13 @@
 # Next Task
 
-## Next executable unit: verify the OpenSearch observability backend path
+## Next executable unit: verify the OpenSearch hybrid news query path
 
 OWNERSHIP: AutoForge Kubernetes generator, validated through kis-auto-trading
 
-EVIDENCE: Filebeat now mounts the generated `../logs` and config paths correctly;
-Elasticsearch indexed the KIS JSON logs and returned `/health` records through
-the generated data stream. Central Elasticsearch and Kibana use `49600`/`49601`.
+EVIDENCE: The generated OpenSearch RAG profile responds on `49460`; a probe
+document survived an OpenSearch container restart and was then removed. The KIS
+OpenSearch search client focused tests pass.
 
-Validate the selectable OpenSearch path with its own project-owned port block
-and the same persisted log contract. Keep collector security, multi-host
-storage, and production backup/restore outside this unit.
+Run one end-to-end news indexing and hybrid keyword/vector query with an
+explicitly available Ollama embedding model. Keep model distribution, collector
+security, multi-host storage, and production backup/restore outside this unit.
