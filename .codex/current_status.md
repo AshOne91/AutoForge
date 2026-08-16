@@ -243,6 +243,11 @@ host ports before `up`. The KIS generated bootstrap matches the generator output
 its current integration configuration passes the preflight with five published
 ports.
 
+An intentional disposable Compose configuration with two services publishing
+`49999` was rejected by the same preflight before any `up` call. The complete
+AutoForge suite now reports `489 passed, 6 skipped` with the cache provider
+disabled.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:
