@@ -1,13 +1,14 @@
 # Next Task
 
-## Next executable unit: install and import the consumer package artifact
+## Next executable unit: build the consumer runtime image from the artifact
 
 OWNERSHIP: AutoForge Kubernetes generator, validated through kis-auto-trading
 
 EVIDENCE: `yfinance` is installed in the active validation environment;
 durable handler and worker tests pass, the full KIS suite reports `33 passed`,
-Ruff passes, and wheel/sdist artifacts build successfully.
+Ruff and wheel/sdist builds pass, and the wheel imports successfully from a
+fresh virtual environment.
 
-Install the generated wheel into a clean temporary environment and import the
-application package. Keep runtime service deployment and dependency upgrades
-outside this unit.
+Build the consumer runtime image using the generated package contract and run a
+health check. Keep production deployment changes and image publication outside
+this unit.

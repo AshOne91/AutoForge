@@ -63,6 +63,8 @@ AutoForge currently has working foundations for:
   changing repository configuration
 - KIS Ruff validation passes and the declared package builds successfully as
   both wheel and source distribution using the local build tool
+- The generated KIS wheel installs into a fresh virtual environment and
+  imports successfully as `kis_auto_trading` version `0.1.0`
 - generated durable Jobs can cancel only before worker claim: cancelled messages
   remain harmless when delivered because the worker's atomic claim skips their
   handler; KIS verifies API cancellation idempotency and the worker boundary
