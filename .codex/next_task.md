@@ -1,14 +1,15 @@
 # Next Task
 
-## Next executable unit: document generated port blocks in the consumer guide
+## Next executable unit: define runtime port-override preflight
 
 OWNERSHIP: AutoForge Kubernetes generator, validated through kis-auto-trading
 
 EVIDENCE: `ProjectSpec` accepts explicit non-overlapping overrides (`49300`,
 `49400`, `49600`) and rejects an application/ELK collision at `49400`;
-AutoForge reports `486 passed, 6 skipped`, and the KIS specification regenerates
-successfully with its `49400`, `49500`, and `49600` allocations.
+the KIS consumer guide now links the generated `49400` block; the focused
+specification tests report `38 passed`.
 
-The next smallest documentation-only unit is to make the consumer guide point
-to the generated port-block contract. Do not add runtime dynamic allocation or
+Define the smallest read-only check that can compare a consumer `.env` port
+override with the generated block before Compose starts. Keep it separate from
+`ProjectSpec` validation, do not add runtime dynamic allocation, and do not
 change deployment topology in that unit.
