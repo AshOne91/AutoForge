@@ -1,15 +1,14 @@
 # Next Task
 
-## Next executable unit: define runtime port-override preflight
+## Next executable unit: verify bootstrap collision failure
 
 OWNERSHIP: AutoForge Kubernetes generator, validated through kis-auto-trading
 
-EVIDENCE: `ProjectSpec` accepts explicit non-overlapping overrides (`49300`,
-`49400`, `49600`) and rejects an application/ELK collision at `49400`;
-the KIS consumer guide now links the generated `49400` block; the focused
-specification tests report `38 passed`.
+EVIDENCE: the read-only `validate-ports` command is implemented and tested;
+the generated Windows bootstrap now checks the fully resolved Compose JSON;
+the current KIS configuration passes with five published ports.
 
-Define the smallest read-only check that can compare a consumer `.env` port
-override with the generated block before Compose starts. Keep it separate from
-`ProjectSpec` validation, do not add runtime dynamic allocation, and do not
-change deployment topology in that unit.
+Use a disposable Compose configuration with an intentional duplicate published
+port to prove the bootstrap preflight fails before container startup. Keep this
+as a verification-only unit; do not change runtime allocation or deployment
+topology.

@@ -237,6 +237,12 @@ the non-overlapping application/PostgreSQL/RabbitMQ block (`49400`/`49410`/
 manually colliding runtime `.env` override is a deployment-time input and is
 not independently revalidated by `ProjectSpec`.
 
+The generated Windows single-host bootstrap now runs a read-only
+`docker compose config --format json` preflight and rejects duplicate published
+host ports before `up`. The KIS generated bootstrap matches the generator output;
+its current integration configuration passes the preflight with five published
+ports.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:
