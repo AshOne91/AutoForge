@@ -1,6 +1,6 @@
 # Next Task
 
-## Next executable unit: define off-host backup boundary
+## Next executable unit: choose the off-host backup adapter boundary
 
 OWNERSHIP: AutoForge Kubernetes generator, validated through kis-auto-trading
 
@@ -9,6 +9,7 @@ checks, bootstrap/reboot recovery, and disposable restore evidence. The identity
 dump restored six public tables and both account shards restored eight public
 tables each into disposable Spilo targets.
 
-Define the smallest provider-neutral boundary for copying verified dumps and
-logs off-host, including retention and restore ownership. Do not add a cloud
-provider or schedule until that contract is explicit.
+The provider-neutral boundary is now documented: AutoForge owns verified dump/
+log artifact shape and restore evidence; an operator or provider adapter owns
+transfer, encryption, retention, and deletion. Select the next adapter contract
+without adding a cloud provider, credentials, or schedule yet.

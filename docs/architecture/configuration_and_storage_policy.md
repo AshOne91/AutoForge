@@ -73,6 +73,19 @@ The single-host startup contract is deliberately platform-neutral:
    generates a repeatable PowerShell Compose-start script; registering the task
    remains an explicit host-operator action.
 
+## Off-host backup boundary
+
+The single-host profile stages two classes of backup artifacts outside the
+project directory: verified PostgreSQL custom-format dumps and copied file-log
+directories. AutoForge owns the artifact shape and checksum/restore evidence;
+an operator or later deployment adapter owns transfer to off-host storage,
+encryption keys, retention, and deletion policy. Restore validation must target
+the same database image/extensions/roles or a disposable compatible target
+before any live replacement is considered.
+
+No cloud provider, upload schedule, or credential mechanism is implied by this
+boundary. Those belong to a provider-specific backup adapter selected later.
+
 The single-host startup contract is deliberately platform-neutral:
 
 1. Runtime services use `restart: unless-stopped` where they are expected to
@@ -92,6 +105,7 @@ The disposable integration Compose profile remains a verification environment.
 When explicitly selected, the generated single-host overlay composes with it to
 add the public Nginx entry point, application replicas, and a configurable log
 bind mount; it is not an implicit promotion of the integration profile. Host
-bootstrapping, backup/restore, retention, and operator recovery procedures remain
-later operating work. AWS or another cloud provider is a later deployment target,
-not an implicit dependency of this single-host baseline.
+bootstrapping and local backup/restore evidence are part of this baseline;
+off-host transfer and retention remain provider-specific operating work. AWS or
+another cloud provider is a later deployment target, not an implicit dependency
+of this single-host baseline.
