@@ -328,6 +328,9 @@ an explicit disable switch and the Compose `storage` execution profile.
 the provider-neutral backup contract without storing credential values in core.
 The `autoforge backup` preflight command now builds one artifact manifest,
 transfers it through the existing S3 adapter, and verifies the remote checksum.
+KIS input specifications were generated into a disposable consumer workspace;
+its generated MinIO profile created the default bucket and the actual preflight
+uploaded and verified an artifact through the host endpoint.
 `tooling.local_environment.database_provider` now explicitly owns runtime
 selection and defaults to the currently supported PostgreSQL provider; logical
 database schemas remain provider-agnostic.

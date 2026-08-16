@@ -167,6 +167,12 @@ lazy-loads the optional dependency, manages the async client lifetime, resolves
 runtime secret references, and records/verifies the manifest SHA-256 as object
 metadata.
 
+`autoforge backup` is the explicit preflight command for one already-created
+artifact. It loads `S3_*` settings from the current process environment, uploads
+the artifact, and verifies its remote checksum before reporting the object ID.
+It does not create database dumps, schedule transfers, choose retention, or add
+cloud credentials to generated application code.
+
 The disposable integration check is `tests/integration/test_minio_backup.py`.
 It runs only when the `backup` extra and the `AUTOFORGE_MINIO_ENDPOINT`,
 `AUTOFORGE_MINIO_BUCKET`, `AUTOFORGE_MINIO_ACCESS_KEY`, and
