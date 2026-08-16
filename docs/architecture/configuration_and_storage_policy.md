@@ -86,6 +86,36 @@ before any live replacement is considered.
 No cloud provider, upload schedule, or credential mechanism is implied by this
 boundary. Those belong to a provider-specific backup adapter selected later.
 
+### Adapter contract
+
+The provider-neutral adapter receives an immutable artifact manifest containing
+the artifact kind (`log` or `postgres_dump`), source-relative name, byte size,
+creation time, and SHA-256 checksum. Its minimum responsibilities are:
+
+1. stage or transfer the exact bytes to provider-owned storage;
+2. return a durable object identifier and the recorded checksum;
+3. verify a downloaded artifact before a restore attempt.
+
+The adapter does not create database dumps, decide retention, or restore over a
+live database. Those remain producer, policy-owner, and operator responsibilities
+respectively. A failed transfer must leave the source artifact untouched and be
+safe to retry with the same checksum.
+
+### Adapter contract
+
+The provider-neutral adapter receives an immutable artifact manifest containing
+the artifact kind (`log` or `postgres_dump`), source-relative name, byte size,
+creation time, and SHA-256 checksum. Its minimum responsibilities are:
+
+1. stage or transfer the exact bytes to provider-owned storage;
+2. return a durable object identifier and the recorded checksum;
+3. verify a downloaded artifact before a restore attempt.
+
+The adapter does not create database dumps, decide retention, or restore over a
+live database. Those remain producer, policy-owner, and operator responsibilities
+respectively. A failed transfer must leave the source artifact untouched and be
+safe to retry with the same checksum.
+
 The single-host startup contract is deliberately platform-neutral:
 
 1. Runtime services use `restart: unless-stopped` where they are expected to
