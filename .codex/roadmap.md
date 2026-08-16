@@ -30,7 +30,7 @@ sequencing.
 - [ ] Kubernetes or managed PostgreSQL HA deployment contract with multi-node
   placement, persistent volumes, backups, restore drills, and production
   observability after a deployment provider is selected
-- [ ] self-hosted single-host operating profile with Docker auto-start, durable
+- [x] self-hosted single-host operating profile with Docker auto-start, durable
   volumes, log retention, backup/restore drills, health checks, and operator
   recovery for the generated service HA baseline
 - [ ] later provider-selected Redis HA deployment contract: managed Cluster,

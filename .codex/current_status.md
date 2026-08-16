@@ -294,6 +294,11 @@ removed.
 verified. All three generated database artifacts have now passed a disposable
 Spilo restore check; no live database was overwritten.
 
+The single-host baseline audit is complete: durable named/bind volumes, rotated
+file logs, health checks, bootstrap/reboot recovery, and disposable backup/
+restore evidence are all present. Off-host backup automation, retention policy,
+and managed storage remain outside the current baseline.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:
