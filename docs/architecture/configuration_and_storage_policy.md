@@ -144,6 +144,11 @@ lazy-loads the optional dependency, manages the async client lifetime, resolves
 runtime secret references, and records/verifies the manifest SHA-256 as object
 metadata.
 
+The disposable integration check is `tests/integration/test_minio_backup.py`.
+It runs only when the `backup` extra and the `AUTOFORGE_MINIO_ENDPOINT`,
+`AUTOFORGE_MINIO_BUCKET`, `AUTOFORGE_MINIO_ACCESS_KEY`, and
+`AUTOFORGE_MINIO_SECRET_KEY` environment variables are present.
+
 The single-host startup contract is deliberately platform-neutral:
 
 1. Runtime services use `restart: unless-stopped` where they are expected to

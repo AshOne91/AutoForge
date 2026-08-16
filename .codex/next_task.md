@@ -1,6 +1,6 @@
 # Next Task
 
-## Next executable unit: add an optional MinIO integration check
+## Next executable unit: run the MinIO integration check in a real profile
 
 OWNERSHIP: AutoForge Kubernetes generator, validated through kis-auto-trading
 
@@ -18,5 +18,6 @@ settings to an adapter, while the core remains SDK-neutral. Implement one
 infrastructure adapter with an injected async S3-compatible client; that adapter
 now exists and is tested. `aioboto3` is selected through the optional `backup`
 extra, and its lifecycle-safe wrapper is implemented. Add only a disposable
-MinIO integration check next; keep upload scheduling and retention policy out of
-this unit.
+MinIO integration check next; the check now exists and skips when its required
+environment is absent. Run it against the generated storage profile; keep upload
+scheduling and retention policy out of this unit.
