@@ -42,7 +42,9 @@ separate from `ModuleSpec.database.provider: agnostic`, which describes portable
 schema intent rather than a container image, DSN driver, or migration dialect.
 A future MySQL provider must add its Compose, DSN, migration, and validation path
 as one vertical slice before it becomes an accepted runtime value.
-
+The approved first dialect is SQLAlchemy's async `mysql+asyncmy` connection form
+with `utf8mb4`; its driver dependency belongs to the MySQL provider slice rather
+than the default PostgreSQL installation.
 In generated PostgreSQL HA mode, each Patroni node and each etcd member has its
 own named volume. HAProxy has no persistent data. These local volumes are runtime
 state: reset only an explicitly identified failed test node, never a whole Compose

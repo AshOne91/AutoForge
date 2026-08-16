@@ -183,6 +183,20 @@ Database가 필요한 Module만 계약을 선언한다.
 Provider는 PostgreSQL DDL과 SQLAlchemy async 구현을 제공하며, 다른 DB
 Provider를 현재 계약으로 암묵적으로 취급하지 않는다.
 
+## MySQL standalone runtime admission gate
+
+`tooling.local_environment.database_provider` does not accept `mysql` until one
+complete runtime slice exists. That slice must generate a standalone MySQL
+Compose service, an explicit `mysql+asyncmy` UTF-8 DSN, secret-backed credentials,
+health checks, database initialization, and a MySQL-specific Alembic baseline.
+It must not reuse PostgreSQL DDL or claim that PostgreSQL HA behavior applies to
+MySQL.
+
+The initial MySQL scope is one standalone local service only. MySQL HA, read
+splitting, cross-provider migration, and shard topology remain separate future
+contracts. Admission requires focused generator tests plus a disposable runtime
+check that applies the generated migration and verifies the resulting schema.
+
 ## PostgreSQL DDL Generator
 
 `PostgreSQLDDLGenerator`는 명세의 배치에 따라 다음 결정적 SQL을 생성한다.

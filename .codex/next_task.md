@@ -1,6 +1,6 @@
 # Next Task
 
-## Next executable unit: define the MySQL standalone runtime slice
+## Next executable unit: implement the MySQL standalone Compose generator
 
 OWNERSHIP: AutoForge Kubernetes generator, validated through kis-auto-trading
 
@@ -13,5 +13,7 @@ The default generated MinIO overlay remains profile-selected at execution, and
 its backup integration check now has passing disposable-container evidence.
 `tooling.local_environment.database_provider` now owns runtime selection and
 defaults to PostgreSQL, separately from provider-agnostic schema specification.
-Define the MySQL standalone Compose, DSN, migration, and validation requirements
-next before accepting `mysql` as a runtime provider value.
+The MySQL standalone admission gate is defined: Compose, `asyncmy` DSN/secret
+boundary, MySQL-specific migration baseline, health check, and disposable
+validation must land together. Implement the isolated Compose generator path
+next; do not accept `mysql` as a spec value before that slice is complete.

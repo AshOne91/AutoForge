@@ -26,9 +26,8 @@ sequencing.
 - [ ] cloud S3/object-storage provider after raw-document persistence is selected
 - [ ] external-provider resiliency adapter after a provider is selected
 
-- [ ] MySQL standalone runtime slice: generated Compose profile, DSN/secret
-  boundary, migrations, and focused validation after the PostgreSQL provider
-  contract
+- [ ] MySQL standalone runtime slice: generated Compose profile, `asyncmy` DSN/
+  secret boundary, MySQL-specific migration baseline, and disposable validation
 - [ ] Kubernetes or managed PostgreSQL HA deployment contract with multi-node
   placement, persistent volumes, backups, restore drills, and production
   observability after a deployment provider is selected
