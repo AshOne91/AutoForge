@@ -456,6 +456,50 @@ class ProjectSpec(StrictSpecModel):
     application: ApplicationSpec
     tooling: ToolingSpec = Field(default_factory=ToolingSpec)
 
+    @model_validator(mode="after")
+    def validate_host_port_collisions(self) -> ProjectSpec:
+        published: dict[int, list[str]] = {}
+
+        def reserve(label: str, base: int | None, offsets: tuple[int, ...]) -> None:
+            if base is None:
+                return
+            for offset in offsets:
+                published.setdefault(base + offset, []).append(label)
+
+        local = self.tooling.local_environment
+        if local.enabled:
+            if local.application_enabled:
+                reserve("local application", local.host_port_base, (0,))
+            if self.application.databases:
+                reserve("local PostgreSQL", local.host_port_base, (10,))
+            if any(service.kind == "rabbitmq" for service in self.application.services):
+                reserve("local RabbitMQ", local.host_port_base, (30, 31))
+            if self.application.durable_jobs:
+                reserve("local Airflow", local.host_port_base, (40,))
+
+        rag = self.tooling.rag
+        if rag.enabled:
+            reserve("RAG Qdrant", rag.host_port_base, (50, 51))
+            reserve("RAG search", rag.host_port_base, (60,))
+            reserve("RAG Ollama", rag.host_port_base, (70,))
+
+        storage = self.tooling.storage
+        if storage.enabled:
+            reserve("object storage", storage.host_port_base, (80, 81))
+
+        elk = self.tooling.elk
+        if elk.enabled and elk.mode == "central":
+            reserve("central ELK", elk.host_port_base, (0, 1))
+
+        collisions = [
+            f"{port}: {', '.join(labels)}"
+            for port, labels in sorted(published.items())
+            if len(labels) > 1
+        ]
+        if collisions:
+            raise ValueError("tooling host port collision(s): " + "; ".join(collisions))
+        return self
+
 
 class ModuleInfo(StrictSpecModel):
     name: str

@@ -13,12 +13,14 @@ from autoforge.core.specification import (
     DataPlacementMode,
     DataPlacementSpec,
     DurableJobSpec,
+    ElkSpec,
     EndpointDependency,
     EndpointSpec,
     FieldSpec,
     FieldType,
     FieldTypeKind,
     HttpMethod,
+    LocalEnvironmentSpec,
     ModelSpec,
     ModuleInfo,
     ModuleSpec,
@@ -133,6 +135,26 @@ def test_tooling_normalizes_and_rejects_duplicate_ruff_exclude_paths() -> None:
     assert tooling.ruff_exclude == ["reference/base_server", "test.py"]
     with pytest.raises(ValidationError, match="must be unique"):
         ToolingSpec(ruff_exclude=["reference", "reference"])
+
+
+def test_project_rejects_published_host_port_collisions() -> None:
+    application = ApplicationSpec(
+        databases=[DatabaseStoreSpec(name="identity", global_url_env="IDENTITY_URL")]
+    )
+    tooling = ToolingSpec(
+        local_environment=LocalEnvironmentSpec(
+            enabled=True, application_enabled=True, host_port_base=49400
+        ),
+        elk=ElkSpec(enabled=True, host_port_base=49400),
+    )
+
+    with pytest.raises(ValidationError, match="49400.*local application.*central ELK"):
+        ProjectSpec(
+            spec_version="1",
+            project=ProjectInfo(name="Example", package_name="example", version="0.1.0"),
+            application=application,
+            tooling=tooling,
+        )
 
 
 def test_ci_spec_requires_a_test_workflow_and_unique_providers() -> None:

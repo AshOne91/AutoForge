@@ -82,6 +82,9 @@ AutoForge currently has working foundations for:
 - The declared observability endpoints are live: Elasticsearch `49600` returns
   cluster health and the existing record, while Kibana `49601` redirects to
   `/app/home` with HTTP 200
+- `ProjectSpec` now rejects overlapping generated host-port offsets across
+  local services, RAG, object storage, and central ELK; the full AutoForge suite
+  passes (`486 passed, 6 skipped`) and the KIS specification regenerates cleanly
 - generated durable Jobs can cancel only before worker claim: cancelled messages
   remain harmless when delivered because the worker's atomic claim skips their
   handler; KIS verifies API cancellation idempotency and the worker boundary
