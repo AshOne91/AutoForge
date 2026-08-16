@@ -99,8 +99,12 @@ The first adapter target is the S3-compatible object API. `StorageSpec` generate
 the local MinIO overlay by default, while its Compose `storage` profile still
 requires explicit operator selection to start. A project can set
 `tooling.storage.enabled: false` to exclude generated object-storage artifacts.
-The same adapter boundary can later point at AWS S3 or another compatible provider
-by changing endpoint, credentials, and lifecycle policy outside generated code.
+The same profile includes an idempotent `minio-init` task that waits for MinIO
+health and creates the generated `S3_BUCKET`. That task exits successfully after
+initialization, so its overlay is started with `up -d`, not included in a Compose
+`--wait` health gate. The same adapter boundary can later point at AWS S3 or
+another compatible provider by changing endpoint, credentials, and lifecycle
+policy outside generated code.
 
 Infrastructure capabilities remain typed by responsibility rather than being
 collapsed into one generic service list. Object storage owns bucket/object

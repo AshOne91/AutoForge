@@ -1,19 +1,22 @@
 # Next Task
 
-## Next executable unit: implement the MySQL standalone Compose generator
+## Next executable unit: connect generated S3 settings to the backup runtime
 
-OWNERSHIP: AutoForge Kubernetes generator, validated through kis-auto-trading
+OWNERSHIP: AutoForge storage generator and backup configuration boundary,
+validated through a generated consumer project
 
 EVIDENCE: the single-host audit confirms durable volumes, rotated logs, health
 checks, bootstrap/reboot recovery, and disposable restore evidence. The identity
 dump restored six public tables and both account shards restored eight public
 tables each into disposable Spilo targets.
 
-The default generated MinIO overlay remains profile-selected at execution, and
-its backup integration check now has passing disposable-container evidence.
-`tooling.local_environment.database_provider` now owns runtime selection and
-defaults to PostgreSQL, separately from provider-agnostic schema specification.
-The MySQL standalone admission gate is defined: Compose, `asyncmy` DSN/secret
-boundary, MySQL-specific migration baseline, health check, and disposable
-validation must land together. Implement the isolated Compose generator path
-next; do not accept `mysql` as a spec value before that slice is complete.
+The default generated MinIO overlay remains profile-selected at execution. Its
+generated `minio-init` task creates `S3_BUCKET` idempotently, and a disposable
+MinIO backup round trip passed against the generated Compose output.
+
+Add the smallest generated runtime handoff that maps `S3_ENDPOINT_URL`,
+`S3_BUCKET`, `S3_PREFIX`, and credential reference names to `S3StorageConfig`
+without placing secret values in a generated application module. Validate the
+generated configuration against the existing S3 backup adapter. Keep MySQL
+behind its existing standalone admission gate; do not accept `mysql` as a spec
+value before that complete slice is implemented.

@@ -42,7 +42,9 @@ AutoForge currently has working foundations for:
   across container restart, and exposes the generated hybrid-search client path.
   With the installed `embeddinggemma` model, KIS indexed and retrieved a live
   news probe through combined keyword and vector search.
-- opt-in MinIO S3-compatible local storage
+- default-generated, profile-selected MinIO S3-compatible local storage with
+  idempotent backup-bucket bootstrap; generated Compose and an actual MinIO
+  backup round trip are runtime-verified
 - Identity/Session/Sharded Profile and Scheduled Ingestion input Blueprints
 - Yahoo provider failure boundary: positive timeout and timeout/provider error
   classification with preserved causes; KIS schedules bounded durable retries

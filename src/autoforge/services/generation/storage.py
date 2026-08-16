@@ -13,10 +13,11 @@ from autoforge.core.specification import ProjectSpec
 OBJECT_STORAGE_GENERATOR_ID = "autoforge.generator.storage"
 OBJECT_STORAGE_GENERATOR_VERSION = "0.1.0"
 MINIO_IMAGE = "minio/minio:RELEASE.2025-07-23T15-54-02Z"
+MINIO_CLIENT_IMAGE = "minio/mc:RELEASE.2025-08-13T08-35-41Z"
 
 
 class ObjectStorageGenerator:
-    """Generate an opt-in local S3-compatible object storage overlay."""
+    """Generate a profile-selected local S3-compatible storage overlay."""
 
     @property
     def generator_id(self) -> str:
@@ -82,6 +83,29 @@ services:
       - "${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{MINIO_CONSOLE_PORT:-{base + 81}}}:9001"
     volumes:
       - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  minio-init:
+    profiles: ["storage"]
+    image: {MINIO_CLIENT_IMAGE}
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${{MINIO_ROOT_USER:?set MINIO_ROOT_USER}}
+      MINIO_ROOT_PASSWORD: ${{MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD}}
+      S3_BUCKET: ${{S3_BUCKET:?set S3_BUCKET}}
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - >
+        mc alias set local http://minio:9000 "$${{MINIO_ROOT_USER}}" "$${{MINIO_ROOT_PASSWORD}}";
+        mc mb --ignore-existing "local/$${{S3_BUCKET}}"
 
 volumes:
   minio-data:
@@ -99,15 +123,17 @@ MINIO_CONSOLE_PORT={base + 81}
 S3_ENDPOINT_URL=http://minio:9000
 S3_ACCESS_KEY=autoforge
 S3_SECRET_KEY=change-me
+S3_BUCKET={specification.project.package_name.replace("_", "-")}-artifacts
+S3_PREFIX=backups
 '''
 
     @staticmethod
     def _render_readme(specification: ProjectSpec) -> str:
         return f'''# Generated local object storage
 
-This optional overlay provides an S3-compatible MinIO endpoint for
-`{specification.project.package_name}`. It does not create buckets, retention
-rules, object schemas, or application upload code.
+This generated overlay provides an S3-compatible MinIO endpoint for
+`{specification.project.package_name}`. It does not configure retention rules,
+object schemas, or application upload code.
 
 ```powershell
 Copy-Item deploy/storage/.env.example deploy/storage/.env
@@ -115,8 +141,11 @@ docker compose --env-file deploy/storage/.env -f deploy/storage/compose.storage.
 docker compose --env-file deploy/storage/.env -f deploy/storage/compose.storage.yaml --profile storage down
 ```
 
-The S3-compatible in-network endpoint is `S3_ENDPOINT_URL`. MinIO data uses a
+The S3-compatible in-network endpoint is `S3_ENDPOINT_URL`. `minio-init`
+idempotently creates `S3_BUCKET` after MinIO becomes healthy. MinIO data uses a
 named Docker volume and the API/console bind to `LOCAL_BIND_ADDRESS` only.
+`minio-init` exits successfully after initialization, so start this overlay with
+`up -d` rather than adding it to a Compose `--wait` health gate.
 Replace the sample root credentials before starting the profile. Production
 requires separate credentials, encrypted backups, bucket policies, lifecycle
 rules, and a cluster-aware object-storage deployment; do not use this Compose

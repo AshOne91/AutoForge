@@ -43,14 +43,19 @@ def test_object_storage_generator_renders_default_minio_contract() -> None:
     readme = files[PurePosixPath("deploy", "storage", "README.md")]
 
     assert "minio/minio:RELEASE.2025-07-23T15-54-02Z" in compose
+    assert "minio/mc:RELEASE.2025-08-13T08-35-41Z" in compose
     assert 'command: server /data --console-address ":9001"' in compose
     assert '"${LOCAL_BIND_ADDRESS:-127.0.0.1}:${MINIO_API_PORT:-49580}:9000"' in compose
     assert "S3_ENDPOINT_URL=http://minio:9000" in environment
     assert "S3_ACCESS_KEY=autoforge" in environment
-    assert "It does not create buckets" in readme
+    assert "S3_BUCKET=kis-auto-trading-artifacts" in environment
+    assert "mc mb --ignore-existing" in compose
+    assert "idempotently creates `S3_BUCKET`" in readme
+    assert "rather than adding it to a Compose `--wait` health gate" in readme
     parsed = yaml.safe_load(compose)
-    assert set(parsed["services"]) == {"minio"}
+    assert set(parsed["services"]) == {"minio", "minio-init"}
     assert parsed["services"]["minio"]["profiles"] == ["storage"]
+    assert parsed["services"]["minio-init"]["depends_on"]["minio"]["condition"] == "service_healthy"
 
 
 def test_object_storage_generator_plan_marks_all_outputs_generated() -> None:
