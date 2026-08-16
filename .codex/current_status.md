@@ -103,7 +103,9 @@ that reruns the named Compose project with `up -d --wait`; task registration and
 host reboot execution remain operator-level verification. On the Windows host,
 the task was registered successfully, the script started the generated
 49400/49410/49430/49431/49440 profile, all declared services became healthy, and
-Nginx returned `GET /health` with HTTP 200. A real logout/reboot drill remains.
+Nginx returned `GET /health` with HTTP 200. A real Windows reboot then restarted
+the same profile and returned HTTP 200 through Nginx again. This verifies the
+selected Windows bootstrap path on one host, not physical-host failure recovery.
 
 The generated Kubernetes profile currently selects two Nginx proxy replicas and
 three application replicas, but both counts are specification values rather than
