@@ -58,8 +58,9 @@ AutoForge currently has working foundations for:
   the running worker and indexed ten Yahoo articles into OpenSearch with the
   configured embedding model
 - KIS host validation now has the declared `yfinance` dependency; the full
-  consumer pytest suite passes (`33 passed`), with only a Windows ACL warning
-  when pytest attempts to write `.pytest_cache`
+  consumer pytest suite passes (`33 passed`) with the documented
+  `-p no:cacheprovider` command, so the Windows ACL warning is avoided without
+  changing repository configuration
 - generated durable Jobs can cancel only before worker claim: cancelled messages
   remain harmless when delivered because the worker's atomic claim skips their
   handler; KIS verifies API cancellation idempotency and the worker boundary
