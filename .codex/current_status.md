@@ -68,6 +68,9 @@ AutoForge currently has working foundations for:
 - A separate KIS runtime image tag builds from the generated Dockerfile and
   returns `/health` HTTP 200 with the real database and Redis lifespan
   connections on the existing integration network
+- The wheel-verified image also passes a disposable Compose replacement check:
+  three application replicas became healthy and returned `/health` 200 without
+  changing the long-running Compose project
 - generated durable Jobs can cancel only before worker claim: cancelled messages
   remain harmless when delivered because the worker's atomic claim skips their
   handler; KIS verifies API cancellation idempotency and the worker boundary
