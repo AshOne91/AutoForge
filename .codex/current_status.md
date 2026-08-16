@@ -40,6 +40,8 @@ AutoForge currently has working foundations for:
   through an explicit external named network; both local search paths are runtime-verified.
   The KIS OpenSearch profile responds on `49460`, persists its named-volume data
   across container restart, and exposes the generated hybrid-search client path.
+  With the installed `embeddinggemma` model, KIS indexed and retrieved a live
+  news probe through combined keyword and vector search.
 - opt-in MinIO S3-compatible local storage
 - Identity/Session/Sharded Profile and Scheduled Ingestion input Blueprints
 - Yahoo provider failure boundary: positive timeout and timeout/provider error
