@@ -304,6 +304,9 @@ for future adapters. It validates relative artifact names, non-negative sizes,
 timezone-aware UTC timestamps, and 64-character SHA-256 checksums.
 `autoforge.core.backup.BackupTransfer` now defines the minimal async `put` and
 checksum `verify` seam; no provider SDK or credential implementation is bundled.
+`autoforge.core.backup.S3StorageConfig` now validates an HTTP(S) endpoint,
+bucket, normalized prefix, and paired credential references without storing
+secret values.
 
 ## Development tooling
 

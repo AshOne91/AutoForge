@@ -93,13 +93,6 @@ changing endpoint, credentials, and lifecycle policy outside generated code.
 This selection does not enable object storage for projects that did not declare
 the storage capability.
 
-The first adapter target is the S3-compatible object API because AutoForge
-already generates an optional MinIO overlay through `StorageSpec`. The same
-adapter boundary can later point at AWS S3 or another compatible provider by
-changing endpoint, credentials, and lifecycle policy outside generated code.
-This selection does not enable object storage for projects that did not declare
-the storage capability.
-
 ### Adapter contract
 
 The provider-neutral adapter receives an immutable artifact manifest containing
@@ -121,6 +114,12 @@ and lowercase SHA-256 values before any adapter receives it.
 The transfer seam is `autoforge.core.backup.BackupTransfer`: providers implement
 `put(artifact, source)` and `verify(object_id, expected_sha256)` without changing
 the manifest or restore ownership contract.
+
+The current provider-neutral configuration is
+`autoforge.core.backup.S3StorageConfig`. It contains an HTTP(S) endpoint, bucket,
+optional object-key prefix, and paired `SecretReference` values for access and
+secret keys. It stores references only; resolving credentials, selecting an SDK,
+and applying retention remain outside this core contract.
 
 The single-host startup contract is deliberately platform-neutral:
 
