@@ -263,6 +263,17 @@ After the reboot, application `/app/logs` still mapped to the host
 `C:\kis-auto-trading\logs` bind mount, where recent per-container log files
 remained present with non-zero sizes.
 
+No backup automation is currently implemented. The consumer guide now defines a
+safe single-host drill: copy the host log bind mount and create a PostgreSQL
+custom-format dump outside the project, then restore only into a disposable
+target and verify its checksum/tables.
+
+The first live backup drill copied the host logs and created non-empty custom
+format dumps for `identity`, `account_shard_1`, and `account_shard_2` under a
+timestamped directory outside the repository. Each dump received a SHA-256
+checksum. The Compose `postgres` service is HAProxy, so the guide targets the
+`postgres-ha-0` database node for `pg_dump`.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:
