@@ -1,6 +1,6 @@
 # Next Task
 
-## Next executable unit: implement the aioboto3 client wrapper
+## Next executable unit: add an optional MinIO integration check
 
 OWNERSHIP: AutoForge Kubernetes generator, validated through kis-auto-trading
 
@@ -17,5 +17,6 @@ provider-neutral settings. `BackupTransfer.configuration` now exposes the
 settings to an adapter, while the core remains SDK-neutral. Implement one
 infrastructure adapter with an injected async S3-compatible client; that adapter
 now exists and is tested. `aioboto3` is selected through the optional `backup`
-extra. Implement only the lifecycle-safe client wrapper next; keep upload
-scheduling and retention policy out of this unit.
+extra, and its lifecycle-safe wrapper is implemented. Add only a disposable
+MinIO integration check next; keep upload scheduling and retention policy out of
+this unit.

@@ -139,6 +139,11 @@ The selected concrete client library is `aioboto3`, exposed through the optional
 because it provides async boto3-compatible S3 operations and custom endpoints;
 the adapter still owns lifecycle management and credential resolution.
 
+`autoforge.infrastructure.backup.Aioboto3S3Client` is the concrete wrapper. It
+lazy-loads the optional dependency, manages the async client lifetime, resolves
+runtime secret references, and records/verifies the manifest SHA-256 as object
+metadata.
+
 The single-host startup contract is deliberately platform-neutral:
 
 1. Runtime services use `restart: unless-stopped` where they are expected to

@@ -315,6 +315,8 @@ part of the core package yet.
 manifest-size validation and delegated remote verification.
 The concrete client choice is `aioboto3` via the optional `backup` dependency
 extra; it is not part of the default installation yet.
+`Aioboto3S3Client` now provides the lifecycle-safe wrapper with lazy import,
+runtime secret resolution, and object metadata checksum verification.
 
 ## Development tooling
 
