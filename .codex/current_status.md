@@ -248,6 +248,11 @@ An intentional disposable Compose configuration with two services publishing
 AutoForge suite now reports `489 passed, 6 skipped` with the cache provider
 disabled.
 
+The generated Windows bootstrap was then executed against the live KIS profile:
+all three application replicas and Nginx reached `healthy`, the proxy returned
+`GET /health` `200`, and `COMPOSE_IGNORE_ORPHANS=true` suppressed the expected
+warning from the separately managed ELK Compose project without removing it.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:
