@@ -71,6 +71,9 @@ AutoForge currently has working foundations for:
 - The wheel-verified image also passes a disposable Compose replacement check:
   three application replicas became healthy and returned `/health` 200 without
   changing the long-running Compose project
+- A disposable Nginx front-end routes to those three replicas: six proxied
+  `/health` requests returned 200, request IDs round-tripped, and the rendered
+  config contains the forwarded-client headers and upstream proxy contract
 - generated durable Jobs can cancel only before worker claim: cancelled messages
   remain harmless when delivered because the worker's atomic claim skips their
   handler; KIS verifies API cancellation idempotency and the worker boundary
