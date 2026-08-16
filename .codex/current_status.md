@@ -299,6 +299,10 @@ file logs, health checks, bootstrap/reboot recovery, and disposable backup/
 restore evidence are all present. Off-host backup automation, retention policy,
 and managed storage remain outside the current baseline.
 
+`autoforge.core.backup.BackupArtifact` now provides the typed manifest boundary
+for future adapters. It validates relative artifact names, non-negative sizes,
+timezone-aware UTC timestamps, and 64-character SHA-256 checksums.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:

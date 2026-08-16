@@ -115,6 +115,14 @@ live database. Those remain producer, policy-owner, and operator responsibilitie
 respectively. A failed transfer must leave the source artifact untouched and be
 safe to retry with the same checksum.
 
+The current in-memory manifest is `autoforge.core.backup.BackupArtifact`; it
+normalizes workspace-relative names, UTC timestamps, non-negative byte sizes,
+and lowercase SHA-256 values before any adapter receives it.
+
+The current in-memory manifest is `autoforge.core.backup.BackupArtifact`; it
+normalizes workspace-relative names, UTC timestamps, non-negative byte sizes,
+and lowercase SHA-256 values before any adapter receives it.
+
 ### Adapter contract
 
 The provider-neutral adapter receives an immutable artifact manifest containing

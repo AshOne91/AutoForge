@@ -1,6 +1,6 @@
 # Next Task
 
-## Next executable unit: define the backup artifact manifest type
+## Next executable unit: implement the S3-compatible transfer seam
 
 OWNERSHIP: AutoForge Kubernetes generator, validated through kis-auto-trading
 
@@ -11,6 +11,6 @@ tables each into disposable Spilo targets.
 
 The first adapter target is the existing S3-compatible object API, backed locally
 by the generated MinIO overlay and later replaceable by AWS S3 or another
-compatible provider. Define the typed artifact manifest carrying kind, name,
-size, creation time, and SHA-256 before implementing transfer code. Do not add
-provider SDKs, credentials, or retention policy yet.
+compatible provider. `autoforge.core.backup.BackupArtifact` now carries kind,
+name, size, creation time, and SHA-256. Implement only the transfer seam next;
+do not add provider SDKs, credentials, or retention policy yet.
