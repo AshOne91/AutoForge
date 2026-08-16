@@ -233,8 +233,9 @@ an application block at `49300`, RAG at `49400`, and central ELK at `49600`
 validate successfully. Reusing `49400` for the application and ELK blocks is
 rejected by `ProjectSpec` before generation. The KIS Compose defaults resolve to
 the non-overlapping application/PostgreSQL/RabbitMQ block (`49400`/`49410`/
-`49430-49431`); runtime environment overrides remain constrained by the same
-declared block policy rather than introducing a second allocator.
+`49430-49431`). The specification guard validates these declared values; a
+manually colliding runtime `.env` override is a deployment-time input and is
+not independently revalidated by `ProjectSpec`.
 
 ## Development tooling
 
