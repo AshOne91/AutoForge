@@ -79,6 +79,9 @@ AutoForge currently has working foundations for:
   Nginx returned healthy
 - After that restart, a new proxied `/health` record was ingested exactly once
   into the Elasticsearch `filebeat-*` data stream with its request ID intact
+- The declared observability endpoints are live: Elasticsearch `49600` returns
+  cluster health and the existing record, while Kibana `49601` redirects to
+  `/app/home` with HTTP 200
 - generated durable Jobs can cancel only before worker claim: cancelled messages
   remain harmless when delivered because the worker's atomic claim skips their
   handler; KIS verifies API cancellation idempotency and the worker boundary
