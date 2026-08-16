@@ -331,6 +331,9 @@ transfers it through the existing S3 adapter, and verifies the remote checksum.
 KIS input specifications were generated into a disposable consumer workspace;
 its generated MinIO profile created the default bucket and the actual preflight
 uploaded and verified an artifact through the host endpoint.
+The KIS single-host generated README ownership conflict is resolved: common
+port guidance now comes from AutoForge, while the KIS-specific Spilo backup
+drill lives in its user-owned local integration operations document.
 `tooling.local_environment.database_provider` now explicitly owns runtime
 selection and defaults to the currently supported PostgreSQL provider; logical
 database schemas remain provider-agnostic.

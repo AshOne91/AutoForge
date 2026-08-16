@@ -107,6 +107,7 @@ def test_render_adds_public_proxy_and_application_replicas() -> None:
     assert "--env-file environment/.env" in readme
     assert "port-collision" in readme
     assert "service-level HA" in readme
+    assert "validate-ports --env-file environment/.env" in readme
 
 
 def test_render_uses_local_port_block_for_single_host_proxy() -> None:
@@ -119,6 +120,9 @@ def test_render_uses_local_port_block_for_single_host_proxy() -> None:
 
     assert 'PUBLIC_HTTP_PORT:-49300' in compose
     assert 'PUBLIC_HTTP_PORT=49300' in environment
+    assert "public application proxy | `49300`" in files[
+        PurePosixPath("deploy", "single-host", "README.md")
+    ]
 
 
 def test_render_adds_windows_bootstrap_only_when_selected() -> None:

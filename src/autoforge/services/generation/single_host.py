@@ -167,6 +167,7 @@ server {
     def _render_readme(
         specification: ProjectSpec, *, application_replicas: int
     ) -> str:
+        host_port_base = specification.tooling.local_environment.host_port_base
         bootstrap_note = (
             "A Windows Task Scheduler adapter is generated at "
             "`deploy/single-host/windows/start-compose.ps1`; register it to run "
@@ -174,7 +175,32 @@ server {
             if specification.tooling.single_host.bootstrap_provider == "windows_task_scheduler"
             else ""
         )
-        return f"""# Generated single-host operating overlay
+        port_block = (
+            f"""
+## Generated host-port block
+
+This project uses the AutoForge-generated local block beginning at `{host_port_base}`:
+
+| Service | Host port |
+| --- | ---: |
+| public application proxy | `{host_port_base}` |
+| PostgreSQL/HAProxy | `{host_port_base + 10}` |
+| RabbitMQ AMQP | `{host_port_base + 30}` |
+| RabbitMQ management | `{host_port_base + 31}` |
+| Airflow | `{host_port_base + 40}` |
+
+The application, database, broker, and scheduler communicate through Compose
+service names and container ports. Do not assign another generated environment
+the same block. The authoritative allocation rules live in [AutoForge's local
+Docker port policy](https://github.com/AshOne91/AutoForge/blob/main/docs/architecture/local_port_policy.md).
+Individual environment variables are one-off deployment overrides; changing them
+does not make `ProjectSpec` revalidate a runtime collision.
+"""
+            if host_port_base is not None
+            else ""
+        )
+        return (
+            f"""# Generated single-host operating overlay
 
 This generated overlay keeps `environment/compose.integration.yml` as the
 dependency runtime and adds one public Nginx entry point with
@@ -189,7 +215,16 @@ docker compose --env-file environment/.env --env-file deploy/single-host/runtime
 docker compose --env-file environment/.env --env-file deploy/single-host/runtime.env -f environment/compose.integration.yml -f deploy/single-host/compose.override.yml down
 ```
 
-{bootstrap_note}The Windows bootstrap performs a read-only Compose port-collision
+Before `up`, validate every environment file that publishes host ports:
+
+```powershell
+python -m autoforge.main validate-ports --env-file environment/.env --env-file deploy/single-host/runtime.env
+```
+
+The check is read-only and rejects duplicate published host ports; it does not
+allocate ports or replace specification validation.
+
+{bootstrap_note}The Windows bootstrap performs the same read-only Compose port-collision
 preflight before starting containers. The public proxy listens on
 `PUBLIC_BIND_ADDRESS:PUBLIC_HTTP_PORT`; application,
 database, Redis, RabbitMQ, and Airflow host ports remain governed by the integration
@@ -197,4 +232,7 @@ environment. `LOG_ROOT` is a host bind mount so file logs survive application
 container recreation. Keep `environment/.env` outside Git. Configure host firewall,
 TLS termination, off-host backup, and Docker service auto-start before exposing the
 host to an untrusted network.
-"""
+{port_block}
+""".strip()
+            + "\n"
+        )

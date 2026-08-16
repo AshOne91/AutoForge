@@ -1,9 +1,9 @@
 # Next Task
 
-## Next executable unit: resolve the KIS generated README ownership conflict
+## Next executable unit: implement the MySQL standalone Compose generator
 
-OWNERSHIP: AutoForge single-host documentation generator and KIS user-owned
-operations documentation
+OWNERSHIP: AutoForge local database runtime generator, validated through a
+generated consumer project
 
 EVIDENCE: the single-host audit confirms durable volumes, rotated logs, health
 checks, bootstrap/reboot recovery, and disposable restore evidence. The identity
@@ -12,10 +12,12 @@ tables each into disposable Spilo targets.
 
 The default generated MinIO overlay remains profile-selected at execution. Its
 generated `minio-init` task creates `S3_BUCKET` idempotently, and a disposable
-KIS consumer workspace passed the actual `autoforge backup` preflight.
+KIS consumer workspace passed the actual `autoforge backup` preflight. The KIS
+generated README conflict is resolved without overwriting KIS-owned operations
+documentation.
 
-KIS `deploy/single-host/README.md` is marked GENERATED but contains manual
-port and backup-drill content, so safe regeneration correctly aborts. Preserve
-the KIS-specific drill in its existing user-owned operations document, move any
-reusable operating contract into the AutoForge single-host generator, then
-regenerate and inspect the KIS diff. Do not force overwrite the generated file.
+Implement the existing MySQL admission gate as one vertical slice: standalone
+Compose service, explicit `mysql+asyncmy` UTF-8 DSN, health check, initialized
+logical databases, MySQL-specific Alembic baseline, and disposable migration/
+schema validation. Do not accept `mysql` in `ProjectSpec` before this complete
+slice passes.
