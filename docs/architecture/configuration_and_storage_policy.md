@@ -86,6 +86,20 @@ before any live replacement is considered.
 No cloud provider, upload schedule, or credential mechanism is implied by this
 boundary. Those belong to a provider-specific backup adapter selected later.
 
+The first adapter target is the S3-compatible object API because AutoForge
+already generates an optional MinIO overlay through `StorageSpec`. The same
+adapter boundary can later point at AWS S3 or another compatible provider by
+changing endpoint, credentials, and lifecycle policy outside generated code.
+This selection does not enable object storage for projects that did not declare
+the storage capability.
+
+The first adapter target is the S3-compatible object API because AutoForge
+already generates an optional MinIO overlay through `StorageSpec`. The same
+adapter boundary can later point at AWS S3 or another compatible provider by
+changing endpoint, credentials, and lifecycle policy outside generated code.
+This selection does not enable object storage for projects that did not declare
+the storage capability.
+
 ### Adapter contract
 
 The provider-neutral adapter receives an immutable artifact manifest containing
