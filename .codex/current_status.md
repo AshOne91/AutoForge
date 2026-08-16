@@ -74,6 +74,9 @@ AutoForge currently has working foundations for:
 - A disposable Nginx front-end routes to those three replicas: six proxied
   `/health` requests returned 200, request IDs round-tripped, and the rendered
   config contains the forwarded-client headers and upstream proxy contract
+- A real Nginx request's `X-Request-ID` is persisted in the host JSON log; after
+  restarting one application replica it remained present and all replicas plus
+  Nginx returned healthy
 - generated durable Jobs can cancel only before worker claim: cancelled messages
   remain harmless when delivered because the worker's atomic claim skips their
   handler; KIS verifies API cancellation idempotency and the worker boundary
