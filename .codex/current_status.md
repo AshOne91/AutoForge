@@ -61,6 +61,8 @@ AutoForge currently has working foundations for:
   consumer pytest suite passes (`33 passed`) with the documented
   `-p no:cacheprovider` command, so the Windows ACL warning is avoided without
   changing repository configuration
+- KIS Ruff validation passes and the declared package builds successfully as
+  both wheel and source distribution using the local build tool
 - generated durable Jobs can cancel only before worker claim: cancelled messages
   remain harmless when delivered because the worker's atomic claim skips their
   handler; KIS verifies API cancellation idempotency and the worker boundary
