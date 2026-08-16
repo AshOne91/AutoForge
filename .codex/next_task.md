@@ -1,6 +1,6 @@
 # Next Task
 
-## Next executable unit: choose the concrete S3 client implementation
+## Next executable unit: implement the aioboto3 client wrapper
 
 OWNERSHIP: AutoForge Kubernetes generator, validated through kis-auto-trading
 
@@ -16,5 +16,6 @@ compatible provider. `BackupArtifact`, `BackupTransfer`, and
 provider-neutral settings. `BackupTransfer.configuration` now exposes the
 settings to an adapter, while the core remains SDK-neutral. Implement one
 infrastructure adapter with an injected async S3-compatible client; that adapter
-now exists and is tested. Choose and integrate one concrete client library next;
-keep upload scheduling and retention policy out of this unit.
+now exists and is tested. `aioboto3` is selected through the optional `backup`
+extra. Implement only the lifecycle-safe client wrapper next; keep upload
+scheduling and retention policy out of this unit.

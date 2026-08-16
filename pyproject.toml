@@ -28,6 +28,7 @@ dependencies = [
 [project.optional-dependencies]
 test = ["aio-pika>=9.5,<10", "httpx", "redis>=5,<7"]
 server = ["asyncpg>=0.30,<1", "sqlalchemy>=2.0,<3"]
+backup = ["aioboto3>=15.5,<16"]
 
 [project.scripts]
 autoforge = "autoforge.cli.app:app"

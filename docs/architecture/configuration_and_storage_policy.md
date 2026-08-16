@@ -134,6 +134,11 @@ adapter. It validates the local manifest size, builds the configured object key,
 and delegates byte transfer and remote checksum verification to the injected
 client.
 
+The selected concrete client library is `aioboto3`, exposed through the optional
+`autoforge[backup]` extra. It remains outside the core package and is selected
+because it provides async boto3-compatible S3 operations and custom endpoints;
+the adapter still owns lifecycle management and credential resolution.
+
 The single-host startup contract is deliberately platform-neutral:
 
 1. Runtime services use `restart: unless-stopped` where they are expected to

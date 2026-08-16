@@ -313,6 +313,8 @@ The client boundary is now explicitly provider-injected; no S3 SDK dependency is
 part of the core package yet.
 `S3CompatibleBackupTransfer` now provides the first infrastructure adapter with
 manifest-size validation and delegated remote verification.
+The concrete client choice is `aioboto3` via the optional `backup` dependency
+extra; it is not part of the default installation yet.
 
 ## Development tooling
 
