@@ -118,25 +118,9 @@ safe to retry with the same checksum.
 The current in-memory manifest is `autoforge.core.backup.BackupArtifact`; it
 normalizes workspace-relative names, UTC timestamps, non-negative byte sizes,
 and lowercase SHA-256 values before any adapter receives it.
-
-The current in-memory manifest is `autoforge.core.backup.BackupArtifact`; it
-normalizes workspace-relative names, UTC timestamps, non-negative byte sizes,
-and lowercase SHA-256 values before any adapter receives it.
-
-### Adapter contract
-
-The provider-neutral adapter receives an immutable artifact manifest containing
-the artifact kind (`log` or `postgres_dump`), source-relative name, byte size,
-creation time, and SHA-256 checksum. Its minimum responsibilities are:
-
-1. stage or transfer the exact bytes to provider-owned storage;
-2. return a durable object identifier and the recorded checksum;
-3. verify a downloaded artifact before a restore attempt.
-
-The adapter does not create database dumps, decide retention, or restore over a
-live database. Those remain producer, policy-owner, and operator responsibilities
-respectively. A failed transfer must leave the source artifact untouched and be
-safe to retry with the same checksum.
+The transfer seam is `autoforge.core.backup.BackupTransfer`: providers implement
+`put(artifact, source)` and `verify(object_id, expected_sha256)` without changing
+the manifest or restore ownership contract.
 
 The single-host startup contract is deliberately platform-neutral:
 

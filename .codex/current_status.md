@@ -302,6 +302,8 @@ and managed storage remain outside the current baseline.
 `autoforge.core.backup.BackupArtifact` now provides the typed manifest boundary
 for future adapters. It validates relative artifact names, non-negative sizes,
 timezone-aware UTC timestamps, and 64-character SHA-256 checksums.
+`autoforge.core.backup.BackupTransfer` now defines the minimal async `put` and
+checksum `verify` seam; no provider SDK or credential implementation is bundled.
 
 ## Development tooling
 
