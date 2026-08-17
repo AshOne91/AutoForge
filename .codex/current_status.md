@@ -93,6 +93,10 @@ AutoForge currently has working foundations for:
   the RabbitMQ cluster. The selected OpenSearch index increased from 20 to 29
   documents. A prior failed index Job correctly exposed that the RAG overlay
   was not running; it was an operator-state failure, not a broker failure.
+- RAG-enabled generated Durable Workers now report ready only after RabbitMQ,
+  the selected search backend, and Ollama respond. KIS regenerated this
+  contract and verified the worker healthy with its separately managed RAG
+  overlay running.
 - generated KIS durable-job endpoints are runtime-verified for Bearer-token
   authentication, idempotent `(job_type, run_key)` requests, `automation` store
   routing, and status retrieval; generated Airflow uses those endpoints rather

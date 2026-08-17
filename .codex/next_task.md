@@ -1,13 +1,12 @@
 # Next Task
 
-## Next executable unit: RAG-aware durable-worker readiness
+## Next executable unit: RAG-unavailable durable-worker readiness check
 
 OWNERSHIP: AutoForge local-environment generator and generated worker runtime
 contract.
 
-Determine whether a generated Durable Job worker that is configured to execute
-RAG indexing should report ready while its declared external RAG services are
-unreachable. If the existing generator contract says readiness represents all
-required runtime dependencies, add the smallest conditional readiness probe and
-focused generator test. Do not couple separately managed Compose projects or
-make RAG mandatory for projects that did not select it.
+Stop one declared RAG endpoint in the local KIS overlay and verify the
+RAG-enabled Durable Worker becomes unready without changing its RabbitMQ
+consumer contract. Restore the endpoint and verify the worker returns healthy.
+Do not couple the separately managed Compose projects or alter RAG-free
+profiles.
