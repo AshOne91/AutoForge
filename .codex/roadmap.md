@@ -26,9 +26,9 @@ sequencing.
 - [ ] cloud S3/object-storage provider after raw-document persistence is selected
 - [ ] external-provider resiliency adapter after a provider is selected
 
-- [ ] provider-selected MySQL HA deployment contract: multi-host placement,
-  durable storage, backups, restore drills, and production observability. Do not
-  use `mysql/mysql-router:8.0` with MySQL 8.4; local validation proved that
+- [ ] MySQL Operator Kubernetes HA profile: multi-host placement, durable
+  storage, backups, restore drills, and production observability. Do not use
+  `mysql/mysql-router:8.0` with MySQL 8.4; local validation proved that
   combination closes the writer route.
 - [ ] Kubernetes or managed PostgreSQL HA deployment contract with multi-node
   placement, persistent volumes, backups, restore drills, and production

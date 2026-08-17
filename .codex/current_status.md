@@ -389,6 +389,8 @@ continues to consume database URLs through `secretKeyRef`; it does not generate
 MySQL cluster resources. A focused generator contract test verifies that this
 boundary remains true when the same specification enables local MySQL HA, and
 the generated Kubernetes README explains the same provider-owned boundary. The
+selected future Kubernetes MySQL HA provider is MySQL Operator for Kubernetes;
+its manifest generator is not implemented yet. The
 generated application starts and retains its
 `/health` contract throughout that failover verification. PostgreSQL-specific
 messaging/Durable Jobs remain excluded from the MySQL profile. The published

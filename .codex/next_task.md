@@ -1,11 +1,10 @@
 # Next Task
 
-## Next executable unit: Provider-selected Kubernetes database contract
+## Next executable unit: MySQL Operator Kubernetes specification contract
 
-OWNERSHIP: deployment-provider selection; AutoForge follows after selection
+OWNERSHIP: AutoForge specification validation and Kubernetes generation
 
-Before generating Kubernetes database resources, select one concrete provider
-target (for example a managed database or a supported Kubernetes operator) and
-define its placement, persistent storage, backup/restore, Router exposure, and
-credential-rotation guarantees. Until then, keep the existing provider-owned
-Secret URL boundary and do not generate a database `StatefulSet`.
+Add a separate opt-in Kubernetes MySQL Operator profile to the specification.
+Require an Operator bootstrap Secret reference, cluster name, member count,
+Router replica count, StorageClass and PVC size. Keep application runtime URLs
+in the existing Kubernetes Secret. Do not render manifests in this unit.

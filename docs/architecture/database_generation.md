@@ -214,11 +214,13 @@ rejected for this profile.
 `mysql_mode` belongs only to `LocalEnvironmentSpec`; it is not a request to
 generate Kubernetes database resources. The existing Kubernetes base-server
 generator keeps the database provider external and binds declared database URLs
-from its named Kubernetes Secret. A Kubernetes MySQL HA profile must therefore
-first declare its provider-owned contract: member placement, persistent storage,
-Router exposure, backup and restore, and credential delivery or rotation. Until
-that contract is selected, AutoForge must not emit a MySQL `StatefulSet` or
-invent provider defaults.
+from its named Kubernetes Secret. The first Kubernetes MySQL HA provider is
+MySQL Operator for Kubernetes; its decision and ownership boundary are recorded
+in [ADR-0002](../adr/0002-kubernetes-mysql-operator-provider.md). The future
+profile must declare member placement, persistent storage, Router exposure,
+backup and restore, and credential delivery or rotation. Until that profile is
+implemented, AutoForge must not emit a MySQL `StatefulSet` or invent provider
+defaults.
 
 The published `mysql/mysql-router:8.0` image must not be used with MySQL 8.4:
 local validation found it classified every member as read-only and closed the
