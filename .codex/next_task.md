@@ -1,11 +1,12 @@
 # Next Task
 
-## Next executable unit: KIS single-host bootstrap rebuild verification
+## Next executable unit: KIS news ingestion through RabbitMQ cluster
 
-OWNERSHIP: AutoForge single-host generator; KIS generated deployment overlay.
+OWNERSHIP: KIS user-owned news handler using AutoForge-generated Durable Job,
+Outbox, RabbitMQ, and search infrastructure contracts.
 
-Run the generated Windows single-host bootstrap after the RabbitMQ cluster
-regeneration. Verify it builds the current application image, starts the
-declared long-running profile without a stale-image dependency, and restores
-the Nginx health endpoint. Do not change deployment configuration unless this
-operator-level check proves a concrete generator defect.
+Submit one bounded existing `news_collection` Durable Job through the public
+API against the verified RabbitMQ cluster. Verify its generated `news_index`
+handoff reaches a terminal status and only then inspect the existing search
+backend result. Do not change the news provider, handler, or search adapter
+unless the vertical runtime path proves a concrete defect.

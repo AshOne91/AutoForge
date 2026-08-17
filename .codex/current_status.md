@@ -309,6 +309,10 @@ The generated Windows bootstrap was then executed against the live KIS profile:
 all three application replicas and Nginx reached `healthy`, the proxy returned
 `GET /health` `200`, and `COMPOSE_IGNORE_ORPHANS=true` suppressed the expected
 warning from the separately managed ELK Compose project without removing it.
+After the RabbitMQ quorum-cluster regeneration, the same bootstrap rebuilt the
+current application image and restored the complete declared profile: three API
+replicas, Nginx, both RabbitMQ consumers, PostgreSQL HA, Redis Cluster, and
+Airflow all reached their declared healthy or completed state.
 
 The registered `AutoForge-kis-auto-trading-bootstrap` Task Scheduler job was
 also triggered manually. It completed without changing the existing healthy
