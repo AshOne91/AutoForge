@@ -78,6 +78,12 @@ AutoForge currently has working foundations for:
   scaffolded application message worker independently of Durable Jobs. RabbitMQ
   readiness waits for its AMQP listener, preventing a false-ready startup race
   for those consumers.
+- Generated single-host bootstrap rebuilds the application image before Compose
+  startup, so regenerated messaging contracts cannot be hidden by a stale local
+  image. KIS's three-node RabbitMQ cluster now has persisted broker state behind
+  HAProxy; both profile event and dead-letter queues were verified as quorum
+  queues, and a new profile event was published and consumed after one broker
+  stopped and rejoined.
 - generated KIS durable-job endpoints are runtime-verified for Bearer-token
   authentication, idempotent `(job_type, run_key)` requests, `automation` store
   routing, and status retrieval; generated Airflow uses those endpoints rather
