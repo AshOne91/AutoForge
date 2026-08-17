@@ -1,12 +1,13 @@
 # Next Task
 
-## Next executable unit: KIS news ingestion through RabbitMQ cluster
+## Next executable unit: RAG-aware durable-worker readiness
 
-OWNERSHIP: KIS user-owned news handler using AutoForge-generated Durable Job,
-Outbox, RabbitMQ, and search infrastructure contracts.
+OWNERSHIP: AutoForge local-environment generator and generated worker runtime
+contract.
 
-Submit one bounded existing `news_collection` Durable Job through the public
-API against the verified RabbitMQ cluster. Verify its generated `news_index`
-handoff reaches a terminal status and only then inspect the existing search
-backend result. Do not change the news provider, handler, or search adapter
-unless the vertical runtime path proves a concrete defect.
+Determine whether a generated Durable Job worker that is configured to execute
+RAG indexing should report ready while its declared external RAG services are
+unreachable. If the existing generator contract says readiness represents all
+required runtime dependencies, add the smallest conditional readiness probe and
+focused generator test. Do not couple separately managed Compose projects or
+make RAG mandatory for projects that did not select it.

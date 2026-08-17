@@ -88,6 +88,11 @@ AutoForge currently has working foundations for:
   `news_index` job completed through API, Outbox, the quorum durable-job queue,
   and the generated worker both normally and while `rabbitmq-0` was stopped.
   The broker then rejoined all three running cluster nodes.
+- With the separately managed generated RAG overlay started, KIS completed a
+  live `news_collection` job and its generated `news_index` handoff through
+  the RabbitMQ cluster. The selected OpenSearch index increased from 20 to 29
+  documents. A prior failed index Job correctly exposed that the RAG overlay
+  was not running; it was an operator-state failure, not a broker failure.
 - generated KIS durable-job endpoints are runtime-verified for Bearer-token
   authentication, idempotent `(job_type, run_key)` requests, `automation` store
   routing, and status retrieval; generated Airflow uses those endpoints rather
