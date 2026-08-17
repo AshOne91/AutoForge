@@ -188,10 +188,12 @@ Global/Shard의 이식 가능한 계약은 변경하지 않는다.
 
 `tooling.local_environment.database_provider: mysql` generates one standalone
 MySQL service, a named `mysql-data` volume, a `mysql-init` one-shot service, and
-`mysql+asyncmy` DSNs with `charset=utf8mb4`. The init service waits for MySQL
-health, creates declared logical databases, and grants the generated application
-user access. Generated migrations use the MySQL baseline and do not reuse
-PostgreSQL DDL.
+`mysql+asyncmy` DSNs with `charset=utf8mb4`. Generated projects also include
+`cryptography` because MySQL 8.4's default `caching_sha2_password` authentication
+requires RSA password exchange support in the async driver. The init service
+waits for MySQL health, creates declared logical databases, and grants the
+generated application user access. Generated migrations use the MySQL baseline
+and do not reuse PostgreSQL DDL.
 
 This provider currently supports standalone local validation only. MySQL HA,
 read splitting, cross-provider migration, and topology changes remain separate

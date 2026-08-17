@@ -202,6 +202,7 @@ class FastAPIProjectGenerator:
         )
         database_dependency = (
             '    "asyncmy>=0.2,<1",\n'
+            '    "cryptography>=44,<47",\n'
             if database_provider == "mysql"
             else '    "asyncpg>=0.30,<1",\n'
         )

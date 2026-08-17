@@ -1,11 +1,11 @@
 # Next Task
 
-## Next executable unit: generated MySQL migration runtime validation
+## Next executable unit: MySQL runtime acceptance automation
 
-OWNERSHIP: AutoForge database generator, generated image, migration, and
-environment validation contracts
+OWNERSHIP: AutoForge integration validation and generated-runtime contracts
 
-Generate one minimal MySQL project, build its generated image, run its `migrate`
-service against disposable MySQL, and verify the Alembic version and generated
-table. Preserve the existing PostgreSQL provider and portable schema contracts;
-do not add MySQL HA, RabbitMQ, Outbox, or Durable Jobs in this unit.
+Add an opt-in integration command that generates one minimal MySQL project, builds
+its generated image, runs `migrate` against disposable MySQL, verifies the
+Alembic version and generated table, and removes only its owned resources.
+Preserve the existing PostgreSQL provider and portable schema contracts; do not
+add MySQL HA, RabbitMQ, Outbox, or Durable Jobs in this unit.

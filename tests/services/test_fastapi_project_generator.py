@@ -368,6 +368,7 @@ def test_mysql_runtime_selects_async_driver_and_health_url() -> None:
     health_test = files[PurePosixPath("tests/test_health.py")]
 
     assert "asyncmy>=0.2,<1" in pyproject["project"]["dependencies"]
+    assert "cryptography>=44,<47" in pyproject["project"]["dependencies"]
     assert "asyncpg>=0.30,<1" not in pyproject["project"]["dependencies"]
     assert "mysql+asyncmy://" in health_test
 

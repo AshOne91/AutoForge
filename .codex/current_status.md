@@ -374,7 +374,9 @@ to PostgreSQL; logical database schemas remain portable. The implemented MySQL
 slice generates `mysql:8.4`, named storage, `mysql-init`, `asyncmy` DSNs, and a
 MySQL baseline. A disposable runtime check confirmed initialization, application
 user access, generated raw DDL application, and generated schema persistence
-across restart.
+across restart. A generated-project Docker build then installed the MySQL
+authentication dependency, ran `migrate` successfully against MySQL 8.4, and
+verified the Alembic version plus `login_accounts` table.
 It intentionally excludes MySQL HA and PostgreSQL-specific messaging/Durable
 Jobs.
 
