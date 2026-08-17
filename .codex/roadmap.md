@@ -26,8 +26,6 @@ sequencing.
 - [ ] cloud S3/object-storage provider after raw-document persistence is selected
 - [ ] external-provider resiliency adapter after a provider is selected
 
-- [ ] automated local MySQL HA primary-failure acceptance: stop the current
-  primary, retry a writer-path operation through Router, and verify node rejoin
 - [ ] provider-selected MySQL HA deployment contract: multi-host placement,
   durable storage, backups, restore drills, and production observability. Do not
   use `mysql/mysql-router:8.0` with MySQL 8.4; local validation proved that

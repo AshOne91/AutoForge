@@ -205,9 +205,11 @@ MySQL Router 8.4 RPM selected by `MYSQL_ROUTER_VERSION` (default `8.4.8`).
 grants through that writer endpoint.
 
 This is local process-level resilience only: all nodes share one Docker host.
-It does not provide read splitting, cross-provider migration, multi-host
-durability, backups, or automated primary-failure acceptance. PostgreSQL-specific
-RabbitMQ/Outbox/Durable Job generation remains rejected for this profile.
+The disposable verifier stops the initial primary, retries an idempotent write
+through Router, restarts the node, and waits for the cluster to rejoin. It does
+not provide read splitting, cross-provider migration, multi-host durability, or
+backups. PostgreSQL-specific RabbitMQ/Outbox/Durable Job generation remains
+rejected for this profile.
 
 The published `mysql/mysql-router:8.0` image must not be used with MySQL 8.4:
 local validation found it classified every member as read-only and closed the

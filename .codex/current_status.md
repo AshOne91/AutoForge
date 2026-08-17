@@ -381,11 +381,12 @@ The MySQL HA slice is implemented and runtime-verified: `mysql_mode: ha`
 generates a three-member MySQL 8.4 InnoDB Cluster, a signed official MySQL
 Router 8.4 image, Router-backed `mysql:6446` DSNs, application-account
 initialization, migration, and generated-schema verification. It remains local
-process-level resilience; automated primary-failure/rejoin acceptance and
-provider-selected production deployment are not implemented. PostgreSQL-specific
-messaging/Durable Jobs remain excluded from the MySQL profile. The published
-`mysql/mysql-router:8.0` image remains incompatible with MySQL 8.4 writer
-routing and is not generated.
+process-level resilience; its disposable verifier stops the initial primary,
+confirms an idempotent Router-backed write through the promoted primary, then
+restarts and verifies the stopped node rejoined. Provider-selected production
+deployment is not implemented. PostgreSQL-specific messaging/Durable Jobs
+remain excluded from the MySQL profile. The published `mysql/mysql-router:8.0`
+image remains incompatible with MySQL 8.4 writer routing and is not generated.
 
 ## Development tooling
 

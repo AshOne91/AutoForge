@@ -5,6 +5,8 @@ import logging
 import shutil
 import subprocess
 import tempfile
+import time
+from collections.abc import Callable
 from pathlib import Path
 
 from autoforge.core.specification import (
@@ -190,6 +192,87 @@ def _check(result: subprocess.CompletedProcess[str], action: str) -> None:
     raise RuntimeError(f"{action} failed (exit {result.returncode}):\n{details}")
 
 
+def _retry(
+    operation: Callable[[], subprocess.CompletedProcess[str]], action: str
+) -> subprocess.CompletedProcess[str]:
+    result = operation()
+    for _ in range(29):
+        if result.returncode == 0:
+            return result
+        time.sleep(2)
+        result = operation()
+    _check(result, action)
+    raise AssertionError("unreachable")
+
+
+def _mysql_query(
+    root: Path, *, mysql_mode: str, query: str
+) -> subprocess.CompletedProcess[str]:
+    return _compose(
+        root,
+        "exec",
+        "-T",
+        "mysql",
+        "mysql",
+        "-h",
+        "127.0.0.1",
+        "-P",
+        "6446" if mysql_mode == "ha" else "3306",
+        "-uautoforge",
+        "-pchange-me",
+        "-D",
+        "identity",
+        "-e",
+        query,
+    )
+
+
+def _verify_mysql_ha_failover(root: Path) -> None:
+    LOGGER.info("stopping generated MySQL HA primary")
+    _check(_compose(root, "stop", "mysql-ha-0"), "MySQL HA primary stop")
+    try:
+        LOGGER.info("checking Router writer after primary failover")
+        result = _retry(
+            lambda: _mysql_query(
+                root,
+                mysql_mode="ha",
+                query=(
+                    "INSERT INTO login_accounts (user_id, email, is_active) "
+                    "VALUES ('00000000-0000-0000-0000-000000000001', "
+                    "'autoforge-ha-probe@example.invalid', TRUE) "
+                    "ON DUPLICATE KEY UPDATE is_active = VALUES(is_active); "
+                    "SELECT @@hostname AS writer_host, @@read_only AS writer_read_only;"
+                ),
+            ),
+            "MySQL HA Router writer after primary failover",
+        )
+        if "\t0" not in result.stdout:
+            raise RuntimeError("MySQL HA Router did not reach a writable primary")
+    finally:
+        LOGGER.info("restarting generated MySQL HA primary")
+        _check(_compose(root, "start", "mysql-ha-0"), "MySQL HA primary restart")
+
+    LOGGER.info("checking generated MySQL HA cluster rejoin")
+    _retry(
+        lambda: _compose(
+            root,
+            "exec",
+            "-T",
+            "mysql-ha-1",
+            "mysqlsh",
+            "--no-wizard",
+            "--js",
+            "--uri",
+            "autoforge_cluster:change-me-cluster@127.0.0.1:3306",
+            "-e",
+            "const status = dba.getCluster().status(); "
+            "if (status.defaultReplicaSet.status !== 'OK') "
+            "throw new Error(JSON.stringify(status));",
+        ),
+        "MySQL HA cluster rejoin",
+    )
+
+
 def _verify(root: Path, *, mysql_mode: str) -> None:
     LOGGER.info("checking generated Compose configuration")
     _check(_compose(root, "config", "--quiet"), "Compose configuration")
@@ -203,29 +286,18 @@ def _verify(root: Path, *, mysql_mode: str) -> None:
         "generated migration",
     )
     LOGGER.info("checking generated schema")
-    mysql_port = "6446" if mysql_mode == "ha" else "3306"
-    result = _compose(
+    result = _mysql_query(
         root,
-        "exec",
-        "-T",
-        "mysql",
-        "mysql",
-        "-h",
-        "127.0.0.1",
-        "-P",
-        mysql_port,
-        "-uautoforge",
-        "-pchange-me",
-        "-D",
-        "identity",
-        "-e",
-        "SHOW TABLES; SELECT version_num FROM alembic_version;",
+        mysql_mode=mysql_mode,
+        query="SHOW TABLES; SELECT version_num FROM alembic_version;",
     )
     _check(result, "generated schema verification")
     if "login_accounts" not in result.stdout or "af_identity_identity_0001" not in result.stdout:
         raise RuntimeError(
             "generated schema verification did not find login_accounts and the Alembic version"
         )
+    if mysql_mode == "ha":
+        _verify_mysql_ha_failover(root)
 
 
 def main() -> int:
