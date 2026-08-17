@@ -15,7 +15,7 @@ from autoforge.core.specification import (
 from autoforge.services.generation.messaging import MessagingGenerator
 
 
-def messaging_specification() -> ProjectSpec:
+def messaging_specification(*, queue_type: str = "classic") -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
         project=ProjectInfo(
@@ -41,6 +41,7 @@ def messaging_specification() -> ProjectSpec:
                 ServiceSpec(
                     name="events",
                     kind="rabbitmq",
+                    queue_type=queue_type,
                     connection_url_env="KIS_RABBITMQ_URL",
                     exchange="kis.events",
                     queue="kis.profile.worker",
@@ -148,6 +149,20 @@ def test_same_messaging_specification_is_reproducible() -> None:
 
     assert generator.render(specification) == generator.render(specification)
     assert generator.plan(specification) == generator.plan(specification)
+
+
+def test_quorum_queue_type_applies_to_event_and_dead_letter_queues() -> None:
+    files = MessagingGenerator().render(messaging_specification(queue_type="quorum"))
+
+    rabbitmq = files[
+        PurePosixPath(
+            "src/kis_auto_trading/infrastructure/messaging/rabbitmq.py"
+        )
+    ]
+
+    assert "QUEUE_TYPE = \"quorum\"" in rabbitmq
+    assert "QUEUE_ARGUMENTS = {'x-queue-type': 'quorum'" in rabbitmq
+    assert "DEAD_LETTER_QUEUE_ARGUMENTS = {'x-queue-type': 'quorum'}" in rabbitmq
 
 
 def test_multiple_rabbitmq_services_are_rejected() -> None:

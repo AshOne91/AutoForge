@@ -161,8 +161,42 @@ def test_local_environment_database_provider_defaults_to_postgresql() -> None:
     environment = LocalEnvironmentSpec()
 
     assert environment.database_provider == "postgresql"
+    assert environment.rabbitmq_mode == "standalone"
     with pytest.raises(ValidationError):
         LocalEnvironmentSpec(database_provider="mysql")
+
+
+def test_local_rabbitmq_cluster_requires_one_quorum_service() -> None:
+    database = DatabaseStoreSpec(name="automation", global_url_env="AUTOMATION_URL")
+    classic_service = ServiceSpec(
+        name="events", kind="rabbitmq", outbox_stores=["automation"]
+    )
+    tooling = ToolingSpec(
+        local_environment=LocalEnvironmentSpec(enabled=True, rabbitmq_mode="cluster")
+    )
+    project = ProjectInfo(name="Example", package_name="example", version="0.1.0")
+
+    with pytest.raises(ValidationError, match="requires queue_type=quorum"):
+        ProjectSpec(
+            spec_version="1",
+            project=project,
+            application=ApplicationSpec(
+                databases=[database], services=[classic_service]
+            ),
+            tooling=tooling,
+        )
+
+    specification = ProjectSpec(
+        spec_version="1",
+        project=project,
+        application=ApplicationSpec(
+            databases=[database],
+            services=[classic_service.model_copy(update={"queue_type": "quorum"})],
+        ),
+        tooling=tooling,
+    )
+
+    assert specification.tooling.local_environment.rabbitmq_mode == "cluster"
 
 
 def test_ci_spec_requires_a_test_workflow_and_unique_providers() -> None:

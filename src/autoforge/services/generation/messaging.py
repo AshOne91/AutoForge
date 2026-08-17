@@ -173,6 +173,14 @@ class MessagingGenerator:
 
     @staticmethod
     def _render_rabbitmq(service: ServiceSpec) -> str:
+        queue_arguments = "{'x-dead-letter-exchange': DEAD_LETTER_EXCHANGE}"
+        dead_letter_queue_arguments = "{}"
+        if service.queue_type == "quorum":
+            queue_arguments = (
+                "{'x-queue-type': 'quorum', "
+                "'x-dead-letter-exchange': DEAD_LETTER_EXCHANGE}"
+            )
+            dead_letter_queue_arguments = "{'x-queue-type': 'quorum'}"
         return (
             "from __future__ import annotations\n"
             "\n"
@@ -198,6 +206,9 @@ class MessagingGenerator:
             f"ROUTING_KEY = {json.dumps(service.routing_key)}\n"
             f"DEAD_LETTER_EXCHANGE = {json.dumps(service.dead_letter_exchange)}\n"
             f"DEAD_LETTER_QUEUE = {json.dumps(service.dead_letter_queue)}\n"
+            f"QUEUE_TYPE = {json.dumps(service.queue_type)}\n"
+            f"QUEUE_ARGUMENTS = {queue_arguments}\n"
+            f"DEAD_LETTER_QUEUE_ARGUMENTS = {dead_letter_queue_arguments}\n"
             f"PREFETCH_COUNT = {service.prefetch_count}\n"
             "\n"
             "\n"
@@ -215,7 +226,7 @@ class MessagingGenerator:
             "        DEAD_LETTER_EXCHANGE, aio_pika.ExchangeType.TOPIC, durable=True\n"
             "    )\n"
             "    dead_letter_queue = await channel.declare_queue(\n"
-            "        DEAD_LETTER_QUEUE, durable=True\n"
+            "        DEAD_LETTER_QUEUE, durable=True, arguments=DEAD_LETTER_QUEUE_ARGUMENTS\n"
             "    )\n"
             "    await dead_letter_queue.bind(dead_letter_exchange, routing_key='#')\n"
             "    exchange = await channel.declare_exchange(\n"
@@ -224,7 +235,7 @@ class MessagingGenerator:
             "    queue = await channel.declare_queue(\n"
             "        queue_name,\n"
             "        durable=True,\n"
-            "        arguments={'x-dead-letter-exchange': DEAD_LETTER_EXCHANGE},\n"
+            "        arguments=QUEUE_ARGUMENTS,\n"
             "    )\n"
             "    for routing_key in routing_keys:\n"
             "        await queue.bind(exchange, routing_key=routing_key)\n"

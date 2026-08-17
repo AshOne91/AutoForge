@@ -79,6 +79,18 @@ This contract covers generated local containers only. Managed cloud search
 services, including AWS OpenSearch Service authentication, are not generated or
 runtime-verified by this setting.
 
+### Local RabbitMQ mode
+
+`tooling.local_environment.rabbitmq_mode` is `standalone` by default. The
+opt-in `cluster` value is valid only with `local_environment.enabled: true` and
+the application's single RabbitMQ `ServiceSpec` set to `queue_type: quorum`.
+`queue_type` defaults to `classic`; a quorum type may still describe an
+externally managed broker when the local environment is disabled.
+
+Cluster mode changes only the generated local broker topology. It preserves the
+consumer-facing `RABBITMQ_URL` contract and does not select a cloud broker,
+database shard, or Airflow topology.
+
 ## ApplicationSpec
 
 어떤 Module과 Service를 Application에 연결할지 정의한다.

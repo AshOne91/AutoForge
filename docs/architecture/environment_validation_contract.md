@@ -81,11 +81,21 @@ The generated local profile validates restart and recovery of its long-running
 services, PostgreSQL leader promotion, and Redis Cluster primary promotion. It
 does not claim physical-host HA: every local container shares one Docker host.
 
-RabbitMQ is currently one persisted broker. The Outbox relay and workers recover
-from a broker restart, but broker-node redundancy requires a future RabbitMQ
-cluster with quorum queues. Airflow currently has one scheduler and one
-webserver; multiple schedulers and webserver replicas are a separate future
-deployment contract, not an implied property of the local profile.
+The default `rabbitmq_mode: standalone` profile has one persisted broker. The
+opt-in `rabbitmq_mode: cluster` profile emits three RabbitMQ nodes, persistent
+node data, a shared `RABBITMQ_ERLANG_COOKIE`, and HAProxy behind the unchanged
+`rabbitmq:5672` / `RABBITMQ_URL` client contract. Cluster mode supports the
+single declared RabbitMQ service with `queue_type: quorum`, so generated event and
+dead-letter queues tolerate one broker-process failure. This is still local
+process-level resilience: all containers share one Docker host. Airflow
+currently has one scheduler and one webserver; multiple schedulers and
+webserver replicas are a separate future deployment contract, not an implied
+property of the local profile.
+
+The RabbitMQ cluster acceptance check is three running broker nodes, quorum
+event and dead-letter queues declared by generated messaging code, a successful
+publish through HAProxy after one broker is stopped, and that broker rejoining
+the cluster. It does not claim multi-host, AZ, or network-partition resilience.
 
 ## Local PostgreSQL HA mode
 

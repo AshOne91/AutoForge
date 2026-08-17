@@ -29,7 +29,9 @@ class LocalEnvironmentGenerator:
         if not specification.tooling.local_environment.enabled:
             return {}
         redis_mode = self._redis_mode(specification.application.services)
-        postgres_mode = specification.tooling.local_environment.postgres_mode
+        local_environment = specification.tooling.local_environment
+        postgres_mode = local_environment.postgres_mode
+        rabbitmq_mode = local_environment.rabbitmq_mode
         redis_service = next(
             (
                 service
@@ -51,7 +53,7 @@ class LocalEnvironmentGenerator:
         has_application = specification.tooling.local_environment.application_enabled
         has_migration = has_application and bool(specification.application.databases)
         has_rag = specification.tooling.rag.enabled
-        host_port_base = specification.tooling.local_environment.host_port_base
+        host_port_base = local_environment.host_port_base
         database_names = self._database_names(specification.application.databases)
         if has_durable_jobs and "airflow" not in database_names:
             database_names.append("airflow")
@@ -64,6 +66,7 @@ class LocalEnvironmentGenerator:
                 redis_mode=redis_mode,
                 redis_service=redis_service,
                 has_rabbitmq=bool(rabbitmq_services),
+                rabbitmq_mode=rabbitmq_mode,
                 has_durable_jobs=has_durable_jobs,
                 has_application=has_application,
                 has_migration=has_migration,
@@ -76,6 +79,7 @@ class LocalEnvironmentGenerator:
                 redis_mode=redis_mode,
                 redis_service=redis_service,
                 has_rabbitmq=bool(rabbitmq_services),
+                rabbitmq_mode=rabbitmq_mode,
                 has_durable_jobs=has_durable_jobs,
                 has_application=has_application,
                 has_rag=has_rag,
@@ -85,6 +89,7 @@ class LocalEnvironmentGenerator:
                 redis_mode=redis_mode,
                 postgres_mode=postgres_mode,
                 has_rabbitmq=bool(rabbitmq_services),
+                rabbitmq_mode=rabbitmq_mode,
                 has_durable_jobs=has_durable_jobs,
                 has_application=has_application,
                 has_migration=has_migration,
@@ -97,6 +102,15 @@ class LocalEnvironmentGenerator:
         if postgres_mode == "ha" and database_names:
             files[PurePosixPath("environment", "postgres-ha", "haproxy.cfg")] = (
                 self._render_postgres_ha_haproxy_config()
+            )
+        if rabbitmq_mode == "cluster" and rabbitmq_services:
+            rabbitmq_config = self._render_rabbitmq_cluster_config()
+            for index in range(3):
+                files[
+                    PurePosixPath("environment", "rabbitmq", f"rabbitmq-{index}.conf")
+                ] = rabbitmq_config
+            files[PurePosixPath("environment", "rabbitmq", "haproxy.cfg")] = (
+                self._render_rabbitmq_haproxy_config()
             )
         return files
 
@@ -153,6 +167,7 @@ class LocalEnvironmentGenerator:
         redis_mode: str | None,
         redis_service: ServiceSpec | None,
         has_rabbitmq: bool,
+        rabbitmq_mode: str,
         has_durable_jobs: bool,
         has_application: bool,
         has_migration: bool,
@@ -170,7 +185,7 @@ class LocalEnvironmentGenerator:
         elif redis_mode == "cluster":
             services.extend(self._render_redis_cluster())
         if has_rabbitmq:
-            services.append(self._render_rabbitmq(host_port_base))
+            services.extend(self._render_rabbitmq(rabbitmq_mode, host_port_base))
         if has_application:
             if has_migration:
                 services.append(self._render_migrate(specification, postgres_mode))
@@ -216,13 +231,20 @@ class LocalEnvironmentGenerator:
             + self._render_volumes(
                 postgres_mode=postgres_mode,
                 redis_mode=redis_mode,
+                has_rabbitmq=has_rabbitmq,
+                rabbitmq_mode=rabbitmq_mode,
                 has_durable_jobs=has_durable_jobs,
             )
         )
 
     @staticmethod
     def _render_volumes(
-        *, postgres_mode: str, redis_mode: str | None, has_durable_jobs: bool
+        *,
+        postgres_mode: str,
+        redis_mode: str | None,
+        has_rabbitmq: bool,
+        rabbitmq_mode: str,
+        has_durable_jobs: bool,
     ) -> str:
         names = (
             [f"postgres-ha-{index}-data" for index in range(3)]
@@ -234,6 +256,12 @@ class LocalEnvironmentGenerator:
             if redis_mode == "cluster"
             else []
         )
+        if has_rabbitmq:
+            names.extend(
+                [f"rabbitmq-{index}-data" for index in range(3)]
+                if rabbitmq_mode == "cluster"
+                else ["rabbitmq-data"]
+            )
         if has_durable_jobs:
             names.append("airflow-home")
         return "\nvolumes:\n" + "".join(f"  {name}:\n" for name in names) if names else ""
@@ -532,16 +560,23 @@ class LocalEnvironmentGenerator:
         return nodes
 
     @classmethod
-    def _render_rabbitmq(cls, host_port_base: int | None) -> str:
+    def _render_rabbitmq(
+        cls, rabbitmq_mode: str, host_port_base: int | None
+    ) -> list[str]:
+        if rabbitmq_mode == "cluster":
+            return cls._render_rabbitmq_cluster(host_port_base)
         amqp_port = cls._host_port(host_port_base, default=25672, offset=30)
         management_port = cls._host_port(host_port_base, default=25673, offset=31)
-        return (
+        return [
+            (
             "  rabbitmq:\n"
             "    image: rabbitmq:4.1-management-alpine\n"
             "    restart: unless-stopped\n"
             "    environment:\n"
             "      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-autoforge}\n"
             "      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-change-me}\n"
+            "    volumes:\n"
+            "      - rabbitmq-data:/var/lib/rabbitmq\n"
             "    ports:\n"
             f"      - \"${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{RABBITMQ_AMQP_PORT:-{amqp_port}}}:5672\"\n"
             f"      - \"${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{RABBITMQ_MANAGEMENT_PORT:-{management_port}}}:15672\"\n"
@@ -550,6 +585,112 @@ class LocalEnvironmentGenerator:
             "      interval: 3s\n"
             "      timeout: 3s\n"
             "      retries: 20\n"
+            )
+        ]
+
+    @classmethod
+    def _render_rabbitmq_cluster(cls, host_port_base: int | None) -> list[str]:
+        services = [cls._render_rabbitmq_node(index) for index in range(3)]
+        amqp_port = cls._host_port(host_port_base, default=25672, offset=30)
+        management_port = cls._host_port(host_port_base, default=25673, offset=31)
+        services.append(
+            "  rabbitmq:\n"
+            "    image: haproxy:3.0-alpine\n"
+            "    restart: unless-stopped\n"
+            "    ports:\n"
+            f"      - \"${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{RABBITMQ_AMQP_PORT:-{amqp_port}}}:5672\"\n"
+            f"      - \"${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{RABBITMQ_MANAGEMENT_PORT:-{management_port}}}:15672\"\n"
+            "    volumes:\n"
+            "      - ./rabbitmq/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro\n"
+            "    depends_on:\n"
+            "      rabbitmq-0:\n"
+            "        condition: service_healthy\n"
+            "      rabbitmq-1:\n"
+            "        condition: service_healthy\n"
+            "      rabbitmq-2:\n"
+            "        condition: service_healthy\n"
+            "    healthcheck:\n"
+            "      test: [\"CMD-SHELL\", \"nc -z 127.0.0.1 5672\"]\n"
+            "      interval: 3s\n"
+            "      timeout: 3s\n"
+            "      retries: 20\n"
+        )
+        return services
+
+    @staticmethod
+    def _render_rabbitmq_node(index: int) -> str:
+        depends_on = (
+            ""
+            if index == 0
+            else (
+                "    depends_on:\n"
+                f"      rabbitmq-{index - 1}:\n"
+                "        condition: service_healthy\n"
+            )
+        )
+        return (
+            f"  rabbitmq-{index}:\n"
+            "    image: rabbitmq:4.1-management-alpine\n"
+            "    restart: unless-stopped\n"
+            "    hostname: rabbitmq-"
+            f"{index}\n"
+            "    environment:\n"
+            "      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-autoforge}\n"
+            "      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-change-me}\n"
+            "      RABBITMQ_ERLANG_COOKIE: ${RABBITMQ_ERLANG_COOKIE:?set RABBITMQ_ERLANG_COOKIE}\n"
+            f"      RABBITMQ_NODENAME: rabbit@rabbitmq-{index}\n"
+            "    volumes:\n"
+            f"      - rabbitmq-{index}-data:/var/lib/rabbitmq\n"
+            f"      - ./rabbitmq/rabbitmq-{index}.conf:/etc/rabbitmq/rabbitmq.conf:ro\n"
+            + depends_on
+            + "    healthcheck:\n"
+            "      test: [\"CMD-SHELL\", \"rabbitmq-diagnostics -q ping\"]\n"
+            "      interval: 3s\n"
+            "      timeout: 3s\n"
+            "      retries: 20\n"
+        )
+
+    @staticmethod
+    def _render_rabbitmq_cluster_config() -> str:
+        return (
+            "cluster_formation.peer_discovery_backend = classic_config\n"
+            "cluster_formation.classic_config.nodes.1 = rabbit@rabbitmq-0\n"
+            "cluster_formation.classic_config.nodes.2 = rabbit@rabbitmq-1\n"
+            "cluster_formation.classic_config.nodes.3 = rabbit@rabbitmq-2\n"
+            "cluster_partition_handling = pause_minority\n"
+            "queue_leader_locator = balanced\n"
+        )
+
+    @staticmethod
+    def _render_rabbitmq_haproxy_config() -> str:
+        return (
+            "global\n"
+            "\n"
+            "defaults\n"
+            "  mode tcp\n"
+            "  timeout connect 5s\n"
+            "  timeout client 60s\n"
+            "  timeout server 60s\n"
+            "\n"
+            "frontend rabbitmq-amqp\n"
+            "  bind *:5672\n"
+            "  default_backend rabbitmq-amqp-nodes\n"
+            "\n"
+            "backend rabbitmq-amqp-nodes\n"
+            "  option tcp-check\n"
+            "  server rabbitmq-0 rabbitmq-0:5672 check\n"
+            "  server rabbitmq-1 rabbitmq-1:5672 check\n"
+            "  server rabbitmq-2 rabbitmq-2:5672 check\n"
+            "\n"
+            "frontend rabbitmq-management\n"
+            "  bind *:15672\n"
+            "  default_backend rabbitmq-management-nodes\n"
+            "\n"
+            "backend rabbitmq-management-nodes\n"
+            "  option tcp-check\n"
+            "  server rabbitmq-0 rabbitmq-0:15672 check\n"
+            "  server rabbitmq-1 rabbitmq-1:15672 check\n"
+            "  server rabbitmq-2 rabbitmq-2:15672 check\n"
         )
 
     @staticmethod
@@ -846,6 +987,7 @@ class LocalEnvironmentGenerator:
         redis_mode: str | None,
         redis_service: ServiceSpec | None,
         has_rabbitmq: bool,
+        rabbitmq_mode: str,
         has_durable_jobs: bool,
         has_application: bool,
         has_rag: bool,
@@ -889,6 +1031,11 @@ class LocalEnvironmentGenerator:
                 [
                     "RABBITMQ_USER=autoforge\n",
                     "RABBITMQ_PASSWORD=change-me\n",
+                    *(
+                        ["RABBITMQ_ERLANG_COOKIE=replace-with-a-long-random-secret\n"]
+                        if rabbitmq_mode == "cluster"
+                        else []
+                    ),
                     f"RABBITMQ_AMQP_PORT={amqp_port}\n",
                     f"RABBITMQ_MANAGEMENT_PORT={management_port}\n",
                     "RABBITMQ_URL=amqp://autoforge:change-me@rabbitmq:5672/\n",
@@ -928,6 +1075,7 @@ class LocalEnvironmentGenerator:
         redis_mode: str | None,
         postgres_mode: str,
         has_rabbitmq: bool,
+        rabbitmq_mode: str,
         has_durable_jobs: bool,
         has_application: bool,
         has_migration: bool,
@@ -942,7 +1090,9 @@ class LocalEnvironmentGenerator:
         elif redis_mode == "standalone":
             services.append("Redis")
         if has_rabbitmq:
-            services.append("RabbitMQ")
+            services.append(
+                "three-node RabbitMQ cluster" if rabbitmq_mode == "cluster" else "RabbitMQ"
+            )
         if has_durable_jobs:
             services.extend(["Airflow", "Outbox relay", "durable-job worker"])
         return (
@@ -961,7 +1111,15 @@ class LocalEnvironmentGenerator:
             "AWS Launch Template UserData is a separate deployment concern and is not "
             "part of this disposable integration profile.\n"
             "\n"
-            "Run application containers on the Compose network. The Redis Cluster URL uses\n"
+            + (
+                "RabbitMQ cluster mode keeps the existing `rabbitmq:5672` client endpoint "
+                "behind HAProxy and requires a shared `RABBITMQ_ERLANG_COOKIE`. It validates "
+                "container-node recovery only because all nodes share one Docker host.\n"
+                "\n"
+                if has_rabbitmq and rabbitmq_mode == "cluster"
+                else ""
+            )
+            + "Run application containers on the Compose network. The Redis Cluster URL uses\n"
             "Docker service DNS and is intentionally not a host-process URL.\n"
             + (
                 "The generated application is built from Dockerfile. "

@@ -25,6 +25,10 @@ AutoForge currently has working foundations for:
 - optional local PostgreSQL HA Compose mode: three Patroni PostgreSQL nodes,
   three etcd members, HAProxy writer endpoint, and idempotent logical-database
   initialization
+- opt-in local RabbitMQ cluster mode: three persisted broker nodes, HAProxy at
+  the unchanged `RABBITMQ_URL` endpoint, and quorum event/dead-letter queues;
+  a disposable generated KIS workspace verified one-node stop, persistent
+  publish through HAProxy, and broker rejoin
 - PostgreSQL, Redis Cluster, RabbitMQ, migration, application, Airflow, Outbox relay,
   and durable-job worker runtime validation
 - ELK and Kubernetes base-server generation

@@ -95,6 +95,7 @@ class ServiceSpec(StrictSpecModel):
     routing_key: str = "domain.#"
     dead_letter_exchange: str = "domain.events.dlx"
     dead_letter_queue: str = "domain.events.dead-letter"
+    queue_type: Literal["classic", "quorum"] = "classic"
     prefetch_count: int = Field(default=32, gt=0)
     outbox_stores: list[str] = Field(default_factory=list)
 
@@ -130,6 +131,8 @@ class ServiceSpec(StrictSpecModel):
                 raise ValueError("redis_session namespace must not be empty")
             if self.ttl_seconds <= 0:
                 raise ValueError("redis_session ttl_seconds must be positive")
+            if self.queue_type != "classic":
+                raise ValueError("redis_session cannot set a RabbitMQ queue_type")
         elif not self.outbox_stores:
             raise ValueError("rabbitmq outbox_stores must not be empty")
         return self
@@ -409,6 +412,7 @@ class LocalEnvironmentSpec(StrictSpecModel):
     application_enabled: bool = False
     database_provider: Literal["postgresql"] = "postgresql"
     postgres_mode: Literal["standalone", "ha"] = "standalone"
+    rabbitmq_mode: Literal["standalone", "cluster"] = "standalone"
     host_port_base: int | None = Field(
         default=None,
         ge=49152,
@@ -468,12 +472,32 @@ class ProjectSpec(StrictSpecModel):
                 published.setdefault(base + offset, []).append(label)
 
         local = self.tooling.local_environment
+        rabbitmq_services = [
+            service
+            for service in self.application.services
+            if service.kind == "rabbitmq"
+        ]
+        if local.rabbitmq_mode == "cluster":
+            if not local.enabled:
+                raise ValueError("RabbitMQ cluster mode requires local_environment.enabled")
+            if len(rabbitmq_services) != 1:
+                raise ValueError("RabbitMQ cluster mode requires one rabbitmq service")
+            if rabbitmq_services[0].queue_type != "quorum":
+                raise ValueError("RabbitMQ cluster mode requires queue_type=quorum")
+        if (
+            local.enabled
+            and local.rabbitmq_mode == "standalone"
+            and any(service.queue_type == "quorum" for service in rabbitmq_services)
+        ):
+            raise ValueError(
+                "local standalone RabbitMQ cannot validate queue_type=quorum"
+            )
         if local.enabled:
             if local.application_enabled:
                 reserve("local application", local.host_port_base, (0,))
             if self.application.databases:
                 reserve("local PostgreSQL", local.host_port_base, (10,))
-            if any(service.kind == "rabbitmq" for service in self.application.services):
+            if rabbitmq_services:
                 reserve("local RabbitMQ", local.host_port_base, (30, 31))
             if self.application.durable_jobs:
                 reserve("local Airflow", local.host_port_base, (40,))

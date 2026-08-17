@@ -25,6 +25,8 @@ def integration_specification(
     rag_search_backend: str = "elasticsearch",
     postgres_mode: str = "standalone",
     database_provider: str = "postgresql",
+    rabbitmq_mode: str = "standalone",
+    rabbitmq_queue_type: str = "classic",
     host_port_base: int | None = None,
     durable_job_worker_restart_policy: str = "unless-stopped",
 ) -> ProjectSpec:
@@ -66,6 +68,7 @@ def integration_specification(
                 ServiceSpec(
                     name="events",
                     kind="rabbitmq",
+                    queue_type=rabbitmq_queue_type,
                     outbox_stores=["automation"],
                 ),
             ],
@@ -88,6 +91,7 @@ def integration_specification(
                 "application_enabled": application,
                 "database_provider": database_provider,
                 "postgres_mode": postgres_mode,
+                "rabbitmq_mode": rabbitmq_mode,
                 "host_port_base": host_port_base,
             },
             "rag": {"enabled": rag, "search_backend": rag_search_backend},
@@ -139,6 +143,8 @@ def test_render_creates_disposable_kis_integration_services() -> None:
     assert "redis-7005:7005 --cluster-replicas 1 --cluster-yes" in compose
     assert "$$topology" in compose
     assert "rabbitmq:4.1-management-alpine" in compose
+    assert "- rabbitmq-data:/var/lib/rabbitmq" in compose
+    assert "  rabbitmq-data:" in compose
     assert "CREATE DATABASE %I" in databases
     assert "('identity')" in databases
     assert "('automation')" in databases
@@ -151,6 +157,56 @@ def test_render_creates_disposable_kis_integration_services() -> None:
     assert "RABBITMQ_URL=amqp://autoforge:change-me@rabbitmq:5672/" in environment
     assert "LOCAL_BIND_ADDRESS=127.0.0.1" in environment
     assert '"${LOCAL_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-25432}:5432"' in compose
+
+
+def test_render_creates_opt_in_rabbitmq_cluster_with_stable_endpoint() -> None:
+    files = LocalEnvironmentGenerator().render(
+        integration_specification(
+            enabled=True,
+            rabbitmq_mode="cluster",
+            rabbitmq_queue_type="quorum",
+        )
+    )
+
+    compose = yaml.safe_load(
+        files[PurePosixPath("environment", "compose.integration.yml")]
+    )
+    environment = files[PurePosixPath("environment", ".env.example")]
+    services = compose["services"]
+
+    assert {"rabbitmq", "rabbitmq-0", "rabbitmq-1", "rabbitmq-2"} <= set(
+        services
+    )
+    assert services["rabbitmq"]["image"] == "haproxy:3.0-alpine"
+    assert services["rabbitmq"]["ports"] == [
+        "${LOCAL_BIND_ADDRESS:-127.0.0.1}:${RABBITMQ_AMQP_PORT:-25672}:5672",
+        "${LOCAL_BIND_ADDRESS:-127.0.0.1}:${RABBITMQ_MANAGEMENT_PORT:-25673}:15672",
+    ]
+    assert services["rabbitmq"]["healthcheck"]["test"] == [
+        "CMD-SHELL",
+        "nc -z 127.0.0.1 5672",
+    ]
+    for index in range(3):
+        node = services[f"rabbitmq-{index}"]
+        assert node["environment"]["RABBITMQ_NODENAME"] == f"rabbit@rabbitmq-{index}"
+        assert node["environment"]["RABBITMQ_ERLANG_COOKIE"] == (
+            "${RABBITMQ_ERLANG_COOKIE:?set RABBITMQ_ERLANG_COOKIE}"
+        )
+        assert f"rabbitmq-{index}-data" in compose["volumes"]
+        assert files[
+            PurePosixPath("environment", "rabbitmq", f"rabbitmq-{index}.conf")
+        ] == files[PurePosixPath("environment", "rabbitmq", "rabbitmq-0.conf")]
+    assert "RABBITMQ_ERLANG_COOKIE=replace-with-a-long-random-secret" in environment
+    assert "rabbitmq:5672" in environment
+    assert "cluster_formation.peer_discovery_backend = classic_config" in files[
+        PurePosixPath("environment", "rabbitmq", "rabbitmq-0.conf")
+    ]
+    assert "cluster_partition_handling = pause_minority" in files[
+        PurePosixPath("environment", "rabbitmq", "rabbitmq-0.conf")
+    ]
+    assert "server rabbitmq-2 rabbitmq-2:5672 check" in files[
+        PurePosixPath("environment", "rabbitmq", "haproxy.cfg")
+    ]
 
 
 def test_render_connects_rag_consumers_to_the_shared_network() -> None:
