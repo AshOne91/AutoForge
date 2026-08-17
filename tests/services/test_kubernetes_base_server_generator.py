@@ -27,6 +27,7 @@ def base_server_specification(
     durable_jobs: bool = False,
     application_replicas: int = 3,
     proxy_replicas: int = 2,
+    mysql_ha: bool = False,
 ) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
@@ -57,10 +58,16 @@ def base_server_specification(
                     ttl_seconds=3600,
                     mode="cluster",
                 ),
-                ServiceSpec(
-                    name="events",
-                    kind="rabbitmq",
-                    outbox_stores=["identity"],
+                *(
+                    []
+                    if mysql_ha
+                    else [
+                        ServiceSpec(
+                            name="events",
+                            kind="rabbitmq",
+                            outbox_stores=["identity"],
+                        )
+                    ]
                 ),
             ],
             durable_jobs=[
@@ -87,7 +94,18 @@ def base_server_specification(
                 "proxy_replicas": proxy_replicas,
                 "log_host_path": "/run/desktop/mnt/host/c/kis-auto-trading/logs",
                 "additional_secret_env_names": ["KIS_APP_KEY"],
-            }
+            },
+            **(
+                {
+                    "local_environment": {
+                        "enabled": True,
+                        "database_provider": "mysql",
+                        "mysql_mode": "ha",
+                    }
+                }
+                if mysql_ha
+                else {}
+            ),
         },
     )
 
@@ -145,6 +163,22 @@ def test_render_creates_zero_secret_proxy_and_application_topology() -> None:
     assert "kubectl apply" in readme
     assert "Secret values" in readme
     assert "hostPath is node-local" in readme
+
+
+def test_render_keeps_mysql_ha_as_an_external_kubernetes_database_provider() -> None:
+    files = KubernetesBaseServerGenerator().render(
+        base_server_specification(enabled=True, mysql_ha=True)
+    )
+
+    manifest = files[PurePosixPath("deploy", "kubernetes", "base-server.yaml")]
+
+    assert "secretKeyRef:" in manifest
+    assert "key: IDENTITY_DATABASE_URL" in manifest
+    assert "key: ACCOUNT_SHARD_1_DATABASE_URL" in manifest
+    assert "kind: StatefulSet" not in manifest
+    assert "mysql-ha-" not in manifest
+    assert "mysql-router" not in manifest
+    assert "mysql:6446" not in manifest
 
 
 def test_render_uses_independent_replica_values() -> None:

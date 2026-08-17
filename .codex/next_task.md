@@ -1,11 +1,10 @@
 # Next Task
 
-## Next executable unit: Kubernetes database-provider boundary test
+## Next executable unit: Generated Kubernetes database boundary guide
 
 OWNERSHIP: AutoForge Kubernetes base-server generator and tests
 
-Add one focused generator contract test that combines the local MySQL HA profile
-with the Kubernetes base-server profile. It must prove that the Kubernetes
-manifest still receives declared database URLs only through `secretKeyRef` and
-does not emit local Compose or MySQL-cluster resources. Keep both generators and
-their public specifications unchanged.
+Add one concise explanation to the existing generated Kubernetes README: database
+topology is provider-owned, and the generated workload receives only declared
+database URLs through the named Secret. Add the smallest focused generator test.
+Do not add a database provider, `StatefulSet`, or deployment profile.
