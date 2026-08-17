@@ -1,11 +1,11 @@
 # Next Task
 
-## Next executable unit: MySQL standalone runtime slice
+## Next executable unit: generated MySQL migration runtime validation
 
-OWNERSHIP: AutoForge database specification, generator, migration, and
+OWNERSHIP: AutoForge database generator, generated image, migration, and
 environment validation contracts
 
-Implement the smallest complete MySQL provider slice: generated Compose service,
-`asyncmy` DSN and secret boundary, MySQL migration baseline, and disposable
-validation. Preserve the existing PostgreSQL provider and portable schema
-contracts; do not redesign database generation or add MySQL HA in this unit.
+Generate one minimal MySQL project, build its generated image, run its `migrate`
+service against disposable MySQL, and verify the Alembic version and generated
+table. Preserve the existing PostgreSQL provider and portable schema contracts;
+do not add MySQL HA, RabbitMQ, Outbox, or Durable Jobs in this unit.

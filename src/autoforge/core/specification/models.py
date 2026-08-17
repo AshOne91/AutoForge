@@ -410,7 +410,7 @@ class LocalEnvironmentSpec(StrictSpecModel):
 
     enabled: bool = False
     application_enabled: bool = False
-    database_provider: Literal["postgresql"] = "postgresql"
+    database_provider: Literal["postgresql", "mysql"] = "postgresql"
     postgres_mode: Literal["standalone", "ha"] = "standalone"
     rabbitmq_mode: Literal["standalone", "cluster"] = "standalone"
     airflow_scheduler_replicas: int = Field(default=1, ge=1)
@@ -421,6 +421,12 @@ class LocalEnvironmentSpec(StrictSpecModel):
         multiple_of=100,
         description="Optional 100-port local host block for generated Compose services.",
     )
+
+    @model_validator(mode="after")
+    def validate_database_provider(self) -> LocalEnvironmentSpec:
+        if self.database_provider == "mysql" and self.postgres_mode != "standalone":
+            raise ValueError("MySQL local environment supports postgres_mode=standalone only")
+        return self
 
 
 class SingleHostSpec(StrictSpecModel):
@@ -493,6 +499,12 @@ class ProjectSpec(StrictSpecModel):
             raise ValueError(
                 "local standalone RabbitMQ cannot validate queue_type=quorum"
             )
+        if local.database_provider == "mysql" and (
+            rabbitmq_services or self.application.durable_jobs
+        ):
+            raise ValueError(
+                "MySQL local runtime does not support PostgreSQL-specific messaging or durable jobs"
+            )
         if local.airflow_scheduler_replicas > 1:
             if not local.enabled:
                 raise ValueError(
@@ -506,7 +518,7 @@ class ProjectSpec(StrictSpecModel):
             if local.application_enabled:
                 reserve("local application", local.host_port_base, (0,))
             if self.application.databases:
-                reserve("local PostgreSQL", local.host_port_base, (10,))
+                reserve(f"local {local.database_provider}", local.host_port_base, (10,))
             if rabbitmq_services:
                 reserve("local RabbitMQ", local.host_port_base, (30, 31))
             if self.application.durable_jobs:
@@ -705,7 +717,7 @@ class DataPlacementSpec(StrictSpecModel):
 
 
 class DatabaseSpec(StrictSpecModel):
-    provider: Literal["agnostic"] = "agnostic"
+    provider: Literal["agnostic", "postgresql", "mysql"] = "agnostic"
     tables: list[TableSpec] = Field(default_factory=list)
     repositories: list[RepositorySpec] = Field(default_factory=list)
     placements: list[DataPlacementSpec] = Field(default_factory=list)

@@ -25,6 +25,7 @@ def integration_specification(
     rag_search_backend: str = "elasticsearch",
     postgres_mode: str = "standalone",
     database_provider: str = "postgresql",
+    include_rabbitmq: bool = True,
     rabbitmq_mode: str = "standalone",
     rabbitmq_queue_type: str = "classic",
     airflow_scheduler_replicas: int = 1,
@@ -66,11 +67,17 @@ def integration_specification(
                     ttl_seconds=3600,
                     mode="cluster",
                 ),
-                ServiceSpec(
-                    name="events",
-                    kind="rabbitmq",
-                    queue_type=rabbitmq_queue_type,
-                    outbox_stores=["automation"],
+                *(
+                    [
+                        ServiceSpec(
+                            name="events",
+                            kind="rabbitmq",
+                            queue_type=rabbitmq_queue_type,
+                            outbox_stores=["automation"],
+                        )
+                    ]
+                    if include_rabbitmq
+                    else []
                 ),
             ],
             durable_jobs=[
@@ -109,6 +116,49 @@ def test_local_environment_generator_satisfies_protocol() -> None:
 
 def test_render_is_empty_until_enabled() -> None:
     assert LocalEnvironmentGenerator().render(integration_specification()) == {}
+
+
+def test_render_creates_mysql_standalone_environment() -> None:
+    files = LocalEnvironmentGenerator().render(
+        integration_specification(
+            enabled=True,
+            application=True,
+            database_provider="mysql",
+            include_rabbitmq=False,
+        )
+    )
+
+    compose = yaml.safe_load(files[PurePosixPath("environment/compose.integration.yml")])
+    environment = files[PurePosixPath("environment/.env.example")]
+
+    assert "mysql" in compose["services"]
+    assert "mysql-init" in compose["services"]
+    assert "postgres" not in compose["services"]
+    assert "mysql-data" in compose["volumes"]
+    assert compose["services"]["migrate"]["depends_on"] == {
+        "mysql-init": {"condition": "service_completed_successfully"}
+    }
+    assert "mysql+asyncmy://${MYSQL_USER:-autoforge}" in compose["services"]["application"]["environment"]["IDENTITY_DATABASE_URL"]
+    assert "MYSQL_ROOT_PASSWORD=change-me-root" in environment
+    assert "MYSQL_PORT=23306" in environment
+    assert "GRANT ALL PRIVILEGES ON identity.*" in compose["services"]["mysql-init"]["command"][-1]
+    assert "up -d --wait" not in files[PurePosixPath("environment/README.md")]
+    assert "mysql-init" in files[PurePosixPath("environment/README.md")]
+
+
+def test_mysql_runtime_rejects_postgresql_only_profiles() -> None:
+    with pytest.raises(ValueError, match="PostgreSQL-specific messaging"):
+        integration_specification(
+            database_provider="mysql",
+            durable_jobs=True,
+        )
+
+    with pytest.raises(ValueError, match="postgres_mode=standalone"):
+        integration_specification(
+            database_provider="mysql",
+            postgres_mode="ha",
+            include_rabbitmq=False,
+        )
 
 
 def test_render_creates_disposable_kis_integration_services() -> None:

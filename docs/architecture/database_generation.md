@@ -179,23 +179,24 @@ Database 생성은 다음 명세 모델을 입력으로 사용한다.
 `ModuleSpec.database`는 선택 항목이다. 기존 Module 명세의 public API는 유지하며
 Database가 필요한 Module만 계약을 선언한다.
 
-`DatabaseSpec.provider`는 기술 중립 명세를 위해 `agnostic`을 사용한다. 생성
-Provider는 PostgreSQL DDL과 SQLAlchemy async 구현을 제공하며, 다른 DB
-Provider를 현재 계약으로 암묵적으로 취급하지 않는다.
+`DatabaseSpec.provider`는 `agnostic`, `postgresql`, `mysql`을 허용한다.
+`agnostic`은 기존 PostgreSQL 호환 baseline을 유지한다. 명시 Provider는 대응하는
+raw DDL과 Alembic baseline을 선택하며 Table, Repository, Placement 및
+Global/Shard의 이식 가능한 계약은 변경하지 않는다.
 
-## MySQL standalone runtime admission gate
+## MySQL standalone runtime
 
-`tooling.local_environment.database_provider` does not accept `mysql` until one
-complete runtime slice exists. That slice must generate a standalone MySQL
-Compose service, an explicit `mysql+asyncmy` UTF-8 DSN, secret-backed credentials,
-health checks, database initialization, and a MySQL-specific Alembic baseline.
-It must not reuse PostgreSQL DDL or claim that PostgreSQL HA behavior applies to
-MySQL.
+`tooling.local_environment.database_provider: mysql` generates one standalone
+MySQL service, a named `mysql-data` volume, a `mysql-init` one-shot service, and
+`mysql+asyncmy` DSNs with `charset=utf8mb4`. The init service waits for MySQL
+health, creates declared logical databases, and grants the generated application
+user access. Generated migrations use the MySQL baseline and do not reuse
+PostgreSQL DDL.
 
-The initial MySQL scope is one standalone local service only. MySQL HA, read
-splitting, cross-provider migration, and shard topology remain separate future
-contracts. Admission requires focused generator tests plus a disposable runtime
-check that applies the generated migration and verifies the resulting schema.
+This provider currently supports standalone local validation only. MySQL HA,
+read splitting, cross-provider migration, and topology changes remain separate
+contracts. PostgreSQL-specific RabbitMQ/Outbox/Durable Job generation is
+rejected for this profile rather than being represented as supported.
 
 ## PostgreSQL DDL Generator
 

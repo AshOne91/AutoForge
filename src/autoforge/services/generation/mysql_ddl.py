@@ -17,44 +17,40 @@ from autoforge.core.specification import (
     TableSpec,
 )
 
-POSTGRESQL_DDL_GENERATOR_ID: Final = "autoforge.generator.postgresql-ddl"
-POSTGRESQL_DDL_GENERATOR_VERSION: Final = "0.1.0"
+MYSQL_DDL_GENERATOR_ID: Final = "autoforge.generator.mysql-ddl"
+MYSQL_DDL_GENERATOR_VERSION: Final = "0.1.0"
 
 _SQL_TYPES: Final = {
-    FieldTypeKind.STRING: "TEXT",
+    FieldTypeKind.STRING: "VARCHAR(255)",
     FieldTypeKind.INTEGER: "BIGINT",
-    FieldTypeKind.NUMBER: "DOUBLE PRECISION",
+    FieldTypeKind.NUMBER: "DOUBLE",
     FieldTypeKind.BOOLEAN: "BOOLEAN",
-    FieldTypeKind.DATETIME: "TIMESTAMPTZ",
-    FieldTypeKind.UUID: "UUID",
+    FieldTypeKind.DATETIME: "DATETIME(6)",
+    FieldTypeKind.UUID: "CHAR(36)",
 }
 
 
-class PostgreSQLDDLGenerator:
-    """Generate deterministic PostgreSQL bootstrap migrations by placement."""
+class MySQLDDLGenerator:
+    """Generate deterministic MySQL bootstrap migrations by placement."""
 
     @property
     def generator_id(self) -> str:
-        return POSTGRESQL_DDL_GENERATOR_ID
+        return MYSQL_DDL_GENERATOR_ID
 
     @property
     def generator_version(self) -> str:
-        return POSTGRESQL_DDL_GENERATOR_VERSION
+        return MYSQL_DDL_GENERATOR_VERSION
 
     def render(self, specification: ModuleSpec) -> dict[PurePosixPath, str]:
         database = specification.database
-        if database is None or not database.tables:
-            return {}
-        if database.provider == "mysql":
+        if database is None or not database.tables or database.provider != "mysql":
             return {}
 
         placements = {placement.table: placement for placement in database.placements}
-        missing = sorted(
-            {table.name for table in database.tables} - placements.keys()
-        )
+        missing = sorted({table.name for table in database.tables} - placements.keys())
         if missing:
             raise ValueError(
-                "PostgreSQL DDL generation requires an explicit placement for: "
+                "MySQL DDL generation requires an explicit placement for: "
                 + ", ".join(missing)
             )
 
@@ -67,39 +63,49 @@ class PostgreSQLDDLGenerator:
 
         rendered: dict[PurePosixPath, str] = {}
         for mode, tables in grouped.items():
-            if not tables:
-                continue
-            path = PurePosixPath(
-                "database",
-                mode.value,
-                f"0001_{specification.module.name}.sql",
-            )
-            rendered[path] = self._render_migration(specification, mode, tables)
+            if tables:
+                path = PurePosixPath("database", mode.value, f"0001_{specification.module.name}.sql")
+                rendered[path] = self._render_migration(specification, mode, tables)
         return rendered
 
     def plan(self, specification: ModuleSpec) -> GenerationPlan:
-        rendered_files = self.render(specification)
+        rendered = self.render(specification)
         spec_hash = specification_hash(specification)
-        files = [
-            PlannedFile(
-                relative_path=path,
-                generator_id=self.generator_id,
-                generator_version=self.generator_version,
-                ownership=FileOwnership.GENERATED,
-                action=PlannedAction.CREATE,
-                specification_hash=spec_hash,
-                expected_content_hash=content_hash(content),
-                source=f"module:{specification.module.name}:postgresql-ddl",
-            )
-            for path, content in sorted(
-                rendered_files.items(), key=lambda item: item[0].as_posix()
-            )
-        ]
         return GenerationPlan(
             specification_version=specification.spec_version,
             specification_hash=spec_hash,
-            files=files,
+            files=[
+                PlannedFile(
+                    relative_path=path,
+                    generator_id=self.generator_id,
+                    generator_version=self.generator_version,
+                    ownership=FileOwnership.GENERATED,
+                    action=PlannedAction.CREATE,
+                    specification_hash=spec_hash,
+                    expected_content_hash=content_hash(content),
+                    source=f"module:{specification.module.name}:mysql-ddl",
+                )
+                for path, content in sorted(rendered.items(), key=lambda item: item[0].as_posix())
+            ],
         )
+
+    def statements_for_store(
+        self, specification: ModuleSpec, store: str
+    ) -> tuple[list[str], list[str]]:
+        database = specification.database
+        if database is None:
+            return [], []
+        placements = {placement.table: placement for placement in database.placements}
+        tables = [
+            table
+            for table in database.tables
+            if placements.get(table.name) is not None and placements[table.name].store == store
+        ]
+        statements: list[str] = []
+        for table in tables:
+            statements.append(self._render_table(table).strip())
+            statements.extend(statement.strip() for statement in self._render_indexes(table))
+        return statements, [table.name for table in tables]
 
     def _render_migration(
         self,
@@ -119,27 +125,6 @@ class PostgreSQLDDLGenerator:
             statements.extend(self._render_indexes(table))
         return "\n".join(header + statements).rstrip() + "\n"
 
-    def statements_for_store(
-        self,
-        specification: ModuleSpec,
-        store: str,
-    ) -> tuple[list[str], list[str]]:
-        database = specification.database
-        if database is None:
-            return [], []
-        placements = {placement.table: placement for placement in database.placements}
-        tables = [
-            table
-            for table in database.tables
-            if placements.get(table.name) is not None
-            and placements[table.name].store == store
-        ]
-        statements: list[str] = []
-        for table in tables:
-            statements.append(self._render_table(table).strip())
-            statements.extend(statement.strip() for statement in self._render_indexes(table))
-        return statements, [table.name for table in tables]
-
     def _render_table(self, table: TableSpec) -> str:
         columns = ",\n".join(
             f"    {self._render_column(column)}" for column in table.columns
@@ -151,7 +136,7 @@ class PostgreSQLDDLGenerator:
             sql_type = _SQL_TYPES[column.type.kind]
         except KeyError as error:
             raise ValueError(
-                f"Unsupported PostgreSQL column type: {column.type.kind.value}"
+                f"Unsupported MySQL column type: {column.type.kind.value}"
             ) from error
 
         parts = [column.name, sql_type]
@@ -173,7 +158,7 @@ class PostgreSQLDDLGenerator:
             return str(value)
         if isinstance(value, str):
             return "'" + value.replace("'", "''") + "'"
-        raise ValueError(f"Unsupported PostgreSQL default value: {value!r}")
+        raise ValueError(f"Unsupported MySQL default value: {value!r}")
 
     @staticmethod
     def _render_indexes(table: TableSpec) -> list[str]:

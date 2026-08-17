@@ -22,6 +22,7 @@ from autoforge.services.generation.local_environment import (
     LOCAL_ENVIRONMENT_GENERATOR_ID,
 )
 from autoforge.services.generation.messaging import MESSAGING_GENERATOR_ID
+from autoforge.services.generation.mysql_ddl import MYSQL_DDL_GENERATOR_ID
 from autoforge.services.generation.postgresql_ddl import (
     POSTGRESQL_DDL_GENERATOR_ID,
 )
@@ -87,6 +88,7 @@ def test_builtin_catalog_contains_expected_plugins() -> None:
     assert catalog.generators.module.names() == [
         ALEMBIC_BASELINE_GENERATOR_ID,
         MODULE_GENERATOR_ID,
+        MYSQL_DDL_GENERATOR_ID,
         POSTGRESQL_DDL_GENERATOR_ID,
         REPOSITORY_GENERATOR_ID,
         SQLALCHEMY_MODEL_GENERATOR_ID,

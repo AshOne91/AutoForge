@@ -11,6 +11,7 @@ from autoforge.core.generation import (
     specification_hash,
 )
 from autoforge.core.specification import ModuleSpec, ProjectSpec
+from autoforge.services.generation.mysql_ddl import MySQLDDLGenerator
 from autoforge.services.generation.postgresql_ddl import PostgreSQLDDLGenerator
 
 ALEMBIC_PROJECT_GENERATOR_ID: Final = "autoforge.generator.alembic.project"
@@ -232,7 +233,8 @@ class AlembicEnvironmentGenerator:
 
 class AlembicBaselineGenerator:
     def __init__(self) -> None:
-        self._ddl = PostgreSQLDDLGenerator()
+        self._postgresql_ddl = PostgreSQLDDLGenerator()
+        self._mysql_ddl = MySQLDDLGenerator()
 
     @property
     def generator_id(self) -> str:
@@ -246,10 +248,11 @@ class AlembicBaselineGenerator:
         database = specification.database
         if database is None:
             return {}
+        ddl = self._mysql_ddl if database.provider == "mysql" else self._postgresql_ddl
         stores = sorted({placement.store for placement in database.placements})
         rendered: dict[PurePosixPath, str] = {}
         for store in stores:
-            statements, tables = self._ddl.statements_for_store(
+            statements, tables = ddl.statements_for_store(
                 specification, store
             )
             if not statements:
@@ -265,6 +268,7 @@ class AlembicBaselineGenerator:
                 store=store,
                 statements=statements,
                 tables=tables,
+                supports_cascade=database.provider != "mysql",
             )
         return rendered
 
@@ -298,13 +302,15 @@ class AlembicBaselineGenerator:
         store: str,
         statements: list[str],
         tables: list[str],
+        supports_cascade: bool,
     ) -> str:
         revision = f"af_{store}_{module}_0001"
         execute_lines = "\n".join(
             f"    op.execute({statement!r})" for statement in statements
         )
         downgrade_lines = "\n".join(
-            f"    op.execute('DROP TABLE IF EXISTS {table} CASCADE')"
+            f"    op.execute('DROP TABLE IF EXISTS {table}"
+            + (" CASCADE')" if supports_cascade else "')")
             for table in reversed(tables)
         )
         return (

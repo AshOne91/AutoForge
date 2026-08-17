@@ -59,6 +59,11 @@ from autoforge.services.generation.messaging import (
     MESSAGING_GENERATOR_VERSION,
     MessagingGenerator,
 )
+from autoforge.services.generation.mysql_ddl import (
+    MYSQL_DDL_GENERATOR_ID,
+    MYSQL_DDL_GENERATOR_VERSION,
+    MySQLDDLGenerator,
+)
 from autoforge.services.generation.postgresql_ddl import (
     POSTGRESQL_DDL_GENERATOR_ID,
     POSTGRESQL_DDL_GENERATOR_VERSION,
@@ -321,6 +326,18 @@ def create_fastapi_generator_plugins(
                 name=POSTGRESQL_DDL_GENERATOR_ID,
                 version=POSTGRESQL_DDL_GENERATOR_VERSION,
                 description="PostgreSQL global/sharded DDL Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
+    module_registry.register(
+        GeneratorPluginAdapter(
+            MySQLDDLGenerator(),
+            PluginMetadata(
+                name=MYSQL_DDL_GENERATOR_ID,
+                version=MYSQL_DDL_GENERATOR_VERSION,
+                description="MySQL global/sharded DDL Generator",
                 capabilities=(PluginCapability.GENERATOR,),
                 supported_specification_versions=("1",),
             ),

@@ -78,8 +78,26 @@ user-owned
 ## Current local availability boundary
 
 The generated local profile validates restart and recovery of its long-running
-services, PostgreSQL leader promotion, and Redis Cluster primary promotion. It
-does not claim physical-host HA: every local container shares one Docker host.
+services, PostgreSQL leader promotion, Redis Cluster primary promotion, and the
+standalone MySQL initialization boundary. It does not claim physical-host HA:
+every local container shares one Docker host.
+
+## Local MySQL standalone mode
+
+When `tooling.local_environment.database_provider: mysql` is selected, generated
+Compose starts MySQL with a named volume and waits for its health check before
+the one-shot `mysql-init` service creates declared logical databases and grants
+the generated application user access. `migrate` waits for `mysql-init` to exit
+successfully. Because one-shot services intentionally finish, operators start
+this profile with `docker compose ... up -d` and confirm `mysql-init` exited
+with code `0` using `docker compose ps`; `--wait` is not the acceptance signal.
+
+The acceptance boundary is a healthy MySQL service, successful initializer,
+application-user connection, and generated MySQL raw DDL applied to a disposable
+database. The generated-project Alembic execution check remains the next slice.
+This is not MySQL HA, read splitting, or multi-host
+validation. PostgreSQL-specific RabbitMQ, Outbox, and Durable Job generation is
+not supported in this profile.
 
 Optional RAG, MinIO, and ELK overlays use the same service-recovery cadence:
 `restart: unless-stopped`, a 10-second healthcheck interval, a 5-second timeout,

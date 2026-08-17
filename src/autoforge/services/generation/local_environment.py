@@ -30,6 +30,7 @@ class LocalEnvironmentGenerator:
             return {}
         redis_mode = self._redis_mode(specification.application.services)
         local_environment = specification.tooling.local_environment
+        database_provider = local_environment.database_provider
         postgres_mode = local_environment.postgres_mode
         rabbitmq_mode = local_environment.rabbitmq_mode
         airflow_scheduler_replicas = local_environment.airflow_scheduler_replicas
@@ -63,6 +64,7 @@ class LocalEnvironmentGenerator:
             PurePosixPath("environment", "compose.integration.yml"): self._render_compose(
                 specification,
                 database_names=database_names,
+                database_provider=database_provider,
                 postgres_mode=postgres_mode,
                 redis_mode=redis_mode,
                 redis_service=redis_service,
@@ -77,6 +79,7 @@ class LocalEnvironmentGenerator:
             ),
             PurePosixPath("environment", ".env.example"): self._render_env(
                 specification,
+                database_provider=database_provider,
                 postgres_mode=postgres_mode,
                 redis_mode=redis_mode,
                 redis_service=redis_service,
@@ -89,6 +92,7 @@ class LocalEnvironmentGenerator:
                 host_port_base=host_port_base,
             ),
             PurePosixPath("environment", "README.md"): self._render_readme(
+                database_provider=database_provider,
                 redis_mode=redis_mode,
                 postgres_mode=postgres_mode,
                 has_rabbitmq=bool(rabbitmq_services),
@@ -99,11 +103,11 @@ class LocalEnvironmentGenerator:
                 has_migration=has_migration,
             ),
         }
-        if database_names:
+        if database_names and database_provider == "postgresql":
             files[
                 PurePosixPath("environment", "postgres-init", "00-databases.sql")
             ] = self._render_database_initialization(database_names)
-        if postgres_mode == "ha" and database_names:
+        if database_provider == "postgresql" and postgres_mode == "ha" and database_names:
             files[PurePosixPath("environment", "postgres-ha", "haproxy.cfg")] = (
                 self._render_postgres_ha_haproxy_config()
             )
@@ -167,6 +171,7 @@ class LocalEnvironmentGenerator:
         specification: ProjectSpec,
         *,
         database_names: list[str],
+        database_provider: str,
         postgres_mode: str,
         redis_mode: str | None,
         redis_service: ServiceSpec | None,
@@ -181,7 +186,10 @@ class LocalEnvironmentGenerator:
     ) -> str:
         services: list[str] = []
         if specification.application.databases:
-            if postgres_mode == "ha":
+            if database_provider == "mysql":
+                services.append(self._render_mysql(host_port_base))
+                services.append(self._render_mysql_init(database_names))
+            elif postgres_mode == "ha":
                 services.extend(self._render_postgres_ha(database_names, host_port_base))
             else:
                 services.append(self._render_postgres(host_port_base))
@@ -193,7 +201,13 @@ class LocalEnvironmentGenerator:
             services.extend(self._render_rabbitmq(rabbitmq_mode, host_port_base))
         if has_application:
             if has_migration:
-                services.append(self._render_migrate(specification, postgres_mode))
+                services.append(
+                    self._render_migrate(
+                        specification,
+                        database_provider=database_provider,
+                        postgres_mode=postgres_mode,
+                    )
+                )
             services.append(
                 self._render_application(
                     specification,
@@ -235,6 +249,7 @@ class LocalEnvironmentGenerator:
                 else ""
             )
             + self._render_volumes(
+                database_provider=database_provider,
                 postgres_mode=postgres_mode,
                 redis_mode=redis_mode,
                 has_rabbitmq=has_rabbitmq,
@@ -246,6 +261,7 @@ class LocalEnvironmentGenerator:
     @staticmethod
     def _render_volumes(
         *,
+        database_provider: str,
         postgres_mode: str,
         redis_mode: str | None,
         has_rabbitmq: bool,
@@ -257,6 +273,8 @@ class LocalEnvironmentGenerator:
             + [f"etcd-{index}-data" for index in range(3)]
             if postgres_mode == "ha"
             else []
+        ) + (
+            ["mysql-data"] if database_provider == "mysql" else []
         ) + (
             [f"redis-{port}-data" for port in range(7000, 7006)]
             if redis_mode == "cluster"
@@ -296,6 +314,57 @@ class LocalEnvironmentGenerator:
             "      interval: 3s\n"
             "      timeout: 3s\n"
             "      retries: 20\n"
+        )
+
+    @classmethod
+    def _render_mysql(cls, host_port_base: int | None) -> str:
+        mysql_port = cls._host_port(host_port_base, default=23306, offset=10)
+        return (
+            "  mysql:\n"
+            "    image: mysql:8.4\n"
+            "    restart: unless-stopped\n"
+            "    environment:\n"
+            "      MYSQL_USER: ${MYSQL_USER:-autoforge}\n"
+            "      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change-me}\n"
+            "      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-me-root}\n"
+            "    ports:\n"
+            f"      - \"${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{MYSQL_PORT:-{mysql_port}}}:3306\"\n"
+            "    volumes:\n"
+            "      - mysql-data:/var/lib/mysql\n"
+            "    healthcheck:\n"
+            "      test: [\"CMD-SHELL\", \"mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent\"]\n"
+            "      interval: 3s\n"
+            "      timeout: 3s\n"
+            "      retries: 20\n"
+        )
+
+    @staticmethod
+    def _render_mysql_init(database_names: list[str]) -> str:
+        statements = " ".join(
+            (
+                f"CREATE DATABASE IF NOT EXISTS {database_name}; "
+                f"GRANT ALL PRIVILEGES ON {database_name}.* "
+                "TO '$$MYSQL_USER'@'%';"
+            )
+            for database_name in database_names
+        )
+        return (
+            "  mysql-init:\n"
+            "    image: mysql:8.4\n"
+            "    depends_on:\n"
+            "      mysql:\n"
+            "        condition: service_healthy\n"
+            "    environment:\n"
+            "      MYSQL_USER: ${MYSQL_USER:-autoforge}\n"
+            "      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-me-root}\n"
+            "    command:\n"
+            "      - /bin/sh\n"
+            "      - -ec\n"
+            "      - |\n"
+            "        mysql -hmysql -uroot -p\"$$MYSQL_ROOT_PASSWORD\" -e \""
+            + statements
+            + "\"\n"
+            "    restart: \"no\"\n"
         )
 
     @classmethod
@@ -465,7 +534,6 @@ class LocalEnvironmentGenerator:
             ")\n"
             "\\gexec\n"
         )
-
     @staticmethod
     def _render_postgres_ha_haproxy_config() -> str:
         return (
@@ -701,6 +769,17 @@ class LocalEnvironmentGenerator:
 
     @staticmethod
     def _render_database_environment(specification: ProjectSpec) -> str:
+        database_provider = specification.tooling.local_environment.database_provider
+        if database_provider == "mysql":
+            url = (
+                "mysql+asyncmy://${MYSQL_USER:-autoforge}:${MYSQL_PASSWORD:-change-me}"
+                "@mysql:3306/{database_name}?charset=utf8mb4"
+            )
+        else:
+            url = (
+                "postgresql+asyncpg://${POSTGRES_USER:-autoforge}:"
+                "${POSTGRES_PASSWORD:-change-me}@postgres:5432/{database_name}"
+            )
         lines: list[str] = []
         for database in specification.application.databases:
             targets = [(database.name, database.global_url_env)]
@@ -712,7 +791,7 @@ class LocalEnvironmentGenerator:
                 if environment_name is not None:
                     lines.append(
                         "      "
-                        f"{environment_name}: postgresql+asyncpg://${{POSTGRES_USER:-autoforge}}:${{POSTGRES_PASSWORD:-change-me}}@postgres:5432/{database_name}\n"
+                        f"{environment_name}: {url.replace('{database_name}', database_name)}\n"
                     )
         return "".join(lines)
 
@@ -730,7 +809,13 @@ class LocalEnvironmentGenerator:
             "      RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-embeddinggemma}\n"
         )
 
-    def _render_migrate(self, specification: ProjectSpec, postgres_mode: str) -> str:
+    def _render_migrate(
+        self,
+        specification: ProjectSpec,
+        *,
+        database_provider: str,
+        postgres_mode: str,
+    ) -> str:
         image = self._application_image(specification)
         return (
             "  migrate:\n"
@@ -744,10 +829,14 @@ class LocalEnvironmentGenerator:
             + self._render_database_environment(specification)
             + "    depends_on:\n"
             + (
+                "      mysql-init:\n        condition: service_completed_successfully\n"
+                if database_provider == "mysql"
+                else (
                 "      postgres-ha-init:\n"
                 "        condition: service_completed_successfully\n"
                 if postgres_mode == "ha"
                 else "      postgres:\n        condition: service_healthy\n"
+                )
             )
             + "    restart: \"no\"\n"
         )
@@ -1039,6 +1128,7 @@ class LocalEnvironmentGenerator:
         self,
         specification: ProjectSpec,
         *,
+        database_provider: str,
         postgres_mode: str,
         redis_mode: str | None,
         redis_service: ServiceSpec | None,
@@ -1051,7 +1141,11 @@ class LocalEnvironmentGenerator:
         host_port_base: int | None,
     ) -> str:
         application_port = self._host_port(host_port_base, default=28000, offset=0)
-        postgres_port = self._host_port(host_port_base, default=25432, offset=10)
+        database_port = self._host_port(
+            host_port_base,
+            default=23306 if database_provider == "mysql" else 25432,
+            offset=10,
+        )
         amqp_port = self._host_port(host_port_base, default=25672, offset=30)
         management_port = self._host_port(host_port_base, default=25673, offset=31)
         airflow_port = self._host_port(host_port_base, default=28080, offset=40)
@@ -1060,20 +1154,30 @@ class LocalEnvironmentGenerator:
             "LOCAL_BIND_ADDRESS=127.0.0.1\n",
         ]
         if specification.application.databases:
-            lines.extend(
-                [
-                    "POSTGRES_USER=autoforge\n",
-                    "POSTGRES_PASSWORD=change-me\n",
-                    f"POSTGRES_PORT={postgres_port}\n",
-                ]
-            )
-            if postgres_mode == "ha":
+            if database_provider == "mysql":
                 lines.extend(
                     [
-                        "POSTGRES_REPLICATION_PASSWORD=change-me-replication\n",
-                        "POSTGRES_HA_SCOPE=autoforge-postgres\n",
+                        "MYSQL_USER=autoforge\n",
+                        "MYSQL_PASSWORD=change-me\n",
+                        "MYSQL_ROOT_PASSWORD=change-me-root\n",
+                        f"MYSQL_PORT={database_port}\n",
                     ]
                 )
+            else:
+                lines.extend(
+                    [
+                        "POSTGRES_USER=autoforge\n",
+                        "POSTGRES_PASSWORD=change-me\n",
+                        f"POSTGRES_PORT={database_port}\n",
+                    ]
+                )
+                if postgres_mode == "ha":
+                    lines.extend(
+                        [
+                            "POSTGRES_REPLICATION_PASSWORD=change-me-replication\n",
+                            "POSTGRES_HA_SCOPE=autoforge-postgres\n",
+                        ]
+                    )
         if redis_mode == "standalone":
             lines.append("REDIS_URL=redis://redis:6379\n")
         elif redis_mode == "cluster":
@@ -1136,6 +1240,7 @@ class LocalEnvironmentGenerator:
     @staticmethod
     def _render_readme(
         *,
+        database_provider: str,
         redis_mode: str | None,
         postgres_mode: str,
         has_rabbitmq: bool,
@@ -1146,9 +1251,13 @@ class LocalEnvironmentGenerator:
         has_migration: bool,
     ) -> str:
         services = [
-            "three-node PostgreSQL HA cluster"
-            if postgres_mode == "ha"
-            else "PostgreSQL"
+            "MySQL"
+            if database_provider == "mysql"
+            else (
+                "three-node PostgreSQL HA cluster"
+                if postgres_mode == "ha"
+                else "PostgreSQL"
+            )
         ]
         if redis_mode == "cluster":
             services.append("three-node Redis Cluster")
@@ -1160,6 +1269,11 @@ class LocalEnvironmentGenerator:
             )
         if has_durable_jobs:
             services.extend(["Airflow", "Outbox relay", "durable-job worker"])
+        startup_command = (
+            "docker compose --env-file .env -f compose.integration.yml up -d"
+            if database_provider == "mysql"
+            else "docker compose --env-file .env -f compose.integration.yml up -d --wait"
+        )
         return (
             "# Generated integration environment\n"
             "\n"
@@ -1167,7 +1281,7 @@ class LocalEnvironmentGenerator:
             "\n"
             "```powershell\n"
             "Copy-Item .env.example .env\n"
-            "docker compose --env-file .env -f compose.integration.yml up -d --wait\n"
+            f"{startup_command}\n"
             "docker compose --env-file .env -f compose.integration.yml down\n"
             "```\n"
             "\n"
@@ -1176,6 +1290,13 @@ class LocalEnvironmentGenerator:
             "AWS Launch Template UserData is a separate deployment concern and is not "
             "part of this disposable integration profile.\n"
             "\n"
+            + (
+                "MySQL uses a one-shot `mysql-init` service to create declared databases "
+                "and grant the generated application user access. Confirm it exited with code 0 "
+                "using `docker compose ps` before investigating application startup.\n"
+                if database_provider == "mysql"
+                else ""
+            )
             + (
                 "RabbitMQ cluster mode keeps the existing `rabbitmq:5672` client endpoint "
                 "behind HAProxy and requires a shared `RABBITMQ_ERLANG_COOKIE`. It validates "

@@ -111,3 +111,17 @@ def test_baseline_generator_is_scaffolded_and_store_scoped() -> None:
     assert "DROP TABLE IF EXISTS login_accounts CASCADE" in files[path]
     plan = generator.plan(specification)
     assert plan.files[0].ownership is FileOwnership.SCAFFOLDED
+
+
+def test_mysql_baseline_uses_mysql_ddl_and_no_cascade_drop() -> None:
+    specification = module_specification()
+    assert specification.database is not None
+    mysql_specification = specification.model_copy(
+        update={"database": specification.database.model_copy(update={"provider": "mysql"})}
+    )
+
+    files = AlembicBaselineGenerator().render(mysql_specification)
+    migration = files[PurePosixPath("migrations/identity/versions/0001_identity.py")]
+
+    assert "CHAR(36) PRIMARY KEY" in migration
+    assert "CASCADE" not in migration

@@ -9,7 +9,7 @@ AutoForge currently has working foundations for:
 - isolated workspaces
 - validation/build pipeline
 - generator and validator plugins
-- PostgreSQL-oriented database generation
+- PostgreSQL and MySQL standalone database generation
 - Redis and RabbitMQ integration foundations
 - Transactional Outbox
 - EventBus and ordered Pipeline execution
@@ -29,7 +29,7 @@ AutoForge currently has working foundations for:
   the unchanged `RABBITMQ_URL` endpoint, and quorum event/dead-letter queues;
   a disposable generated KIS workspace verified one-node stop, persistent
   publish through HAProxy, and broker rejoin
-- PostgreSQL, Redis Cluster, RabbitMQ, migration, application, Airflow, Outbox relay,
+- PostgreSQL, MySQL standalone, Redis Cluster, RabbitMQ, migration, application, Airflow, Outbox relay,
   and durable-job worker runtime validation
 - ELK and Kubernetes base-server generation
 - generated ELK Filebeat collection for both `logs/*.log` and
@@ -369,10 +369,14 @@ uploaded and verified an artifact through the host endpoint.
 The KIS single-host generated README ownership conflict is resolved: common
 port guidance now comes from AutoForge, while the KIS-specific Spilo backup
 drill lives in its user-owned local integration operations document.
-`tooling.local_environment.database_provider` now explicitly owns runtime
-selection and defaults to the currently supported PostgreSQL provider; logical
-database schemas remain provider-agnostic. MySQL remains a deferred extension,
-not the active KIS delivery priority.
+`tooling.local_environment.database_provider` owns runtime selection and defaults
+to PostgreSQL; logical database schemas remain portable. The implemented MySQL
+slice generates `mysql:8.4`, named storage, `mysql-init`, `asyncmy` DSNs, and a
+MySQL baseline. A disposable runtime check confirmed initialization, application
+user access, generated raw DDL application, and generated schema persistence
+across restart.
+It intentionally excludes MySQL HA and PostgreSQL-specific messaging/Durable
+Jobs.
 
 ## Development tooling
 

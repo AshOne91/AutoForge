@@ -28,6 +28,7 @@ def project_specification(
     databases: list[DatabaseStoreSpec] | None = None,
     ruff_exclude: list[str] | None = None,
     dependencies: list[str] | None = None,
+    database_provider: str = "postgresql",
 ) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
@@ -43,7 +44,10 @@ def project_specification(
             services=services or [],
             databases=databases or [],
         ),
-        tooling=ToolingSpec(ruff_exclude=ruff_exclude or []),
+        tooling=ToolingSpec(
+            ruff_exclude=ruff_exclude or [],
+            local_environment={"database_provider": database_provider},
+        ),
     )
 
 
@@ -349,6 +353,23 @@ def test_rendered_python_and_toml_are_valid() -> None:
     assert pyproject["tool"]["ruff"]["lint"]["isort"]["known-first-party"] == [
         "game_server"
     ]
+
+
+def test_mysql_runtime_selects_async_driver_and_health_url() -> None:
+    database = DatabaseStoreSpec(
+        name="identity",
+        global_url_env="IDENTITY_DATABASE_URL",
+    )
+    files = FastAPIProjectGenerator().render(
+        project_specification(databases=[database], database_provider="mysql")
+    )
+
+    pyproject = tomllib.loads(files[PurePosixPath("pyproject.toml")])
+    health_test = files[PurePosixPath("tests/test_health.py")]
+
+    assert "asyncmy>=0.2,<1" in pyproject["project"]["dependencies"]
+    assert "asyncpg>=0.30,<1" not in pyproject["project"]["dependencies"]
+    assert "mysql+asyncmy://" in health_test
 
 
 def test_plan_matches_rendered_content_hashes() -> None:

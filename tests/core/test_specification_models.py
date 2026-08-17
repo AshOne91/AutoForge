@@ -163,8 +163,9 @@ def test_local_environment_database_provider_defaults_to_postgresql() -> None:
     assert environment.database_provider == "postgresql"
     assert environment.rabbitmq_mode == "standalone"
     assert environment.airflow_scheduler_replicas == 1
-    with pytest.raises(ValidationError):
-        LocalEnvironmentSpec(database_provider="mysql")
+    assert LocalEnvironmentSpec(database_provider="mysql").postgres_mode == "standalone"
+    with pytest.raises(ValidationError, match="postgres_mode=standalone"):
+        LocalEnvironmentSpec(database_provider="mysql", postgres_mode="ha")
 
 
 def test_local_rabbitmq_cluster_requires_one_quorum_service() -> None:

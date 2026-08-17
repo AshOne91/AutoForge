@@ -79,6 +79,15 @@ This contract covers generated local containers only. Managed cloud search
 services, including AWS OpenSearch Service authentication, are not generated or
 runtime-verified by this setting.
 
+### Local database provider
+
+`tooling.local_environment.database_provider` selects the local generated
+database runtime: `postgresql` (default) or `mysql`. `postgres_mode: ha` is a
+PostgreSQL-only setting; MySQL currently permits `standalone` only. The local
+MySQL profile rejects PostgreSQL-specific RabbitMQ, Outbox, and Durable Job
+generation. Database-generation details are owned by
+[`database_generation.md`](database_generation.md).
+
 ### Local RabbitMQ mode
 
 `tooling.local_environment.rabbitmq_mode` is `standalone` by default. The

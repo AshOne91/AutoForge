@@ -42,6 +42,7 @@ class FastAPIProjectGenerator:
         has_session_store = bool(session_services)
         has_durable_jobs = bool(specification.application.durable_jobs)
         has_lifespan = has_database or has_session_store
+        database_provider = specification.tooling.local_environment.database_provider
         database_env_names = [
             environment_name
             for store in database_stores
@@ -67,6 +68,7 @@ class FastAPIProjectGenerator:
                     service.kind == "rabbitmq"
                     for service in specification.application.services
                 ),
+                database_provider=database_provider,
                 ruff_exclude=specification.tooling.ruff_exclude,
             ),
             PurePosixPath("README.md"): self._render_readme(
@@ -105,6 +107,7 @@ class FastAPIProjectGenerator:
                     for service in session_services
                 ],
                 database_env_names=database_env_names,
+                database_provider=database_provider,
             ),
         }
         if has_lifespan:
@@ -190,11 +193,17 @@ class FastAPIProjectGenerator:
         dependencies: list[str],
         include_redis: bool,
         include_rabbitmq: bool,
+        database_provider: str,
         ruff_exclude: list[str],
     ) -> str:
         redis_dependency = '    "redis>=5,<7",\n' if include_redis else ""
         rabbitmq_dependency = (
             '    "aio-pika>=9.5,<10",\n' if include_rabbitmq else ""
+        )
+        database_dependency = (
+            '    "asyncmy>=0.2,<1",\n'
+            if database_provider == "mysql"
+            else '    "asyncpg>=0.30,<1",\n'
         )
         project_dependencies = "".join(
             f"    {json.dumps(dependency, ensure_ascii=False)},\n"
@@ -220,7 +229,7 @@ class FastAPIProjectGenerator:
             'dependencies = [\n'
             f"{rabbitmq_dependency}"
             '    "alembic>=1.18,<2",\n'
-            '    "asyncpg>=0.30,<1",\n'
+            f"{database_dependency}"
             '    "fastapi",\n'
             f"{redis_dependency}"
             '    "sqlalchemy>=2.0,<3",\n'
@@ -647,6 +656,7 @@ class FastAPIProjectGenerator:
         package_name: str,
         redis_env_values: list[tuple[str, str]],
         database_env_names: list[str],
+        database_provider: str,
     ) -> str:
         redis_env_names = [name for name, _ in redis_env_values]
         required_env_names = [*redis_env_names, *database_env_names]
@@ -657,7 +667,11 @@ class FastAPIProjectGenerator:
         )
         database_env_setup = "".join(
             f'    monkeypatch.setenv("{name}", '
-            '"postgresql+asyncpg://user:password@localhost/database")\n'
+            + (
+                '"mysql+asyncmy://user:password@localhost/database?charset=utf8mb4")\n'
+                if database_provider == "mysql"
+                else '"postgresql+asyncpg://user:password@localhost/database")\n'
+            )
             for name in database_env_names
         )
         pytest_import = "import pytest\n" if required_env_names else ""
