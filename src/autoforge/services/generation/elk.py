@@ -137,8 +137,8 @@ volumes:
     command: ["filebeat", "-e", "--strict.perms=false", "-c", "/usr/share/filebeat/filebeat.yml"]
     restart: unless-stopped
     volumes:
-      - ${{LOG_ROOT:-../logs}}:/var/log/application:ro
-      - ${{FILEBEAT_CONFIG:-../deploy/observability/filebeat.yml}}:/usr/share/filebeat/filebeat.yml:ro
+      - ${{LOG_ROOT:-../../logs}}:/var/log/application:ro
+      - ${{FILEBEAT_CONFIG:-../../deploy/observability/filebeat.yml}}:/usr/share/filebeat/filebeat.yml:ro
       - filebeat-data:/usr/share/filebeat/data
     healthcheck:
       test: ["CMD", "filebeat", "test", "config", "-e", "--strict.perms=false", "-c", "/usr/share/filebeat/filebeat.yml"]
@@ -220,8 +220,9 @@ Start it together with the application's integration Compose file:
 {startup}
 ```
 
-Set `LOG_ROOT` when logs are stored outside the default `../logs` path used with
-the generated integration Compose file. Set `ELASTICSEARCH_PORT`,
+Set `LOG_ROOT` when logs are stored outside the default path. Central mode uses
+`../logs` with the generated integration Compose file; collector mode uses
+`../../logs` when its overlay is run standalone. Set `ELASTICSEARCH_PORT`,
 `KIBANA_PORT`, or `FILEBEAT_CONFIG` when the defaults conflict with the host.
 
 To find exhausted durable-job retries in the central profile, query the

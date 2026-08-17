@@ -99,5 +99,9 @@ def test_elk_collector_mode_generates_filebeat_only() -> None:
 
     assert set(compose["services"]) == {"filebeat"}
     assert "filebeat-data" in compose["volumes"]
+    assert compose["services"]["filebeat"]["volumes"][:2] == [
+        "${LOG_ROOT:-../../logs}:/var/log/application:ro",
+        "${FILEBEAT_CONFIG:-../../deploy/observability/filebeat.yml}:/usr/share/filebeat/filebeat.yml:ro",
+    ]
     assert "${ELASTICSEARCH_HOST}" in filebeat
     assert "collector-only" in readme
