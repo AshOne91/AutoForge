@@ -24,6 +24,7 @@ def integration_specification(
     rag: bool = False,
     rag_search_backend: str = "elasticsearch",
     postgres_mode: str = "standalone",
+    mysql_mode: str = "standalone",
     database_provider: str = "postgresql",
     include_rabbitmq: bool = True,
     rabbitmq_mode: str = "standalone",
@@ -99,6 +100,7 @@ def integration_specification(
                 "application_enabled": application,
                 "database_provider": database_provider,
                 "postgres_mode": postgres_mode,
+                "mysql_mode": mysql_mode,
                 "rabbitmq_mode": rabbitmq_mode,
                 "airflow_scheduler_replicas": airflow_scheduler_replicas,
                 "host_port_base": host_port_base,
@@ -141,6 +143,7 @@ def test_render_creates_mysql_standalone_environment() -> None:
     assert "mysql+asyncmy://${MYSQL_USER:-autoforge}" in compose["services"]["application"]["environment"]["IDENTITY_DATABASE_URL"]
     assert "MYSQL_ROOT_PASSWORD=change-me-root" in environment
     assert "MYSQL_PORT=23306" in environment
+    assert "CREATE USER IF NOT EXISTS '$$MYSQL_USER'@'%'" in compose["services"]["mysql-init"]["command"][-1]
     assert "GRANT ALL PRIVILEGES ON identity.*" in compose["services"]["mysql-init"]["command"][-1]
     assert "up -d --wait" not in files[PurePosixPath("environment/README.md")]
     assert "mysql-init" in files[PurePosixPath("environment/README.md")]
@@ -152,6 +155,47 @@ def test_mysql_runtime_rejects_postgresql_only_profiles() -> None:
             database_provider="mysql",
             durable_jobs=True,
         )
+
+    with pytest.raises(ValueError, match="database_provider=mysql"):
+        integration_specification(mysql_mode="ha")
+
+
+def test_render_creates_mysql_ha_environment() -> None:
+    files = LocalEnvironmentGenerator().render(
+        integration_specification(
+            enabled=True,
+            application=True,
+            database_provider="mysql",
+            mysql_mode="ha",
+            include_rabbitmq=False,
+        )
+    )
+
+    compose = yaml.safe_load(files[PurePosixPath("environment/compose.integration.yml")])
+    environment = files[PurePosixPath("environment/.env.example")]
+
+    assert {f"mysql-ha-{index}" for index in range(3)} <= set(compose["services"])
+    assert "mysql-router-bootstrap" in compose["services"]
+    assert compose["services"]["mysql"]["ports"] == [
+        "${LOCAL_BIND_ADDRESS:-127.0.0.1}:${MYSQL_PORT:-23306}:6446"
+    ]
+    assert compose["services"]["mysql-init"]["depends_on"] == {
+        "mysql": {"condition": "service_healthy"}
+    }
+    assert "mysql -hmysql -P 6446" in compose["services"]["mysql-init"]["command"][-1]
+    assert compose["services"]["mysql-init"]["environment"]["MYSQL_PASSWORD"] == "${MYSQL_PASSWORD:-change-me}"
+    assert compose["services"]["mysql"]["depends_on"] == {
+        "mysql-router-bootstrap": {"condition": "service_completed_successfully"}
+    }
+    assert "@mysql:6446/identity?charset=utf8mb4" in compose["services"]["application"]["environment"]["IDENTITY_DATABASE_URL"]
+    assert "('mysql', 6446)" in compose["services"]["application"]["healthcheck"]["test"][-1]
+    assert "mysql-router-data" in compose["volumes"]
+    assert "MYSQL_CLUSTER_ADMIN_PASSWORD=change-me-cluster" in environment
+    assert compose["services"]["mysql"]["build"]["args"] == {
+        "MYSQL_ROUTER_VERSION": "${MYSQL_ROUTER_VERSION:-8.4.8}"
+    }
+    assert PurePosixPath("environment/mysql-ha/Dockerfile.router") in files
+    assert "dba.getCluster" in files[PurePosixPath("environment/mysql-ha/bootstrap.js")]
 
     with pytest.raises(ValueError, match="postgres_mode=standalone"):
         integration_specification(

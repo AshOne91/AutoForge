@@ -377,13 +377,15 @@ user access, generated raw DDL application, and generated schema persistence
 across restart. A generated-project Docker build then installed the MySQL
 authentication dependency, ran `migrate` successfully against MySQL 8.4, and
 verified the Alembic version plus `login_accounts` table.
-It intentionally excludes MySQL HA and PostgreSQL-specific messaging/Durable
-Jobs.
-MySQL HA remains intentionally ungenerated: a disposable three-member MySQL
-8.4 InnoDB Cluster reached `ONLINE` with one primary and two secondaries, but
-the published `mysql/mysql-router:8.0` image classified every member as
-read-only and closed its writer route. A version-matched Router supply chain and
-primary-failover acceptance check are required before exposing that mode.
+The MySQL HA slice is implemented and runtime-verified: `mysql_mode: ha`
+generates a three-member MySQL 8.4 InnoDB Cluster, a signed official MySQL
+Router 8.4 image, Router-backed `mysql:6446` DSNs, application-account
+initialization, migration, and generated-schema verification. It remains local
+process-level resilience; automated primary-failure/rejoin acceptance and
+provider-selected production deployment are not implemented. PostgreSQL-specific
+messaging/Durable Jobs remain excluded from the MySQL profile. The published
+`mysql/mysql-router:8.0` image remains incompatible with MySQL 8.4 writer
+routing and is not generated.
 
 ## Development tooling
 

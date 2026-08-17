@@ -34,9 +34,10 @@ from autoforge.services.generation import (
 
 LOGGER = logging.getLogger("autoforge.mysql_runtime")
 PROJECT_NAME = "autoforge-mysql-runtime-check"
+COMPOSE_TIMEOUT_SECONDS = 180
 
 
-def _project_specification() -> ProjectSpec:
+def _project_specification(*, mysql_mode: str = "standalone") -> ProjectSpec:
     return ProjectSpec.model_validate(
         {
             "spec_version": "1",
@@ -57,6 +58,7 @@ def _project_specification() -> ProjectSpec:
                     "enabled": True,
                     "application_enabled": True,
                     "database_provider": "mysql",
+                    "mysql_mode": mysql_mode,
                     "host_port_base": 49700,
                 },
             },
@@ -108,12 +110,12 @@ def _module_specification() -> ModuleSpec:
     )
 
 
-def _generate(root: Path) -> None:
+def _generate(root: Path, *, mysql_mode: str) -> None:
     workspace = Workspace(root)
     runner = GenerationRunner()
     runner.run(
         job_id="mysql-runtime-project",
-        specification=_project_specification(),
+        specification=_project_specification(mysql_mode=mysql_mode),
         generators=[
             FastAPIProjectGenerator(),
             DockerfileGenerator(),
@@ -160,6 +162,17 @@ def _compose(root: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
             errors="replace",
             capture_output=True,
             check=False,
+            timeout=COMPOSE_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        return subprocess.CompletedProcess(
+            command,
+            returncode=124,
+            stdout="",
+            stderr=(
+                "docker compose exceeded "
+                f"{COMPOSE_TIMEOUT_SECONDS} seconds"
+            ),
         )
     except OSError as error:
         return subprocess.CompletedProcess(
@@ -177,17 +190,30 @@ def _check(result: subprocess.CompletedProcess[str], action: str) -> None:
     raise RuntimeError(f"{action} failed (exit {result.returncode}):\n{details}")
 
 
-def _verify(root: Path) -> None:
+def _verify(root: Path, *, mysql_mode: str) -> None:
+    LOGGER.info("checking generated Compose configuration")
     _check(_compose(root, "config", "--quiet"), "Compose configuration")
+    LOGGER.info("building generated migration image")
     _check(_compose(root, "build", "migrate"), "generated image build")
-    _check(_compose(root, "up", "-d", "mysql", "mysql-init"), "MySQL startup")
-    _check(_compose(root, "run", "--rm", "migrate"), "generated migration")
+    LOGGER.info("starting generated MySQL services")
+    _check(_compose(root, "up", "-d", "mysql-init"), "MySQL startup")
+    LOGGER.info("running generated migration")
+    _check(
+        _compose(root, "run", "--rm", "--no-deps", "migrate"),
+        "generated migration",
+    )
+    LOGGER.info("checking generated schema")
+    mysql_port = "6446" if mysql_mode == "ha" else "3306"
     result = _compose(
         root,
         "exec",
         "-T",
         "mysql",
         "mysql",
+        "-h",
+        "127.0.0.1",
+        "-P",
+        mysql_port,
         "-uautoforge",
         "-pchange-me",
         "-D",
@@ -206,13 +232,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Run the opt-in generated MySQL runtime validation."
     )
-    parser.parse_args()
+    parser.add_argument("--mysql-mode", choices=("standalone", "ha"), default="standalone")
+    arguments = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     root_path = Path(tempfile.mkdtemp(prefix="autoforge-mysql-runtime-"))
     try:
         LOGGER.info("generating disposable MySQL project in %s", root_path)
-        _generate(root_path)
-        _verify(root_path)
+        _generate(root_path, mysql_mode=arguments.mysql_mode)
+        _verify(root_path, mysql_mode=arguments.mysql_mode)
         LOGGER.info("generated MySQL runtime validation passed")
         return 0
     finally:

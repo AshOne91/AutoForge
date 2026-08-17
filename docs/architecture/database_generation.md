@@ -195,18 +195,24 @@ waits for MySQL health, creates declared logical databases, and grants the
 generated application user access. Generated migrations use the MySQL baseline
 and do not reuse PostgreSQL DDL.
 
-This provider currently supports standalone local validation only. MySQL HA,
-read splitting, cross-provider migration, and topology changes remain separate
-contracts. PostgreSQL-specific RabbitMQ/Outbox/Durable Job generation is
-rejected for this profile rather than being represented as supported.
+`mysql_mode: standalone` is the default local profile. `mysql_mode: ha` is a
+MySQL-only opt-in that generates three MySQL 8.4 nodes, a MySQL Shell/AdminAPI
+bootstrap job, and a version-matched MySQL Router writer endpoint. Generated
+application and migration DSNs use `mysql:6446` in HA mode; the three node
+ports remain internal. The generated Router image installs the signed official
+MySQL Router 8.4 RPM selected by `MYSQL_ROUTER_VERSION` (default `8.4.8`).
+`mysql-init` creates the application account, declared logical databases, and
+grants through that writer endpoint.
 
-MySQL HA must use a version-matched MySQL Router with a three-member InnoDB
-Cluster; it must not substitute a generic TCP proxy or an unverified Router
-image. A local probe verified that MySQL 8.4 Shell/AdminAPI can form a
-three-member single-primary cluster, but the published `mysql/mysql-router:8.0`
-image treated its members as read-only and closed the writer route. AutoForge
-therefore does not expose a MySQL HA specification mode until a reproducible,
-version-matched Router supply chain and primary-failover acceptance check exist.
+This is local process-level resilience only: all nodes share one Docker host.
+It does not provide read splitting, cross-provider migration, multi-host
+durability, backups, or automated primary-failure acceptance. PostgreSQL-specific
+RabbitMQ/Outbox/Durable Job generation remains rejected for this profile.
+
+The published `mysql/mysql-router:8.0` image must not be used with MySQL 8.4:
+local validation found it classified every member as read-only and closed the
+writer route. A generic TCP proxy is not a substitute for the version-matched
+Router and InnoDB Cluster contract.
 
 ## PostgreSQL DDL Generator
 

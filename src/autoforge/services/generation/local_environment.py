@@ -32,6 +32,7 @@ class LocalEnvironmentGenerator:
         local_environment = specification.tooling.local_environment
         database_provider = local_environment.database_provider
         postgres_mode = local_environment.postgres_mode
+        mysql_mode = local_environment.mysql_mode
         rabbitmq_mode = local_environment.rabbitmq_mode
         airflow_scheduler_replicas = local_environment.airflow_scheduler_replicas
         redis_service = next(
@@ -66,6 +67,7 @@ class LocalEnvironmentGenerator:
                 database_names=database_names,
                 database_provider=database_provider,
                 postgres_mode=postgres_mode,
+                mysql_mode=mysql_mode,
                 redis_mode=redis_mode,
                 redis_service=redis_service,
                 has_rabbitmq=bool(rabbitmq_services),
@@ -81,6 +83,7 @@ class LocalEnvironmentGenerator:
                 specification,
                 database_provider=database_provider,
                 postgres_mode=postgres_mode,
+                mysql_mode=mysql_mode,
                 redis_mode=redis_mode,
                 redis_service=redis_service,
                 has_rabbitmq=bool(rabbitmq_services),
@@ -95,6 +98,7 @@ class LocalEnvironmentGenerator:
                 database_provider=database_provider,
                 redis_mode=redis_mode,
                 postgres_mode=postgres_mode,
+                mysql_mode=mysql_mode,
                 has_rabbitmq=bool(rabbitmq_services),
                 rabbitmq_mode=rabbitmq_mode,
                 airflow_scheduler_replicas=airflow_scheduler_replicas,
@@ -110,6 +114,13 @@ class LocalEnvironmentGenerator:
         if database_provider == "postgresql" and postgres_mode == "ha" and database_names:
             files[PurePosixPath("environment", "postgres-ha", "haproxy.cfg")] = (
                 self._render_postgres_ha_haproxy_config()
+            )
+        if database_provider == "mysql" and mysql_mode == "ha":
+            files[PurePosixPath("environment", "mysql-ha", "Dockerfile.router")] = (
+                self._render_mysql_router_dockerfile()
+            )
+            files[PurePosixPath("environment", "mysql-ha", "bootstrap.js")] = (
+                self._render_mysql_ha_bootstrap()
             )
         if rabbitmq_mode == "cluster" and rabbitmq_services:
             rabbitmq_config = self._render_rabbitmq_cluster_config()
@@ -173,6 +184,7 @@ class LocalEnvironmentGenerator:
         database_names: list[str],
         database_provider: str,
         postgres_mode: str,
+        mysql_mode: str,
         redis_mode: str | None,
         redis_service: ServiceSpec | None,
         has_rabbitmq: bool,
@@ -187,8 +199,14 @@ class LocalEnvironmentGenerator:
         services: list[str] = []
         if specification.application.databases:
             if database_provider == "mysql":
-                services.append(self._render_mysql(host_port_base))
-                services.append(self._render_mysql_init(database_names))
+                services.extend(
+                    self._render_mysql_ha(host_port_base)
+                    if mysql_mode == "ha"
+                    else [self._render_mysql(host_port_base)]
+                )
+                services.append(
+                    self._render_mysql_init(database_names, mysql_mode=mysql_mode)
+                )
             elif postgres_mode == "ha":
                 services.extend(self._render_postgres_ha(database_names, host_port_base))
             else:
@@ -251,6 +269,7 @@ class LocalEnvironmentGenerator:
             + self._render_volumes(
                 database_provider=database_provider,
                 postgres_mode=postgres_mode,
+                mysql_mode=mysql_mode,
                 redis_mode=redis_mode,
                 has_rabbitmq=has_rabbitmq,
                 rabbitmq_mode=rabbitmq_mode,
@@ -263,6 +282,7 @@ class LocalEnvironmentGenerator:
         *,
         database_provider: str,
         postgres_mode: str,
+        mysql_mode: str,
         redis_mode: str | None,
         has_rabbitmq: bool,
         rabbitmq_mode: str,
@@ -274,7 +294,9 @@ class LocalEnvironmentGenerator:
             if postgres_mode == "ha"
             else []
         ) + (
-            ["mysql-data"] if database_provider == "mysql" else []
+            ([f"mysql-ha-{index}-data" for index in range(3)] + ["mysql-router-data"])
+            if database_provider == "mysql" and mysql_mode == "ha"
+            else ["mysql-data"] if database_provider == "mysql" else []
         ) + (
             [f"redis-{port}-data" for port in range(7000, 7006)]
             if redis_mode == "cluster"
@@ -339,14 +361,19 @@ class LocalEnvironmentGenerator:
         )
 
     @staticmethod
-    def _render_mysql_init(database_names: list[str]) -> str:
-        statements = " ".join(
+    def _render_mysql_init(database_names: list[str], *, mysql_mode: str) -> str:
+        mysql_port = 6446 if mysql_mode == "ha" else 3306
+        statements = (
+            "CREATE USER IF NOT EXISTS '$$MYSQL_USER'@'%' "
+            "IDENTIFIED BY '$$MYSQL_PASSWORD'; "
+            + " ".join(
             (
                 f"CREATE DATABASE IF NOT EXISTS {database_name}; "
                 f"GRANT ALL PRIVILEGES ON {database_name}.* "
                 "TO '$$MYSQL_USER'@'%';"
             )
             for database_name in database_names
+            )
         )
         return (
             "  mysql-init:\n"
@@ -356,17 +383,133 @@ class LocalEnvironmentGenerator:
             "        condition: service_healthy\n"
             "    environment:\n"
             "      MYSQL_USER: ${MYSQL_USER:-autoforge}\n"
+            "      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change-me}\n"
             "      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-me-root}\n"
             "    command:\n"
             "      - /bin/sh\n"
             "      - -ec\n"
             "      - |\n"
-            "        mysql -hmysql -uroot -p\"$$MYSQL_ROOT_PASSWORD\" -e \""
+            f"        mysql -hmysql -P {mysql_port} -uroot -p\"$$MYSQL_ROOT_PASSWORD\" -e \""
             + statements
             + "\"\n"
             "    restart: \"no\"\n"
         )
 
+    @classmethod
+    def _render_mysql_ha(cls, host_port_base: int | None) -> list[str]:
+        mysql_port = cls._host_port(host_port_base, default=23306, offset=10)
+        return [
+            *(cls._render_mysql_ha_node(index) for index in range(3)),
+            (
+            "  mysql-cluster-init:\n"
+            "    image: mysql:8.4\n"
+            "    depends_on:\n"
+            "      mysql-ha-0:\n        condition: service_healthy\n"
+            "      mysql-ha-1:\n        condition: service_healthy\n"
+            "      mysql-ha-2:\n        condition: service_healthy\n"
+            "    environment:\n"
+            "      MYSQL_CLUSTER_ADMIN_USER: ${MYSQL_CLUSTER_ADMIN_USER:-autoforge_cluster}\n"
+            "      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-me-root}\n"
+            "      MYSQL_CLUSTER_ADMIN_PASSWORD: ${MYSQL_CLUSTER_ADMIN_PASSWORD:-change-me-cluster}\n"
+            "    volumes:\n"
+            "      - ./mysql-ha/bootstrap.js:/scripts/bootstrap.js:ro\n"
+            "    command:\n"
+            "      - /bin/sh\n      - -ec\n"
+            "      - exec mysqlsh --no-wizard --js --uri \"root:$$MYSQL_ROOT_PASSWORD@mysql-ha-0:3306\" --file /scripts/bootstrap.js\n"
+            "    restart: \"no\"\n"
+            ),
+            (
+            "  mysql-router-bootstrap:\n"
+            "    build:\n      context: ./mysql-ha\n      dockerfile: Dockerfile.router\n"
+            "      args:\n        MYSQL_ROUTER_VERSION: ${MYSQL_ROUTER_VERSION:-8.4.8}\n"
+            "    depends_on:\n      mysql-cluster-init:\n        condition: service_completed_successfully\n"
+            "    command:\n"
+            "      - --bootstrap\n"
+            "      - ${MYSQL_CLUSTER_ADMIN_USER:-autoforge_cluster}:${MYSQL_CLUSTER_ADMIN_PASSWORD:-change-me-cluster}@mysql-ha-0:3306\n"
+            "      - --directory\n      - /router\n      - --user\n      - mysqlrouter\n      - --force\n"
+            "    volumes:\n      - mysql-router-data:/router\n"
+            "    restart: \"no\"\n"
+            ),
+            (
+            "  mysql:\n"
+            "    build:\n      context: ./mysql-ha\n      dockerfile: Dockerfile.router\n"
+            "      args:\n        MYSQL_ROUTER_VERSION: ${MYSQL_ROUTER_VERSION:-8.4.8}\n"
+            "    user: mysqlrouter\n"
+            "    restart: unless-stopped\n"
+            "    depends_on:\n      mysql-router-bootstrap:\n        condition: service_completed_successfully\n"
+            "    environment:\n"
+            "      MYSQL_CLUSTER_ADMIN_USER: ${MYSQL_CLUSTER_ADMIN_USER:-autoforge_cluster}\n"
+            "      MYSQL_CLUSTER_ADMIN_PASSWORD: ${MYSQL_CLUSTER_ADMIN_PASSWORD:-change-me-cluster}\n"
+            "    command: [\"-c\", \"/router/mysqlrouter.conf\"]\n"
+            "    ports:\n"
+            f"      - \"${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{MYSQL_PORT:-{mysql_port}}}:6446\"\n"
+            "    volumes:\n      - mysql-router-data:/router\n"
+            "    healthcheck:\n"
+            "      test: [\"CMD-SHELL\", \"mysqladmin ping -h 127.0.0.1 -P 6446 -u$$MYSQL_CLUSTER_ADMIN_USER -p$$MYSQL_CLUSTER_ADMIN_PASSWORD --silent\"]\n"
+            "      interval: 3s\n      timeout: 3s\n      retries: 30\n"
+            ),
+        ]
+
+    @staticmethod
+    def _render_mysql_ha_node(index: int) -> str:
+        return (
+            f"  mysql-ha-{index}:\n"
+            "    image: mysql:8.4\n"
+            "    restart: unless-stopped\n"
+            "    command:\n"
+            f"      - --server-id={100 + index}\n"
+            f"      - --report-host=mysql-ha-{index}\n"
+            "      - --skip-name-resolve\n      - --binlog-checksum=NONE\n"
+            "      - --enforce-gtid-consistency=ON\n      - --gtid-mode=ON\n"
+            "      - --log-bin=mysql-bin\n      - --log-replica-updates=ON\n"
+            "    environment:\n"
+            "      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-me-root}\n"
+            "      MYSQL_ROOT_HOST: \"%\"\n"
+            "    volumes:\n"
+            f"      - mysql-ha-{index}-data:/var/lib/mysql\n"
+            "    healthcheck:\n"
+            "      test: [\"CMD-SHELL\", \"mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent\"]\n"
+            "      interval: 3s\n      timeout: 3s\n      retries: 30\n"
+        )
+
+    @staticmethod
+    def _render_mysql_router_dockerfile() -> str:
+        return (
+            "FROM mysql:8.4\n\n"
+            "ARG MYSQL_ROUTER_VERSION=8.4.8\n"
+            "RUN rpm --import https://repo.mysql.com/RPM-GPG-KEY-mysql-2023 \\\n"
+            "    && curl -fsSLo /tmp/mysql-router.rpm \\\n"
+            "      \"https://repo.mysql.com/yum/mysql-tools-8.4-community/el/9/x86_64/mysql-router-community-${MYSQL_ROUTER_VERSION}-1.el9.x86_64.rpm\" \\\n"
+            "    && rpm -ivh /tmp/mysql-router.rpm \\\n"
+            "    && rm -f /tmp/mysql-router.rpm\n\n"
+            "ENTRYPOINT [\"mysqlrouter\"]\n"
+        )
+
+    @staticmethod
+    def _render_mysql_ha_bootstrap() -> str:
+        return (
+            "const rootPassword = os.getenv(\"MYSQL_ROOT_PASSWORD\");\n"
+            "const clusterAdmin = os.getenv(\"MYSQL_CLUSTER_ADMIN_USER\") || \"autoforge_cluster\";\n"
+            "const clusterPassword = os.getenv(\"MYSQL_CLUSTER_ADMIN_PASSWORD\");\n"
+            "const instances = [\"mysql-ha-0\", \"mysql-ha-1\", \"mysql-ha-2\"];\n"
+            "const rootUri = (host) => `root:${rootPassword}@${host}:3306`;\n"
+            "const adminUri = (host) => `${clusterAdmin}:${clusterPassword}@${host}:3306`;\n\n"
+            "let cluster;\n"
+            "try {\n  shell.connect(adminUri(\"mysql-ha-0\"));\n  cluster = dba.getCluster();\n"
+            "} catch (error) {\n"
+            "  if (!String(error).includes(\"Access denied\") && !String(error).includes(\"does not belong to an InnoDB Cluster\")) throw error;\n"
+            "  for (const host of instances) {\n"
+            "    dba.configureInstance(rootUri(host), {clusterAdmin, clusterAdminPassword: clusterPassword, restart: false});\n"
+            "  }\n"
+            "  shell.connect(adminUri(\"mysql-ha-0\"));\n"
+            "  cluster = dba.createCluster(\"autoforgeCluster\", {multiPrimary: false});\n"
+            "}\n\n"
+            "const topology = cluster.status().defaultReplicaSet.topology;\n"
+            "for (const host of instances.slice(1)) {\n"
+            "  if (!(`${host}:3306` in topology)) cluster.addInstance(adminUri(host), {recoveryMethod: \"clone\"});\n"
+            "}\n"
+            "print(JSON.stringify(cluster.status()));\n"
+        )
     @classmethod
     def _render_postgres_ha(
         cls, database_names: list[str], host_port_base: int | None
@@ -771,9 +914,14 @@ class LocalEnvironmentGenerator:
     def _render_database_environment(specification: ProjectSpec) -> str:
         database_provider = specification.tooling.local_environment.database_provider
         if database_provider == "mysql":
+            mysql_port = (
+                6446
+                if specification.tooling.local_environment.mysql_mode == "ha"
+                else 3306
+            )
             url = (
                 "mysql+asyncmy://${MYSQL_USER:-autoforge}:${MYSQL_PASSWORD:-change-me}"
-                "@mysql:3306/{database_name}?charset=utf8mb4"
+                f"@mysql:{mysql_port}/{{database_name}}?charset=utf8mb4"
             )
         else:
             url = (
@@ -883,7 +1031,15 @@ class LocalEnvironmentGenerator:
         rag_environment = self._render_rag_environment(specification) if has_rag else ""
         dependency_targets: list[tuple[str, int]] = []
         if specification.application.databases:
-            dependency_targets.append(("postgres", 5432))
+            if specification.tooling.local_environment.database_provider == "mysql":
+                mysql_port = (
+                    6446
+                    if specification.tooling.local_environment.mysql_mode == "ha"
+                    else 3306
+                )
+                dependency_targets.append(("mysql", mysql_port))
+            else:
+                dependency_targets.append(("postgres", 5432))
         if redis_mode == "standalone":
             dependency_targets.append(("redis", 6379))
         dependency_probe = (
@@ -1130,6 +1286,7 @@ class LocalEnvironmentGenerator:
         *,
         database_provider: str,
         postgres_mode: str,
+        mysql_mode: str,
         redis_mode: str | None,
         redis_service: ServiceSpec | None,
         has_rabbitmq: bool,
@@ -1160,6 +1317,15 @@ class LocalEnvironmentGenerator:
                         "MYSQL_USER=autoforge\n",
                         "MYSQL_PASSWORD=change-me\n",
                         "MYSQL_ROOT_PASSWORD=change-me-root\n",
+                        *(
+                            [
+                                "MYSQL_CLUSTER_ADMIN_USER=autoforge_cluster\n",
+                                "MYSQL_CLUSTER_ADMIN_PASSWORD=change-me-cluster\n",
+                                "MYSQL_ROUTER_VERSION=8.4.8\n",
+                            ]
+                            if mysql_mode == "ha"
+                            else []
+                        ),
                         f"MYSQL_PORT={database_port}\n",
                     ]
                 )
@@ -1243,6 +1409,7 @@ class LocalEnvironmentGenerator:
         database_provider: str,
         redis_mode: str | None,
         postgres_mode: str,
+        mysql_mode: str,
         has_rabbitmq: bool,
         rabbitmq_mode: str,
         airflow_scheduler_replicas: int,
@@ -1251,7 +1418,9 @@ class LocalEnvironmentGenerator:
         has_migration: bool,
     ) -> str:
         services = [
-            "MySQL"
+            "three-node MySQL InnoDB Cluster"
+            if database_provider == "mysql" and mysql_mode == "ha"
+            else "MySQL"
             if database_provider == "mysql"
             else (
                 "three-node PostgreSQL HA cluster"

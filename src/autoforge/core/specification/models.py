@@ -412,6 +412,7 @@ class LocalEnvironmentSpec(StrictSpecModel):
     application_enabled: bool = False
     database_provider: Literal["postgresql", "mysql"] = "postgresql"
     postgres_mode: Literal["standalone", "ha"] = "standalone"
+    mysql_mode: Literal["standalone", "ha"] = "standalone"
     rabbitmq_mode: Literal["standalone", "cluster"] = "standalone"
     airflow_scheduler_replicas: int = Field(default=1, ge=1)
     host_port_base: int | None = Field(
@@ -426,6 +427,8 @@ class LocalEnvironmentSpec(StrictSpecModel):
     def validate_database_provider(self) -> LocalEnvironmentSpec:
         if self.database_provider == "mysql" and self.postgres_mode != "standalone":
             raise ValueError("MySQL local environment supports postgres_mode=standalone only")
+        if self.database_provider != "mysql" and self.mysql_mode != "standalone":
+            raise ValueError("MySQL HA mode requires database_provider=mysql")
         return self
 
 

@@ -78,11 +78,11 @@ user-owned
 ## Current local availability boundary
 
 The generated local profile validates restart and recovery of its long-running
-services, PostgreSQL leader promotion, Redis Cluster primary promotion, and the
-standalone MySQL initialization boundary. It does not claim physical-host HA:
+services, PostgreSQL leader promotion, Redis Cluster primary promotion, and
+MySQL standalone or HA initialization. It does not claim physical-host HA:
 every local container shares one Docker host.
 
-## Local MySQL standalone mode
+## Local MySQL modes
 
 When `tooling.local_environment.database_provider: mysql` is selected, generated
 Compose starts MySQL with a named volume and waits for its health check before
@@ -96,10 +96,13 @@ The acceptance boundary is a healthy MySQL service, successful initializer,
 application-user connection, and generated MySQL raw DDL applied to a disposable
 database. The generated-project acceptance command also builds the generated
 image, runs `migrate`, and verifies both its Alembic version and generated table.
-This is not MySQL HA, read splitting, or multi-host validation. MySQL HA is not
-emitted until the same MySQL version's Router can be reproduced and a writer
-route is verified after primary failure. PostgreSQL-specific RabbitMQ, Outbox,
-and Durable Job generation is not supported in this profile.
+When `mysql_mode: ha` is selected, generated Compose creates a three-member
+MySQL 8.4 InnoDB Cluster, bootstraps it with MySQL Shell/AdminAPI, installs a
+version-matched MySQL Router, and exposes its writer endpoint as `mysql:6446`.
+The same acceptance command verifies the generated Router-backed application
+account, migration, Alembic version, and generated table. It does not yet
+automate a primary stop, writer retry, and rejoin check. PostgreSQL-specific
+RabbitMQ, Outbox, and Durable Job generation is not supported in this profile.
 
 Optional RAG, MinIO, and ELK overlays use the same service-recovery cadence:
 `restart: unless-stopped`, a 10-second healthcheck interval, a 5-second timeout,

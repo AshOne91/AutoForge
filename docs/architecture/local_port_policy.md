@@ -29,6 +29,9 @@ change container-internal ports or Kubernetes Service ports.
 8. PostgreSQL HA mode keeps the same published database port: the internal
    `postgres:5432` service is HAProxy. Patroni and etcd ports stay internal to
    the Compose network.
+9. MySQL HA mode keeps the same published MySQL port: the internal `mysql:6446`
+   service is MySQL Router. Node ports and Group Replication traffic stay internal
+   to the Compose network.
 
 For example, a base of `49300` publishes the application on `49300`,
 the selected database provider on `49310`, RabbitMQ on `49330`/`49331`, and Airflow on `49340`.
