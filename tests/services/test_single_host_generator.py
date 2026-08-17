@@ -136,6 +136,8 @@ def test_render_adds_windows_bootstrap_only_when_selected() -> None:
     assert "Docker engine did not become ready" in bootstrap
     assert "config --format json" in bootstrap
     assert "Published host port collision" in bootstrap
+    assert "docker compose @composeArgs build" in bootstrap
+    assert "Docker Compose image build failed" in bootstrap
     assert "up -d --wait" in bootstrap
     assert 'COMPOSE_IGNORE_ORPHANS = "true"' in bootstrap
     assert "runtime.env" in bootstrap

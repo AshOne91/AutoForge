@@ -141,6 +141,8 @@ foreach ($service in $config.services.PSObject.Properties) {
 }
 
 $env:COMPOSE_IGNORE_ORPHANS = "true"
+docker compose @composeArgs build
+if ($LASTEXITCODE -ne 0) { throw "Docker Compose image build failed." }
 docker compose @composeArgs up -d --wait
 '''
 
@@ -211,6 +213,7 @@ one Docker host: it recovers containers, not loss of the physical machine.
 Copy-Item environment/.env.example environment/.env
 Copy-Item deploy/single-host/runtime.env.example deploy/single-host/runtime.env
 # Replace every sample credential in environment/.env before starting.
+docker compose --env-file environment/.env --env-file deploy/single-host/runtime.env -f environment/compose.integration.yml -f deploy/single-host/compose.override.yml build
 docker compose --env-file environment/.env --env-file deploy/single-host/runtime.env -f environment/compose.integration.yml -f deploy/single-host/compose.override.yml up -d --wait
 docker compose --env-file environment/.env --env-file deploy/single-host/runtime.env -f environment/compose.integration.yml -f deploy/single-host/compose.override.yml down
 ```
@@ -225,7 +228,7 @@ The check is read-only and rejects duplicate published host ports; it does not
 allocate ports or replace specification validation.
 
 {bootstrap_note}The Windows bootstrap performs the same read-only Compose port-collision
-preflight before starting containers. The public proxy listens on
+preflight, then builds the local application image before starting containers. The public proxy listens on
 `PUBLIC_BIND_ADDRESS:PUBLIC_HTTP_PORT`; application,
 database, Redis, RabbitMQ, and Airflow host ports remain governed by the integration
 environment. `LOG_ROOT` is a host bind mount so file logs survive application
