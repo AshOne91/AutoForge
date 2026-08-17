@@ -68,6 +68,16 @@ AutoForge currently has working foundations for:
   an operator-visible structured error when retries are exhausted
 - KIS terminal retry logs are queryable in Elasticsearch by `event_type`,
   `job_id`, `run_key`, `attempt`, and `max_attempts`
+- The generated KIS single-host profile is runtime-verified through Nginx:
+  Global identity signup/login, Redis-backed session validation, sharded account
+  profile persistence, and transactional Outbox publication to RabbitMQ followed
+  by idempotent inbox consumption. A Patroni leader stop preserved new
+  signup/login through the HAProxy writer, and a Redis primary stop preserved an
+  existing session plus a new login before the stopped node rejoined.
+- RabbitMQ-enabled local profiles now generate the Outbox relay and the
+  scaffolded application message worker independently of Durable Jobs. RabbitMQ
+  readiness waits for its AMQP listener, preventing a false-ready startup race
+  for those consumers.
 - generated KIS durable-job endpoints are runtime-verified for Bearer-token
   authentication, idempotent `(job_type, run_key)` requests, `automation` store
   routing, and status retrieval; generated Airflow uses those endpoints rather
