@@ -223,7 +223,9 @@ enabled, the Kubernetes generator renders an `InnoDBCluster` CR. AutoForge does
 not directly emit a MySQL `StatefulSet` or Router Deployment: the installed
 Operator reconciles those resources. Operator installation, Secret values,
 resource application, backup policy, and restore verification remain operator
-responsibilities.
+responsibilities. The generated Kubernetes directory includes a separate
+zero-value bootstrap Secret template for `rootUser`, `rootHost`, and
+`rootPassword`; the TLS Secret remains an external operator prerequisite.
 
 The published `mysql/mysql-router:8.0` image must not be used with MySQL 8.4:
 local validation found it classified every member as read-only and closed the

@@ -61,6 +61,10 @@ class KubernetesBaseServerGenerator:
                 secret_environment_names=secret_environment_names,
                 collector_enabled=collector_enabled,
                 mysql_operator_enabled=profile.mysql_operator.enabled,
+                mysql_operator_bootstrap_secret_name=(
+                    profile.mysql_operator.bootstrap_secret_name
+                ),
+                mysql_operator_tls_secret_name=profile.mysql_operator.tls_secret_name,
             ),
             PurePosixPath("deploy", "kubernetes", "secret.env.example"): "".join(
                 f"{environment_name}=\n"
@@ -82,6 +86,11 @@ class KubernetesBaseServerGenerator:
                     storage_size=profile.mysql_operator.storage_size,
                 )
             )
+            files[
+                PurePosixPath(
+                    "deploy", "kubernetes", "mysql-operator-bootstrap.env.example"
+                )
+            ] = "rootUser=\nrootHost=\nrootPassword=\n"
         if collector_enabled:
             files[PurePosixPath("deploy", "kubernetes", "observability-filebeat.yaml")] = (
                 self._render_filebeat_collector_manifest(
@@ -484,6 +493,8 @@ spec:
         secret_environment_names: list[str],
         collector_enabled: bool,
         mysql_operator_enabled: bool,
+        mysql_operator_bootstrap_secret_name: str,
+        mysql_operator_tls_secret_name: str,
     ) -> str:
         required_keys = "".join(f"- `{name}`\n" for name in secret_environment_names)
         collector_section = ""
@@ -510,10 +521,18 @@ policy before this manifest can run.
 """
         mysql_operator_section = ""
         if mysql_operator_enabled:
-            mysql_operator_section = """
+            mysql_operator_section = f"""
 `mysql-operator.yaml` declares an InnoDBCluster for an already-installed MySQL
 Operator. Create its separate bootstrap and TLS Secrets before applying it; this
 directory does not install the Operator or contain either Secret value.
+
+```powershell
+Copy-Item mysql-operator-bootstrap.env.example mysql_operator_bootstrap.env
+kubectl create secret generic {mysql_operator_bootstrap_secret_name} --namespace {namespace} --from-env-file=mysql_operator_bootstrap.env
+```
+
+`{mysql_operator_tls_secret_name}` must be created outside this directory as a
+Kubernetes TLS Secret containing the Operator-approved certificate and key.
 
 """
         else:

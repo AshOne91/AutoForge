@@ -1,10 +1,10 @@
 # Next Task
 
-## Next executable unit: MySQL Operator bootstrap Secret guide
+## Next executable unit: MySQL Operator Kubernetes preflight
 
 OWNERSHIP: AutoForge Kubernetes base-server generator and tests
 
-When the opt-in profile is enabled, generate a separate zero-value bootstrap
-Secret environment template and README instructions for `rootUser`, `rootHost`,
-and `rootPassword`. Explain that TLS Secret creation remains external. Do not
-write Secret values, install the Operator, or apply resources.
+Read-only check the configured Kubernetes context, cluster nodes, and MySQL
+Operator CRD availability. Do not install the Operator, create Secrets, or
+apply generated resources. Use the result to choose either focused runtime
+validation or the next generator-only unit.

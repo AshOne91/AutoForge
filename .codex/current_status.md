@@ -391,7 +391,9 @@ boundary remains true when the same specification enables local MySQL HA, and
 the generated Kubernetes README explains the same provider-owned boundary. The
 selected future Kubernetes MySQL HA provider is MySQL Operator for Kubernetes;
 its opt-in specification contract and generated `InnoDBCluster` manifest are
-implemented, but no Kubernetes runtime verification has run yet. The
+implemented. Its generated bootstrap Secret template and README describe the
+separate root-account and TLS Secret prerequisites, but no Kubernetes runtime
+verification has run yet. The
 generated application starts and retains its
 `/health` contract throughout that failover verification. PostgreSQL-specific
 messaging/Durable Jobs remain excluded from the MySQL profile. The published

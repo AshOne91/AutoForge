@@ -194,6 +194,11 @@ def test_render_creates_opt_in_mysql_operator_cluster_manifest() -> None:
     manifest = files[PurePosixPath("deploy", "kubernetes", "mysql-operator.yaml")]
     document = yaml.safe_load(manifest)
     readme = files[PurePosixPath("deploy", "kubernetes", "README.md")]
+    bootstrap_environment = files[
+        PurePosixPath(
+            "deploy", "kubernetes", "mysql-operator-bootstrap.env.example"
+        )
+    ]
 
     assert document["apiVersion"] == "mysql.oracle.com/v2"
     assert document["kind"] == "InnoDBCluster"
@@ -207,6 +212,10 @@ def test_render_creates_opt_in_mysql_operator_cluster_manifest() -> None:
     assert "mysql-operator.yaml" in readme
     assert "does not install the Operator" in readme
     assert "a MySQL Operator InnoDBCluster declaration" in readme
+    assert "rootUser=\nrootHost=\nrootPassword=\n" == bootstrap_environment
+    assert "Copy-Item mysql-operator-bootstrap.env.example mysql_operator_bootstrap.env" in readme
+    assert "kubectl create secret generic mysql-operator-bootstrap" in readme
+    assert "mysql-operator-tls" in readme
 
 
 def test_render_keeps_mysql_ha_as_an_external_kubernetes_database_provider() -> None:
