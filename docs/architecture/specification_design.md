@@ -83,9 +83,11 @@ runtime-verified by this setting.
 
 `tooling.local_environment.database_provider` selects the local generated
 database runtime: `postgresql` (default) or `mysql`. `postgres_mode: ha` is a
-PostgreSQL-only setting; MySQL currently permits `standalone` only. The local
-MySQL profile rejects PostgreSQL-specific RabbitMQ, Outbox, and Durable Job
-generation. Database-generation details are owned by
+PostgreSQL-only setting; MySQL currently permits `standalone` only. A MySQL HA
+mode is deliberately absent until a version-matched Router and primary-failover
+acceptance contract are reproducible. The local MySQL profile rejects
+PostgreSQL-specific RabbitMQ, Outbox, and Durable Job generation.
+Database-generation details are owned by
 [`database_generation.md`](database_generation.md).
 
 ### Local RabbitMQ mode

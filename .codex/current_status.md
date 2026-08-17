@@ -379,6 +379,11 @@ authentication dependency, ran `migrate` successfully against MySQL 8.4, and
 verified the Alembic version plus `login_accounts` table.
 It intentionally excludes MySQL HA and PostgreSQL-specific messaging/Durable
 Jobs.
+MySQL HA remains intentionally ungenerated: a disposable three-member MySQL
+8.4 InnoDB Cluster reached `ONLINE` with one primary and two secondaries, but
+the published `mysql/mysql-router:8.0` image classified every member as
+read-only and closed its writer route. A version-matched Router supply chain and
+primary-failover acceptance check are required before exposing that mode.
 
 ## Development tooling
 

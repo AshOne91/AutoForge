@@ -200,6 +200,14 @@ read splitting, cross-provider migration, and topology changes remain separate
 contracts. PostgreSQL-specific RabbitMQ/Outbox/Durable Job generation is
 rejected for this profile rather than being represented as supported.
 
+MySQL HA must use a version-matched MySQL Router with a three-member InnoDB
+Cluster; it must not substitute a generic TCP proxy or an unverified Router
+image. A local probe verified that MySQL 8.4 Shell/AdminAPI can form a
+three-member single-primary cluster, but the published `mysql/mysql-router:8.0`
+image treated its members as read-only and closed the writer route. AutoForge
+therefore does not expose a MySQL HA specification mode until a reproducible,
+version-matched Router supply chain and primary-failover acceptance check exist.
+
 ## PostgreSQL DDL Generator
 
 `PostgreSQLDDLGenerator`는 명세의 배치에 따라 다음 결정적 SQL을 생성한다.

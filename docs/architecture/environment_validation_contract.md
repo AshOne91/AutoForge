@@ -94,10 +94,12 @@ with code `0` using `docker compose ps`; `--wait` is not the acceptance signal.
 
 The acceptance boundary is a healthy MySQL service, successful initializer,
 application-user connection, and generated MySQL raw DDL applied to a disposable
-database. The generated-project Alembic execution check remains the next slice.
-This is not MySQL HA, read splitting, or multi-host
-validation. PostgreSQL-specific RabbitMQ, Outbox, and Durable Job generation is
-not supported in this profile.
+database. The generated-project acceptance command also builds the generated
+image, runs `migrate`, and verifies both its Alembic version and generated table.
+This is not MySQL HA, read splitting, or multi-host validation. MySQL HA is not
+emitted until the same MySQL version's Router can be reproduced and a writer
+route is verified after primary failure. PostgreSQL-specific RabbitMQ, Outbox,
+and Durable Job generation is not supported in this profile.
 
 Optional RAG, MinIO, and ELK overlays use the same service-recovery cadence:
 `restart: unless-stopped`, a 10-second healthcheck interval, a 5-second timeout,

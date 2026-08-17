@@ -1,11 +1,12 @@
 # Next Task
 
-## Next executable unit: MySQL runtime acceptance automation
+## Next executable unit: MySQL 8.4 Router supply-chain proof
 
-OWNERSHIP: AutoForge integration validation and generated-runtime contracts
+OWNERSHIP: AutoForge local-environment generation and integration validation
 
-Add an opt-in integration command that generates one minimal MySQL project, builds
-its generated image, runs `migrate` against disposable MySQL, verifies the
-Alembic version and generated table, and removes only its owned resources.
-Preserve the existing PostgreSQL provider and portable schema contracts; do not
-add MySQL HA, RabbitMQ, Outbox, or Durable Jobs in this unit.
+Identify one reproducible Linux amd64 Router distribution that matches the
+generated MySQL 8.4 server image. Prove it can bootstrap against a disposable
+three-member single-primary InnoDB Cluster, accept a write through its writer
+endpoint, promote a surviving primary after one node stops, and recover the
+stopped node. Do not add `mysql_mode: ha` or generated MySQL HA Compose output
+until this proof passes.
