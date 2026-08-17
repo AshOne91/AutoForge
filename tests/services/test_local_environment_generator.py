@@ -288,6 +288,7 @@ def test_render_creates_opt_in_rabbitmq_cluster_with_stable_endpoint() -> None:
         assert node["environment"]["RABBITMQ_ERLANG_COOKIE"] == (
             "${RABBITMQ_ERLANG_COOKIE:?set RABBITMQ_ERLANG_COOKIE}"
         )
+        assert "depends_on" not in node
         assert f"rabbitmq-{index}-data" in compose["volumes"]
         assert files[
             PurePosixPath("environment", "rabbitmq", f"rabbitmq-{index}.conf")

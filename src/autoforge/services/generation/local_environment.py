@@ -846,15 +846,6 @@ class LocalEnvironmentGenerator:
 
     @staticmethod
     def _render_rabbitmq_node(index: int) -> str:
-        depends_on = (
-            ""
-            if index == 0
-            else (
-                "    depends_on:\n"
-                f"      rabbitmq-{index - 1}:\n"
-                "        condition: service_healthy\n"
-            )
-        )
         return (
             f"  rabbitmq-{index}:\n"
             "    image: rabbitmq:4.1-management-alpine\n"
@@ -869,7 +860,6 @@ class LocalEnvironmentGenerator:
             "    volumes:\n"
             f"      - rabbitmq-{index}-data:/var/lib/rabbitmq\n"
             f"      - ./rabbitmq/rabbitmq-{index}.conf:/etc/rabbitmq/rabbitmq.conf:ro\n"
-            + depends_on
             + "    healthcheck:\n"
             "      test: [\"CMD-SHELL\", \"rabbitmq-diagnostics -q check_port_connectivity\"]\n"
             "      interval: 3s\n"
