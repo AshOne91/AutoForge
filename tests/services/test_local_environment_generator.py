@@ -27,6 +27,7 @@ def integration_specification(
     database_provider: str = "postgresql",
     rabbitmq_mode: str = "standalone",
     rabbitmq_queue_type: str = "classic",
+    airflow_scheduler_replicas: int = 1,
     host_port_base: int | None = None,
     durable_job_worker_restart_policy: str = "unless-stopped",
 ) -> ProjectSpec:
@@ -92,6 +93,7 @@ def integration_specification(
                 "database_provider": database_provider,
                 "postgres_mode": postgres_mode,
                 "rabbitmq_mode": rabbitmq_mode,
+                "airflow_scheduler_replicas": airflow_scheduler_replicas,
                 "host_port_base": host_port_base,
             },
             "rag": {"enabled": rag, "search_backend": rag_search_backend},
@@ -289,6 +291,45 @@ def test_render_adds_airflow_for_durable_jobs() -> None:
     assert "DURABLE_JOB_API_TOKEN=change-me" in environment
     assert "('airflow')" in databases
     assert "Airflow" in readme
+
+
+def test_render_creates_opt_in_airflow_scheduler_ha() -> None:
+    files = LocalEnvironmentGenerator().render(
+        integration_specification(
+            enabled=True,
+            durable_jobs=True,
+            postgres_mode="ha",
+            airflow_scheduler_replicas=2,
+        )
+    )
+
+    compose = yaml.safe_load(
+        files[PurePosixPath("environment", "compose.integration.yml")]
+    )
+    environment = files[PurePosixPath("environment", ".env.example")]
+    readme = files[PurePosixPath("environment", "README.md")]
+    services = compose["services"]
+
+    assert "airflow-scheduler" not in services
+    assert {"airflow-scheduler-0", "airflow-scheduler-1"} <= set(services)
+    assert services["airflow-init"]["command"] == ["airflow", "db", "migrate"]
+    assert services["airflow-webserver"]["command"] == "webserver"
+    for index in range(2):
+        scheduler = services[f"airflow-scheduler-{index}"]
+        assert scheduler["command"] == "scheduler"
+        assert scheduler["environment"]["AIRFLOW__CORE__EXECUTOR"] == "LocalExecutor"
+        assert scheduler["environment"]["AIRFLOW__CORE__FERNET_KEY"] == (
+            "${AIRFLOW_FERNET_KEY:?set AIRFLOW_FERNET_KEY}"
+        )
+        assert scheduler["environment"]["AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK"] == "true"
+        assert scheduler["environment"]["AIRFLOW__SCHEDULER__USE_ROW_LEVEL_LOCKING"] == "true"
+        assert scheduler["healthcheck"]["test"] == [
+            "CMD-SHELL",
+            "curl --fail http://127.0.0.1:8974/health || exit 1",
+        ]
+        assert "ports" not in scheduler
+    assert "AIRFLOW_FERNET_KEY=replace-with-a-valid-fernet-key" in environment
+    assert "scheduler-process recovery only" in readme
 
 
 def test_render_creates_postgresql_ha_environment() -> None:

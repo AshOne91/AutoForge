@@ -32,6 +32,7 @@ class LocalEnvironmentGenerator:
         local_environment = specification.tooling.local_environment
         postgres_mode = local_environment.postgres_mode
         rabbitmq_mode = local_environment.rabbitmq_mode
+        airflow_scheduler_replicas = local_environment.airflow_scheduler_replicas
         redis_service = next(
             (
                 service
@@ -67,6 +68,7 @@ class LocalEnvironmentGenerator:
                 redis_service=redis_service,
                 has_rabbitmq=bool(rabbitmq_services),
                 rabbitmq_mode=rabbitmq_mode,
+                airflow_scheduler_replicas=airflow_scheduler_replicas,
                 has_durable_jobs=has_durable_jobs,
                 has_application=has_application,
                 has_migration=has_migration,
@@ -80,6 +82,7 @@ class LocalEnvironmentGenerator:
                 redis_service=redis_service,
                 has_rabbitmq=bool(rabbitmq_services),
                 rabbitmq_mode=rabbitmq_mode,
+                airflow_scheduler_replicas=airflow_scheduler_replicas,
                 has_durable_jobs=has_durable_jobs,
                 has_application=has_application,
                 has_rag=has_rag,
@@ -90,6 +93,7 @@ class LocalEnvironmentGenerator:
                 postgres_mode=postgres_mode,
                 has_rabbitmq=bool(rabbitmq_services),
                 rabbitmq_mode=rabbitmq_mode,
+                airflow_scheduler_replicas=airflow_scheduler_replicas,
                 has_durable_jobs=has_durable_jobs,
                 has_application=has_application,
                 has_migration=has_migration,
@@ -168,6 +172,7 @@ class LocalEnvironmentGenerator:
         redis_service: ServiceSpec | None,
         has_rabbitmq: bool,
         rabbitmq_mode: str,
+        airflow_scheduler_replicas: int,
         has_durable_jobs: bool,
         has_application: bool,
         has_migration: bool,
@@ -212,6 +217,7 @@ class LocalEnvironmentGenerator:
                 self._render_airflow(
                     has_application=has_application,
                     postgres_mode=postgres_mode,
+                    scheduler_replicas=airflow_scheduler_replicas,
                     host_port_base=host_port_base,
                 )
             )
@@ -900,7 +906,12 @@ class LocalEnvironmentGenerator:
 
     @classmethod
     def _render_airflow(
-        cls, *, has_application: bool, postgres_mode: str, host_port_base: int | None
+        cls,
+        *,
+        has_application: bool,
+        postgres_mode: str,
+        scheduler_replicas: int,
+        host_port_base: int | None,
     ) -> str:
         airflow_port = cls._host_port(host_port_base, default=28080, offset=40)
         api_url = (
@@ -918,17 +929,31 @@ class LocalEnvironmentGenerator:
                 "      durable-job-worker:\n"
                 "        condition: service_started\n"
             )
+        scheduler_ha_environment = (
+            "      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY:?set AIRFLOW_FERNET_KEY}\n"
+            "      AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: \"true\"\n"
+            "      AIRFLOW__SCHEDULER__FILE_PARSING_SORT_MODE: random_seeded_by_host\n"
+            "      AIRFLOW__SCHEDULER__USE_ROW_LEVEL_LOCKING: \"true\"\n"
+            if scheduler_replicas > 1
+            else ""
+        )
         environment = (
-            "      AIRFLOW__CORE__EXECUTOR: SequentialExecutor\n"
+            f"      AIRFLOW__CORE__EXECUTOR: {'LocalExecutor' if scheduler_replicas > 1 else 'SequentialExecutor'}\n"
             "      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-autoforge}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/airflow\n"
             "      AIRFLOW__CORE__LOAD_EXAMPLES: \"false\"\n"
             "      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: \"true\"\n"
-            f"      DURABLE_JOB_API_URL: ${{DURABLE_JOB_API_URL:-{api_url}}}\n"
-            "      DURABLE_JOB_API_TOKEN: ${DURABLE_JOB_API_TOKEN:?set DURABLE_JOB_API_TOKEN}\n"
+            + scheduler_ha_environment
+            + f"      DURABLE_JOB_API_URL: ${{DURABLE_JOB_API_URL:-{api_url}}}\n"
+            + "      DURABLE_JOB_API_TOKEN: ${DURABLE_JOB_API_TOKEN:?set DURABLE_JOB_API_TOKEN}\n"
         )
         volumes = (
             "      - ../airflow/dags:/opt/airflow/dags:ro\n"
             "      - airflow-home:/opt/airflow\n"
+        )
+        scheduler_names = (
+            ["airflow-scheduler"]
+            if scheduler_replicas == 1
+            else [f"airflow-scheduler-{index}" for index in range(scheduler_replicas)]
         )
         return (
             "  airflow-init:\n"
@@ -964,8 +989,30 @@ class LocalEnvironmentGenerator:
             "      interval: 10s\n"
             "      timeout: 5s\n"
             "      retries: 30\n"
-            "\n"
-            "  airflow-scheduler:\n"
+            "\n\n"
+            + "\n\n".join(
+                cls._render_airflow_scheduler(
+                    name=name,
+                    scheduler_dependencies=scheduler_dependencies,
+                    environment=environment,
+                    volumes=volumes,
+                    healthcheck=scheduler_replicas > 1,
+                )
+                for name in scheduler_names
+            )
+        )
+
+    @staticmethod
+    def _render_airflow_scheduler(
+        *,
+        name: str,
+        scheduler_dependencies: str,
+        environment: str,
+        volumes: str,
+        healthcheck: bool,
+    ) -> str:
+        return (
+            f"  {name}:\n"
             "    image: apache/airflow:2.10.5-python3.12\n"
             "    depends_on:\n"
             "      airflow-init:\n"
@@ -977,6 +1024,15 @@ class LocalEnvironmentGenerator:
             + volumes
             + "    command: scheduler\n"
             "    restart: unless-stopped\n"
+            + (
+                "    healthcheck:\n"
+                "      test: [\"CMD-SHELL\", \"curl --fail http://127.0.0.1:8974/health || exit 1\"]\n"
+                "      interval: 10s\n"
+                "      timeout: 5s\n"
+                "      retries: 30\n"
+                if healthcheck
+                else ""
+            )
         )
 
     def _render_env(
@@ -988,6 +1044,7 @@ class LocalEnvironmentGenerator:
         redis_service: ServiceSpec | None,
         has_rabbitmq: bool,
         rabbitmq_mode: str,
+        airflow_scheduler_replicas: int,
         has_durable_jobs: bool,
         has_application: bool,
         has_rag: bool,
@@ -1050,6 +1107,13 @@ class LocalEnvironmentGenerator:
             lines.extend(
                 [
                     f"AIRFLOW_PORT={airflow_port}\n",
+                    *(
+                        [
+                            "AIRFLOW_FERNET_KEY=replace-with-a-valid-fernet-key\n"
+                        ]
+                        if airflow_scheduler_replicas > 1
+                        else []
+                    ),
                     f"DURABLE_JOB_API_URL={durable_job_api_url}\n",
                     "DURABLE_JOB_API_TOKEN=change-me\n",
                 ]
@@ -1076,6 +1140,7 @@ class LocalEnvironmentGenerator:
         postgres_mode: str,
         has_rabbitmq: bool,
         rabbitmq_mode: str,
+        airflow_scheduler_replicas: int,
         has_durable_jobs: bool,
         has_application: bool,
         has_migration: bool,
@@ -1136,6 +1201,13 @@ class LocalEnvironmentGenerator:
                 "Airflow is generated paused and reads the durable-job API token from .env. "
                 "The outbox relay and durable-job worker run from the same local image.\n"
                 if has_durable_jobs
+                else ""
+            )
+            + (
+                "Airflow scheduler HA uses LocalExecutor and shared PostgreSQL metadata. "
+                "Set a valid shared AIRFLOW_FERNET_KEY before starting the profile; this "
+                "validates scheduler-process recovery only on one Docker host.\n"
+                if has_durable_jobs and airflow_scheduler_replicas > 1
                 else ""
             )
         )

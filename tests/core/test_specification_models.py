@@ -162,6 +162,7 @@ def test_local_environment_database_provider_defaults_to_postgresql() -> None:
 
     assert environment.database_provider == "postgresql"
     assert environment.rabbitmq_mode == "standalone"
+    assert environment.airflow_scheduler_replicas == 1
     with pytest.raises(ValidationError):
         LocalEnvironmentSpec(database_provider="mysql")
 
@@ -197,6 +198,62 @@ def test_local_rabbitmq_cluster_requires_one_quorum_service() -> None:
     )
 
     assert specification.tooling.local_environment.rabbitmq_mode == "cluster"
+
+
+def test_local_airflow_scheduler_ha_requires_durable_jobs_and_postgres_ha() -> None:
+    database = DatabaseStoreSpec(name="automation", global_url_env="AUTOMATION_URL")
+    service = ServiceSpec(name="events", kind="rabbitmq", outbox_stores=["automation"])
+    job = DurableJobSpec(
+        name="news_collection",
+        store="automation",
+        event_type="news.collection.requested",
+        routing_key="news.collection.requested",
+    )
+    project = ProjectInfo(name="Example", package_name="example", version="0.1.0")
+
+    with pytest.raises(ValidationError, match="requires durable jobs"):
+        ProjectSpec(
+            spec_version="1",
+            project=project,
+            application=ApplicationSpec(databases=[database], services=[service]),
+            tooling=ToolingSpec(
+                local_environment=LocalEnvironmentSpec(
+                    enabled=True,
+                    postgres_mode="ha",
+                    airflow_scheduler_replicas=2,
+                )
+            ),
+        )
+    with pytest.raises(ValidationError, match="requires postgres_mode=ha"):
+        ProjectSpec(
+            spec_version="1",
+            project=project,
+            application=ApplicationSpec(
+                databases=[database], services=[service], durable_jobs=[job]
+            ),
+            tooling=ToolingSpec(
+                local_environment=LocalEnvironmentSpec(
+                    enabled=True, airflow_scheduler_replicas=2
+                )
+            ),
+        )
+
+    specification = ProjectSpec(
+        spec_version="1",
+        project=project,
+        application=ApplicationSpec(
+            databases=[database], services=[service], durable_jobs=[job]
+        ),
+        tooling=ToolingSpec(
+            local_environment=LocalEnvironmentSpec(
+                enabled=True,
+                postgres_mode="ha",
+                airflow_scheduler_replicas=2,
+            )
+        ),
+    )
+
+    assert specification.tooling.local_environment.airflow_scheduler_replicas == 2
 
 
 def test_ci_spec_requires_a_test_workflow_and_unique_providers() -> None:

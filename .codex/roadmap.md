@@ -37,12 +37,10 @@ sequencing.
 - [ ] later provider-selected Redis HA deployment contract: managed Cluster,
   Sentinel, or an explicitly selected alternative with topology, persistence,
   failover, secret, and recovery verification
-- [ ] Airflow scheduler HA generation slice: opt-in `airflow_scheduler_replicas`
-  with PostgreSQL HA metadata storage, `LocalExecutor` for the single-host
-  profile, per-scheduler health checks, and a two-scheduler failure drill. See
-  [ADR-0001](../docs/adr/0001-local-airflow-scheduler-ha.md). Webserver replicas,
-  triggerer HA, remote executors, proxy/Ingress, and multi-host deployment remain
-  separate deployment contracts.
+- [ ] Airflow multi-host deployment contract: webserver and triggerer replicas,
+  remote executor selection, shared DAG/log storage, proxy/Ingress, and
+  cross-host failure drills. The implemented single-host scheduler profile is
+  recorded in [ADR-0001](../docs/adr/0001-local-airflow-scheduler-ha.md).
 - [ ] host bootstrap/deployment contract for Docker auto-start, AWS Launch Template
   UserData, image refresh, and secret injection after registry and host ownership
   boundaries are explicit

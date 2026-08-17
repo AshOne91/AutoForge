@@ -413,6 +413,7 @@ class LocalEnvironmentSpec(StrictSpecModel):
     database_provider: Literal["postgresql"] = "postgresql"
     postgres_mode: Literal["standalone", "ha"] = "standalone"
     rabbitmq_mode: Literal["standalone", "cluster"] = "standalone"
+    airflow_scheduler_replicas: int = Field(default=1, ge=1)
     host_port_base: int | None = Field(
         default=None,
         ge=49152,
@@ -492,6 +493,15 @@ class ProjectSpec(StrictSpecModel):
             raise ValueError(
                 "local standalone RabbitMQ cannot validate queue_type=quorum"
             )
+        if local.airflow_scheduler_replicas > 1:
+            if not local.enabled:
+                raise ValueError(
+                    "Airflow scheduler HA requires local_environment.enabled"
+                )
+            if not self.application.durable_jobs:
+                raise ValueError("Airflow scheduler HA requires durable jobs")
+            if local.postgres_mode != "ha":
+                raise ValueError("Airflow scheduler HA requires postgres_mode=ha")
         if local.enabled:
             if local.application_enabled:
                 reserve("local application", local.host_port_base, (0,))

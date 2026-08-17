@@ -91,6 +91,20 @@ Cluster mode changes only the generated local broker topology. It preserves the
 consumer-facing `RABBITMQ_URL` contract and does not select a cloud broker,
 database shard, or Airflow topology.
 
+### Local Airflow scheduler replicas
+
+`tooling.local_environment.airflow_scheduler_replicas` defaults to `1`. The
+default local Durable Job profile generates one `airflow-scheduler` with
+`SequentialExecutor`. A value of `2` or more is opt-in single-host scheduler
+HA and requires `local_environment.enabled: true`, at least one Durable Job,
+and `postgres_mode: ha`.
+
+The HA profile generates indexed scheduler services, uses `LocalExecutor`,
+the PostgreSQL HA writer endpoint, a shared user-owned `AIRFLOW_FERNET_KEY`,
+and independent scheduler health checks. It changes scheduler-process
+multiplicity only: webserver replicas, triggerer replicas, remote executors,
+and multi-host deployment are not selected by this field.
+
 ## ApplicationSpec
 
 어떤 Module과 Service를 Application에 연결할지 정의한다.

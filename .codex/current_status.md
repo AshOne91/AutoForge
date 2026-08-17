@@ -100,14 +100,23 @@ AutoForge currently has working foundations for:
   a cancelled Job into a controlled failure without invoking a handler
 - `scripts/verify_scale_out.py` automates the Airflow cancellation assertion
   together with the PostgreSQL, RabbitMQ, Redis Cluster, and two-API checks
-- The generated local environment separates `airflow-init`, `airflow-webserver`,
-  and a long-running `airflow-scheduler`; KIS validates actual scheduler task
-  execution in an isolated generated Compose project. It waits for scheduler
-  DAG registration, unpauses the isolated DAG, triggers one historical logical
-  date, confirms the Durable Job through the live API, and cancels it before
-  worker claim. The generated test project uses port block `59400` and removes
-  only its own containers, network, and volume. External news-provider calls
-  and a production schedule remain unverified.
+- The default generated local environment separates `airflow-init`,
+  `airflow-webserver`, and a long-running `airflow-scheduler`; KIS validates
+  actual scheduler task execution in an isolated generated Compose project. It
+  waits for scheduler DAG registration, unpauses the isolated DAG, triggers one
+  historical logical date, confirms the Durable Job through the live API, and
+  cancels it before worker claim. The generated test project uses port block
+  `59400` and removes only its own containers, network, and volume. External
+  news-provider calls and a production schedule remain unverified.
+- The opt-in `airflow_scheduler_replicas: 2` profile is runtime-verified in an
+  isolated generated KIS environment using PostgreSQL HA. Both indexed
+  schedulers became healthy; after stopping one, the survivor scheduled a DAG
+  whose trigger task succeeded. The matching `(job_type, run_key)` produced one
+  durable Job, and the stopped scheduler rejoined healthy. The Job's business
+  handler remains intentionally unimplemented in that generated fixture, so its
+  wait task retried after the successful trigger; this does not weaken the
+  scheduler or idempotency result. See
+  [ADR-0001](../docs/adr/0001-local-airflow-scheduler-ha.md).
 - KIS's full RabbitMQ outage-recovery check verifies that a profile update
   committed during a broker outage is published after RabbitMQ recovery and
   processed exactly once by the `kis.profile.events` consumer; repeated delivery

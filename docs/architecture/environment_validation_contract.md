@@ -88,9 +88,14 @@ node data, a shared `RABBITMQ_ERLANG_COOKIE`, and HAProxy behind the unchanged
 single declared RabbitMQ service with `queue_type: quorum`, so generated event and
 dead-letter queues tolerate one broker-process failure. This is still local
 process-level resilience: all containers share one Docker host. Airflow
-currently has one scheduler and one webserver; multiple schedulers and
-webserver replicas are a separate future deployment contract, not an implied
-property of the local profile.
+defaults to one scheduler and one webserver. When
+`airflow_scheduler_replicas >= 2` is selected with PostgreSQL HA and Durable
+Jobs, the local profile generates indexed schedulers with `LocalExecutor`, a
+shared user-owned Fernet key, and independent health checks. Its acceptance
+check stops one scheduler, confirms the survivor schedules a Durable Job,
+confirms `(job_type, run_key)` creates one Job, then confirms the stopped
+scheduler rejoins. Webserver replicas, triggerer HA, remote executors, and
+multi-host deployment remain separate deployment contracts.
 
 The RabbitMQ cluster acceptance check is three running broker nodes, quorum
 event and dead-letter queues declared by generated messaging code, a successful

@@ -1,23 +1,17 @@
 # Next Task
 
-## Next executable unit: implement opt-in Airflow scheduler HA
+## Next executable unit: audit optional local service recovery contracts
 
-OWNERSHIP: AutoForge specification, validation, and local-environment generator
+OWNERSHIP: AutoForge local-environment generator, specification tests, and
+environment validation contract
 
-DECISION: [ADR-0001](../docs/adr/0001-local-airflow-scheduler-ha.md) selects
-`airflow_scheduler_replicas >= 2`, PostgreSQL HA metadata storage, and
-`LocalExecutor` for single-host scheduler HA. Existing Durable Job API
-idempotency remains the second execution boundary.
+Inspect only the already-generated optional local service profiles: RAG search
+(Elasticsearch/OpenSearch), object storage (MinIO), and observability (ELK).
+For each enabled service, determine whether the generated Compose contract has
+an explicit restart policy, health check, and persistent-volume or bind-mount
+boundary.
 
-Implement the new Local Environment specification field and validate that
-replica counts above one require local environment, Durable Jobs, and
-`postgres_mode: ha`. Preserve the default one-scheduler `SequentialExecutor`
-profile and do not change RabbitMQ, Durable Job, or PostgreSQL topology.
-
-Generate two named scheduler containers for the first HA profile, a shared
-user-owned `AIRFLOW_FERNET_KEY` reference, `LocalExecutor`, and independent
-scheduler healthchecks. Verify generator output first, then an isolated
-generated KIS runtime: stop one scheduler, trigger a new logical date through
-the surviving scheduler, confirm one Durable Job, and verify the stopped
-scheduler rejoin. Do not add Celery/Kubernetes executors, webserver replicas,
-triggerer replicas, host ports, or cloud deployment in this unit.
+Add or correct only a missing single-host recovery guarantee, with focused
+specification/generator tests. Preserve the existing provider abstraction and
+do not introduce clusters, managed-cloud integrations, or a new deployment
+topology in this unit.
