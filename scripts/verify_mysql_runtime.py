@@ -227,6 +227,27 @@ def _mysql_query(
     )
 
 
+def _application_health(root: Path) -> subprocess.CompletedProcess[str]:
+    return _compose(
+        root,
+        "exec",
+        "-T",
+        "application",
+        "python",
+        "-c",
+        "from urllib.request import urlopen; assert urlopen('http://127.0.0.1:8000/health').status == 200",
+    )
+
+
+def _verify_generated_application(root: Path) -> None:
+    LOGGER.info("starting generated application")
+    _check(
+        _compose(root, "up", "-d", "--no-deps", "application"),
+        "generated application startup",
+    )
+    _retry(lambda: _application_health(root), "generated application health")
+
+
 def _verify_mysql_ha_failover(root: Path) -> None:
     LOGGER.info("stopping generated MySQL HA primary")
     _check(_compose(root, "stop", "mysql-ha-0"), "MySQL HA primary stop")
@@ -248,6 +269,10 @@ def _verify_mysql_ha_failover(root: Path) -> None:
         )
         if "\t0" not in result.stdout:
             raise RuntimeError("MySQL HA Router did not reach a writable primary")
+        _retry(
+            lambda: _application_health(root),
+            "generated application health after MySQL HA failover",
+        )
     finally:
         LOGGER.info("restarting generated MySQL HA primary")
         _check(_compose(root, "start", "mysql-ha-0"), "MySQL HA primary restart")
@@ -297,6 +322,7 @@ def _verify(root: Path, *, mysql_mode: str) -> None:
             "generated schema verification did not find login_accounts and the Alembic version"
         )
     if mysql_mode == "ha":
+        _verify_generated_application(root)
         _verify_mysql_ha_failover(root)
 
 

@@ -102,8 +102,10 @@ version-matched MySQL Router, and exposes its writer endpoint as `mysql:6446`.
 The same acceptance command verifies the generated Router-backed application
 account, migration, Alembic version, and generated table. It stops the initial
 primary, retries an idempotent write through Router, restarts the node, and
-waits for the three-member cluster to return to `OK`. PostgreSQL-specific
-RabbitMQ, Outbox, and Durable Job generation is not supported in this profile.
+waits for the three-member cluster to return to `OK`. It also starts the
+generated application and verifies its `/health` contract before and during the
+failover sequence. PostgreSQL-specific RabbitMQ, Outbox, and Durable Job
+generation is not supported in this profile.
 
 Optional RAG, MinIO, and ELK overlays use the same service-recovery cadence:
 `restart: unless-stopped`, a 10-second healthcheck interval, a 5-second timeout,

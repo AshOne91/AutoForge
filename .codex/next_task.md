@@ -1,12 +1,11 @@
 # Next Task
 
-## Next executable unit: MySQL HA generated-application acceptance
+## Next executable unit: MySQL HA deployment-provider boundary
 
 OWNERSHIP: AutoForge local-environment generation and integration validation
 
-Extend `scripts/verify_mysql_runtime.py --mysql-mode ha` only. Start the
-generated application after the existing migration and Router checks, then prove
-its health check remains healthy while the verifier performs the current primary
-stop, Router writer retry, and node rejoin sequence. Keep the scope to the
-disposable verifier; do not add production deployment behavior or specification
-fields.
+Assess the existing local MySQL HA contract against the chosen deployment target
+without generating manifests yet. Identify the required provider-owned inputs
+(node placement, persistent storage, backups, and secret delivery) and keep the
+current local Docker generator unchanged. Record only a bounded deployment
+boundary that can later drive a Kubernetes or managed-service profile.

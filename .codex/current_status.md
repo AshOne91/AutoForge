@@ -384,9 +384,11 @@ initialization, migration, and generated-schema verification. It remains local
 process-level resilience; its disposable verifier stops the initial primary,
 confirms an idempotent Router-backed write through the promoted primary, then
 restarts and verifies the stopped node rejoined. Provider-selected production
-deployment is not implemented. PostgreSQL-specific messaging/Durable Jobs
-remain excluded from the MySQL profile. The published `mysql/mysql-router:8.0`
-image remains incompatible with MySQL 8.4 writer routing and is not generated.
+deployment is not implemented. The generated application starts and retains its
+`/health` contract throughout that failover verification. PostgreSQL-specific
+messaging/Durable Jobs remain excluded from the MySQL profile. The published
+`mysql/mysql-router:8.0` image remains incompatible with MySQL 8.4 writer
+routing and is not generated.
 
 ## Development tooling
 
