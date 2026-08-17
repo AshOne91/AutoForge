@@ -58,6 +58,9 @@ AutoForge currently has working foundations for:
   recovery with Elasticsearch index persistence. Qdrant uses an image-native
   Bash TCP probe because its minimal image has no curl; Filebeat healthchecks
   allow the generated bind-mounted config permissions.
+- ELK central and standalone collector overlays now use Compose-file-relative
+  defaults that resolve `LOG_ROOT` and `FILEBEAT_CONFIG` to the generated
+  project root in both documented launch modes.
 - Identity/Session/Sharded Profile and Scheduled Ingestion input Blueprints
 - Yahoo provider failure boundary: positive timeout and timeout/provider error
   classification with preserved causes; KIS schedules bounded durable retries

@@ -1,12 +1,11 @@
 # Next Task
 
-## Next executable unit: verify optional overlay path portability
+## Next executable unit: MySQL standalone runtime slice
 
-OWNERSHIP: AutoForge local-environment generator, specification tests, and
-environment validation contract
+OWNERSHIP: AutoForge database specification, generator, migration, and
+environment validation contracts
 
-Run the documented Compose commands from the generated project root and from
-each overlay directory. Confirm that `LOG_ROOT`, `FILEBEAT_CONFIG`, generated
-log mounts, and optional service endpoints resolve to the intended paths without
-manual absolute overrides. Correct only a proven path-contract defect; do not
-add a new deployment topology.
+Implement the smallest complete MySQL provider slice: generated Compose service,
+`asyncmy` DSN and secret boundary, MySQL migration baseline, and disposable
+validation. Preserve the existing PostgreSQL provider and portable schema
+contracts; do not redesign database generation or add MySQL HA in this unit.
