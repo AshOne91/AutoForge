@@ -84,6 +84,10 @@ AutoForge currently has working foundations for:
   HAProxy; both profile event and dead-letter queues were verified as quorum
   queues, and a new profile event was published and consumed after one broker
   stopped and rejoined.
+- The same KIS cluster proof now covers Durable Jobs: an external-call-free
+  `news_index` job completed through API, Outbox, the quorum durable-job queue,
+  and the generated worker both normally and while `rabbitmq-0` was stopped.
+  The broker then rejoined all three running cluster nodes.
 - generated KIS durable-job endpoints are runtime-verified for Bearer-token
   authentication, idempotent `(job_type, run_key)` requests, `automation` store
   routing, and status retrieval; generated Airflow uses those endpoints rather

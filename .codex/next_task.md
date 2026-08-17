@@ -1,12 +1,11 @@
 # Next Task
 
-## Next executable unit: KIS durable-job worker through RabbitMQ cluster
+## Next executable unit: KIS single-host bootstrap rebuild verification
 
-OWNERSHIP: AutoForge local-environment generator; KIS consumer specification
-and generated durable-job worker.
+OWNERSHIP: AutoForge single-host generator; KIS generated deployment overlay.
 
-Start the existing generated durable-job worker against the verified local
-RabbitMQ cluster. Submit one existing Durable Job through its public API and
-verify worker claim, completion, and status retrieval through the HAProxy
-broker endpoint. Do not add a new job type or modify user-owned job handlers
-unless this runtime check proves a concrete generator or runtime defect.
+Run the generated Windows single-host bootstrap after the RabbitMQ cluster
+regeneration. Verify it builds the current application image, starts the
+declared long-running profile without a stale-image dependency, and restores
+the Nginx health endpoint. Do not change deployment configuration unless this
+operator-level check proves a concrete generator defect.
