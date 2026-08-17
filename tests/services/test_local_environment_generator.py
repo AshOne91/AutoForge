@@ -482,7 +482,7 @@ def test_render_creates_postgresql_ha_environment() -> None:
     assert "GET /primary" in haproxy_config
 
 
-def test_render_starts_application_without_durable_jobs() -> None:
+def test_render_starts_domain_event_workers_without_durable_jobs() -> None:
     files = LocalEnvironmentGenerator().render(
         integration_specification(enabled=True, application=True)
     )
@@ -494,7 +494,8 @@ def test_render_starts_application_without_durable_jobs() -> None:
     assert "  migrate:" in compose
     assert "  application:" in compose
     assert "  airflow:" not in compose
-    assert "  outbox-relay:" not in compose
+    assert "  outbox-relay:" in compose
+    assert "  message-worker:" in compose
     assert "  durable-job-worker:" not in compose
     assert "DURABLE_JOB_API_TOKEN:" not in compose
     assert "DURABLE_JOB_API_TOKEN=" not in environment
@@ -518,6 +519,8 @@ def test_render_connects_docker_application_to_airflow() -> None:
     assert "pull_policy: never" in compose
     assert "  outbox-relay:" in compose
     assert "command: [\"python\", \"scripts/run_outbox_relay.py\"]" in compose
+    assert "  message-worker:" in compose
+    assert "command: [\"python\", \"scripts/run_message_worker.py\"]" in compose
     assert "  durable-job-worker:" in compose
     assert "command: [\"python\", \"scripts/run_durable_job_worker.py\"]" in compose
     assert "condition: service_completed_successfully" in compose
@@ -549,6 +552,7 @@ def test_render_marks_runtime_services_restartable() -> None:
         "rabbitmq",
         "application",
         "outbox-relay",
+        "message-worker",
         "durable-job-worker",
         "airflow-webserver",
         "airflow-scheduler",
@@ -565,6 +569,9 @@ def test_render_marks_runtime_services_restartable() -> None:
         "import asyncio, os, aio_pika; connection = asyncio.run(aio_pika.connect(os.environ['RABBITMQ_URL'], timeout=2)); asyncio.run(connection.close())",
     ]
     assert services["outbox-relay"]["healthcheck"]["test"] == services[
+        "durable-job-worker"
+    ]["healthcheck"]["test"]
+    assert services["message-worker"]["healthcheck"]["test"] == services[
         "durable-job-worker"
     ]["healthcheck"]["test"]
     assert services["application"]["healthcheck"]["test"] == [

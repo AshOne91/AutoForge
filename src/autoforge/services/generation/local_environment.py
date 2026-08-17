@@ -237,8 +237,18 @@ class LocalEnvironmentGenerator:
                     host_port_base=host_port_base,
                 )
             )
+            if has_rabbitmq:
+                services.append(
+                    self._render_outbox_relay(
+                        specification, has_migration=has_migration
+                    )
+                )
+                services.append(
+                    self._render_message_worker(
+                        specification, has_migration=has_migration
+                    )
+                )
             if has_durable_jobs:
-                services.append(self._render_outbox_relay(specification))
                 services.append(
                     self._render_durable_job_worker(
                         specification, has_rag=has_rag
@@ -1096,8 +1106,16 @@ class LocalEnvironmentGenerator:
             "      retries: 20\n"
         )
 
-    def _render_outbox_relay(self, specification: ProjectSpec) -> str:
+    def _render_outbox_relay(
+        self, specification: ProjectSpec, *, has_migration: bool
+    ) -> str:
         image = self._application_image(specification)
+        migration_dependency = (
+            "      migrate:\n"
+            "        condition: service_completed_successfully\n"
+            if has_migration
+            else ""
+        )
         return (
             "  outbox-relay:\n"
             f"    image: ${{APPLICATION_IMAGE:-{image}}}\n"
@@ -1113,10 +1131,39 @@ class LocalEnvironmentGenerator:
             + self._render_database_environment(specification)
             + "      RABBITMQ_URL: ${RABBITMQ_URL:?set RABBITMQ_URL}\n"
             "    depends_on:\n"
+            + migration_dependency
+            + "      rabbitmq:\n"
+            + "        condition: service_healthy\n"
+        )
+
+    def _render_message_worker(
+        self, specification: ProjectSpec, *, has_migration: bool
+    ) -> str:
+        image = self._application_image(specification)
+        migration_dependency = (
             "      migrate:\n"
             "        condition: service_completed_successfully\n"
-            "      rabbitmq:\n"
-            "        condition: service_healthy\n"
+            if has_migration
+            else ""
+        )
+        return (
+            "  message-worker:\n"
+            f"    image: ${{APPLICATION_IMAGE:-{image}}}\n"
+            "    pull_policy: never\n"
+            "    restart: unless-stopped\n"
+            "    command: [\"python\", \"scripts/run_message_worker.py\"]\n"
+            "    healthcheck:\n"
+            '      test: ["CMD", "python", "-c", "import asyncio, os, aio_pika; connection = asyncio.run(aio_pika.connect(os.environ[\'RABBITMQ_URL\'], timeout=2)); asyncio.run(connection.close())"]\n'
+            "      interval: 10s\n"
+            "      timeout: 3s\n"
+            "      retries: 3\n"
+            "    environment:\n"
+            + self._render_database_environment(specification)
+            + "      RABBITMQ_URL: ${RABBITMQ_URL:?set RABBITMQ_URL}\n"
+            "    depends_on:\n"
+            + migration_dependency
+            + "      rabbitmq:\n"
+            + "        condition: service_healthy\n"
         )
 
     def _render_durable_job_worker(
@@ -1436,8 +1483,10 @@ class LocalEnvironmentGenerator:
             services.append(
                 "three-node RabbitMQ cluster" if rabbitmq_mode == "cluster" else "RabbitMQ"
             )
+        if has_rabbitmq and has_application:
+            services.extend(["Outbox relay", "message worker"])
         if has_durable_jobs:
-            services.extend(["Airflow", "Outbox relay", "durable-job worker"])
+            services.extend(["Airflow", "durable-job worker"])
         startup_command = (
             "docker compose --env-file .env -f compose.integration.yml up -d"
             if database_provider == "mysql"
@@ -1489,8 +1538,14 @@ class LocalEnvironmentGenerator:
             )
             + (
                 "Airflow is generated paused and reads the durable-job API token from .env. "
-                "The outbox relay and durable-job worker run from the same local image.\n"
+                "The durable-job worker runs from the same local image.\n"
                 if has_durable_jobs
+                else ""
+            )
+            + (
+                "The outbox relay and scaffolded message worker run from the same local image. "
+                "Customize the scaffolded worker handler for application event consumption.\n"
+                if has_rabbitmq and has_application
                 else ""
             )
             + (
