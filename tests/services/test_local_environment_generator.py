@@ -326,6 +326,11 @@ def test_render_connects_rag_consumers_to_the_shared_network() -> None:
         "rag",
     ]
     assert compose["services"]["durable-job-worker"]["restart"] == "unless-stopped"
+    durable_worker_probe = compose["services"]["durable-job-worker"]["healthcheck"][
+        "test"
+    ][3]
+    assert "urlopen(os.environ['RAG_SEARCH_URL'] + '/_cluster/health', timeout=2)" in durable_worker_probe
+    assert "urlopen(os.environ['RAG_OLLAMA_URL'] + '/api/tags', timeout=2)" in durable_worker_probe
     assert "RAG_NETWORK_NAME=kis_auto_trading-rag" in environment
     assert "RAG_SEARCH_BACKEND=elasticsearch" in environment
     assert "RAG_SEARCH_URL=http://elasticsearch:9200" in environment

@@ -1163,6 +1163,13 @@ class LocalEnvironmentGenerator:
         restart_policy = specification.application.durable_job_worker_restart_policy
         rag_network = "    networks:\n      - default\n      - rag\n" if has_rag else ""
         rag_environment = self._render_rag_environment(specification) if has_rag else ""
+        rag_healthcheck = (
+            "; from urllib.request import urlopen; "
+            "urlopen(os.environ['RAG_SEARCH_URL'] + '/_cluster/health', timeout=2).read(); "
+            "urlopen(os.environ['RAG_OLLAMA_URL'] + '/api/tags', timeout=2).read()"
+            if has_rag
+            else ""
+        )
         return (
             "  durable-job-worker:\n"
             f"    image: ${{APPLICATION_IMAGE:-{image}}}\n"
@@ -1170,7 +1177,9 @@ class LocalEnvironmentGenerator:
             f'    restart: "{restart_policy}"\n'
             "    command: [\"python\", \"scripts/run_durable_job_worker.py\"]\n"
             "    healthcheck:\n"
-            '      test: ["CMD", "python", "-c", "import asyncio, os, aio_pika; connection = asyncio.run(aio_pika.connect(os.environ[\'RABBITMQ_URL\'], timeout=2)); asyncio.run(connection.close())"]\n'
+            '      test: ["CMD", "python", "-c", "import asyncio, os, aio_pika; connection = asyncio.run(aio_pika.connect(os.environ[\'RABBITMQ_URL\'], timeout=2)); asyncio.run(connection.close())'
+            + rag_healthcheck
+            + '"]\n'
             "      interval: 10s\n"
             "      timeout: 3s\n"
             "      retries: 3\n"
