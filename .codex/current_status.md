@@ -393,7 +393,9 @@ selected future Kubernetes MySQL HA provider is MySQL Operator for Kubernetes;
 its opt-in specification contract and generated `InnoDBCluster` manifest are
 implemented. Its generated bootstrap Secret template and README describe the
 separate root-account and TLS Secret prerequisites, but no Kubernetes runtime
-verification has run yet. The
+verification has run yet. Read-only preflight found one ready Docker Desktop
+Kubernetes node but no MySQL Operator CRD, so runtime validation remains an
+external installation prerequisite. The
 generated application starts and retains its
 `/health` contract throughout that failover verification. PostgreSQL-specific
 messaging/Durable Jobs remain excluded from the MySQL profile. The published
