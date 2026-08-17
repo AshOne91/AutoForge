@@ -231,9 +231,14 @@ availability time, so consumer retries can be delayed without changing an event'
 original occurrence time.
 
 The KIS legacy scale-out Compose profile now applies `restart: unless-stopped` to
-RabbitMQ. After a host restart, RabbitMQ and the three messaging workers were
-recreated without volume reset; the workers recovered and the scale-out API
-returned `/health` HTTP 200.
+all long-running PostgreSQL, Redis, RabbitMQ, API, worker, and Airflow services.
+Its worker RabbitMQ-connection checks and scheduler job check are live. A host
+restart exposed missing long-running-service restart policies; the persisted
+services were then recreated without volume reset, and the focused scale-out
+verification passed Airflow job paths, RabbitMQ Outbox recovery/DLQ/idempotency,
+Redis primary promotion and rejoin, and two-API session/shard behavior. This
+legacy profile still uses one RabbitMQ broker and one Airflow scheduler, so it
+is not broker or scheduler HA.
 
 The port-collision guard was also checked with explicit, non-default overrides:
 an application block at `49300`, RAG at `49400`, and central ELK at `49600`

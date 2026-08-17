@@ -37,6 +37,14 @@ sequencing.
 - [ ] later provider-selected Redis HA deployment contract: managed Cluster,
   Sentinel, or an explicitly selected alternative with topology, persistence,
   failover, secret, and recovery verification
+- [ ] RabbitMQ HA generation slice: three broker nodes, one stable client
+  endpoint, quorum queues for durable event delivery, client recovery, and a
+  one-node failure drill. The local variant proves process-level recovery only;
+  host/AZ isolation belongs to Kubernetes, multiple hosts, or a managed broker.
+- [ ] Airflow HA generation slice: PostgreSQL metadata database, an executor
+  reviewed for multi-scheduler operation, scheduler health checks, and a
+  two-scheduler failure drill. Webserver replicas require a proxy/Ingress and
+  belong to the same deployment contract.
 - [ ] host bootstrap/deployment contract for Docker auto-start, AWS Launch Template
   UserData, image refresh, and secret injection after registry and host ownership
   boundaries are explicit

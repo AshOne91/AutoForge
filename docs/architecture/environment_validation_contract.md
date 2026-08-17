@@ -75,6 +75,18 @@ user-owned
 
 ## 검증 계약
 
+## Current local availability boundary
+
+The generated local profile validates restart and recovery of its long-running
+services, PostgreSQL leader promotion, and Redis Cluster primary promotion. It
+does not claim physical-host HA: every local container shares one Docker host.
+
+RabbitMQ is currently one persisted broker. The Outbox relay and workers recover
+from a broker restart, but broker-node redundancy requires a future RabbitMQ
+cluster with quorum queues. Airflow currently has one scheduler and one
+webserver; multiple schedulers and webserver replicas are a separate future
+deployment contract, not an implied property of the local profile.
+
 ## Local PostgreSQL HA mode
 
 When `tooling.local_environment.postgres_mode: ha` is selected for a project
