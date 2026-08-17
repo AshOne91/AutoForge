@@ -1,14 +1,14 @@
 # Next Task
 
-## Next executable unit: validate the actual KIS single-host preflight
+## Next executable unit: verify recovered KIS scale-out messaging
 
 OWNERSHIP: KIS operator configuration and AutoForge-generated single-host
 artifacts
 
-EVIDENCE: the single-host audit confirms durable volumes, rotated logs, health
-checks, bootstrap/reboot recovery, and disposable restore evidence. The identity
-dump restored six public tables and both account shards restored eight public
-tables each into disposable Spilo targets.
+EVIDENCE: the legacy KIS scale-out RabbitMQ profile now has an explicit
+`restart: unless-stopped` policy. RabbitMQ was recreated without volume reset;
+the durable-job worker, message worker, and Outbox relay recovered, and API
+health returned HTTP 200.
 
 The default generated MinIO overlay remains profile-selected at execution. Its
 generated `minio-init` task creates `S3_BUCKET` idempotently, and a disposable
@@ -17,8 +17,7 @@ generated README conflict is resolved without overwriting KIS-owned operations
 documentation. PostgreSQL HA remains the selected runtime; MySQL is deferred
 until a real consumer requirement exists.
 
-Run the read-only KIS `validate-ports` command against every active Compose
-environment file, then inspect the resolved single-host Compose configuration.
-Only after those checks are clean, decide whether an actual container restart
-or backup drill is needed. Do not change database providers, add scheduling,
-or introduce new infrastructure in this unit.
+Run the focused KIS scale-out verification against the recovered profile and
+confirm the durable messaging path remains healthy after RabbitMQ recovery.
+Do not change database providers, add scheduling, or introduce new
+infrastructure in this unit.

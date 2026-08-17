@@ -230,6 +230,11 @@ The generated durable-job and Outbox repositories support a caller-supplied
 availability time, so consumer retries can be delayed without changing an event's
 original occurrence time.
 
+The KIS legacy scale-out Compose profile now applies `restart: unless-stopped` to
+RabbitMQ. After a host restart, RabbitMQ and the three messaging workers were
+recreated without volume reset; the workers recovered and the scale-out API
+returned `/health` HTTP 200.
+
 The port-collision guard was also checked with explicit, non-default overrides:
 an application block at `49300`, RAG at `49400`, and central ELK at `49600`
 validate successfully. Reusing `49400` for the application and ELK blocks is
