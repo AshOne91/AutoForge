@@ -38,6 +38,12 @@ FastAPI / worker
 운영할 수 있다. 인스턴스별 수집기는 애플리케이션 로그 디렉터리만 읽으며 Elasticsearch
 데이터 볼륨을 소유하지 않는다.
 
+중앙 `central` 오버레이의 Elasticsearch, Kibana, Filebeat와 `collector` 오버레이의
+Filebeat는 `restart: unless-stopped`와 개별 healthcheck를 가진다. 중앙 Elasticsearch와
+Filebeat registry는 named volume을 사용해 프로세스 재시작 뒤에도 상태를 보존한다.
+이 계약은 단일 Docker host의 프로세스/컨테이너 복구만 보장하며, 호스트 장애나
+다중 노드 Elasticsearch 클러스터를 의미하지 않는다.
+
 ## 소유권
 
 - AutoForge 생성 파일: 생성기와 명세가 관리한다.

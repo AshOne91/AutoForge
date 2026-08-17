@@ -74,31 +74,51 @@ class ElkStackGenerator:
       xpack.security.enabled: "false"
       xpack.license.self_generated.type: basic
       ES_JAVA_OPTS: -Xms512m -Xmx512m
+    restart: unless-stopped
     ports:
       - "127.0.0.1:${{ELASTICSEARCH_PORT:-{host_port_base}}}:9200"
     volumes:
       - elasticsearch-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://127.0.0.1:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
 
   kibana:
     image: docker.elastic.co/kibana/kibana:{version}
+    restart: unless-stopped
     environment:
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
       XPACK_SECURITY_ENABLED: "false"
     ports:
       - "127.0.0.1:${{KIBANA_PORT:-{host_port_base + 1}}}:5601"
     depends_on:
-      - elasticsearch
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://127.0.0.1:5601/api/status || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
 
   filebeat:
     image: docker.elastic.co/beats/filebeat:{version}
     user: root
     command: ["filebeat", "-e", "--strict.perms=false", "-c", "/usr/share/filebeat/filebeat.yml"]
+    restart: unless-stopped
     volumes:
       - ${{LOG_ROOT:-../logs}}:/var/log/application:ro
       - ${{FILEBEAT_CONFIG:-../deploy/observability/filebeat.yml}}:/usr/share/filebeat/filebeat.yml:ro
       - filebeat-data:/usr/share/filebeat/data
     depends_on:
-      - elasticsearch
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "filebeat", "test", "config", "-e", "--strict.perms=false", "-c", "/usr/share/filebeat/filebeat.yml"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
 
 volumes:
   elasticsearch-data:
@@ -115,10 +135,16 @@ volumes:
     environment:
       ELASTICSEARCH_HOST: ${{ELASTICSEARCH_HOST:?Set ELASTICSEARCH_HOST}}
     command: ["filebeat", "-e", "--strict.perms=false", "-c", "/usr/share/filebeat/filebeat.yml"]
+    restart: unless-stopped
     volumes:
       - ${{LOG_ROOT:-../logs}}:/var/log/application:ro
       - ${{FILEBEAT_CONFIG:-../deploy/observability/filebeat.yml}}:/usr/share/filebeat/filebeat.yml:ro
       - filebeat-data:/usr/share/filebeat/data
+    healthcheck:
+      test: ["CMD", "filebeat", "test", "config", "-e", "--strict.perms=false", "-c", "/usr/share/filebeat/filebeat.yml"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
 
 volumes:
   filebeat-data:

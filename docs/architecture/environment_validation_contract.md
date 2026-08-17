@@ -81,6 +81,12 @@ The generated local profile validates restart and recovery of its long-running
 services, PostgreSQL leader promotion, and Redis Cluster primary promotion. It
 does not claim physical-host HA: every local container shares one Docker host.
 
+Optional RAG, MinIO, and ELK overlays use the same service-recovery cadence:
+`restart: unless-stopped`, a 10-second healthcheck interval, a 5-second timeout,
+and 30 retries. The probe command remains image-native; Qdrant uses a Bash TCP
+probe because its image does not contain `curl`, while search, Kibana, and
+Filebeat use their available HTTP or native connectivity checks.
+
 The default `rabbitmq_mode: standalone` profile has one persisted broker. The
 opt-in `rabbitmq_mode: cluster` profile emits three RabbitMQ nodes, persistent
 node data, a shared `RABBITMQ_ERLANG_COOKIE`, and HAProxy behind the unchanged

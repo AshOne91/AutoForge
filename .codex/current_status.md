@@ -49,6 +49,15 @@ AutoForge currently has working foundations for:
 - default-generated, profile-selected MinIO S3-compatible local storage with
   idempotent backup-bucket bootstrap; generated Compose and an actual MinIO
   backup round trip are runtime-verified
+- optional RAG, MinIO, and ELK long-running services now generate
+  `restart: unless-stopped` plus service-specific health checks; persistent
+  Qdrant/search/Ollama/MinIO/Elasticsearch/Filebeat state remains on named
+  volumes, while one-shot initialization containers stay non-restarting. A
+  disposable generated runtime verified RAG Qdrant/OpenSearch/Ollama recovery,
+  MinIO recovery and marker persistence, and Elasticsearch/Kibana/Filebeat
+  recovery with Elasticsearch index persistence. Qdrant uses an image-native
+  Bash TCP probe because its minimal image has no curl; Filebeat healthchecks
+  allow the generated bind-mounted config permissions.
 - Identity/Session/Sharded Profile and Scheduled Ingestion input Blueprints
 - Yahoo provider failure boundary: positive timeout and timeout/provider error
   classification with preserved causes; KIS schedules bounded durable retries

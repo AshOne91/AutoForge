@@ -77,10 +77,16 @@ class RagInfrastructureGenerator:
       DISABLE_INSTALL_DEMO_CONFIG: "true"
       DISABLE_SECURITY_PLUGIN: "true"
       OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+    restart: unless-stopped
     ports:
       - "${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{OPENSEARCH_PORT:-{base + 60}}}:9200"
     volumes:
       - rag-opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://127.0.0.1:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
 
 '''
             if rag.search_backend == "opensearch"
@@ -92,10 +98,16 @@ class RagInfrastructureGenerator:
       discovery.type: single-node
       xpack.security.enabled: "false"
       ES_JAVA_OPTS: -Xms512m -Xmx512m
+    restart: unless-stopped
     ports:
       - "${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{ELASTICSEARCH_PORT:-{base + 60}}}:9200"
     volumes:
       - rag-elasticsearch-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://127.0.0.1:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
 
 '''
         )
@@ -107,20 +119,32 @@ services:
     profiles: ["rag"]
     image: qdrant/qdrant:v{rag.qdrant_version}
     networks: [rag]
+    restart: unless-stopped
     ports:
       - "${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{QDRANT_HTTP_PORT:-{base + 50}}}:6333"
       - "${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{QDRANT_GRPC_PORT:-{base + 51}}}:6334"
     volumes:
       - qdrant-storage:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
 
 {search_service}  ollama:
     profiles: ["inference"]
     image: ollama/ollama:{rag.ollama_version}
     networks: [rag]
+    restart: unless-stopped
     ports:
       - "${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{OLLAMA_PORT:-{base + 70}}}:11434"
     volumes:
       - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
 
 networks:
   rag:

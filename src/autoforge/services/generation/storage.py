@@ -75,6 +75,7 @@ services:
     profiles: ["storage"]
     image: {MINIO_IMAGE}
     command: server /data --console-address ":9001"
+    restart: unless-stopped
     environment:
       MINIO_ROOT_USER: ${{MINIO_ROOT_USER:?set MINIO_ROOT_USER}}
       MINIO_ROOT_PASSWORD: ${{MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD}}

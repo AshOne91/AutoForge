@@ -52,6 +52,15 @@ def test_rag_generator_renders_opt_in_local_services() -> None:
     parsed = yaml.safe_load(compose)
     assert set(parsed["services"]) == {"qdrant", "elasticsearch", "ollama"}
     assert parsed["services"]["ollama"]["profiles"] == ["inference"]
+    assert all(
+        service["restart"] == "unless-stopped"
+        for service in parsed["services"].values()
+    )
+    assert all("healthcheck" in service for service in parsed["services"].values())
+    assert parsed["services"]["qdrant"]["healthcheck"]["test"] == [
+        "CMD-SHELL",
+        "bash -c 'echo > /dev/tcp/127.0.0.1/6333'",
+    ]
     assert parsed["networks"]["rag"] == {
         "name": "${RAG_NETWORK_NAME:-kis_auto_trading-rag}",
         "external": True,

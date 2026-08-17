@@ -55,6 +55,7 @@ def test_object_storage_generator_renders_default_minio_contract() -> None:
     parsed = yaml.safe_load(compose)
     assert set(parsed["services"]) == {"minio", "minio-init"}
     assert parsed["services"]["minio"]["profiles"] == ["storage"]
+    assert parsed["services"]["minio"]["restart"] == "unless-stopped"
     assert parsed["services"]["minio-init"]["depends_on"]["minio"]["condition"] == "service_healthy"
 
 

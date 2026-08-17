@@ -73,6 +73,14 @@ The single-host startup contract is deliberately platform-neutral:
    recover after a process or container failure.
 2. The Docker daemon must be configured by the host operator to start during
    host boot.
+
+This recovery boundary applies to the generated long-running services in the
+optional RAG, MinIO storage, and ELK overlays. Their health checks gate readiness
+where an image exposes a local health endpoint or native connectivity check;
+one-shot initialization services remain `restart: "no"` and are rerun
+idempotently when the overlay is started again.
+All optional-service probes use the same 10-second interval, 5-second timeout,
+and 30-retry budget; only the image-native probe command varies.
 3. The operator starts or reconciles the named Compose project with
    `docker compose ... up -d --wait` after boot; this is the portable recovery
    command and is safe to repeat.

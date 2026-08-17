@@ -51,12 +51,30 @@ def test_elk_generator_renders_development_overlay_and_filebeat_config() -> None
     assert "filebeat-data:/usr/share/filebeat/data" in compose
     assert "news_collection_retries_exhausted" in readme
     assert "This is a local development profile." in readme
-    assert set(yaml.safe_load(compose)["services"]) == {
+    parsed = yaml.safe_load(compose)
+    assert set(parsed["services"]) == {
         "elasticsearch",
         "kibana",
         "filebeat",
     }
-    assert "name" not in yaml.safe_load(compose)
+    assert all(
+        service["restart"] == "unless-stopped"
+        for service in parsed["services"].values()
+    )
+    assert all("healthcheck" in service for service in parsed["services"].values())
+    assert parsed["services"]["filebeat"]["healthcheck"]["test"] == [
+        "CMD",
+        "filebeat",
+        "test",
+        "config",
+        "-e",
+        "--strict.perms=false",
+        "-c",
+        "/usr/share/filebeat/filebeat.yml",
+    ]
+    assert parsed["services"]["kibana"]["depends_on"]["elasticsearch"]["condition"] == "service_healthy"
+    assert parsed["services"]["filebeat"]["depends_on"]["elasticsearch"]["condition"] == "service_healthy"
+    assert "name" not in parsed
 
 
 def test_elk_generator_plan_marks_all_outputs_generated() -> None:
