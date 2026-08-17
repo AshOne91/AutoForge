@@ -28,6 +28,7 @@ def base_server_specification(
     application_replicas: int = 3,
     proxy_replicas: int = 2,
     mysql_ha: bool = False,
+    mysql_operator: bool = False,
 ) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
@@ -94,6 +95,23 @@ def base_server_specification(
                 "proxy_replicas": proxy_replicas,
                 "log_host_path": "/run/desktop/mnt/host/c/kis-auto-trading/logs",
                 "additional_secret_env_names": ["KIS_APP_KEY"],
+                **(
+                    {
+                        "mysql_operator": {
+                            "enabled": True,
+                            "bootstrap_secret_name": "mysql-operator-bootstrap",
+                            "tls_secret_name": "mysql-operator-tls",
+                            "cluster_name": "identity-mysql",
+                            "mysql_version": "8.4.8",
+                            "instances": 3,
+                            "router_instances": 2,
+                            "storage_class_name": "fast-ssd",
+                            "storage_size": "40Gi",
+                        }
+                    }
+                    if mysql_operator
+                    else {}
+                ),
             },
             **(
                 {
@@ -165,6 +183,30 @@ def test_render_creates_zero_secret_proxy_and_application_topology() -> None:
     assert "Database topology is provider-owned." in readme
     assert "does not create database clusters, Routers, or StatefulSets." in readme
     assert "hostPath is node-local" in readme
+    assert PurePosixPath("deploy", "kubernetes", "mysql-operator.yaml") not in files
+
+
+def test_render_creates_opt_in_mysql_operator_cluster_manifest() -> None:
+    files = KubernetesBaseServerGenerator().render(
+        base_server_specification(enabled=True, mysql_operator=True)
+    )
+
+    manifest = files[PurePosixPath("deploy", "kubernetes", "mysql-operator.yaml")]
+    document = yaml.safe_load(manifest)
+    readme = files[PurePosixPath("deploy", "kubernetes", "README.md")]
+
+    assert document["apiVersion"] == "mysql.oracle.com/v2"
+    assert document["kind"] == "InnoDBCluster"
+    assert document["metadata"]["name"] == "identity-mysql"
+    assert document["spec"]["secretName"] == "mysql-operator-bootstrap"
+    assert document["spec"]["tlsSecretName"] == "mysql-operator-tls"
+    assert document["spec"]["instances"] == 3
+    assert document["spec"]["router"]["instances"] == 2
+    assert document["spec"]["datadirVolumeClaimTemplate"]["storageClassName"] == "fast-ssd"
+    assert document["spec"]["datadirVolumeClaimTemplate"]["resources"]["requests"]["storage"] == "40Gi"
+    assert "mysql-operator.yaml" in readme
+    assert "does not install the Operator" in readme
+    assert "a MySQL Operator InnoDBCluster declaration" in readme
 
 
 def test_render_keeps_mysql_ha_as_an_external_kubernetes_database_provider() -> None:

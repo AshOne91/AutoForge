@@ -95,11 +95,12 @@ Database-generation details are owned by
 
 `tooling.kubernetes.mysql_operator` is a separate opt-in profile for the
 selected MySQL Operator for Kubernetes provider. When enabled, it requires a
-bootstrap Secret reference, cluster name, explicit MySQL member and Router
-replica counts, StorageClass, and PVC size. The profile requires the Kubernetes
-base-server profile and rejects reuse of its application runtime Secret as the
-Operator bootstrap Secret. It declares deployment input only; the current
-generator does not yet render an `InnoDBCluster` manifest.
+bootstrap Secret reference, TLS Secret reference, cluster name, explicit MySQL
+version, member and Router replica counts, StorageClass, and PVC size. The
+profile requires the Kubernetes base-server profile and rejects reuse of its
+application runtime Secret as the Operator bootstrap Secret. It declares
+deployment input and causes the Kubernetes generator to render an
+`InnoDBCluster` manifest.
 
 ### Local RabbitMQ mode
 

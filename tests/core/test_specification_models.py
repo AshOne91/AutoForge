@@ -177,7 +177,9 @@ def test_kubernetes_mysql_operator_profile_requires_ha_inputs_and_secret_split()
     profile = KubernetesMySQLOperatorSpec(
         enabled=True,
         bootstrap_secret_name="mysql-operator-bootstrap",
+        tls_secret_name="mysql-operator-tls",
         cluster_name="identity-mysql",
+        mysql_version="8.4.8",
         instances=3,
         router_instances=2,
         storage_class_name="fast-ssd",

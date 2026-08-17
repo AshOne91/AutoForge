@@ -60,12 +60,28 @@ class KubernetesBaseServerGenerator:
                 secret_name=profile.secret_name,
                 secret_environment_names=secret_environment_names,
                 collector_enabled=collector_enabled,
+                mysql_operator_enabled=profile.mysql_operator.enabled,
             ),
             PurePosixPath("deploy", "kubernetes", "secret.env.example"): "".join(
                 f"{environment_name}=\n"
                 for environment_name in secret_template_names
             ),
         }
+        if profile.mysql_operator.enabled:
+            files[PurePosixPath("deploy", "kubernetes", "mysql-operator.yaml")] = (
+                self._render_mysql_operator_manifest(
+                    application_name=application_name,
+                    namespace=profile.namespace,
+                    bootstrap_secret_name=profile.mysql_operator.bootstrap_secret_name,
+                    tls_secret_name=profile.mysql_operator.tls_secret_name,
+                    cluster_name=profile.mysql_operator.cluster_name,
+                    mysql_version=profile.mysql_operator.mysql_version,
+                    instances=profile.mysql_operator.instances,
+                    router_instances=profile.mysql_operator.router_instances,
+                    storage_class_name=profile.mysql_operator.storage_class_name,
+                    storage_size=profile.mysql_operator.storage_size,
+                )
+            )
         if collector_enabled:
             files[PurePosixPath("deploy", "kubernetes", "observability-filebeat.yaml")] = (
                 self._render_filebeat_collector_manifest(
@@ -421,6 +437,44 @@ spec:
 """
 
     @staticmethod
+    def _render_mysql_operator_manifest(
+        *,
+        application_name: str,
+        namespace: str,
+        bootstrap_secret_name: str,
+        tls_secret_name: str,
+        cluster_name: str,
+        mysql_version: str,
+        instances: int | None,
+        router_instances: int | None,
+        storage_class_name: str,
+        storage_size: str,
+    ) -> str:
+        return f"""apiVersion: mysql.oracle.com/v2
+kind: InnoDBCluster
+metadata:
+  name: {cluster_name}
+  namespace: {namespace}
+  labels:
+    app.kubernetes.io/name: {application_name}
+    app.kubernetes.io/component: database
+spec:
+  secretName: {bootstrap_secret_name}
+  tlsSecretName: {tls_secret_name}
+  instances: {instances}
+  version: {mysql_version}
+  router:
+    instances: {router_instances}
+  datadirVolumeClaimTemplate:
+    accessModes:
+    - ReadWriteOnce
+    storageClassName: {storage_class_name}
+    resources:
+      requests:
+        storage: {storage_size}
+"""
+
+    @staticmethod
     def _render_readme(
         *,
         application_name: str,
@@ -429,6 +483,7 @@ spec:
         secret_name: str,
         secret_environment_names: list[str],
         collector_enabled: bool,
+        mysql_operator_enabled: bool,
     ) -> str:
         required_keys = "".join(f"- `{name}`\n" for name in secret_environment_names)
         collector_section = ""
@@ -453,11 +508,29 @@ kubectl rollout status --namespace {namespace} daemonset/{application_name}-file
 Clusters that prohibit hostPath mounts require an approved node-log collector
 policy before this manifest can run.
 """
+        mysql_operator_section = ""
+        if mysql_operator_enabled:
+            mysql_operator_section = """
+`mysql-operator.yaml` declares an InnoDBCluster for an already-installed MySQL
+Operator. Create its separate bootstrap and TLS Secrets before applying it; this
+directory does not install the Operator or contain either Secret value.
+
+"""
+        else:
+            mysql_operator_section = """
+This profile does not create database clusters, Routers, or StatefulSets.
+
+"""
+        topology_description = (
+            "the Proxy/App topology and a MySQL Operator InnoDBCluster declaration"
+            if mysql_operator_enabled
+            else "the Proxy/App topology only"
+        )
         return f"""# {application_name} Kubernetes base_server
 
-This directory is generated from `autoforge.yaml`. It creates the Proxy/App
-topology only; it never contains Secret values and does not apply itself to a
-cluster.
+This directory is generated from `autoforge.yaml`. It creates
+{topology_description}; it never contains Secret values and does not apply
+itself to a cluster.
 
 ## Required runtime contract
 
@@ -472,9 +545,9 @@ The Secret must provide these keys before the Deployment starts:
 and keep the completed file out of Git:
 
 Database topology is provider-owned. Database URL keys are bound from this
-Secret; this profile does not create database clusters, Routers, or StatefulSets.
+Secret.
 
-```powershell
+{mysql_operator_section}```powershell
 Copy-Item secret.env.example kis_secret.env
 ```
 

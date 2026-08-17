@@ -370,7 +370,9 @@ class KubernetesMySQLOperatorSpec(StrictSpecModel):
 
     enabled: bool = False
     bootstrap_secret_name: str = ""
+    tls_secret_name: str = ""
     cluster_name: str = ""
+    mysql_version: str = ""
     instances: int | None = Field(default=None, ge=3)
     router_instances: int | None = Field(default=None, ge=2)
     storage_class_name: str = ""
@@ -382,7 +384,9 @@ class KubernetesMySQLOperatorSpec(StrictSpecModel):
             return self
         required_values = {
             "bootstrap_secret_name": self.bootstrap_secret_name,
+            "tls_secret_name": self.tls_secret_name,
             "cluster_name": self.cluster_name,
+            "mysql_version": self.mysql_version,
             "instances": self.instances,
             "router_instances": self.router_instances,
             "storage_class_name": self.storage_class_name,
@@ -394,6 +398,11 @@ class KubernetesMySQLOperatorSpec(StrictSpecModel):
                 "Kubernetes MySQL Operator requires " + ", ".join(missing)
             )
         return self
+
+    @field_validator("mysql_version")
+    @classmethod
+    def validate_mysql_version(cls, value: str) -> str:
+        return validate_semantic_version(value) if value else value
 
 
 class KubernetesSpec(StrictSpecModel):

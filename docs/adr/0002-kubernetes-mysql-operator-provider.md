@@ -30,9 +30,9 @@ storage Volume과 backup lifecycle을 관리한다.
 - 애플리케이션은 Operator가 제공하는 ClusterIP Router Service를 통해 primary에
   연결한다. Kubernetes Service의 공개 MySQL 포트는 `3306`이며 Router 내부
   target port `6446`을 애플리케이션 DSN에 직접 노출하지 않는다.
-- 인스턴스 수, Router replica 수, StorageClass, PVC 크기, node placement,
-  backup storage와 restore drill은 명세의 필수 provider 입력으로 둔다. AutoForge는
-  환경 의존 기본값을 추측하지 않는다.
+- MySQL version, TLS Secret, 인스턴스 수, Router replica 수, StorageClass, PVC
+  크기, node placement, backup storage와 restore drill은 명세의 필수 provider
+  입력으로 둔다. AutoForge는 환경 의존 기본값을 추측하지 않는다.
 
 ## 결과
 
