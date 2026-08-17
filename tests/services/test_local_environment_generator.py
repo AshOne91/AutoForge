@@ -562,6 +562,10 @@ def test_render_marks_runtime_services_restartable() -> None:
     assert services["migrate"]["restart"] == "no"
     assert services["redis-cluster-init"]["restart"] == "no"
     assert services["airflow-init"].get("restart") is None
+    assert services["rabbitmq"]["healthcheck"]["test"] == [
+        "CMD-SHELL",
+        "rabbitmq-diagnostics -q check_port_connectivity",
+    ]
     assert services["durable-job-worker"]["healthcheck"]["test"] == [
         "CMD",
         "python",

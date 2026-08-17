@@ -808,7 +808,7 @@ class LocalEnvironmentGenerator:
             f"      - \"${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{RABBITMQ_AMQP_PORT:-{amqp_port}}}:5672\"\n"
             f"      - \"${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{RABBITMQ_MANAGEMENT_PORT:-{management_port}}}:15672\"\n"
             "    healthcheck:\n"
-            "      test: [\"CMD-SHELL\", \"rabbitmq-diagnostics -q ping\"]\n"
+            "      test: [\"CMD-SHELL\", \"rabbitmq-diagnostics -q check_port_connectivity\"]\n"
             "      interval: 3s\n"
             "      timeout: 3s\n"
             "      retries: 20\n"
@@ -871,7 +871,7 @@ class LocalEnvironmentGenerator:
             f"      - ./rabbitmq/rabbitmq-{index}.conf:/etc/rabbitmq/rabbitmq.conf:ro\n"
             + depends_on
             + "    healthcheck:\n"
-            "      test: [\"CMD-SHELL\", \"rabbitmq-diagnostics -q ping\"]\n"
+            "      test: [\"CMD-SHELL\", \"rabbitmq-diagnostics -q check_port_connectivity\"]\n"
             "      interval: 3s\n"
             "      timeout: 3s\n"
             "      retries: 20\n"
