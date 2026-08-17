@@ -1,10 +1,11 @@
 # Next Task
 
-## Next executable unit: Generated Kubernetes database boundary guide
+## Next executable unit: Provider-selected Kubernetes database contract
 
-OWNERSHIP: AutoForge Kubernetes base-server generator and tests
+OWNERSHIP: deployment-provider selection; AutoForge follows after selection
 
-Add one concise explanation to the existing generated Kubernetes README: database
-topology is provider-owned, and the generated workload receives only declared
-database URLs through the named Secret. Add the smallest focused generator test.
-Do not add a database provider, `StatefulSet`, or deployment profile.
+Before generating Kubernetes database resources, select one concrete provider
+target (for example a managed database or a supported Kubernetes operator) and
+define its placement, persistent storage, backup/restore, Router exposure, and
+credential-rotation guarantees. Until then, keep the existing provider-owned
+Secret URL boundary and do not generate a database `StatefulSet`.

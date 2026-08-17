@@ -471,6 +471,9 @@ The Secret must provide these keys before the Deployment starts:
 {required_keys}Start from the generated zero-value template, fill it locally,
 and keep the completed file out of Git:
 
+Database topology is provider-owned. Database URL keys are bound from this
+Secret; this profile does not create database clusters, Routers, or StatefulSets.
+
 ```powershell
 Copy-Item secret.env.example kis_secret.env
 ```

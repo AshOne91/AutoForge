@@ -387,7 +387,8 @@ restarts and verifies the stopped node rejoined. Provider-selected production
 deployment is not implemented. The existing Kubernetes base-server generator
 continues to consume database URLs through `secretKeyRef`; it does not generate
 MySQL cluster resources. A focused generator contract test verifies that this
-boundary remains true when the same specification enables local MySQL HA. The
+boundary remains true when the same specification enables local MySQL HA, and
+the generated Kubernetes README explains the same provider-owned boundary. The
 generated application starts and retains its
 `/health` contract throughout that failover verification. PostgreSQL-specific
 messaging/Durable Jobs remain excluded from the MySQL profile. The published

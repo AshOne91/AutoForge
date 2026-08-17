@@ -162,6 +162,8 @@ def test_render_creates_zero_secret_proxy_and_application_topology() -> None:
     assert "Copy-Item secret.env.example kis_secret.env" in readme
     assert "kubectl apply" in readme
     assert "Secret values" in readme
+    assert "Database topology is provider-owned." in readme
+    assert "does not create database clusters, Routers, or StatefulSets." in readme
     assert "hostPath is node-local" in readme
 
 
