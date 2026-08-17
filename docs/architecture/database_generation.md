@@ -211,6 +211,15 @@ not provide read splitting, cross-provider migration, multi-host durability, or
 backups. PostgreSQL-specific RabbitMQ/Outbox/Durable Job generation remains
 rejected for this profile.
 
+`mysql_mode` belongs only to `LocalEnvironmentSpec`; it is not a request to
+generate Kubernetes database resources. The existing Kubernetes base-server
+generator keeps the database provider external and binds declared database URLs
+from its named Kubernetes Secret. A Kubernetes MySQL HA profile must therefore
+first declare its provider-owned contract: member placement, persistent storage,
+Router exposure, backup and restore, and credential delivery or rotation. Until
+that contract is selected, AutoForge must not emit a MySQL `StatefulSet` or
+invent provider defaults.
+
 The published `mysql/mysql-router:8.0` image must not be used with MySQL 8.4:
 local validation found it classified every member as read-only and closed the
 writer route. A generic TCP proxy is not a substitute for the version-matched

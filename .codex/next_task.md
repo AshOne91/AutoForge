@@ -1,11 +1,11 @@
 # Next Task
 
-## Next executable unit: MySQL HA deployment-provider boundary
+## Next executable unit: Kubernetes database-provider boundary test
 
-OWNERSHIP: AutoForge local-environment generation and integration validation
+OWNERSHIP: AutoForge Kubernetes base-server generator and tests
 
-Assess the existing local MySQL HA contract against the chosen deployment target
-without generating manifests yet. Identify the required provider-owned inputs
-(node placement, persistent storage, backups, and secret delivery) and keep the
-current local Docker generator unchanged. Record only a bounded deployment
-boundary that can later drive a Kubernetes or managed-service profile.
+Add one focused generator contract test that combines the local MySQL HA profile
+with the Kubernetes base-server profile. It must prove that the Kubernetes
+manifest still receives declared database URLs only through `secretKeyRef` and
+does not emit local Compose or MySQL-cluster resources. Keep both generators and
+their public specifications unchanged.
