@@ -91,6 +91,16 @@ PostgreSQL-specific RabbitMQ, Outbox, and Durable Job generation.
 Database-generation details are owned by
 [`database_generation.md`](database_generation.md).
 
+### Kubernetes MySQL Operator profile
+
+`tooling.kubernetes.mysql_operator` is a separate opt-in profile for the
+selected MySQL Operator for Kubernetes provider. When enabled, it requires a
+bootstrap Secret reference, cluster name, explicit MySQL member and Router
+replica counts, StorageClass, and PVC size. The profile requires the Kubernetes
+base-server profile and rejects reuse of its application runtime Secret as the
+Operator bootstrap Secret. It declares deployment input only; the current
+generator does not yet render an `InnoDBCluster` manifest.
+
 ### Local RabbitMQ mode
 
 `tooling.local_environment.rabbitmq_mode` is `standalone` by default. The

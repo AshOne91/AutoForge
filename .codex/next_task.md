@@ -1,10 +1,10 @@
 # Next Task
 
-## Next executable unit: MySQL Operator Kubernetes specification contract
+## Next executable unit: MySQL Operator InnoDBCluster manifest generation
 
-OWNERSHIP: AutoForge specification validation and Kubernetes generation
+OWNERSHIP: AutoForge Kubernetes base-server generator and tests
 
-Add a separate opt-in Kubernetes MySQL Operator profile to the specification.
-Require an Operator bootstrap Secret reference, cluster name, member count,
-Router replica count, StorageClass and PVC size. Keep application runtime URLs
-in the existing Kubernetes Secret. Do not render manifests in this unit.
+Render one generated `InnoDBCluster` manifest only when the opt-in profile is
+enabled. Include the declared bootstrap Secret, member and Router counts, and
+PVC template. Keep the application runtime Secret separate and do not install
+the Operator, apply resources, or add backup policy in this unit.

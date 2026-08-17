@@ -216,11 +216,11 @@ generate Kubernetes database resources. The existing Kubernetes base-server
 generator keeps the database provider external and binds declared database URLs
 from its named Kubernetes Secret. The first Kubernetes MySQL HA provider is
 MySQL Operator for Kubernetes; its decision and ownership boundary are recorded
-in [ADR-0002](../adr/0002-kubernetes-mysql-operator-provider.md). The future
-profile must declare member placement, persistent storage, Router exposure,
-backup and restore, and credential delivery or rotation. Until that profile is
-implemented, AutoForge must not emit a MySQL `StatefulSet` or invent provider
-defaults.
+in [ADR-0002](../adr/0002-kubernetes-mysql-operator-provider.md). Its opt-in
+specification profile declares the bootstrap Secret, cluster name, member and
+Router counts, StorageClass, and PVC size; manifest generation is not yet
+implemented. AutoForge must not emit a MySQL `StatefulSet` or invent provider
+defaults outside that profile.
 
 The published `mysql/mysql-router:8.0` image must not be used with MySQL 8.4:
 local validation found it classified every member as read-only and closed the

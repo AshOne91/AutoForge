@@ -365,6 +365,37 @@ class StorageSpec(StrictSpecModel):
     host_port_base: int = Field(default=49500, ge=49152, le=65400, multiple_of=100)
 
 
+class KubernetesMySQLOperatorSpec(StrictSpecModel):
+    """Declare an opt-in MySQL Operator HA profile without rendering it yet."""
+
+    enabled: bool = False
+    bootstrap_secret_name: str = ""
+    cluster_name: str = ""
+    instances: int | None = Field(default=None, ge=3)
+    router_instances: int | None = Field(default=None, ge=2)
+    storage_class_name: str = ""
+    storage_size: str = ""
+
+    @model_validator(mode="after")
+    def validate_enabled_profile(self) -> KubernetesMySQLOperatorSpec:
+        if not self.enabled:
+            return self
+        required_values = {
+            "bootstrap_secret_name": self.bootstrap_secret_name,
+            "cluster_name": self.cluster_name,
+            "instances": self.instances,
+            "router_instances": self.router_instances,
+            "storage_class_name": self.storage_class_name,
+            "storage_size": self.storage_size,
+        }
+        missing = [name for name, value in required_values.items() if not value]
+        if missing:
+            raise ValueError(
+                "Kubernetes MySQL Operator requires " + ", ".join(missing)
+            )
+        return self
+
+
 class KubernetesSpec(StrictSpecModel):
     """Generate a zero-secret Kubernetes base_server deployment profile."""
 
@@ -376,6 +407,9 @@ class KubernetesSpec(StrictSpecModel):
     proxy_replicas: int = Field(default=2, ge=1)
     log_host_path: str | None = None
     additional_secret_env_names: list[str] = Field(default_factory=list)
+    mysql_operator: KubernetesMySQLOperatorSpec = Field(
+        default_factory=lambda: KubernetesMySQLOperatorSpec()
+    )
 
     @field_validator("additional_secret_env_names")
     @classmethod
@@ -400,6 +434,15 @@ class KubernetesSpec(StrictSpecModel):
             raise ValueError("Kubernetes base_server requires an image")
         if self.enabled and not self.secret_name:
             raise ValueError("Kubernetes base_server requires a secret_name")
+        if self.mysql_operator.enabled and not self.enabled:
+            raise ValueError("Kubernetes MySQL Operator requires Kubernetes base_server")
+        if (
+            self.mysql_operator.enabled
+            and self.mysql_operator.bootstrap_secret_name == self.secret_name
+        ):
+            raise ValueError(
+                "Kubernetes MySQL Operator requires a separate bootstrap Secret"
+            )
         if self.log_host_path and not self.log_host_path.startswith("/"):
             raise ValueError("Kubernetes log_host_path must be an absolute path")
         return self

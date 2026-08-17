@@ -20,6 +20,8 @@ from autoforge.core.specification import (
     FieldType,
     FieldTypeKind,
     HttpMethod,
+    KubernetesMySQLOperatorSpec,
+    KubernetesSpec,
     LocalEnvironmentSpec,
     ModelSpec,
     ModuleInfo,
@@ -166,6 +168,40 @@ def test_local_environment_database_provider_defaults_to_postgresql() -> None:
     assert LocalEnvironmentSpec(database_provider="mysql").postgres_mode == "standalone"
     with pytest.raises(ValidationError, match="postgres_mode=standalone"):
         LocalEnvironmentSpec(database_provider="mysql", postgres_mode="ha")
+
+
+def test_kubernetes_mysql_operator_profile_requires_ha_inputs_and_secret_split() -> None:
+    with pytest.raises(ValidationError, match="bootstrap_secret_name"):
+        KubernetesMySQLOperatorSpec(enabled=True)
+
+    profile = KubernetesMySQLOperatorSpec(
+        enabled=True,
+        bootstrap_secret_name="mysql-operator-bootstrap",
+        cluster_name="identity-mysql",
+        instances=3,
+        router_instances=2,
+        storage_class_name="fast-ssd",
+        storage_size="40Gi",
+    )
+
+    with pytest.raises(ValidationError, match="requires Kubernetes base_server"):
+        KubernetesSpec(mysql_operator=profile)
+    with pytest.raises(ValidationError, match="separate bootstrap Secret"):
+        KubernetesSpec(
+            enabled=True,
+            image="example:latest",
+            secret_name="mysql-operator-bootstrap",
+            mysql_operator=profile,
+        )
+
+    specification = KubernetesSpec(
+        enabled=True,
+        image="example:latest",
+        secret_name="application-runtime",
+        mysql_operator=profile,
+    )
+
+    assert specification.mysql_operator.cluster_name == "identity-mysql"
 
 
 def test_local_rabbitmq_cluster_requires_one_quorum_service() -> None:
