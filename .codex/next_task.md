@@ -1,11 +1,12 @@
 # Next Task
 
-## Next executable unit: Yahoo provider payload-normalization test
+## Next executable unit: isolated news-content migration and indexing drill
 
-Add a focused KIS consumer test for the current nested Yahoo payload
-normalization: title, canonical URL fallback, publication time, publisher, and
-malformed-record filtering. Keep it independent of live network calls.
+Start only a named, isolated KIS environment from the current generated source,
+apply the consumer-owned news-content migration, and complete one
+`news_collection` to `news_index` handoff. Confirm the selected search backend
+stores a document with normalized `content`.
 
-Do not introduce new persisted or indexed fields. A later schema change needs
-recorded provider evidence and its own specification-to-generation vertical
-slice.
+Do not change a running development composition or existing volumes. This is a
+consumer runtime verification of the already-generated contract, not a new
+AutoForge feature.

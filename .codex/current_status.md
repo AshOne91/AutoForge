@@ -322,6 +322,11 @@ AutoForge currently has working foundations for:
 - KIS validation slice: Yahoo Finance news collection → PostgreSQL canonical records
   → durable `news_index` handoff → selectable search-backend indexing is runtime-verified
 
+- KIS news now normalizes provider text as `summary`, then `description`, then
+  `title`; AutoForge generates the nullable canonical persistence field while a
+  consumer-owned incremental migration protects existing production rows. The
+  focused normalization, hybrid-indexing, and durable-job tests pass.
+
 ## Docker work
 
 - Local Environment Generator는 생성된 Compose에서 파생한
