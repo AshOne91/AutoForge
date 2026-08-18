@@ -1,14 +1,15 @@
 # Next Task
 
-## Next executable unit: isolated HA RAG bootstrap completion drill
+## Next executable unit: isolated application crash-recovery acceptance drill
 
-OWNERSHIP: AutoForge generated Windows bootstrap and KIS HA-profile validation.
+OWNERSHIP: AutoForge generated single-host runtime contract and KIS HA-profile
+validation.
 
-Create a disposable, separately named HA Compose runtime with fresh volumes and
-non-overlapping host ports. Start the generated RAG overlay with its inference
-profile, run the generated Windows bootstrap, and verify the complete HA profile
-reaches readiness after the in-network endpoint preflight. Do not reset retained
-HA volumes in the normal KIS workspace: stale Patroni DCS state is an operator
-recovery concern, not a reason to delete possible data. Keep the durable-worker
-healthcheck as the final readiness authority; do not merge Compose projects or
-make RAG mandatory for RAG-free profiles.
+Define and run one reproducible failure mechanism that Docker recognizes as an
+unexpected application-container exit in a disposable, separately named HA
+Compose project. Verify `RestartCount` increases, the stopped replica returns
+healthy under the generated restart policy, and Nginx `/health` stays HTTP 200
+throughout. Do not use `docker stop` or `docker kill` as evidence of restart
+policy behavior: Docker treats those as operator-initiated stops. Preserve the
+normal KIS workspace and its retained HA volumes; this is an isolated validation
+task, not a reason to alter the generated runtime contract.

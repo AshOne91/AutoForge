@@ -113,6 +113,16 @@ AutoForge currently has working foundations for:
   explicit preflight error before application startup and recovery restored it. The
   full HA startup then encountered stale local Patroni DCS state from prior retained
   volumes, so the lightweight default profile was restored without deleting data.
+  A separate fresh-volume HA RAG drill then used the isolated
+  `autoforge_ha_rag_drill` Compose project and the non-overlapping `51400` port
+  block: the RAG overlay, three application replicas, Nginx, PostgreSQL HA,
+  Redis Cluster, RabbitMQ HA, and Airflow reached their declared ready or healthy
+  states, and both Nginx and Airflow health endpoints returned HTTP 200. Manually
+  stopping one application replica left Nginx health at HTTP 200 and the replica
+  returned healthy after it was started again. This proves proxy continuity, not
+  container-crash auto-restart: Docker Desktop did not increment `RestartCount`
+  for the attempted in-container PID 1 fault injection, so that narrower claim
+  remains unverified.
 - generated KIS durable-job endpoints are runtime-verified for Bearer-token
   authentication, idempotent `(job_type, run_key)` requests, `automation` store
   routing, and status retrieval; generated Airflow uses those endpoints rather
