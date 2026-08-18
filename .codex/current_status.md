@@ -36,10 +36,11 @@ AutoForge currently has working foundations for:
   `49700` HTTP binding, required local secret environment file, and process
   liveness probe. A disposable Docker Compose run verified health and authenticated
   heartbeat persistence, then removed its containers, network, and data volume.
-- Control Plane SQL migrations are currently an ordered `001`–`006` PostgreSQL
-  initialization bootstrap. They are not a durable migration runner: new files
-  are not applied automatically to an existing named volume, and provider-owned
-  application of pending versions, retry, and rollback policy remain unimplemented.
+- The local Control Plane Compose profile initializes an empty private volume
+  from ordered SQL artifacts. That Docker-entrypoint bootstrap does not record
+  applied versions in the durable migration ledger, so the explicit provider
+  CLI must not be run against the same already initialized volume. Reconciliation
+  of those two initialization paths remains outstanding.
 - The core now has a provider-neutral Control Plane migration boundary:
   immutable SQL artifacts derive a checksum, ordering rejects duplicate versions,
   direct UTF-8 SQL discovery accepts the declared zero-padded filename format and
@@ -60,6 +61,10 @@ AutoForge currently has working foundations for:
   application startup or generated Kubernetes resources. A disposable subprocess
   check verified first-run output and repeat-run silence for both a custom
   artifact and the actual `001`??`007` Control Plane directory.
+- The Control Plane container image now packages both that CLI and the declared
+  SQL artifacts while preserving its default server command. A disposable image
+  check against isolated PostgreSQL applied versions `1` through `7` once and
+  returned no output on the immediate repeat run.
 - A disposable subprocess failure drill then supplied one valid DDL artifact and
   one invalid SQL artifact to the provider CLI. It returned nonzero with only a
   bounded error type, exposed neither the database URL nor SQL text, and left no
@@ -108,7 +113,7 @@ AutoForge currently has working foundations for:
   while `/readiness` checks the configured PostgreSQL JobStore and service-heartbeat
   store through their normal read paths and returns `503` on store failure. Focused
   HTTP tests cover ready and unavailable stores. Compose intentionally continues
-  to use liveness until a provider migration executor is available.
+  to use liveness; provider migration remains an explicit pre-rollout operation.
 - KIS's default user-owned specification now opts into the generated heartbeat
   reporter. Regeneration exposed and then corrected a generator-side Ruff issue
   (lifespan import ordering and an over-broad reporter exception handler). A

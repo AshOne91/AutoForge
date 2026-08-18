@@ -1,14 +1,16 @@
 # Next Task
 
-## Next executable unit: Control Plane provider image migration boundary
+## Next executable unit: Control Plane initialization-path reconciliation
 
-OWNERSHIP: AutoForge owns ordered migration artifact discovery and the typed
-version-ledger contract. The provider-owned single executor owns when and where
-migrations run; Kubernetes application manifests must not execute them.
+OWNERSHIP: AutoForge owns the local Compose bootstrap configuration, ordered
+migration artifacts, and the durable version-ledger contract. A provider owns
+when and where the explicit executor runs; Kubernetes application manifests
+must not execute migrations.
 
-Inspect whether the existing Control Plane container image contains both the
-explicit provider CLI and declared SQL artifacts. If a small image-build change
-is genuinely required, make it and verify one provider-invoked migration against
-an isolated PostgreSQL instance. Do not add application-startup migration,
-Kubernetes Job, PostgreSQL StatefulSet/PVC, provider SDK, retry policy, rollback
-policy, or generated schema tooling in this unit.
+Establish one safe ownership boundary for a new empty Control Plane database:
+either Docker-entrypoint initialization records durable version evidence, or the
+provider CLI is the only artifact executor. Prove the chosen path against the
+existing Compose profile without reapplying schema SQL to a bootstrap-initialized
+database. Do not add application-startup migration, Kubernetes Job, PostgreSQL
+StatefulSet/PVC, provider SDK, retry policy, rollback policy, or generated schema
+tooling in this unit.

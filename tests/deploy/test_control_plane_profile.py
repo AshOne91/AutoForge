@@ -33,4 +33,6 @@ def test_control_plane_profile_config_and_secret_example_are_valid() -> None:
     assert "AUTOFORGE_DATABASE_URL=" in environment
     assert "CONTROL_PLANE_API_TOKEN=" in environment
     assert 'pip install --no-cache-dir ".[server]"' in dockerfile
-    assert '"autoforge.main", "server"' in dockerfile
+    assert "COPY deploy/postgresql/init ./deploy/postgresql/init" in dockerfile
+    assert 'ENTRYPOINT ["python", "-m", "autoforge.main"]' in dockerfile
+    assert 'CMD ["server",' in dockerfile
