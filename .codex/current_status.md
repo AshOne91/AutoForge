@@ -365,6 +365,13 @@ members, six Redis Cluster members, and three RabbitMQ members. Restarting one
 application container preserved proxied health and recovered that container. The
 drill used its own `596xx` host ports, Compose project, and volumes, leaving the
 running lightweight KIS profile unchanged.
+The same generated workspace then passed the existing isolated PostgreSQL HA
+drill: stopping `postgres-ha-0` promoted `postgres-ha-1`, HAProxy restored the
+unchanged application writer contract, and the stopped member rejoined as a
+replica. A full HA dependency-stack restart also restored the Redis Cluster and
+application health, and an explicit Patroni candidate recovered the intentionally
+leaderless three-member cluster. This is one-host logical-node failover evidence,
+not physical-host or multi-host recovery proof.
 The single-host specification now supports the explicit
 `windows_task_scheduler` bootstrap provider and generates a PowerShell script
 that reruns the named Compose project with `up -d --wait`; task registration and
