@@ -40,6 +40,12 @@ AutoForge currently has working foundations for:
   initialization bootstrap. They are not a durable migration runner: new files
   are not applied automatically to an existing named volume, and provider-owned
   version tracking, retry, and rollback policy remain unimplemented.
+- Kubernetes generation now has an opt-in Control Plane profile. It emits a
+  separate `control-plane.yaml` with a two-replica Deployment, private ClusterIP
+  Service, pre-created Secret references, `/health` liveness, and `/readiness`
+  readiness, plus a zero-value Secret template. It does not add database or
+  migration resources; generator and full-suite validation pass. Cluster runtime
+  deployment and provider migration executor verification remain pending.
 - Control Plane HTTP health is split: public `/health` remains process liveness,
   while `/readiness` checks the configured PostgreSQL JobStore and service-heartbeat
   store through their normal read paths and returns `503` on store failure. Focused

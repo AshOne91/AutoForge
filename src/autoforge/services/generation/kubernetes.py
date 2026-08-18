@@ -11,7 +11,7 @@ from autoforge.core.generation import (
 from autoforge.core.specification import ProjectSpec, ServiceSpec
 
 KUBERNETES_BASE_SERVER_GENERATOR_ID = "autoforge.generator.kubernetes-base-server"
-KUBERNETES_BASE_SERVER_GENERATOR_VERSION = "0.1.0"
+KUBERNETES_BASE_SERVER_GENERATOR_VERSION = "0.2.0"
 _COLLECTOR_SECRET_ENVIRONMENT_NAMES = (
     "ELASTICSEARCH_HOST",
     "ELASTICSEARCH_API_KEY",
@@ -66,6 +66,10 @@ class KubernetesBaseServerGenerator:
                 ),
                 mysql_operator_tls_secret_name=profile.mysql_operator.tls_secret_name,
                 mysql_operator_cluster_name=profile.mysql_operator.cluster_name,
+                control_plane_enabled=profile.control_plane.enabled,
+                control_plane_image=profile.control_plane.image,
+                control_plane_secret_name=profile.control_plane.secret_name,
+                control_plane_replicas=profile.control_plane.replicas,
             ),
             PurePosixPath("deploy", "kubernetes", "secret.env.example"): "".join(
                 f"{environment_name}=\n"
@@ -102,6 +106,21 @@ class KubernetesBaseServerGenerator:
                     version=specification.tooling.elk.version,
                 )
             )
+        if profile.control_plane.enabled:
+            files[PurePosixPath("deploy", "kubernetes", "control-plane.yaml")] = (
+                self._render_control_plane_manifest(
+                    application_name=application_name,
+                    namespace=profile.namespace,
+                    image=profile.control_plane.image,
+                    secret_name=profile.control_plane.secret_name,
+                    replicas=profile.control_plane.replicas,
+                )
+            )
+            files[
+                PurePosixPath(
+                    "deploy", "kubernetes", "control-plane-secret.env.example"
+                )
+            ] = "AUTOFORGE_DATABASE_URL=\nAUTOFORGE_CONTROL_PLANE_TOKEN=\n"
         return files
 
     def plan(self, specification: ProjectSpec) -> GenerationPlan:
@@ -263,6 +282,85 @@ spec:
         hostPath:
           path: {log_host_path}/.filebeat-data
           type: DirectoryOrCreate
+"""
+
+    @staticmethod
+    def _render_control_plane_manifest(
+        *,
+        application_name: str,
+        namespace: str,
+        image: str,
+        secret_name: str,
+        replicas: int,
+    ) -> str:
+        return f"""apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {application_name}-control-plane
+  namespace: {namespace}
+  labels:
+    app.kubernetes.io/name: {application_name}
+    app.kubernetes.io/component: control-plane
+spec:
+  replicas: {replicas}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {application_name}
+      app.kubernetes.io/component: control-plane
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {application_name}
+        app.kubernetes.io/component: control-plane
+    spec:
+      containers:
+      - name: control-plane
+        image: {image}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8000
+        env:
+        - name: AUTOFORGE_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: {secret_name}
+              key: AUTOFORGE_DATABASE_URL
+        - name: AUTOFORGE_CONTROL_PLANE_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {secret_name}
+              key: AUTOFORGE_CONTROL_PLANE_TOKEN
+        readinessProbe:
+          httpGet:
+            path: /readiness
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {application_name}-control-plane
+  namespace: {namespace}
+  labels:
+    app.kubernetes.io/name: {application_name}
+    app.kubernetes.io/component: control-plane
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {application_name}
+    app.kubernetes.io/component: control-plane
+  ports:
+  - name: http
+    port: 8000
+    targetPort: http
 """
 
     @staticmethod
@@ -498,6 +596,10 @@ spec:
         mysql_operator_bootstrap_secret_name: str,
         mysql_operator_tls_secret_name: str,
         mysql_operator_cluster_name: str,
+        control_plane_enabled: bool,
+        control_plane_image: str,
+        control_plane_secret_name: str,
+        control_plane_replicas: int,
     ) -> str:
         required_keys = "".join(f"- `{name}`\n" for name in secret_environment_names)
         collector_section = ""
@@ -545,9 +647,35 @@ Secret containing `ca.pem` for the same certificate authority.
 This profile does not create database clusters, Routers, or StatefulSets.
 
 """
+        control_plane_section = ""
+        if control_plane_enabled:
+            control_plane_section = f"""
+## Control Plane
+
+`control-plane.yaml` creates a {control_plane_replicas}-replica internal Control
+Plane Deployment and a ClusterIP Service. It uses image `{control_plane_image}`
+and the separately managed Secret `{control_plane_secret_name}`. The Secret must
+provide `AUTOFORGE_DATABASE_URL` and `AUTOFORGE_CONTROL_PLANE_TOKEN`.
+
+```powershell
+Copy-Item control-plane-secret.env.example control_plane_secret.env
+kubectl create secret generic {control_plane_secret_name} --namespace {namespace} --from-env-file=control_plane_secret.env
+kubectl apply --namespace {namespace} -f control-plane.yaml
+kubectl rollout status --namespace {namespace} deployment/{application_name}-control-plane
+```
+
+The Deployment uses `/health` for liveness and `/readiness` for database-aware
+readiness. PostgreSQL and migration execution remain provider-owned; this
+manifest does not create a database, migration Job, or public LoadBalancer.
+"""
         topology_description = (
-            "the Proxy/App topology and a MySQL Operator InnoDBCluster declaration"
+            "the Proxy/App topology, a MySQL Operator InnoDBCluster declaration, "
+            "and a Control Plane"
+            if mysql_operator_enabled and control_plane_enabled
+            else "the Proxy/App topology and a MySQL Operator InnoDBCluster declaration"
             if mysql_operator_enabled
+            else "the Proxy/App topology and a Control Plane"
+            if control_plane_enabled
             else "the Proxy/App topology only"
         )
         return f"""# {application_name} Kubernetes base_server
@@ -571,7 +699,7 @@ and keep the completed file out of Git:
 Database topology is provider-owned. Database URL keys are bound from this
 Secret.
 
-{mysql_operator_section}```powershell
+{mysql_operator_section}{control_plane_section}```powershell
 Copy-Item secret.env.example kis_secret.env
 ```
 

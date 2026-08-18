@@ -11,6 +11,7 @@ from autoforge.core.specification import (
     DatabaseStoreSpec,
     DurableJobSpec,
     ElkSpec,
+    KubernetesControlPlaneSpec,
     KubernetesSpec,
     ProjectInfo,
     ProjectSpec,
@@ -29,6 +30,7 @@ def base_server_specification(
     proxy_replicas: int = 2,
     mysql_ha: bool = False,
     mysql_operator: bool = False,
+    control_plane: bool = False,
 ) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
@@ -112,6 +114,18 @@ def base_server_specification(
                     if mysql_operator
                     else {}
                 ),
+                **(
+                    {
+                        "control_plane": {
+                            "enabled": True,
+                            "image": "autoforge-control-plane:latest",
+                            "secret_name": "autoforge-control-plane",
+                            "replicas": 2,
+                        }
+                    }
+                    if control_plane
+                    else {}
+                ),
             },
             **(
                 {
@@ -184,6 +198,41 @@ def test_render_creates_zero_secret_proxy_and_application_topology() -> None:
     assert "does not create database clusters, Routers, or StatefulSets." in readme
     assert "hostPath is node-local" in readme
     assert PurePosixPath("deploy", "kubernetes", "mysql-operator.yaml") not in files
+
+
+def test_render_creates_opt_in_control_plane_profile_separately() -> None:
+    files = KubernetesBaseServerGenerator().render(
+        base_server_specification(enabled=True, control_plane=True)
+    )
+
+    manifest = files[PurePosixPath("deploy", "kubernetes", "control-plane.yaml")]
+    documents = list(yaml.safe_load_all(manifest))
+    secret_environment = files[
+        PurePosixPath(
+            "deploy", "kubernetes", "control-plane-secret.env.example"
+        )
+    ]
+    base_manifest = files[PurePosixPath("deploy", "kubernetes", "base-server.yaml")]
+    readme = files[PurePosixPath("deploy", "kubernetes", "README.md")]
+
+    assert [document["kind"] for document in documents] == ["Deployment", "Service"]
+    deployment, service = documents
+    assert deployment["metadata"]["name"] == "kis-auto-trading-control-plane"
+    assert deployment["spec"]["replicas"] == 2
+    container = deployment["spec"]["template"]["spec"]["containers"][0]
+    assert container["image"] == "autoforge-control-plane:latest"
+    assert container["env"][0]["valueFrom"]["secretKeyRef"]["key"] == (
+        "AUTOFORGE_DATABASE_URL"
+    )
+    assert container["readinessProbe"]["httpGet"]["path"] == "/readiness"
+    assert container["livenessProbe"]["httpGet"]["path"] == "/health"
+    assert service["spec"]["type"] == "ClusterIP"
+    assert service["metadata"]["name"] == "kis-auto-trading-control-plane"
+    assert "AUTOFORGE_DATABASE_URL=\n" in secret_environment
+    assert "AUTOFORGE_CONTROL_PLANE_TOKEN=\n" in secret_environment
+    assert "control-plane" not in base_manifest
+    assert "control-plane.yaml" in readme
+    assert "does not create a database, migration Job" in readme
 
 
 def test_render_creates_opt_in_mysql_operator_cluster_manifest() -> None:
@@ -319,6 +368,21 @@ def test_enabled_profile_requires_image_and_secret_name() -> None:
 
     with pytest.raises(ValidationError, match="requires a secret_name"):
         KubernetesSpec(enabled=True, image="example:latest")
+
+    with pytest.raises(ValidationError, match="requires an image"):
+        KubernetesControlPlaneSpec(enabled=True, secret_name="control-plane")
+
+    with pytest.raises(ValidationError, match="requires a secret_name"):
+        KubernetesControlPlaneSpec(enabled=True, image="example:latest")
+
+    with pytest.raises(ValidationError, match="requires Kubernetes base_server"):
+        KubernetesSpec(
+            control_plane=KubernetesControlPlaneSpec(
+                enabled=True,
+                image="example:latest",
+                secret_name="control-plane",
+            )
+        )
 
 
 def test_kubernetes_collector_requires_elk_and_log_host_path() -> None:

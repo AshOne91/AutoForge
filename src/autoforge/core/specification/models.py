@@ -429,6 +429,23 @@ class KubernetesMySQLOperatorSpec(StrictSpecModel):
         return validate_semantic_version(value) if value else value
 
 
+class KubernetesControlPlaneSpec(StrictSpecModel):
+    """Generate an opt-in Kubernetes-native Control Plane profile."""
+
+    enabled: bool = False
+    image: str = ""
+    secret_name: str = ""
+    replicas: int = Field(default=2, ge=1)
+
+    @model_validator(mode="after")
+    def validate_enabled_profile(self) -> KubernetesControlPlaneSpec:
+        if self.enabled and not self.image:
+            raise ValueError("Kubernetes Control Plane requires an image")
+        if self.enabled and not self.secret_name:
+            raise ValueError("Kubernetes Control Plane requires a secret_name")
+        return self
+
+
 class KubernetesSpec(StrictSpecModel):
     """Generate a zero-secret Kubernetes base_server deployment profile."""
 
@@ -440,6 +457,9 @@ class KubernetesSpec(StrictSpecModel):
     proxy_replicas: int = Field(default=2, ge=1)
     log_host_path: str | None = None
     additional_secret_env_names: list[str] = Field(default_factory=list)
+    control_plane: KubernetesControlPlaneSpec = Field(
+        default_factory=lambda: KubernetesControlPlaneSpec()
+    )
     mysql_operator: KubernetesMySQLOperatorSpec = Field(
         default_factory=lambda: KubernetesMySQLOperatorSpec()
     )
@@ -467,6 +487,10 @@ class KubernetesSpec(StrictSpecModel):
             raise ValueError("Kubernetes base_server requires an image")
         if self.enabled and not self.secret_name:
             raise ValueError("Kubernetes base_server requires a secret_name")
+        if self.control_plane.enabled and not self.enabled:
+            raise ValueError(
+                "Kubernetes Control Plane requires Kubernetes base_server"
+            )
         if self.mysql_operator.enabled and not self.enabled:
             raise ValueError("Kubernetes MySQL Operator requires Kubernetes base_server")
         if (

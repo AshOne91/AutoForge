@@ -1,12 +1,12 @@
 # Next Task
 
-## Next executable unit: Control Plane Kubernetes specification profile
+## Next executable unit: Control Plane Kubernetes manifest validation
 
 OWNERSHIP: AutoForge owns the Control Plane specification and generated manifest.
-PostgreSQL migration execution remains provider-owned.
+PostgreSQL migration execution and cluster runtime remain provider-owned.
 
-Add the smallest opt-in specification profile and generator output for the
-documented Deployment, private ClusterIP Service, Secret references, and probes.
-Keep it separate from the consumer `base-server.yaml` output. Do not generate a
-migration Job, PostgreSQL StatefulSet/PVC, dashboard, metrics backend, or agent
-orchestration.
+Validate the generated Control Plane manifest against the available Kubernetes
+client/schema tooling and, when a cluster is available, perform a disposable
+apply/rollout probe. Keep it separate from consumer `base-server.yaml`. Do not
+generate a migration Job, PostgreSQL StatefulSet/PVC, dashboard, metrics backend,
+or agent orchestration.
