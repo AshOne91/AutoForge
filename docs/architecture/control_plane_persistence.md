@@ -176,7 +176,7 @@ grace period를 준다. 제한 시간을 넘으면 Pipeline과 heartbeat를 취�
 
 운영 adapter는 런타임 `create_all()`을 호출하지 않는다. schema는 버전 관리되는
 `deploy/postgresql/init/001_control_plane.sql` baseline, `002_job_leases.sql`부터
-`006_service_heartbeats.sql`까지 순서로 명시적으로 적용한다. 로컬 통합 구성은
+`007_migration_versions.sql`까지 순서로 명시적으로 적용한다. 로컬 통합 구성은
 `compose.integration.yaml`을 사용한다.
 
 이 파일 집합의 현재 실행 방식은 PostgreSQL 공식 image의 초기화 디렉터리
@@ -190,8 +190,10 @@ grace period를 준다. 제한 시간을 넘으면 Pipeline과 heartbeat를 취�
 동시 실행을 막고, `001`부터 누락된 버전을 순서대로 적용한 뒤 같은 migration
 transaction에서 durable version ledger에 성공 버전을 기록한다. 실패하면 다음 버전과
 application rollout을 진행하지 않는다. rollback은 자동 추측하지 않고 provider의
-명시적 복구 절차로 남긴다. 이 executor와 ledger가 준비되기 전에는 Control Plane
-Kubernetes manifest를 생성하지 않는다.
+명시적 복구 절차로 남긴다. `PostgreSQLMigrationExecutor`는 이 provider-owned
+경계로만 명시적으로 호출되며, advisory transaction lock 아래에서 SQL 적용과 ledger
+기록을 함께 처리한다. Control Plane Kubernetes generator는 executor와 분리된 runtime
+manifest만 생성하고 migration을 실행하지 않는다.
 
 ```powershell
 docker compose -p autoforge-control-it -f compose.integration.yaml up -d --wait
@@ -217,9 +219,10 @@ docker compose --env-file deploy/control-plane/.env -f deploy/control-plane/comp
 `.env`는 Git에서 제외되는 Docker Compose의 로컬 secret staging이다. API token과 database
 password 또는 `AUTOFORGE_DATABASE_URL`은 image·Compose manifest에 기록하지 않는다. 선택된
 Kubernetes-native profile은 같은 환경변수 계약을 미리 생성된 Kubernetes Secret의 runtime
-binding으로 사용한다. DB-aware readiness는 구현됐고 provider-owned executor와 ledger를
-사용하는 migration 계약이 확정됐지만, 해당 provider 실행기가 아직 준비되지 않았으므로
-manifest는 계속 생성하지 않는다.
+binding으로 사용한다. DB-aware readiness와 provider-owned executor/ledger 경계가
+구현됐지만, runtime manifest는 migration 실행 권한을 갖지 않는다. provider는 application
+rollout 전에 executor를 명시적으로 호출해 ledger가 현재 SQL artifact와 일치하는지
+보장해야 한다.
 
 ## 패키지 경계
 

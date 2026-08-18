@@ -16,13 +16,26 @@ class PostgreSQLMigrationVersionLedger:
         self._sessions = sessions
 
     async def list_applied(self) -> tuple[AppliedMigration, ...]:
-        statement = select(MigrationVersionRecord).order_by(MigrationVersionRecord.version)
         async with self._sessions() as session:
-            records = (await session.execute(statement)).scalars().all()
+            return await self.list_applied_in_session(session)
+
+    async def list_applied_in_session(
+        self, session: AsyncSession
+    ) -> tuple[AppliedMigration, ...]:
+        statement = select(MigrationVersionRecord).order_by(MigrationVersionRecord.version)
+        records = (await session.execute(statement)).scalars().all()
         return tuple(_to_applied(record) for record in records)
 
     async def record_applied(
         self, artifact: MigrationArtifact
+    ) -> AppliedMigration:
+        async with self._sessions() as session, session.begin():
+            return await self.record_applied_in_session(session, artifact)
+
+    async def record_applied_in_session(
+        self,
+        session: AsyncSession,
+        artifact: MigrationArtifact,
     ) -> AppliedMigration:
         statement = (
             insert(MigrationVersionRecord)
@@ -34,20 +47,19 @@ class PostgreSQLMigrationVersionLedger:
             .on_conflict_do_nothing(index_elements=("version",))
             .returning(MigrationVersionRecord)
         )
-        async with self._sessions() as session, session.begin():
-            record = (await session.execute(statement)).scalar_one_or_none()
+        record = (await session.execute(statement)).scalar_one_or_none()
+        if record is None:
+            record = await session.get(MigrationVersionRecord, artifact.version)
             if record is None:
-                record = await session.get(MigrationVersionRecord, artifact.version)
-                if record is None:
-                    raise RuntimeError("PostgreSQL did not return the migration record")
-                if (
-                    record.path != artifact.path.as_posix()
-                    or record.checksum != artifact.checksum
-                ):
-                    raise ValueError(
-                        "migration version is already recorded with a different artifact"
-                    )
-            return _to_applied(record)
+                raise RuntimeError("PostgreSQL did not return the migration record")
+            if (
+                record.path != artifact.path.as_posix()
+                or record.checksum != artifact.checksum
+            ):
+                raise ValueError(
+                    "migration version is already recorded with a different artifact"
+                )
+        return _to_applied(record)
 
 
 def _to_applied(record: MigrationVersionRecord) -> AppliedMigration:

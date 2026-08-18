@@ -7,6 +7,7 @@ import httpx
 import pytest
 
 pytest.importorskip("sqlalchemy")
+asyncpg = pytest.importorskip("asyncpg")
 
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -46,7 +47,10 @@ from autoforge.infrastructure.http import (
     create_control_plane_app,
 )
 from autoforge.infrastructure.job.postgresql import PostgreSQLJobStore
-from autoforge.infrastructure.migration import PostgreSQLMigrationVersionLedger
+from autoforge.infrastructure.migration import (
+    PostgreSQLMigrationExecutor,
+    PostgreSQLMigrationVersionLedger,
+)
 from autoforge.infrastructure.postgresql.control_plane import (
     AuditRecordRow,
     GenerationJobRecord,
@@ -159,6 +163,154 @@ def test_postgresql_persists_migration_version_ledger() -> None:
                     {"version": artifact.version},
                 )
             await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_postgresql_migration_executor_applies_once_and_rolls_back() -> None:
+    async def scenario() -> None:
+        assert DATABASE_URL is not None
+        engine = create_async_engine(DATABASE_URL)
+        sessions = async_sessionmaker(engine, expire_on_commit=False)
+        executor = PostgreSQLMigrationExecutor(sessions)
+        ledger = PostgreSQLMigrationVersionLedger(sessions)
+        successful = MigrationArtifact(
+            version=900010,
+            path="900010_executor_probe.sql",
+            sql=(
+                "CREATE TABLE autoforge_migration_executor_probe (value INTEGER NOT NULL);\n"
+                "INSERT INTO autoforge_migration_executor_probe (value) VALUES (1);"
+            ),
+        )
+        rolled_back = MigrationArtifact(
+            version=900011,
+            path="900011_executor_rollback_probe.sql",
+            sql="CREATE TABLE autoforge_migration_executor_rollback_probe (value INTEGER);",
+        )
+        failed = MigrationArtifact(
+            version=900012,
+            path="900012_executor_failure.sql",
+            sql="SELECT not_valid_postgresql_syntax;",
+        )
+        try:
+            async with engine.begin() as connection:
+                await connection.execute(
+                    text("DROP TABLE IF EXISTS autoforge_migration_executor_probe")
+                )
+                await connection.execute(
+                    text("DROP TABLE IF EXISTS autoforge_migration_executor_rollback_probe")
+                )
+                await connection.execute(
+                    text(
+                        "DELETE FROM autoforge_migration_versions "
+                        "WHERE version IN (:successful, :rolled_back, :failed)"
+                    ).bindparams(
+                        successful=successful.version,
+                        rolled_back=rolled_back.version,
+                        failed=failed.version,
+                    )
+                )
+
+            concurrent_results = await asyncio.gather(
+                executor.apply((successful,)),
+                executor.apply((successful,)),
+            )
+            async with engine.connect() as connection:
+                value = await connection.scalar(
+                    text("SELECT value FROM autoforge_migration_executor_probe")
+                )
+            with pytest.raises(asyncpg.PostgresError):
+                await executor.apply((rolled_back, failed))
+            async with engine.connect() as connection:
+                rolled_back_table = await connection.scalar(
+                    text(
+                        "SELECT to_regclass("
+                        "'autoforge_migration_executor_rollback_probe')"
+                    )
+                )
+            applied_versions = {
+                record.version for record in await ledger.list_applied()
+            }
+
+            assert sorted(len(result) for result in concurrent_results) == [0, 1]
+            assert [
+                record.version
+                for result in concurrent_results
+                for record in result
+            ] == [successful.version]
+            assert value == 1
+            assert successful.version in applied_versions
+            assert rolled_back_table is None
+            assert rolled_back.version not in applied_versions
+            assert failed.version not in applied_versions
+        finally:
+            async with engine.begin() as connection:
+                await connection.execute(
+                    text("DROP TABLE IF EXISTS autoforge_migration_executor_probe")
+                )
+                await connection.execute(
+                    text("DROP TABLE IF EXISTS autoforge_migration_executor_rollback_probe")
+                )
+                await connection.execute(
+                    text(
+                        "DELETE FROM autoforge_migration_versions "
+                        "WHERE version IN (900010, 900011, 900012)"
+                    )
+                )
+            await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_postgresql_migration_executor_bootstraps_missing_ledger() -> None:
+    async def scenario() -> None:
+        assert DATABASE_URL is not None
+        schema = "autoforge_migration_executor_bootstrap"
+        admin_engine = create_async_engine(DATABASE_URL)
+        engine = create_async_engine(
+            DATABASE_URL,
+            connect_args={"server_settings": {"search_path": schema}},
+        )
+        sessions = async_sessionmaker(engine, expire_on_commit=False)
+        executor = PostgreSQLMigrationExecutor(sessions)
+        ledger = PostgreSQLMigrationVersionLedger(sessions)
+        artifacts = (
+            MigrationArtifact(
+                version=1,
+                path="001_bootstrap_probe.sql",
+                sql="CREATE TABLE bootstrap_probe (value INTEGER NOT NULL);",
+            ),
+            MigrationArtifact(
+                version=2,
+                path="002_migration_versions.sql",
+                sql=(
+                    "CREATE TABLE autoforge_migration_versions ("
+                    "version INTEGER PRIMARY KEY, path VARCHAR(512) NOT NULL, "
+                    "checksum CHAR(64) NOT NULL, "
+                    "applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW());"
+                ),
+            ),
+        )
+        try:
+            async with admin_engine.begin() as connection:
+                await connection.execute(text(f"DROP SCHEMA IF EXISTS {schema} CASCADE"))
+                await connection.execute(text(f"CREATE SCHEMA {schema}"))
+
+            applied = await executor.apply(artifacts)
+            persisted = await ledger.list_applied()
+            async with engine.connect() as connection:
+                probe_exists = await connection.scalar(
+                    text("SELECT to_regclass('bootstrap_probe')")
+                )
+
+            assert [record.version for record in applied] == [1, 2]
+            assert [record.version for record in persisted] == [1, 2]
+            assert probe_exists == "bootstrap_probe"
+        finally:
+            await engine.dispose()
+            async with admin_engine.begin() as connection:
+                await connection.execute(text(f"DROP SCHEMA IF EXISTS {schema} CASCADE"))
+            await admin_engine.dispose()
 
     asyncio.run(scenario())
 

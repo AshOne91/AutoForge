@@ -2,7 +2,8 @@
 
 ## 상태
 
-승인됨. Control Plane Kubernetes 매니페스트 생성은 아직 구현하지 않았다.
+승인됨. Control Plane Kubernetes 매니페스트 생성과 provider-invoked migration
+executor는 구현됐으며, provider CLI와 deployment-provider wiring은 아직 구현하지 않았다.
 
 ## 맥락
 
@@ -20,7 +21,7 @@ readiness 계약 없이 이를 Kubernetes readiness probe로 재사용하면, �
 
 첫 Control Plane Kubernetes 제공자는 **Kubernetes-native**로 선택한다.
 
-- 향후 profile은 표준 `Deployment`, 내부 `ClusterIP` `Service`, 그리고 미리 생성된
+- Kubernetes profile은 표준 `Deployment`, 내부 `ClusterIP` `Service`, 그리고 미리 생성된
   opaque `Secret`만 생성한다.
 - Secret은 `AUTOFORGE_DATABASE_URL`과 `AUTOFORGE_CONTROL_PLANE_TOKEN`을 runtime
   environment로 바인딩한다. 실제 Secret 값과 생성·회전은 배포 제공자가 소유한다.
@@ -34,8 +35,9 @@ readiness 계약 없이 이를 Kubernetes readiness probe로 재사용하면, �
 - AutoForge는 `001`부터 순서가 고정된 SQL artifact만 소유한다. provider executor는
   성공한 버전을 ledger에 기록하고 실패 시 application rollout을 진행하지 않는다.
   기존 PostgreSQL initdb 방식은 로컬 빈 volume bootstrap으로만 취급한다.
-- 이 migration execution contract를 만족할 provider executor가 준비되기 전에는
-  Control Plane Kubernetes manifest를 생성하지 않는다.
+- Control Plane Kubernetes manifest는 executor와 분리된 runtime resource만 생성하며,
+  migration 실행 권한을 갖지 않는다. provider는 application rollout 전에 executor를
+  명시적으로 호출한다.
 - Control Plane Service는 기본적으로 cluster-internal이다. 외부 synthetic probe는
   Control Plane을 공용으로 노출시키기 위해 만들지 않으며, 기존 규칙대로 소비자
   애플리케이션의 public request path를 검증한다.

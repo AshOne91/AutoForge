@@ -47,8 +47,14 @@ AutoForge currently has working foundations for:
   timezone-aware, and `MigrationVersionLedger` defines the async durable-ledger
   seam. `PostgreSQLMigrationVersionLedger` and SQL `007` persist applied
   version/path/checksum evidence with database time; a disposable PostgreSQL
-  drill verified idempotent re-recording and conflicting checksum rejection. No
-  executor, startup migration, retry policy, or rollback policy exists yet.
+  drill verified idempotent re-recording and conflicting checksum rejection.
+  `PostgreSQLMigrationExecutor` now applies ordered artifacts under one
+  transaction-scoped advisory lock, records each success in that transaction,
+  skips matching versions idempotently, rejects drift, rolls back a failed batch,
+  and bootstraps the ledger when its creating artifact is supplied. Disposable
+  PostgreSQL checks verified concurrent apply, rollback, and bootstrap. No
+  application-startup migration, provider CLI, retry policy, or rollback policy
+  exists yet.
 - Kubernetes generation now has an opt-in Control Plane profile. It emits a
   separate `control-plane.yaml` with a two-replica Deployment, private ClusterIP
   Service, pre-created Secret references, `/health` liveness, and `/readiness`
