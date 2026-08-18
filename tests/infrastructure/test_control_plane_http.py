@@ -119,6 +119,13 @@ def test_trigger_is_authenticated_idempotent_and_queryable(tmp_path: Path) -> No
     assert status_response.json()["job"]["status"] == "pending"
 
 
+def test_control_plane_liveness_is_public(tmp_path: Path) -> None:
+    response = _client(tmp_path).get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
 def test_trigger_rejects_key_reuse_missing_key_and_large_body(tmp_path: Path) -> None:
     client = _client(tmp_path, max_request_bytes=256)
     first = client.post(

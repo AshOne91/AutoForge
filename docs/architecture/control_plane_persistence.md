@@ -170,6 +170,23 @@ pytest tests/integration/test_postgresql_control_plane.py -q -p no:cacheprovider
 Compose의 `autoforge_test` 계정과 password는 로컬 통합 테스트 전용이다. 운영 비밀은
 파일이나 image에 넣지 않고 배포 환경의 secret provider로 주입해야 한다.
 
+`deploy/control-plane/compose.yaml`은 heartbeat intake를 위한 별도 로컬 운영 profile이다.
+`control-db`는 named volume과 migration mount를 사용하지만 host port를 열지 않으며,
+`control-plane`만 기본 `127.0.0.1:49700`을 공개한다. profile은 DB health 뒤에만 server를
+시작하고 `/health` liveness probe를 사용한다. 이 probe는 HTTP process liveness만 확인하며
+traffic routing의 권한은 유지하되 PostgreSQL의 별도 장애 진단을 대신하지 않는다.
+
+```powershell
+Copy-Item deploy/control-plane/.env.example deploy/control-plane/.env
+# .env의 모든 sample credential을 교체한다.
+docker compose --env-file deploy/control-plane/.env -f deploy/control-plane/compose.yaml up -d --build --wait
+```
+
+`.env`는 Git에서 제외되는 Docker Compose의 로컬 secret staging이다. API token과 database
+password 또는 `AUTOFORGE_DATABASE_URL`은 image·Compose manifest에 기록하지 않는다. Kubernetes
+또는 managed provider를 선택하면 같은 환경변수 계약을 해당 provider의 Secret mechanism으로
+바인딩해야 한다.
+
 ## 패키지 경계
 
 로컬 생성 CLI는 PostgreSQL을 요구하지 않는다. 제어면 서버를 실행할 때만 다음 extra를

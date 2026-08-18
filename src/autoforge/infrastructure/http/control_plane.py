@@ -78,6 +78,11 @@ def create_control_plane_app(
     )
     bearer = HTTPBearer(auto_error=False)
 
+    @app.get("/health")
+    async def health() -> dict[str, str]:
+        """Unauthenticated process liveness for local and orchestrator probes."""
+        return {"status": "ok"}
+
     async def require_authentication(
         credentials: Annotated[
             HTTPAuthorizationCredentials | None, Depends(bearer)

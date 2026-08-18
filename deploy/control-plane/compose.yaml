@@ -1,0 +1,39 @@
+services:
+  control-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${CONTROL_DB_NAME:?set CONTROL_DB_NAME}
+      POSTGRES_USER: ${CONTROL_DB_USER:?set CONTROL_DB_USER}
+      POSTGRES_PASSWORD: ${CONTROL_DB_PASSWORD:?set CONTROL_DB_PASSWORD}
+    volumes:
+      - control-db-data:/var/lib/postgresql/data
+      - ../postgresql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  control-plane:
+    build:
+      context: ../..
+      dockerfile: deploy/control-plane/Dockerfile
+    image: autoforge-control-plane:local
+    restart: unless-stopped
+    depends_on:
+      control-db:
+        condition: service_healthy
+    environment:
+      AUTOFORGE_DATABASE_URL: ${AUTOFORGE_DATABASE_URL:?set AUTOFORGE_DATABASE_URL}
+      AUTOFORGE_CONTROL_PLANE_TOKEN: ${CONTROL_PLANE_API_TOKEN:?set CONTROL_PLANE_API_TOKEN}
+    ports:
+      - "${CONTROL_PLANE_BIND_ADDRESS:-127.0.0.1}:${CONTROL_PLANE_PORT:-49700}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health', timeout=2).read()"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  control-db-data:

@@ -1,0 +1,9 @@
+project:
+  name: AutoForge Control Plane
+  version: "0.1.0"
+workspace:
+  output: /workspace/output
+logging:
+  level: INFO
+plugins:
+  enabled: []

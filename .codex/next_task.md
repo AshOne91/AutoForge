@@ -1,12 +1,13 @@
 # Next Task
 
-## Next executable unit: Control Plane heartbeat deployment profile
+## Next executable unit: KIS local heartbeat opt-in validation
 
-OWNERSHIP: AutoForge owns the Control Plane deployment contract and generated
-heartbeat configuration. KIS remains the consumer validation project.
+OWNERSHIP: AutoForge owns generated reporter behavior and the Control Plane
+deployment contract. KIS owns selection of the optional reporter in its project
+specification and local secret values.
 
-Define one minimal deployment profile for the existing authenticated heartbeat
-intake and its PostgreSQL persistence. Bind the reporter endpoint and token only
-through the selected deployment secret mechanism, preserve Pull probes as the
-routing/restart authority, and validate one disposable runtime path before opting
-KIS in. Do not add a sidecar, dashboard, metrics backend, or agent orchestration.
+Select the optional reporter in KIS's user-owned project specification, regenerate
+only generated-owned output, and point the local application to the separately
+started Control Plane profile through its endpoint/token environment contract.
+Verify one KIS report persists in Control Plane without exposing credentials in
+Git. Do not add a sidecar, dashboard, metrics backend, or agent orchestration.

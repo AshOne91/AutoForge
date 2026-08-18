@@ -21,8 +21,10 @@ change container-internal ports or Kubernetes Service ports.
    environments.
 5. Within that block: application `+00`, selected database provider `+10`, RabbitMQ AMQP
    `+30`, RabbitMQ management `+31`, and Airflow `+40`.
-6. The central ELK profile uses its own declared `tooling.elk.host_port_base`:
-   Elasticsearch `+00` and Kibana `+01`; Filebeat remains internal-only.
+6. Central profiles reserve explicit host ports outside generated project blocks:
+   ELK uses `49600`/`49601` for Elasticsearch/Kibana, and the AutoForge Control
+   Plane uses `49700` for its HTTP API. Filebeat and the Control Plane PostgreSQL
+   service remain internal-only.
 7. When the optional single-host public proxy is enabled, it uses the same
    application `+00` host port and removes the application's direct host
    binding. This keeps one public owner for the port while allowing replicas.

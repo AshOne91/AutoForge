@@ -31,6 +31,11 @@ AutoForge currently has working foundations for:
   application container. Generator/specification/Compose focused tests pass, and
   an in-process generated-reporter to Control Plane interoperability test confirms
   authenticated storage of normalized instance/version/dependency data.
+- local Control Plane heartbeat deployment profile: an independently built server
+  image, private PostgreSQL volume, versioned SQL initialization, loopback-only
+  `49700` HTTP binding, required local secret environment file, and process
+  liveness probe. A disposable Docker Compose run verified health and authenticated
+  heartbeat persistence, then removed its containers, network, and data volume.
 - GitHub webhook verification and delivery deduplication
 - GitHub Actions/Jenkins validation configuration generation
 - generated Dockerfile and local/integration Compose environments
