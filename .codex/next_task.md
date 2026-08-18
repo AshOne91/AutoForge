@@ -1,11 +1,12 @@
 # Next Task
 
-## Next executable unit: RAG overlay bootstrap preflight
+## Next executable unit: RAG endpoint bootstrap preflight
 
 OWNERSHIP: AutoForge local-environment generator and generated worker runtime
 contract.
 
-Add the smallest read-only preflight to the generated RAG-enabled bootstrap
-boundary, if the existing documented launch order is insufficient to identify a
-missing external RAG network or endpoint before Compose startup. Preserve
-separate Compose projects and keep RAG-free profiles unchanged.
+Review whether the generated bootstrap should perform a bounded read-only
+endpoint check for the selected RAG search backend and Ollama after the external
+network check but before application startup. Keep the existing Worker
+healthcheck as the final readiness authority; do not merge Compose projects or
+make RAG mandatory for RAG-free profiles.

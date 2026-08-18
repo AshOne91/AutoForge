@@ -103,6 +103,9 @@ AutoForge currently has working foundations for:
 - RAG-enabled single-host README generation now documents the separate RAG
   overlay and inference-profile startup order; the generated KIS README was
   regenerated and pushed without merging Compose projects.
+- The generated Windows single-host bootstrap now checks the resolved external
+  RAG network before image build or Compose startup. KIS bootstrap passed that
+  preflight, rebuilt the image, and restored the complete declared profile.
 - generated KIS durable-job endpoints are runtime-verified for Bearer-token
   authentication, idempotent `(job_type, run_key)` requests, `automation` store
   routing, and status retrieval; generated Airflow uses those endpoints rather
