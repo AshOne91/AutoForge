@@ -60,6 +60,10 @@ AutoForge currently has working foundations for:
   `/readiness` 200 with `{"status":"ready"}`, and the Service was confirmed as
   `ClusterIP:8000`. The namespace and temporary database container were removed
   after verification.
+- The provider-backed Control Plane replica continuity drill deleted one running
+  Pod, confirmed the surviving Pod's ClusterIP `/readiness` remained 200 and its
+  local `/health` remained 200, then observed Kubernetes recreate the deleted Pod.
+  Both replicas returned `Ready=True`; all disposable resources were removed.
 - Control Plane HTTP health is split: public `/health` remains process liveness,
   while `/readiness` checks the configured PostgreSQL JobStore and service-heartbeat
   store through their normal read paths and returns `503` on store failure. Focused
