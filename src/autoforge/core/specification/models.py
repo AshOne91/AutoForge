@@ -195,12 +195,36 @@ class DurableJobSpec(StrictSpecModel):
         return value
 
 
+class ControlPlaneHeartbeatSpec(StrictSpecModel):
+    """Opt in to generated application heartbeats for an AutoForge Control Plane."""
+
+    enabled: bool = False
+    endpoint_env: str = Field(
+        default="CONTROL_PLANE_HEARTBEAT_URL",
+        pattern=r"^[A-Z][A-Z0-9_]*$",
+    )
+    token_env: str = Field(
+        default="CONTROL_PLANE_API_TOKEN",
+        pattern=r"^[A-Z][A-Z0-9_]*$",
+    )
+    interval_seconds: int = Field(default=30, ge=5, le=3600)
+
+    @model_validator(mode="after")
+    def validate_environment_names(self) -> ControlPlaneHeartbeatSpec:
+        if self.endpoint_env == self.token_env:
+            raise ValueError("heartbeat endpoint_env and token_env must differ")
+        return self
+
+
 class ApplicationSpec(StrictSpecModel):
     framework: Literal["fastapi"] = "fastapi"
     modules: list[str] = Field(default_factory=list)
     services: list[ServiceSpec] = Field(default_factory=list)
     databases: list[DatabaseStoreSpec] = Field(default_factory=list)
     durable_jobs: list[DurableJobSpec] = Field(default_factory=list)
+    control_plane_heartbeat: ControlPlaneHeartbeatSpec = Field(
+        default_factory=ControlPlaneHeartbeatSpec
+    )
     durable_job_worker_restart_policy: Literal[
         "no", "on-failure", "always", "unless-stopped"
     ] = "unless-stopped"
@@ -525,6 +549,15 @@ class ProjectSpec(StrictSpecModel):
 
     @model_validator(mode="after")
     def validate_host_port_collisions(self) -> ProjectSpec:
+        heartbeat = self.application.control_plane_heartbeat
+        if heartbeat.enabled and len(self.project.package_name) > 128:
+            raise ValueError(
+                "Control Plane heartbeat requires a package_name of at most 128 characters"
+            )
+        if heartbeat.enabled and len(self.project.version) > 128:
+            raise ValueError(
+                "Control Plane heartbeat requires a version of at most 128 characters"
+            )
         published: dict[int, list[str]] = {}
 
         def reserve(label: str, base: int | None, offsets: tuple[int, ...]) -> None:

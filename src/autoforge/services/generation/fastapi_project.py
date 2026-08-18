@@ -41,7 +41,9 @@ class FastAPIProjectGenerator:
         has_database = bool(database_stores)
         has_session_store = bool(session_services)
         has_durable_jobs = bool(specification.application.durable_jobs)
-        has_lifespan = has_database or has_session_store
+        heartbeat = specification.application.control_plane_heartbeat
+        has_heartbeat_reporter = heartbeat.enabled
+        has_lifespan = has_database or has_session_store or has_heartbeat_reporter
         database_provider = specification.tooling.local_environment.database_provider
         database_env_names = [
             environment_name
@@ -117,6 +119,22 @@ class FastAPIProjectGenerator:
                 package_name,
                 has_database=has_database,
                 has_session_store=has_session_store,
+                has_heartbeat_reporter=has_heartbeat_reporter,
+            )
+        if has_heartbeat_reporter:
+            rendered[
+                package_root / "application" / "generated" / "service_heartbeat.py"
+            ] = self._render_service_heartbeat_reporter(
+                package_name=package_name,
+                service_name=package_name,
+                deployed_version=project.version,
+                endpoint_env=heartbeat.endpoint_env,
+                token_env=heartbeat.token_env,
+                interval_seconds=heartbeat.interval_seconds,
+                dependencies={
+                    **({"database": "ok"} if has_database else {}),
+                    **({"session_store": "ok"} if has_session_store else {}),
+                },
             )
         if has_durable_jobs:
             rendered[package_root / "routers" / "durable_jobs.py"] = (
@@ -699,6 +717,7 @@ class FastAPIProjectGenerator:
         *,
         has_database: bool,
         has_session_store: bool,
+        has_heartbeat_reporter: bool,
     ) -> str:
         imports = ""
         entries = ""
@@ -720,6 +739,15 @@ class FastAPIProjectGenerator:
             entries += (
                 "        await stack.enter_async_context(session_store_lifespan(app))\n"
             )
+        if has_heartbeat_reporter:
+            imports += (
+                f"from {package_name}.application.generated.service_heartbeat import (\n"
+                "    service_heartbeat_lifespan,\n"
+                ")\n"
+            )
+            entries += (
+                "        await stack.enter_async_context(service_heartbeat_lifespan(app))\n"
+            )
         return (
             "from collections.abc import AsyncIterator\n"
             "from contextlib import AsyncExitStack, asynccontextmanager\n"
@@ -739,4 +767,94 @@ class FastAPIProjectGenerator:
             "            yield\n"
             "        finally:\n"
             "            LOGGER.info('application stopping')\n"
+        )
+
+    @staticmethod
+    def _render_service_heartbeat_reporter(
+        *,
+        package_name: str,
+        service_name: str,
+        deployed_version: str,
+        endpoint_env: str,
+        token_env: str,
+        interval_seconds: int,
+        dependencies: dict[str, str],
+    ) -> str:
+        return (
+            "import asyncio\n"
+            "import json\n"
+            "import os\n"
+            "import re\n"
+            "import socket\n"
+            "from collections.abc import AsyncIterator\n"
+            "from contextlib import asynccontextmanager, suppress\n"
+            "from urllib.request import Request, urlopen\n"
+            "\n"
+            "from fastapi import FastAPI\n"
+            "\n"
+            f"from {package_name}.application.observability import LOGGER\n"
+            "\n"
+            f"_ENDPOINT_ENV = {endpoint_env!r}\n"
+            f"_TOKEN_ENV = {token_env!r}\n"
+            f"_SERVICE_NAME = {service_name!r}\n"
+            f"_DEPLOYED_VERSION = {deployed_version!r}\n"
+            f"_DEPENDENCIES = {dependencies!r}\n"
+            f"_INTERVAL_SECONDS = {interval_seconds}\n"
+            "\n"
+            "\n"
+            "@asynccontextmanager\n"
+            "async def service_heartbeat_lifespan(_app: FastAPI) -> AsyncIterator[None]:\n"
+            "    endpoint = os.getenv(_ENDPOINT_ENV)\n"
+            "    token = os.getenv(_TOKEN_ENV)\n"
+            "    if not endpoint or not token:\n"
+            "        LOGGER.info('service heartbeat reporter disabled')\n"
+            "        yield\n"
+            "        return\n"
+            "    task = asyncio.create_task(\n"
+            "        _report_forever(endpoint=endpoint, token=token),\n"
+            "        name='service-heartbeat-reporter',\n"
+            "    )\n"
+            "    try:\n"
+            "        yield\n"
+            "    finally:\n"
+            "        task.cancel()\n"
+            "        with suppress(asyncio.CancelledError):\n"
+            "            await task\n"
+            "\n"
+            "\n"
+            "async def _report_forever(*, endpoint: str, token: str) -> None:\n"
+            "    while True:\n"
+            "        try:\n"
+            "            await asyncio.to_thread(_post_heartbeat, endpoint, token)\n"
+            "        except Exception as error:\n"
+            "            LOGGER.warning(\n"
+            "                'service heartbeat report failed: %s', type(error).__name__\n"
+            "            )\n"
+            "        await asyncio.sleep(_INTERVAL_SECONDS)\n"
+            "\n"
+            "\n"
+            "def _post_heartbeat(endpoint: str, token: str) -> None:\n"
+            "    payload = {\n"
+            "        'instance_id': _instance_id(),\n"
+            "        'service_name': _SERVICE_NAME,\n"
+            "        'deployed_version': _DEPLOYED_VERSION,\n"
+            "        'dependencies': _DEPENDENCIES,\n"
+            "    }\n"
+            "    request = Request(\n"
+            "        endpoint,\n"
+            "        data=json.dumps(payload).encode(),\n"
+            "        headers={\n"
+            "            'Authorization': f'Bearer {token}',\n"
+            "            'Content-Type': 'application/json',\n"
+            "        },\n"
+            "        method='POST',\n"
+            "    )\n"
+            "    with urlopen(request, timeout=5) as response:\n"
+            "        response.read()\n"
+            "\n"
+            "\n"
+            "def _instance_id() -> str:\n"
+            "    candidate = os.getenv('POD_NAME') or os.getenv('HOSTNAME') or socket.gethostname()\n"
+            "    normalized = re.sub(r'[^A-Za-z0-9._:-]', '-', candidate).strip('-')\n"
+            "    return normalized[:128] or 'unknown'\n"
         )

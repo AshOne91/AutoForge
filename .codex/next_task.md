@@ -1,13 +1,13 @@
 # Next Task
 
-## Next executable unit: generated service-heartbeat reporter design slice
+## Next executable unit: generated reporter / Control Plane interoperability test
 
-OWNERSHIP: AutoForge generated runtime contract and Control Plane heartbeat API;
-KIS is the consumer validation project.
+OWNERSHIP: AutoForge owns both the generated reporter contract and the Control
+Plane heartbeat API. KIS remains the consumer validation project.
 
-Design the smallest generated service reporter that can post its instance
-identity, deployed version, and bounded dependency summary to the implemented
-Control Plane API. Reuse existing generated configuration and application
-lifespan boundaries. Keep reporting opt-in and do not add a sidecar, dashboard,
-metrics backend, or agent orchestration before a real KIS runtime path selects
-the feature.
+Run one generated, opt-in reporter against the authenticated in-process Control
+Plane heartbeat endpoint. Verify one stored payload contains the generated package
+name, deployed version, normalized instance identity, and only the bounded
+database/session dependency summary. Keep missing configuration and failed posts
+non-fatal. Do not add a KIS manifest, Kubernetes Secret binding, sidecar,
+dashboard, metrics backend, or agent orchestration.

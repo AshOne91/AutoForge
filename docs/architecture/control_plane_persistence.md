@@ -43,9 +43,18 @@ Event payload 전체는 audit table에 저장하지 않는다. 명세, token, pa
 
 이는 Push 기반 관측 증거이며 Compose/Kubernetes healthcheck, readiness probe 또는
 외부 synthetic probe를 대체하지 않는다. Push 보고는 instance identity와 배포 version을
-보완하지만, traffic routing과 restart 판단은 계속 Pull probe가 소유한다. 초기 slice는
-Control Plane intake와 persistence만 제공하며, generated service reporter, dashboard,
-metrics backend와 agent orchestration은 포함하지 않는다.
+보완하지만, traffic routing과 restart 판단은 계속 Pull probe가 소유한다.
+
+생성 FastAPI application은 `application.control_plane_heartbeat.enabled`로 reporter를
+선택할 수 있다. 생성된 reporter는 database/session-store lifespan이 성공한 뒤 시작하며,
+`CONTROL_PLANE_HEARTBEAT_URL`과 `CONTROL_PLANE_API_TOKEN`이 모두 있을 때만
+`POST /v1/service-heartbeats`로 package name, deployed version, hostname/POD_NAME 기반
+instance identity, 그리고 시작 완료된 database/session-store의 최대 두 dependency 상태를
+보고한다. URL 또는 token이 없으면 application은 정상적으로 시작하고 reporter만 비활성화된다.
+보고 실패도 secret 또는 URL을 기록하지 않는 경고만 남기며 readiness를 실패시키지 않는다.
+
+Kubernetes Secret binding, Control Plane deployment profile, dashboard, metrics backend와
+agent orchestration은 이 계약에 포함하지 않는다.
 
 ## 동시성 계약
 

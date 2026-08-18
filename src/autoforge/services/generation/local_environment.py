@@ -1119,6 +1119,13 @@ class LocalEnvironmentGenerator:
             if has_durable_jobs
             else ""
         )
+        heartbeat_environment = ""
+        heartbeat = specification.application.control_plane_heartbeat
+        if heartbeat.enabled:
+            heartbeat_environment = (
+                f"      {heartbeat.endpoint_env}: ${{{heartbeat.endpoint_env}:-}}\n"
+                f"      {heartbeat.token_env}: ${{{heartbeat.token_env}:-}}\n"
+            )
         rag_environment = self._render_rag_environment(specification) if has_rag else ""
         dependency_targets: list[tuple[str, int]] = []
         if specification.application.databases:
@@ -1171,6 +1178,7 @@ class LocalEnvironmentGenerator:
             + self._render_database_environment(specification)
             + redis_environment
             + durable_job_environment
+            + heartbeat_environment
             + rag_environment
             + "      LOG_DIRECTORY: /app/logs\n"
             "    ports:\n"
@@ -1527,6 +1535,14 @@ class LocalEnvironmentGenerator:
             )
         if has_application:
             lines.append(f"APPLICATION_PORT={application_port}\n")
+        heartbeat = specification.application.control_plane_heartbeat
+        if heartbeat.enabled and has_application:
+            lines.extend(
+                [
+                    f"{heartbeat.endpoint_env}=\n",
+                    f"{heartbeat.token_env}=\n",
+                ]
+            )
         if has_rag:
             search_backend = specification.tooling.rag.search_backend
             lines.extend(

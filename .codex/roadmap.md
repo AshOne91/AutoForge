@@ -49,10 +49,10 @@ sequencing.
 - [ ] host bootstrap/deployment contract for Docker auto-start, AWS Launch Template
   UserData, image refresh, and secret injection after registry and host ownership
   boundaries are explicit
-- [ ] generated-service heartbeat reporter and Control Plane deployment integration
-  after the implemented authenticated, expiring PostgreSQL heartbeat intake;
+- [ ] Control Plane deployment integration for generated service heartbeats:
   retain generated Compose/Kubernetes pull probes as the routing and restart
-  authority, and retain an external synthetic probe for public-path checks
+  authority, bind endpoint/token only through the selected deployment secret
+  mechanism, and retain an external synthetic probe for public-path checks
 - [ ] external metrics backend adapter (Prometheus/OpenTelemetry, when selected)
 - [ ] artifact publishing
 - [ ] deployment plugins

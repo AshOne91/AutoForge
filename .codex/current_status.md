@@ -24,6 +24,12 @@ AutoForge currently has working foundations for:
   An isolated PostgreSQL verification applied migrations `001` through `006` and
   confirmed heartbeat upsert, database-timestamped expiry, and active-report
   retrieval.
+- opt-in generated FastAPI service-heartbeat reporter: the application lifespan
+  starts it only after generated database/session-store lifespans; missing endpoint
+  or token disables reporting without affecting readiness. The local Compose profile
+  passes the empty-by-default endpoint and token environment contract into the
+  application container. Generator/specification/Compose focused tests pass; a live
+  reporter-to-Control-Plane interoperability run remains next.
 - GitHub webhook verification and delivery deduplication
 - GitHub Actions/Jenkins validation configuration generation
 - generated Dockerfile and local/integration Compose environments

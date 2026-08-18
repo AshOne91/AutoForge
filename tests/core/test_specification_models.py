@@ -7,6 +7,7 @@ from autoforge.core.specification import (
     CiSpec,
     CiWorkflow,
     ColumnSpec,
+    ControlPlaneHeartbeatSpec,
     DatabaseShardSpec,
     DatabaseSpec,
     DatabaseStoreSpec,
@@ -120,6 +121,29 @@ def test_create_minimal_project_spec() -> None:
     assert spec.tooling.ruff_exclude == []
     assert spec.tooling.ci.providers == []
     assert spec.tooling.docker.enabled is False
+
+
+def test_control_plane_heartbeat_is_opt_in_and_rejects_duplicate_environment_names() -> None:
+    assert ApplicationSpec().control_plane_heartbeat.enabled is False
+    with pytest.raises(ValidationError, match="endpoint_env and token_env must differ"):
+        ControlPlaneHeartbeatSpec(
+            enabled=True,
+            endpoint_env="CONTROL_PLANE_HEARTBEAT_URL",
+            token_env="CONTROL_PLANE_HEARTBEAT_URL",
+        )
+
+    with pytest.raises(ValidationError, match="package_name of at most 128"):
+        ProjectSpec(
+            spec_version="1",
+            project=ProjectInfo(
+                name="Example",
+                package_name=f"service_{'x' * 121}",
+                version="0.1.0",
+            ),
+            application=ApplicationSpec(
+                control_plane_heartbeat=ControlPlaneHeartbeatSpec(enabled=True)
+            ),
+        )
 
 
 @pytest.mark.parametrize(

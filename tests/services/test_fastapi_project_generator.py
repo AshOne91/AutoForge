@@ -9,6 +9,7 @@ from autoforge.core.generation import (
 )
 from autoforge.core.specification import (
     ApplicationSpec,
+    ControlPlaneHeartbeatSpec,
     DatabaseShardSpec,
     DatabaseStoreSpec,
     ProjectInfo,
@@ -26,6 +27,7 @@ def project_specification(
     modules: list[str] | None = None,
     services: list[ServiceSpec] | None = None,
     databases: list[DatabaseStoreSpec] | None = None,
+    control_plane_heartbeat: ControlPlaneHeartbeatSpec | None = None,
     ruff_exclude: list[str] | None = None,
     dependencies: list[str] | None = None,
     database_provider: str = "postgresql",
@@ -43,6 +45,8 @@ def project_specification(
             modules=modules or [],
             services=services or [],
             databases=databases or [],
+            control_plane_heartbeat=control_plane_heartbeat
+            or ControlPlaneHeartbeatSpec(),
         ),
         tooling=ToolingSpec(
             ruff_exclude=ruff_exclude or [],
@@ -211,6 +215,42 @@ def test_session_service_generates_and_registers_lifespan() -> None:
     )
     assert "lifespan=lifespan" in app_factory
     assert 'monkeypatch.setenv("GAME_REDIS_URL"' in health_test
+
+
+def test_control_plane_heartbeat_generates_opt_in_lifecycle_reporter() -> None:
+    files = FastAPIProjectGenerator().render(
+        project_specification(
+            databases=[DatabaseStoreSpec(name="identity", global_url_env="IDENTITY_URL")],
+            services=[
+                ServiceSpec(
+                    name="session",
+                    kind="redis_session",
+                    namespace="game_session",
+                    ttl_seconds=3600,
+                )
+            ],
+            control_plane_heartbeat=ControlPlaneHeartbeatSpec(enabled=True),
+        )
+    )
+    reporter = files[
+        PurePosixPath("src/game_server/application/generated/service_heartbeat.py")
+    ]
+    lifespan = files[
+        PurePosixPath("src/game_server/application/generated/lifespan.py")
+    ]
+
+    ast.parse(reporter)
+    assert "service_heartbeat_lifespan(app)" in lifespan
+    assert lifespan.index("database_lifespan(app)") < lifespan.index(
+        "service_heartbeat_lifespan(app)"
+    )
+    assert lifespan.index("session_store_lifespan(app)") < lifespan.index(
+        "service_heartbeat_lifespan(app)"
+    )
+    assert "CONTROL_PLANE_HEARTBEAT_URL" in reporter
+    assert "CONTROL_PLANE_API_TOKEN" in reporter
+    assert "asyncio.to_thread(_post_heartbeat, endpoint, token)" in reporter
+    assert "'dependencies': _DEPENDENCIES" in reporter
 
 
 def test_cluster_session_service_generates_cluster_health_environment() -> None:

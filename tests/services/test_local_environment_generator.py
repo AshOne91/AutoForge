@@ -7,6 +7,7 @@ import yaml
 from autoforge.core.generation import FileOwnership, Generator, content_hash
 from autoforge.core.specification import (
     ApplicationSpec,
+    ControlPlaneHeartbeatSpec,
     DatabaseShardSpec,
     DatabaseStoreSpec,
     DurableJobSpec,
@@ -33,6 +34,7 @@ def integration_specification(
     airflow_scheduler_replicas: int = 1,
     host_port_base: int | None = None,
     durable_job_worker_restart_policy: str = "unless-stopped",
+    heartbeat_reporter: bool = False,
 ) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
@@ -94,6 +96,9 @@ def integration_specification(
             if durable_jobs
             else [],
             durable_job_worker_restart_policy=durable_job_worker_restart_policy,
+            control_plane_heartbeat=ControlPlaneHeartbeatSpec(
+                enabled=heartbeat_reporter
+            ),
         ),
         tooling={
             "local_environment": {
@@ -162,6 +167,28 @@ def test_render_creates_service_composition_from_generated_compose() -> None:
             "store": "automation",
         }
     ]
+
+
+def test_application_composition_passes_opt_in_heartbeat_environment() -> None:
+    files = LocalEnvironmentGenerator().render(
+        integration_specification(
+            enabled=True,
+            application=True,
+            heartbeat_reporter=True,
+        )
+    )
+    compose = yaml.safe_load(files[PurePosixPath("environment/compose.integration.yml")])
+    environment = files[PurePosixPath("environment/.env.example")]
+
+    application_environment = compose["services"]["application"]["environment"]
+    assert application_environment["CONTROL_PLANE_HEARTBEAT_URL"] == (
+        "${CONTROL_PLANE_HEARTBEAT_URL:-}"
+    )
+    assert application_environment["CONTROL_PLANE_API_TOKEN"] == (
+        "${CONTROL_PLANE_API_TOKEN:-}"
+    )
+    assert "CONTROL_PLANE_HEARTBEAT_URL=\n" in environment
+    assert "CONTROL_PLANE_API_TOKEN=\n" in environment
 
 
 def test_render_creates_mysql_standalone_environment() -> None:
