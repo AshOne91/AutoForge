@@ -47,6 +47,11 @@ AutoForge currently has working foundations for:
   heartbeat endpoint/token in its existing ignored `environment/.env`. It
   rebuilt the current image and emitted a fresh second container-instance report
   to the still-running Control Plane; Nginx health remained HTTP 200.
+- KIS failure-containment was verified through the same bootstrap: an invalid
+  Control Plane token left KIS and Nginx health at HTTP 200, produced no newly
+  accepted heartbeat, and logged only the exception type. Restoring the valid
+  ignored token and rerunning bootstrap produced a new accepted report with
+  database/session-store dependencies `ok`.
 - GitHub webhook verification and delivery deduplication
 - GitHub Actions/Jenkins validation configuration generation
 - generated Dockerfile and local/integration Compose environments
