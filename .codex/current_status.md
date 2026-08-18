@@ -53,8 +53,13 @@ AutoForge currently has working foundations for:
   skips matching versions idempotently, rejects drift, rolls back a failed batch,
   and bootstraps the ledger when its creating artifact is supplied. Disposable
   PostgreSQL checks verified concurrent apply, rollback, and bootstrap. No
-  application-startup migration, provider CLI, retry policy, or rollback policy
-  exists yet.
+  application-startup migration, retry policy, or rollback policy exists yet.
+- `autoforge migrate-control-plane` is the explicit provider CLI boundary. It
+  resolves the PostgreSQL URL from an environment variable, discovers a declared
+  migration directory, prints only newly applied versions, and never runs from
+  application startup or generated Kubernetes resources. A disposable subprocess
+  check verified first-run output and repeat-run silence for both a custom
+  artifact and the actual `001`??`007` Control Plane directory.
 - Kubernetes generation now has an opt-in Control Plane profile. It emits a
   separate `control-plane.yaml` with a two-replica Deployment, private ClusterIP
   Service, pre-created Secret references, `/health` liveness, and `/readiness`

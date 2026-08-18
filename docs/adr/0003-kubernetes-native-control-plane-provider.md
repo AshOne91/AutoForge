@@ -2,8 +2,8 @@
 
 ## 상태
 
-승인됨. Control Plane Kubernetes 매니페스트 생성과 provider-invoked migration
-executor는 구현됐으며, provider CLI와 deployment-provider wiring은 아직 구현하지 않았다.
+승인됨. Control Plane Kubernetes 매니페스트 생성, provider-invoked migration
+executor, 명시적 provider CLI는 구현됐으며, deployment-provider wiring은 아직 구현하지 않았다.
 
 ## 맥락
 

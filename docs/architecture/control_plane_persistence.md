@@ -193,7 +193,8 @@ application rollout을 진행하지 않는다. rollback은 자동 추측하지 �
 명시적 복구 절차로 남긴다. `PostgreSQLMigrationExecutor`는 이 provider-owned
 경계로만 명시적으로 호출되며, advisory transaction lock 아래에서 SQL 적용과 ledger
 기록을 함께 처리한다. Control Plane Kubernetes generator는 executor와 분리된 runtime
-manifest만 생성하고 migration을 실행하지 않는다.
+manifest만 생성하고 migration을 실행하지 않는다. 실행 절차는
+[provider migration guide](../development/control_plane_migration.md)를 따른다.
 
 ```powershell
 docker compose -p autoforge-control-it -f compose.integration.yaml up -d --wait

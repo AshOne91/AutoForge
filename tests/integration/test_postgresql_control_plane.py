@@ -1,5 +1,7 @@
 import asyncio
 import os
+import subprocess
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path, PurePosixPath
 
@@ -313,6 +315,64 @@ def test_postgresql_migration_executor_bootstraps_missing_ledger() -> None:
             await admin_engine.dispose()
 
     asyncio.run(scenario())
+
+
+def test_control_plane_migration_cli_runs_in_subprocess(tmp_path: Path) -> None:
+    async def cleanup() -> None:
+        assert DATABASE_URL is not None
+        engine = create_async_engine(DATABASE_URL)
+        try:
+            async with engine.begin() as connection:
+                await connection.execute(
+                    text("DROP TABLE IF EXISTS autoforge_migration_cli_probe")
+                )
+                await connection.execute(
+                    text(
+                        "DELETE FROM autoforge_migration_versions WHERE version = 900020"
+                    )
+                )
+        finally:
+            await engine.dispose()
+
+    migrations = tmp_path / "migrations"
+    migrations.mkdir()
+    (migrations / "900020_cli_probe.sql").write_text(
+        "CREATE TABLE autoforge_migration_cli_probe (value INTEGER NOT NULL);",
+        encoding="utf-8",
+    )
+    environment = {**os.environ, "AUTOFORGE_DATABASE_URL": DATABASE_URL or ""}
+    command = [
+        sys.executable,
+        "-m",
+        "autoforge.main",
+        "migrate-control-plane",
+        "--migration-directory",
+        str(migrations),
+    ]
+    try:
+        asyncio.run(cleanup())
+        first = subprocess.run(
+            command,
+            capture_output=True,
+            check=False,
+            text=True,
+            env=environment,
+        )
+        second = subprocess.run(
+            command,
+            capture_output=True,
+            check=False,
+            text=True,
+            env=environment,
+        )
+
+        assert first.returncode == 0, first.stderr
+        assert first.stdout == "900020\n"
+        assert second.returncode == 0, second.stderr
+        assert second.stdout == ""
+        assert first.stderr == ""
+    finally:
+        asyncio.run(cleanup())
 
 
 def test_postgresql_persists_committing_lifecycle_and_commit_result() -> None:
