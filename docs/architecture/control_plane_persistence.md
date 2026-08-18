@@ -32,6 +32,21 @@ autoforge_audit_records
 Event payload 전체는 audit table에 저장하지 않는다. 명세, token, password와 사용자
 코드가 audit 경로로 유출되는 것을 막기 위해 공통 envelope만 저장한다.
 
+## Service heartbeat
+
+`autoforge_service_heartbeats`는 `(service_name, instance_id)`를 primary key로
+사용한다. service는 인증된 `POST /v1/service-heartbeats`에 deployed version과 최대
+16개의 dependency 상태(`ok`, `degraded`, `unavailable`)만 보낸다. Control Plane은
+자신의 TTL 정책과 PostgreSQL `now()`로 `reported_at`과 `expires_at`을 기록하고,
+동일 identity 보고를 upsert한다. `GET /v1/service-heartbeats`는 아직 만료되지 않은
+보고만 반환한다.
+
+이는 Push 기반 관측 증거이며 Compose/Kubernetes healthcheck, readiness probe 또는
+외부 synthetic probe를 대체하지 않는다. Push 보고는 instance identity와 배포 version을
+보완하지만, traffic routing과 restart 판단은 계속 Pull probe가 소유한다. 초기 slice는
+Control Plane intake와 persistence만 제공하며, generated service reporter, dashboard,
+metrics backend와 agent orchestration은 포함하지 않는다.
+
 ## 동시성 계약
 
 ### Idempotent claim
@@ -133,8 +148,8 @@ grace period를 준다. 제한 시간을 넘으면 Pipeline과 heartbeat를 취�
 ## Migration과 실행
 
 운영 adapter는 런타임 `create_all()`을 호출하지 않는다. schema는 버전 관리되는
-`deploy/postgresql/init/001_control_plane.sql` baseline, `002_job_leases.sql`,
-`003_job_committing_status.sql` 순서로 명시적으로 적용한다. 로컬 통합 구성은
+`deploy/postgresql/init/001_control_plane.sql` baseline, `002_job_leases.sql`부터
+`006_service_heartbeats.sql`까지 순서로 명시적으로 적용한다. 로컬 통합 구성은
 `compose.integration.yaml`을 사용한다.
 
 ```powershell

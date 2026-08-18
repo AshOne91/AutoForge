@@ -1,12 +1,13 @@
 # Next Task
 
-## Next executable unit: Control Plane service-heartbeat contract slice
+## Next executable unit: generated service-heartbeat reporter design slice
 
-OWNERSHIP: AutoForge Control Plane and generated service runtime; KIS is the
-consumer validation project.
+OWNERSHIP: AutoForge generated runtime contract and Control Plane heartbeat API;
+KIS is the consumer validation project.
 
-Introduce the smallest authenticated, expiring heartbeat contract for a running
-service identity, deployed version, and bounded dependency summary. Keep
-generated Compose/Kubernetes pull probes as the routing and restart authority,
-and keep public synthetic probes external. Start with one storage/API vertical
-slice; do not add a dashboard, a new metrics backend, or agent orchestration.
+Design the smallest generated service reporter that can post its instance
+identity, deployed version, and bounded dependency summary to the implemented
+Control Plane API. Reuse existing generated configuration and application
+lifespan boundaries. Keep reporting opt-in and do not add a sidecar, dashboard,
+metrics backend, or agent orchestration before a real KIS runtime path selects
+the feature.

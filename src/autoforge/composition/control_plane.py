@@ -71,6 +71,9 @@ async def create_control_plane_runtime(
             "Control Plane requires the AutoForge 'server' dependencies"
         ) from error
 
+    from autoforge.infrastructure.heartbeat.postgresql import (
+        PostgreSQLServiceHeartbeatStore,
+    )
     from autoforge.infrastructure.job.postgresql import PostgreSQLJobStore
 
     engine = sqlalchemy_asyncio.create_async_engine(settings.database_url)
@@ -87,6 +90,7 @@ async def create_control_plane_runtime(
     try:
         sessions = sqlalchemy_asyncio.async_sessionmaker(engine, expire_on_commit=False)
         job_store = PostgreSQLJobStore(sessions)
+        heartbeat_store = PostgreSQLServiceHeartbeatStore(sessions)
         event_bus = EventBus()
         event_bus.subscribe(
             Event,
@@ -105,6 +109,7 @@ async def create_control_plane_runtime(
                 api_token=settings.api_token,
                 max_request_bytes=settings.max_request_bytes,
             ),
+            heartbeat_store=heartbeat_store,
             lifespan=lifespan,
         )
         if settings.github_webhook is not None:

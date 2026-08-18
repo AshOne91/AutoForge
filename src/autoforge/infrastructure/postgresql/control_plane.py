@@ -51,3 +51,14 @@ class AuditRecordRow(ControlPlaneBase):
     payload_redaction: Mapped[str] = mapped_column(
         Text, server_default="envelope_only"
     )
+
+
+class ServiceHeartbeatRecord(ControlPlaneBase):
+    __tablename__ = "autoforge_service_heartbeats"
+
+    service_name: Mapped[str] = mapped_column(String(128), primary_key=True)
+    instance_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    deployed_version: Mapped[str] = mapped_column(String(128))
+    dependency_summary: Mapped[dict[str, str]] = mapped_column(JSONB)
+    reported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

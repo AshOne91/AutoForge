@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import timedelta
 from secrets import compare_digest
 from typing import Annotated, Any
 
@@ -13,6 +14,11 @@ from autoforge.application.generation import (
     GenerationTriggerRequest,
     IdempotencyConflictError,
 )
+from autoforge.core.heartbeat import (
+    ServiceHeartbeat,
+    ServiceHeartbeatReport,
+    ServiceHeartbeatStore,
+)
 from autoforge.core.job import GenerationJob
 
 
@@ -20,12 +26,15 @@ from autoforge.core.job import GenerationJob
 class ControlPlaneHTTPSettings:
     api_token: str
     max_request_bytes: int = 4096
+    heartbeat_ttl_seconds: int = 90
 
     def __post_init__(self) -> None:
         if not self.api_token:
             raise ValueError("api_token must not be empty")
         if self.max_request_bytes < 1:
             raise ValueError("max_request_bytes must be positive")
+        if not 5 <= self.heartbeat_ttl_seconds <= 3600:
+            raise ValueError("heartbeat_ttl_seconds must be between 5 and 3600")
 
 
 class GenerationTriggerBody(BaseModel):
@@ -51,10 +60,15 @@ class GenerationJobResponse(BaseModel):
     created: bool | None = None
 
 
+class ServiceHeartbeatListResponse(BaseModel):
+    heartbeats: list[ServiceHeartbeat]
+
+
 def create_control_plane_app(
     *,
     service: GenerationSubmissionService,
     settings: ControlPlaneHTTPSettings,
+    heartbeat_store: ServiceHeartbeatStore | None = None,
     lifespan: Callable[[FastAPI], Any] | None = None,
 ) -> FastAPI:
     app = FastAPI(
@@ -142,6 +156,37 @@ def create_control_plane_app(
                 detail="GenerationJob not found",
             )
         return GenerationJobResponse(job=job)
+
+    if heartbeat_store is not None:
+
+        @app.post(
+            "/v1/service-heartbeats",
+            response_model=ServiceHeartbeat,
+            dependencies=[Depends(require_authentication)],
+        )
+        async def record_service_heartbeat(request: Request) -> ServiceHeartbeat:
+            body = await _read_limited_body(request, settings.max_request_bytes)
+            try:
+                report = ServiceHeartbeatReport.model_validate_json(body)
+            except ValidationError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail="Invalid service heartbeat body",
+                ) from error
+            return await heartbeat_store.record(
+                report,
+                ttl=timedelta(seconds=settings.heartbeat_ttl_seconds),
+            )
+
+        @app.get(
+            "/v1/service-heartbeats",
+            response_model=ServiceHeartbeatListResponse,
+            dependencies=[Depends(require_authentication)],
+        )
+        async def list_service_heartbeats() -> ServiceHeartbeatListResponse:
+            return ServiceHeartbeatListResponse(
+                heartbeats=list(await heartbeat_store.list_active())
+            )
 
     return app
 

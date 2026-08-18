@@ -19,6 +19,11 @@ AutoForge currently has working foundations for:
 - safe branch/commit/push/Pull Request automation
 - authenticated Control Plane API
 - persistent worker/server entry points
+- authenticated Control Plane service-heartbeat intake backed by PostgreSQL:
+  bounded dependency summaries, server-owned expiry, and active-report queries.
+  An isolated PostgreSQL verification applied migrations `001` through `006` and
+  confirmed heartbeat upsert, database-timestamped expiry, and active-report
+  retrieval.
 - GitHub webhook verification and delivery deduplication
 - GitHub Actions/Jenkins validation configuration generation
 - generated Dockerfile and local/integration Compose environments

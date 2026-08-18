@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from autoforge.application.generation import GenerationSubmissionService
 from autoforge.core.event import EventBus
+from autoforge.infrastructure.heartbeat import InMemoryServiceHeartbeatStore
 from autoforge.infrastructure.http import (
     ControlPlaneHTTPSettings,
     create_control_plane_app,
@@ -56,6 +57,7 @@ def _client(tmp_path: Path, *, max_request_bytes: int = 4096) -> TestClient:
                 api_token=TOKEN,
                 max_request_bytes=max_request_bytes,
             ),
+            heartbeat_store=InMemoryServiceHeartbeatStore(),
         )
     )
 
@@ -167,3 +169,37 @@ def test_remote_trigger_is_accepted_without_local_specification(
     assert response.status_code == 202
     assert response.json()["job"]["units"] == []
     assert missing_revision.status_code == 422
+
+
+def test_service_heartbeat_is_authenticated_upserted_and_queryable(
+    tmp_path: Path,
+) -> None:
+    client = _client(tmp_path)
+    payload = {
+        "instance_id": "kis-api-1",
+        "service_name": "application",
+        "deployed_version": "2026.08.18",
+        "dependencies": {"postgres": "ok", "rabbitmq": "degraded"},
+    }
+
+    unauthorized = client.post("/v1/service-heartbeats", json=payload)
+    first = client.post(
+        "/v1/service-heartbeats",
+        json=payload,
+        headers={"Authorization": f"Bearer {TOKEN}"},
+    )
+    second = client.post(
+        "/v1/service-heartbeats",
+        json={**payload, "deployed_version": "2026.08.19"},
+        headers={"Authorization": f"Bearer {TOKEN}"},
+    )
+    listed = client.get(
+        "/v1/service-heartbeats",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+    )
+
+    assert unauthorized.status_code == 401
+    assert first.status_code == 200
+    assert first.json()["dependencies"] == {"postgres": "ok", "rabbitmq": "degraded"}
+    assert second.json()["deployed_version"] == "2026.08.19"
+    assert listed.json()["heartbeats"] == [second.json()]
