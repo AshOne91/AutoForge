@@ -27,9 +27,15 @@ readiness 계약 없이 이를 Kubernetes readiness probe로 재사용하면, �
 - PostgreSQL은 provider-owned 외부 의존성이다. Control Plane generator는
   PostgreSQL `StatefulSet`, PVC, migration Job, backup 또는 restore policy를 만들지
   않는다.
-- `/health`는 liveness에만 사용한다. DB-aware readiness endpoint와 migration
-  operating contract가 구현되기 전에는 Control Plane Kubernetes manifest를 생성하지
-  않는다.
+- `/health`는 liveness에만 사용한다. DB-aware readiness는 `/readiness`로 분리한다.
+  migration은 provider-owned 단일 executor가 durable version ledger와 database
+  advisory lock을 사용해 순서대로 적용해야 하며, application startup이나 생성된
+  Kubernetes Job에서 실행하지 않는다.
+- AutoForge는 `001`부터 순서가 고정된 SQL artifact만 소유한다. provider executor는
+  성공한 버전을 ledger에 기록하고 실패 시 application rollout을 진행하지 않는다.
+  기존 PostgreSQL initdb 방식은 로컬 빈 volume bootstrap으로만 취급한다.
+- 이 migration execution contract를 만족할 provider executor가 준비되기 전에는
+  Control Plane Kubernetes manifest를 생성하지 않는다.
 - Control Plane Service는 기본적으로 cluster-internal이다. 외부 synthetic probe는
   Control Plane을 공용으로 노출시키기 위해 만들지 않으며, 기존 규칙대로 소비자
   애플리케이션의 public request path를 검증한다.
@@ -39,8 +45,9 @@ readiness 계약 없이 이를 Kubernetes readiness probe로 재사용하면, �
 Docker Desktop, EKS, GKE, AKS 및 self-managed Kubernetes에서 같은 generated
 runtime contract를 사용할 수 있다. 클라우드별 Ingress, Secret manager, PostgreSQL
 제공자, image registry, multi-zone placement와 backup 정책은 이후 provider adapter가
-선택될 때 추가한다. 이 결정은 application routing/restart authority를 heartbeat가
-아닌 Kubernetes pull probe에 남긴다.
+선택될 때 추가한다. provider executor와 ledger가 없는 환경에서는 migration을
+자동으로 추측하거나 application replica에 위임하지 않는다. 이 결정은 application
+routing/restart authority를 heartbeat가 아닌 Kubernetes pull probe에 남긴다.
 
 ## 근거
 

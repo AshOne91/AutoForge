@@ -57,7 +57,7 @@ Control Plane 자신은 unauthenticated `GET /health`와 `GET /readiness`를 분
 `/health`는 process liveness만 반환한다. `/readiness`는 runtime에서 구성된
 PostgreSQL JobStore와 service-heartbeat store의 기존 read path를 호출하며, 연결 또는
 필수 table을 사용할 수 없으면 `503`을 반환한다. 아직 Compose healthcheck는 의도적으로
-`/health`만 사용한다. Kubernetes manifest에는 migration operating contract가 확정될 때까지
+`/health`만 사용한다. Kubernetes manifest에는 provider migration executor가 준비될 때까지
 이 readiness endpoint를 연결하지 않는다.
 
 Kubernetes-native Control Plane deployment provider 선택은
@@ -170,6 +170,20 @@ grace period를 준다. 제한 시간을 넘으면 Pipeline과 heartbeat를 취�
 `006_service_heartbeats.sql`까지 순서로 명시적으로 적용한다. 로컬 통합 구성은
 `compose.integration.yaml`을 사용한다.
 
+이 파일 집합의 현재 실행 방식은 PostgreSQL 공식 image의 초기화 디렉터리
+부트스트랩이다. 빈 data volume에서만 숫자 순서대로 한 번 실행되며, 각 파일은
+`IF NOT EXISTS` 또는 안전한 constraint 교체를 사용해 재실행 가능한 DDL을 지향한다.
+기존 named volume에 새 SQL 파일이 추가되어도 entrypoint가 다시 실행하지 않으므로,
+이를 운영 migration 완료로 간주하지 않는다.
+
+운영 migration의 책임은 Control Plane application이나 Kubernetes manifest가 아니라
+배포 provider가 소유한다. provider-owned 단일 executor는 database advisory lock으로
+동시 실행을 막고, `001`부터 누락된 버전을 순서대로 적용한 뒤 같은 migration
+transaction에서 durable version ledger에 성공 버전을 기록한다. 실패하면 다음 버전과
+application rollout을 진행하지 않는다. rollback은 자동 추측하지 않고 provider의
+명시적 복구 절차로 남긴다. 이 executor와 ledger가 준비되기 전에는 Control Plane
+Kubernetes manifest를 생성하지 않는다.
+
 ```powershell
 docker compose -p autoforge-control-it -f compose.integration.yaml up -d --wait
 $env:AUTOFORGE_TEST_DATABASE_URL = "postgresql+asyncpg://..."
@@ -194,8 +208,9 @@ docker compose --env-file deploy/control-plane/.env -f deploy/control-plane/comp
 `.env`는 Git에서 제외되는 Docker Compose의 로컬 secret staging이다. API token과 database
 password 또는 `AUTOFORGE_DATABASE_URL`은 image·Compose manifest에 기록하지 않는다. 선택된
 Kubernetes-native profile은 같은 환경변수 계약을 미리 생성된 Kubernetes Secret의 runtime
-binding으로 사용한다. DB-aware readiness는 구현됐지만 migration operating contract가 아직
-없으므로 해당 manifest를 생성하지 않는다.
+binding으로 사용한다. DB-aware readiness는 구현됐고 provider-owned executor와 ledger를
+사용하는 migration 계약이 확정됐지만, 해당 provider 실행기가 아직 준비되지 않았으므로
+manifest는 계속 생성하지 않는다.
 
 ## 패키지 경계
 
