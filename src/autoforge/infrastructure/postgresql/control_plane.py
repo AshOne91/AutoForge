@@ -62,3 +62,14 @@ class ServiceHeartbeatRecord(ControlPlaneBase):
     dependency_summary: Mapped[dict[str, str]] = mapped_column(JSONB)
     reported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class MigrationVersionRecord(ControlPlaneBase):
+    __tablename__ = "autoforge_migration_versions"
+
+    version: Mapped[int] = mapped_column(Integer, primary_key=True)
+    path: Mapped[str] = mapped_column(String(512))
+    checksum: Mapped[str] = mapped_column(String(64))
+    applied_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

@@ -39,12 +39,14 @@ from autoforge.core.job import (
     JobConcurrencyError,
     JobLeaseConflictError,
 )
+from autoforge.core.migration import MigrationArtifact
 from autoforge.infrastructure.audit.postgresql import PostgreSQLAuditSink
 from autoforge.infrastructure.http import (
     ControlPlaneHTTPSettings,
     create_control_plane_app,
 )
 from autoforge.infrastructure.job.postgresql import PostgreSQLJobStore
+from autoforge.infrastructure.migration import PostgreSQLMigrationVersionLedger
 from autoforge.infrastructure.postgresql.control_plane import (
     AuditRecordRow,
     GenerationJobRecord,
@@ -109,6 +111,56 @@ def _job(job_id: str) -> GenerationJob:
             )
         ],
     )
+
+
+def test_postgresql_persists_migration_version_ledger() -> None:
+    async def scenario() -> None:
+        assert DATABASE_URL is not None
+        engine = create_async_engine(DATABASE_URL)
+        sessions = async_sessionmaker(engine, expire_on_commit=False)
+        ledger = PostgreSQLMigrationVersionLedger(sessions)
+        artifact = MigrationArtifact(
+            version=900001,
+            path="deploy/postgresql/init/900001_ledger_test.sql",
+            sql="SELECT 1;",
+        )
+        try:
+            async with engine.begin() as connection:
+                await connection.execute(
+                    text(
+                        "DELETE FROM autoforge_migration_versions "
+                        "WHERE version = :version"
+                    ),
+                    {"version": artifact.version},
+                )
+            first = await ledger.record_applied(artifact)
+            repeated = await ledger.record_applied(artifact)
+            applied = await ledger.list_applied()
+
+            assert first == repeated
+            assert [record.version for record in applied if record.version == artifact.version] == [
+                artifact.version
+            ]
+            with pytest.raises(ValueError, match="different artifact"):
+                await ledger.record_applied(
+                    MigrationArtifact(
+                        version=artifact.version,
+                        path=artifact.path,
+                        sql="SELECT 2;",
+                    )
+                )
+        finally:
+            async with engine.begin() as connection:
+                await connection.execute(
+                    text(
+                        "DELETE FROM autoforge_migration_versions "
+                        "WHERE version = :version"
+                    ),
+                    {"version": artifact.version},
+                )
+            await engine.dispose()
+
+    asyncio.run(scenario())
 
 
 def test_postgresql_persists_committing_lifecycle_and_commit_result() -> None:

@@ -39,12 +39,15 @@ AutoForge currently has working foundations for:
 - Control Plane SQL migrations are currently an ordered `001`–`006` PostgreSQL
   initialization bootstrap. They are not a durable migration runner: new files
   are not applied automatically to an existing named volume, and provider-owned
-  version tracking, retry, and rollback policy remain unimplemented.
+  application of pending versions, retry, and rollback policy remain unimplemented.
 - The core now has a provider-neutral Control Plane migration boundary:
   immutable SQL artifacts derive a checksum, ordering rejects duplicate versions,
   applied migration evidence is timezone-aware, and `MigrationVersionLedger`
-  defines the async durable-ledger seam. No PostgreSQL ledger adapter, executor,
-  startup migration, retry policy, or rollback policy exists yet.
+  defines the async durable-ledger seam. `PostgreSQLMigrationVersionLedger` and
+  SQL `007` persist applied version/path/checksum evidence with database time;
+  a disposable PostgreSQL drill verified idempotent re-recording and conflicting
+  checksum rejection. No executor, startup migration, retry policy, or rollback
+  policy exists yet.
 - Kubernetes generation now has an opt-in Control Plane profile. It emits a
   separate `control-plane.yaml` with a two-replica Deployment, private ClusterIP
   Service, pre-created Secret references, `/health` liveness, and `/readiness`
