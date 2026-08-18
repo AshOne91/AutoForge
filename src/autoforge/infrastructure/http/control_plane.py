@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import timedelta
 from secrets import compare_digest
@@ -69,6 +69,7 @@ def create_control_plane_app(
     service: GenerationSubmissionService,
     settings: ControlPlaneHTTPSettings,
     heartbeat_store: ServiceHeartbeatStore | None = None,
+    readiness_check: Callable[[], Awaitable[None]] | None = None,
     lifespan: Callable[[FastAPI], Any] | None = None,
 ) -> FastAPI:
     app = FastAPI(
@@ -82,6 +83,23 @@ def create_control_plane_app(
     async def health() -> dict[str, str]:
         """Unauthenticated process liveness for local and orchestrator probes."""
         return {"status": "ok"}
+
+    @app.get("/readiness")
+    async def readiness() -> dict[str, str]:
+        """Report whether the configured Control Plane stores are usable."""
+        if readiness_check is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Control Plane store is unavailable",
+            )
+        try:
+            await readiness_check()
+        except Exception as error:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Control Plane store is unavailable",
+            ) from error
+        return {"status": "ready"}
 
     async def require_authentication(
         credentials: Annotated[

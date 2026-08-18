@@ -56,7 +56,12 @@ module:
     )
 
 
-def _client(tmp_path: Path, *, max_request_bytes: int = 4096) -> TestClient:
+def _client(
+    tmp_path: Path,
+    *,
+    max_request_bytes: int = 4096,
+    readiness_check=None,
+) -> TestClient:
     _write_specifications(tmp_path)
     output = tmp_path / "output"
     output.mkdir()
@@ -74,6 +79,7 @@ def _client(tmp_path: Path, *, max_request_bytes: int = 4096) -> TestClient:
                 max_request_bytes=max_request_bytes,
             ),
             heartbeat_store=InMemoryServiceHeartbeatStore(),
+            readiness_check=readiness_check,
         )
     )
 
@@ -124,6 +130,45 @@ def test_control_plane_liveness_is_public(tmp_path: Path) -> None:
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_control_plane_readiness_is_public_when_store_is_usable(
+    tmp_path: Path,
+) -> None:
+    async def store_is_usable() -> None:
+        return None
+
+    response = _client(tmp_path, readiness_check=store_is_usable).get(
+        "/readiness"
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ready"}
+
+
+def test_control_plane_readiness_is_unavailable_without_a_store_check(
+    tmp_path: Path,
+) -> None:
+    response = _client(tmp_path).get("/readiness")
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Control Plane store is unavailable"}
+
+
+def test_control_plane_readiness_does_not_replace_liveness_when_store_fails(
+    tmp_path: Path,
+) -> None:
+    async def unavailable_store() -> None:
+        raise OSError("database unavailable")
+
+    client = _client(tmp_path, readiness_check=unavailable_store)
+    readiness = client.get("/readiness")
+    liveness = client.get("/health")
+
+    assert readiness.status_code == 503
+    assert readiness.json() == {"detail": "Control Plane store is unavailable"}
+    assert liveness.status_code == 200
+    assert liveness.json() == {"status": "ok"}
 
 
 def test_trigger_rejects_key_reuse_missing_key_and_large_body(tmp_path: Path) -> None:

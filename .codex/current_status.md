@@ -36,6 +36,11 @@ AutoForge currently has working foundations for:
   `49700` HTTP binding, required local secret environment file, and process
   liveness probe. A disposable Docker Compose run verified health and authenticated
   heartbeat persistence, then removed its containers, network, and data volume.
+- Control Plane HTTP health is split: public `/health` remains process liveness,
+  while `/readiness` checks the configured PostgreSQL JobStore and service-heartbeat
+  store through their normal read paths and returns `503` on store failure. Focused
+  HTTP tests cover ready and unavailable stores. Compose intentionally continues
+  to use liveness until the migration operating contract is defined.
 - KIS's default user-owned specification now opts into the generated heartbeat
   reporter. Regeneration exposed and then corrected a generator-side Ruff issue
   (lifespan import ordering and an over-broad reporter exception handler). A

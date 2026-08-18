@@ -53,6 +53,13 @@ instance identity, 그리고 시작 완료된 database/session-store의 최대 �
 보고한다. URL 또는 token이 없으면 application은 정상적으로 시작하고 reporter만 비활성화된다.
 보고 실패도 secret 또는 URL을 기록하지 않는 경고만 남기며 readiness를 실패시키지 않는다.
 
+Control Plane 자신은 unauthenticated `GET /health`와 `GET /readiness`를 분리한다.
+`/health`는 process liveness만 반환한다. `/readiness`는 runtime에서 구성된
+PostgreSQL JobStore와 service-heartbeat store의 기존 read path를 호출하며, 연결 또는
+필수 table을 사용할 수 없으면 `503`을 반환한다. 아직 Compose healthcheck는 의도적으로
+`/health`만 사용한다. Kubernetes manifest에는 migration operating contract가 확정될 때까지
+이 readiness endpoint를 연결하지 않는다.
+
 Kubernetes-native Control Plane deployment provider 선택은
 [ADR-0003](../adr/0003-kubernetes-native-control-plane-provider.md)가 소유한다.
 현재 reporter 계약과 Kubernetes base-server generator는 Control Plane manifest를 아직
@@ -187,8 +194,8 @@ docker compose --env-file deploy/control-plane/.env -f deploy/control-plane/comp
 `.env`는 Git에서 제외되는 Docker Compose의 로컬 secret staging이다. API token과 database
 password 또는 `AUTOFORGE_DATABASE_URL`은 image·Compose manifest에 기록하지 않는다. 선택된
 Kubernetes-native profile은 같은 환경변수 계약을 미리 생성된 Kubernetes Secret의 runtime
-binding으로 사용한다. Control Plane의 DB-aware readiness와 migration operating contract가
-구현되기 전에는 해당 manifest를 생성하지 않는다.
+binding으로 사용한다. DB-aware readiness는 구현됐지만 migration operating contract가 아직
+없으므로 해당 manifest를 생성하지 않는다.
 
 ## 패키지 경계
 

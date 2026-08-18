@@ -49,8 +49,8 @@ sequencing.
 - [ ] host bootstrap/deployment contract for Docker auto-start, AWS Launch Template
   UserData, image refresh, and secret injection after registry and host ownership
   boundaries are explicit
-- [ ] Kubernetes-native Control Plane deployment implementation after DB-aware
-  readiness and migration operating contracts exist: use the selected standard
+- [ ] Kubernetes-native Control Plane deployment implementation after the migration
+  operating contract exists: use the selected standard
   Secret binding and private ClusterIP Service from
   [ADR-0003](../docs/adr/0003-kubernetes-native-control-plane-provider.md), while
   keeping Pull probes authoritative and external synthetic probes on the consumer

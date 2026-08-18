@@ -1,12 +1,11 @@
 # Next Task
 
-## Next executable unit: Control Plane DB-aware readiness contract
+## Next executable unit: Control Plane migration operating contract
 
-OWNERSHIP: AutoForge owns Control Plane HTTP health semantics. PostgreSQL
-availability remains a provider-owned dependency.
+OWNERSHIP: AutoForge owns Control Plane deployment sequencing and migration
+documentation. PostgreSQL remains a provider-owned dependency.
 
-Add a dedicated readiness endpoint that verifies the configured Control Plane
-store is usable without changing `/health` process-liveness semantics. Cover a
-ready store and an unavailable store with focused HTTP tests. Do not generate a
-Kubernetes manifest yet, and do not add a sidecar, dashboard, metrics backend,
-or agent orchestration.
+Define the idempotent, versioned migration execution contract required before a
+Kubernetes-native Control Plane manifest can be generated. Reuse the existing
+SQL migration ordering; do not generate the manifest yet, and do not add a
+sidecar, dashboard, metrics backend, or agent orchestration.

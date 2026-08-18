@@ -103,6 +103,11 @@ async def create_control_plane_runtime(
             job_store=job_store,
             event_bus=event_bus,
         )
+
+        async def check_stores() -> None:
+            await job_store.get("__control_plane_readiness_probe__")
+            await heartbeat_store.list_active()
+
         app = create_control_plane_app(
             service=service,
             settings=ControlPlaneHTTPSettings(
@@ -110,6 +115,7 @@ async def create_control_plane_runtime(
                 max_request_bytes=settings.max_request_bytes,
             ),
             heartbeat_store=heartbeat_store,
+            readiness_check=check_stores,
             lifespan=lifespan,
         )
         if settings.github_webhook is not None:
