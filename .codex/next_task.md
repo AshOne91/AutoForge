@@ -1,13 +1,14 @@
 # Next Task
 
-## Next executable unit: identity-session Redis failover reuse check
+## Next executable unit: ingestion/indexing generation-boundary decision
 
-Inspect the existing KIS operational verifiers for a user-owned identity flow
-that already performs Redis primary failover. Reuse it if present; otherwise add
-only the smallest consumer-owned verification that starts from the preserved
-identity extension, signs in, stops the elected session-key primary, validates
-the existing session through the generated HTTP route, and verifies node rejoin.
-Do not add domain behavior or hand-edit generated-owned artifacts.
+Compare the runtime-verified KIS news flow with the existing AutoForge module
+and RAG contracts. Identify the smallest reusable ingestion/indexing contract,
+if one exists, without moving domain-specific Yahoo collection, article
+normalization, or search mapping into generated code. Confirm generated,
+scaffolded, and user-owned boundaries before proposing any specification or
+generator change.
 
-This is a single-host logical-node validation. It does not select a cloud
-provider or add Kubernetes stateful-provider resources.
+Do not create a new contract merely because KIS has a working news extension.
+The result must either reuse an existing AutoForge contract or state the exact
+consumer requirement that the current contract cannot express.
