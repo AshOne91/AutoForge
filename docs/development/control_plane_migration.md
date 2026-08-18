@@ -41,7 +41,9 @@ records the artifacts, and the long-running `control-plane` service waits for
 that successful completion. PostgreSQL no longer receives the SQL directory
 through `docker-entrypoint-initdb.d`.
 
-Volumes created by an earlier Compose profile may contain schema SQL without
-migration-ledger evidence. Do not manually run this CLI against such a volume:
-back up the data and follow the dedicated legacy-volume reconciliation procedure
-when it is available.
+Volumes created by the known earlier Compose profile may contain schema SQL
+without migration-ledger evidence. The current provider CLI reconciles that
+exact published artifact set in one transaction: the idempotent SQL remains
+unchanged, `007` seeds versions `1` through `6` with their checksums, and the
+executor records version `7`. Back up and separately review a volume with
+manual schema changes before using this path.

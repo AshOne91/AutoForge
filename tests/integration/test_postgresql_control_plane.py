@@ -42,7 +42,7 @@ from autoforge.core.job import (
     JobConcurrencyError,
     JobLeaseConflictError,
 )
-from autoforge.core.migration import MigrationArtifact
+from autoforge.core.migration import MigrationArtifact, discover_migrations
 from autoforge.infrastructure.audit.postgresql import PostgreSQLAuditSink
 from autoforge.infrastructure.http import (
     ControlPlaneHTTPSettings,
@@ -308,6 +308,93 @@ def test_postgresql_migration_executor_bootstraps_missing_ledger() -> None:
             assert [record.version for record in applied] == [1, 2]
             assert [record.version for record in persisted] == [1, 2]
             assert probe_exists == "bootstrap_probe"
+        finally:
+            await engine.dispose()
+            async with admin_engine.begin() as connection:
+                await connection.execute(text(f"DROP SCHEMA IF EXISTS {schema} CASCADE"))
+            await admin_engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_postgresql_migration_executor_completes_docker_bootstrap_ledger() -> None:
+    async def scenario() -> None:
+        assert DATABASE_URL is not None
+        schema = "autoforge_migration_executor_docker_bootstrap"
+        artifacts = discover_migrations(Path("deploy/postgresql/init"))
+        admin_engine = create_async_engine(DATABASE_URL)
+        engine = create_async_engine(
+            DATABASE_URL,
+            connect_args={"server_settings": {"search_path": schema}},
+        )
+        sessions = async_sessionmaker(engine, expire_on_commit=False)
+        executor = PostgreSQLMigrationExecutor(sessions)
+        ledger = PostgreSQLMigrationVersionLedger(sessions)
+        try:
+            async with admin_engine.begin() as connection:
+                await connection.execute(text(f"DROP SCHEMA IF EXISTS {schema} CASCADE"))
+                await connection.execute(text(f"CREATE SCHEMA {schema}"))
+
+            async with engine.begin() as connection:
+                raw_connection = await connection.get_raw_connection()
+                for artifact in artifacts:
+                    await raw_connection.driver_connection.execute(artifact.sql)
+
+            seeded = await ledger.list_applied()
+            completed = await executor.apply(artifacts)
+            persisted = await ledger.list_applied()
+
+            assert [record.version for record in seeded] == [1, 2, 3, 4, 5, 6]
+            assert [record.version for record in completed] == [7]
+            assert [record.version for record in persisted] == [1, 2, 3, 4, 5, 6, 7]
+        finally:
+            await engine.dispose()
+            async with admin_engine.begin() as connection:
+                await connection.execute(text(f"DROP SCHEMA IF EXISTS {schema} CASCADE"))
+            await admin_engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_postgresql_migration_executor_reconciles_legacy_docker_bootstrap() -> None:
+    async def scenario() -> None:
+        assert DATABASE_URL is not None
+        schema = "autoforge_migration_executor_legacy_bootstrap"
+        artifacts = discover_migrations(Path("deploy/postgresql/init"))
+        legacy_ledger_sql = """
+            CREATE TABLE autoforge_migration_versions (
+                version INTEGER PRIMARY KEY CHECK (version > 0),
+                path VARCHAR(512) NOT NULL,
+                checksum CHAR(64) NOT NULL,
+                applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CHECK (checksum ~ '^[0-9a-f]{64}$')
+            );
+        """
+        admin_engine = create_async_engine(DATABASE_URL)
+        engine = create_async_engine(
+            DATABASE_URL,
+            connect_args={"server_settings": {"search_path": schema}},
+        )
+        sessions = async_sessionmaker(engine, expire_on_commit=False)
+        executor = PostgreSQLMigrationExecutor(sessions)
+        ledger = PostgreSQLMigrationVersionLedger(sessions)
+        try:
+            async with admin_engine.begin() as connection:
+                await connection.execute(text(f"DROP SCHEMA IF EXISTS {schema} CASCADE"))
+                await connection.execute(text(f"CREATE SCHEMA {schema}"))
+
+            async with engine.begin() as connection:
+                raw_connection = await connection.get_raw_connection()
+                for artifact in artifacts[:-1]:
+                    await raw_connection.driver_connection.execute(artifact.sql)
+                await raw_connection.driver_connection.execute(legacy_ledger_sql)
+
+            assert await ledger.list_applied() == ()
+            completed = await executor.apply(artifacts)
+            persisted = await ledger.list_applied()
+
+            assert [record.version for record in completed] == [1, 2, 3, 4, 5, 6, 7]
+            assert [record.version for record in persisted] == [1, 2, 3, 4, 5, 6, 7]
         finally:
             await engine.dispose()
             async with admin_engine.begin() as connection:

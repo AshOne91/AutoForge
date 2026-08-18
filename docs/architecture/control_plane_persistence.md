@@ -183,8 +183,9 @@ grace period를 준다. 제한 시간을 넘으면 Pipeline과 heartbeat를 취�
 디렉터리를 사용하지 않는다. provider-owned one-shot `control-plane-migrate` service가
 숫자 순서대로 SQL을 적용하고 같은 transaction에서 durable version ledger를 기록한 뒤
 application rollout을 허용한다. 이전 Docker-entrypoint bootstrap으로 schema만 만든 named
-volume은 ledger evidence가 없으므로 자동으로 재실행하거나 운영 migration 완료로 간주하지
-않는다.
+volume은 current provider executor가 같은 idempotent artifact를 transaction 안에서
+확인하고 `007`의 seeded checksum evidence 및 version `7` 기록으로 연결한다. 이 경로는
+알려진 이전 SQL 집합에만 적용하며, 수동 변경된 volume은 backup과 별도 검토가 필요하다.
 
 운영 migration의 책임은 Control Plane application이나 Kubernetes manifest가 아니라
 배포 provider가 소유한다. provider-owned 단일 executor는 database advisory lock으로

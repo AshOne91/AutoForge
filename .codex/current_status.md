@@ -43,7 +43,11 @@ AutoForge currently has working foundations for:
   `docker-entrypoint-initdb.d`. A disposable Compose run verified migration
   exit `0`, durable ledger versions `1` through `7`, and Control Plane `/health`
   `200`, then removed its containers, network, and data volume. Existing volumes
-  created by the former initialization path are deliberately not auto-reconciled.
+  created by the known former initialization path are reconciled in the same
+  transaction: `007` seeds checksum evidence for versions `1` through `6`, then
+  the executor records `7`. Isolated PostgreSQL tests covered both the current
+  Docker bootstrap and that legacy no-ledger state; manually altered volumes
+  still require backup and operator review.
 - The core now has a provider-neutral Control Plane migration boundary:
   immutable SQL artifacts derive a checksum, ordering rejects duplicate versions,
   direct UTF-8 SQL discovery accepts the declared zero-padded filename format and

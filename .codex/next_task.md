@@ -1,15 +1,16 @@
 # Next Task
 
-## Next executable unit: Control Plane legacy bootstrap-volume policy
+## Next executable unit: Control Plane deployment-provider selection
 
-OWNERSHIP: AutoForge owns the ordered migration artifacts and durable
-version-ledger contract. An operator owns whether a prior local Compose volume
-is retained, backed up, reset, or explicitly reconciled; application manifests
-must not execute migrations.
+OWNERSHIP: AutoForge owns the provider-neutral executor, image, Compose profile,
+and Kubernetes runtime manifest. The deployment owner must select the concrete
+production provider that invokes the executor and supplies PostgreSQL storage,
+secrets, backup, restore, and rollout control.
 
-Define and verify the safe operator procedure for a named volume created by the
-former Docker-entrypoint SQL bootstrap: detect the missing ledger evidence,
-preserve data, and make the supported recovery choice explicit. Do not
-automatically reapply schema SQL, mutate a legacy volume, add application-startup
+Select one explicit Control Plane deployment provider (for example a Kubernetes
+operator workflow or a managed PostgreSQL deployment workflow), then define its
+pre-rollout invocation of `migrate-control-plane`, Secret binding, backup and
+restore responsibilities, and failure handoff. Do not add application-startup
 migration, Kubernetes Job, PostgreSQL StatefulSet/PVC, provider SDK, retry
-policy, rollback policy, or generated schema tooling in this unit.
+policy, rollback policy, or generated schema tooling before that provider is
+chosen.
