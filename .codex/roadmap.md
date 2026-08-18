@@ -46,6 +46,10 @@ sequencing.
 - [ ] host bootstrap/deployment contract for Docker auto-start, AWS Launch Template
   UserData, image refresh, and secret injection after registry and host ownership
   boundaries are explicit
+- [ ] Control Plane health reporting: authenticated expiring service heartbeat
+  for instance identity, deployed version, and bounded dependency summaries;
+  retain generated Compose/Kubernetes pull probes as the routing and restart
+  authority, and retain an external synthetic probe for public-path checks
 - [ ] external metrics backend adapter (Prometheus/OpenTelemetry, when selected)
 - [ ] artifact publishing
 - [ ] deployment plugins

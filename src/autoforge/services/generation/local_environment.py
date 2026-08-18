@@ -1273,7 +1273,7 @@ class LocalEnvironmentGenerator:
             + volumes
             + "    ports:\n"
             f"      - \"${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{AIRFLOW_PORT:-{airflow_port}}}:8080\"\n"
-            "    command: webserver\n"
+            "    command: webserver --pid /tmp/airflow-webserver.pid\n"
             "    restart: unless-stopped\n"
             "    healthcheck:\n"
             "      test: [\"CMD-SHELL\", \"curl --fail http://localhost:8080/health || exit 1\"]\n"

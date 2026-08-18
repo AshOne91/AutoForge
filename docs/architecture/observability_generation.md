@@ -55,6 +55,54 @@ Filebeat registry는 named volume을 사용해 프로세스 재시작 뒤에도 
 
 ## Runtime boundaries
 
+## Health signal boundaries
+
+Generated FastAPI applications expose a local `/health` endpoint. Generated
+Compose health checks and Kubernetes readiness/liveness probes actively pull
+that endpoint; they are the authority for local restart and traffic-routing
+decisions. A service that is not ready must not receive application traffic.
+
+Operational state has a separate boundary from that local decision. A future
+Control Plane agent may push an authenticated, expiring heartbeat containing
+instance identity, deployed version, and a bounded dependency summary. The
+absence of that heartbeat is an operator signal, not a substitute for a
+Kubernetes or proxy probe. An external synthetic probe remains responsible for
+the public request path.
+
+```text
+Kubernetes / Compose / proxy -> active pull probe -> local routing or restart
+service agent -> authenticated push heartbeat -> Control Plane observability
+external synthetic probe -> active pull probe -> public-path availability
+```
+
+Push heartbeat generation is not implemented yet; `.codex/roadmap.md` owns its
+delivery sequence. This document owns the boundary so a future implementation
+does not conflate self-reported state with readiness or liveness.
+
+## Health signal boundaries
+
+Generated FastAPI applications expose a local `/health` endpoint. Generated
+Compose health checks and Kubernetes readiness/liveness probes actively pull
+that endpoint; they are the authority for local restart and traffic-routing
+decisions. A service that is not ready must not receive application traffic.
+
+Operational state has a separate boundary from that local decision. A future
+Control Plane agent may push an authenticated, expiring heartbeat containing
+instance identity, deployed version, and a bounded dependency summary. The
+absence of that heartbeat is an operator signal, not a substitute for a
+Kubernetes or proxy probe. An external synthetic probe remains responsible for
+the public request path.
+
+```text
+Kubernetes / Compose / proxy -> active pull probe -> local routing or restart
+service agent -> authenticated push heartbeat -> Control Plane observability
+external synthetic probe -> active pull probe -> public-path availability
+```
+
+Push heartbeat generation is not implemented yet; `.codex/roadmap.md` owns its
+delivery sequence. This document owns the boundary so a future implementation
+does not conflate self-reported state with readiness or liveness.
+
 Generated JSON logging allowlists durable-job event type, job type, job ID, run
 key, current attempt, and maximum attempts for safe operational filtering.
 

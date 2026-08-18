@@ -383,7 +383,9 @@ def test_render_adds_airflow_for_durable_jobs() -> None:
     airflow = compose["services"]
     assert {"airflow-init", "airflow-webserver", "airflow-scheduler"} <= set(airflow)
     assert airflow["airflow-init"]["command"] == ["airflow", "db", "migrate"]
-    assert airflow["airflow-webserver"]["command"] == "webserver"
+    assert airflow["airflow-webserver"]["command"] == (
+        "webserver --pid /tmp/airflow-webserver.pid"
+    )
     assert airflow["airflow-scheduler"]["command"] == "scheduler"
     assert airflow["airflow-webserver"]["environment"]["DURABLE_JOB_API_TOKEN"] == "${DURABLE_JOB_API_TOKEN:?set DURABLE_JOB_API_TOKEN}"
     assert "../airflow/dags:/opt/airflow/dags:ro" in airflow["airflow-scheduler"]["volumes"]
@@ -413,7 +415,9 @@ def test_render_creates_opt_in_airflow_scheduler_ha() -> None:
     assert "airflow-scheduler" not in services
     assert {"airflow-scheduler-0", "airflow-scheduler-1"} <= set(services)
     assert services["airflow-init"]["command"] == ["airflow", "db", "migrate"]
-    assert services["airflow-webserver"]["command"] == "webserver"
+    assert services["airflow-webserver"]["command"] == (
+        "webserver --pid /tmp/airflow-webserver.pid"
+    )
     for index in range(2):
         scheduler = services[f"airflow-scheduler-{index}"]
         assert scheduler["command"] == "scheduler"
