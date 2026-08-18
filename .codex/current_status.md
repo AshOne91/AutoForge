@@ -43,6 +43,10 @@ AutoForge currently has working foundations for:
   (`kis_auto_trading` `0.1.0`, database/session-store dependencies `ok`) while
   KIS continued to return `GET /health` through Nginx with HTTP 200. The
   endpoint and token remained in ignored local environment files.
+- KIS's registered Windows Task Scheduler bootstrap was then run with the
+  heartbeat endpoint/token in its existing ignored `environment/.env`. It
+  rebuilt the current image and emitted a fresh second container-instance report
+  to the still-running Control Plane; Nginx health remained HTTP 200.
 - GitHub webhook verification and delivery deduplication
 - GitHub Actions/Jenkins validation configuration generation
 - generated Dockerfile and local/integration Compose environments
