@@ -46,9 +46,14 @@ AutoForge currently has working foundations for:
   readiness, plus a zero-value Secret template. It does not add database or
   migration resources; generator and full-suite validation pass. Cluster runtime
   deployment and provider migration executor verification remain pending. The
-  local `kubectl` client is installed, but kubeconfig/API discovery is not
-  accessible in the current environment, so client dry-run and rollout remain
-  unverified.
+  local `kubectl` client is installed; an initial client-only dry-run was blocked
+  by kubeconfig/API discovery and was later superseded by the disposable cluster
+  drill below.
+- Docker Desktop Kubernetes runtime validation later became available. A
+  disposable namespace accepted the generated Deployment and ClusterIP Service;
+  after rebuilding the image, `/health` returned 200 and `/readiness` returned
+  the expected 503 without a provider PostgreSQL store. The rollout correctly
+  remained blocked by readiness, and the namespace was removed after the drill.
 - Control Plane HTTP health is split: public `/health` remains process liveness,
   while `/readiness` checks the configured PostgreSQL JobStore and service-heartbeat
   store through their normal read paths and returns `503` on store failure. Focused

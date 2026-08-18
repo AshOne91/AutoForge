@@ -1,12 +1,11 @@
 # Next Task
 
-## Next executable unit: Control Plane Kubernetes runtime validation
+## Next executable unit: Provider-backed Control Plane readiness validation
 
-OWNERSHIP: AutoForge owns the Control Plane specification and generated manifest.
-PostgreSQL migration execution and cluster runtime remain provider-owned.
+OWNERSHIP: AutoForge owns the Control Plane HTTP/readiness contract and generated
+manifest. PostgreSQL migration execution and provider runtime remain external.
 
-When an accessible Kubernetes API server and kubeconfig are available, perform a
-disposable apply/rollout probe for the generated Control Plane manifest. Until
-then, the YAML/generator tests are the validation boundary. Keep it separate from
-consumer `base-server.yaml`. Do not generate a migration Job, PostgreSQL
-StatefulSet/PVC, dashboard, metrics backend, or agent orchestration.
+Repeat the disposable Kubernetes rollout with a provider-owned PostgreSQL endpoint
+whose schema has migrations `001`–`006` applied. Confirm both replicas become
+ready, then remove only the disposable resources. Do not generate a migration Job,
+PostgreSQL StatefulSet/PVC, dashboard, metrics backend, or agent orchestration.
