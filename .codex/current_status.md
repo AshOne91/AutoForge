@@ -650,6 +650,14 @@ unchanged; the manifest recorded `handlers.py` as `scaffolded` and `preserved`.
 This confirms the intended boundary: AutoForge owns generated infrastructure,
 routes, and models, while KIS owns its login and password policy.
 
+The preserved extension then passed a complete disposable HA vertical drill.
+The generated image built from that workspace and its generated routes completed
+signup, login, Redis-backed session validation, and shard identifier retrieval
+through HTTP; `/health` remained `200`. The temporary Compose project and its
+volumes were removed afterward. This proves the generated skeleton and the KIS
+consumer extension compose correctly; it is not a claim that domain handlers are
+generated automatically.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:

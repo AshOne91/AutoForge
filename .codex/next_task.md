@@ -1,13 +1,13 @@
 # Next Task
 
-## Next executable unit: preserved identity extension vertical drill
+## Next executable unit: identity-session Redis failover reuse check
 
-Using the disposable KIS HA workspace whose identity extension survived
-regeneration, start the generated application stack and verify the existing
-consumer-owned identity flow through generated routes and infrastructure:
-signup, login, Redis-backed session validation, and shard identifier retrieval.
-Use unique test credentials, preserve the workspace only as temporary evidence,
-and do not add application behavior or hand-edit generated-owned artifacts.
+Inspect the existing KIS operational verifiers for a user-owned identity flow
+that already performs Redis primary failover. Reuse it if present; otherwise add
+only the smallest consumer-owned verification that starts from the preserved
+identity extension, signs in, stops the elected session-key primary, validates
+the existing session through the generated HTTP route, and verifies node rejoin.
+Do not add domain behavior or hand-edit generated-owned artifacts.
 
 This is a single-host logical-node validation. It does not select a cloud
 provider or add Kubernetes stateful-provider resources.
