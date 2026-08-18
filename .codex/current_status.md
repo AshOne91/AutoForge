@@ -28,8 +28,9 @@ AutoForge currently has working foundations for:
   starts it only after generated database/session-store lifespans; missing endpoint
   or token disables reporting without affecting readiness. The local Compose profile
   passes the empty-by-default endpoint and token environment contract into the
-  application container. Generator/specification/Compose focused tests pass; a live
-  reporter-to-Control-Plane interoperability run remains next.
+  application container. Generator/specification/Compose focused tests pass, and
+  an in-process generated-reporter to Control Plane interoperability test confirms
+  authenticated storage of normalized instance/version/dependency data.
 - GitHub webhook verification and delivery deduplication
 - GitHub Actions/Jenkins validation configuration generation
 - generated Dockerfile and local/integration Compose environments

@@ -1,15 +1,31 @@
-from pathlib import Path
+import asyncio
+import importlib.util
+import sys
+from importlib.machinery import SourceFileLoader
+from pathlib import Path, PurePosixPath
+from types import ModuleType
+from urllib.parse import urlsplit
 
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from autoforge.application.generation import GenerationSubmissionService
 from autoforge.core.event import EventBus
+from autoforge.core.specification import (
+    ApplicationSpec,
+    ControlPlaneHeartbeatSpec,
+    DatabaseStoreSpec,
+    ProjectInfo,
+    ProjectSpec,
+    ServiceSpec,
+)
 from autoforge.infrastructure.heartbeat import InMemoryServiceHeartbeatStore
 from autoforge.infrastructure.http import (
     ControlPlaneHTTPSettings,
     create_control_plane_app,
 )
 from autoforge.infrastructure.job import InMemoryJobStore
+from autoforge.services.generation import FastAPIProjectGenerator
 
 TOKEN = "test-control-plane-token"
 
@@ -203,3 +219,107 @@ def test_service_heartbeat_is_authenticated_upserted_and_queryable(
     assert first.json()["dependencies"] == {"postgres": "ok", "rabbitmq": "degraded"}
     assert second.json()["deployed_version"] == "2026.08.19"
     assert listed.json()["heartbeats"] == [second.json()]
+
+
+def test_generated_heartbeat_reporter_posts_to_control_plane(
+    tmp_path: Path, monkeypatch
+) -> None:
+    specification = ProjectSpec(
+        spec_version="1",
+        project=ProjectInfo(
+            name="Sample",
+            package_name="game_server",
+            version="0.1.0",
+        ),
+        application=ApplicationSpec(
+            databases=[
+                DatabaseStoreSpec(name="identity", global_url_env="IDENTITY_URL")
+            ],
+            services=[
+                ServiceSpec(
+                    name="session",
+                    kind="redis_session",
+                    namespace="game_session",
+                    ttl_seconds=3600,
+                )
+            ],
+            control_plane_heartbeat=ControlPlaneHeartbeatSpec(enabled=True),
+        ),
+    )
+    rendered = FastAPIProjectGenerator().render(specification)
+    reporter_source = rendered[
+        PurePosixPath(
+            "src/game_server/application/generated/service_heartbeat.py"
+        )
+    ]
+    client = _client(tmp_path)
+    logger_module = ModuleType("game_server.application.observability")
+    logger_module.LOGGER = __import__("logging").getLogger("test-heartbeat")
+    monkeypatch.setitem(sys.modules, "game_server", ModuleType("game_server"))
+    monkeypatch.setitem(
+        sys.modules, "game_server.application", ModuleType("game_server.application")
+    )
+    monkeypatch.setitem(
+        sys.modules, "game_server.application.observability", logger_module
+    )
+    monkeypatch.setenv("POD_NAME", "pod@one")
+    reporter_path = tmp_path / "service_heartbeat.py"
+    reporter_path.write_text(reporter_source, encoding="utf-8")
+    loader = SourceFileLoader("generated_service_heartbeat", str(reporter_path))
+    module_spec = importlib.util.spec_from_loader(loader.name, loader)
+    assert module_spec is not None
+    reporter = importlib.util.module_from_spec(module_spec)
+    monkeypatch.setitem(sys.modules, loader.name, reporter)
+    loader.exec_module(reporter)
+
+    class InlineAsyncio:
+        CancelledError = asyncio.CancelledError
+        create_task = staticmethod(asyncio.create_task)
+        sleep = staticmethod(asyncio.sleep)
+
+        @staticmethod
+        async def to_thread(function, *args):
+            return function(*args)
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read(self):
+            return b"{}"
+
+    def urlopen(request, *, timeout):
+        assert timeout == 5
+        response = client.post(
+            urlsplit(request.full_url).path,
+            content=request.data,
+            headers=dict(request.header_items()),
+        )
+        assert response.status_code == 200
+        return Response()
+
+    reporter.asyncio = InlineAsyncio
+    reporter.urlopen = urlopen
+
+    async def run_reporter() -> None:
+        lifespan = reporter.service_heartbeat_lifespan
+        async with lifespan(FastAPI()):
+            await asyncio.sleep(0)
+
+    monkeypatch.setenv("CONTROL_PLANE_HEARTBEAT_URL", "http://control.local/v1/service-heartbeats")
+    monkeypatch.setenv("CONTROL_PLANE_API_TOKEN", TOKEN)
+    asyncio.run(run_reporter())
+
+    listed = client.get(
+        "/v1/service-heartbeats",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+    )
+    assert listed.status_code == 200
+    heartbeat = listed.json()["heartbeats"][0]
+    assert heartbeat["instance_id"] == "pod-one"
+    assert heartbeat["service_name"] == "game_server"
+    assert heartbeat["deployed_version"] == "0.1.0"
+    assert heartbeat["dependencies"] == {"database": "ok", "session_store": "ok"}
