@@ -177,6 +177,13 @@ server {
             if specification.tooling.single_host.bootstrap_provider == "windows_task_scheduler"
             else ""
         )
+        rag_note = (
+            "RAG is selected for this project. Start the separately managed "
+            "`deploy/rag/compose.rag.yaml` overlay (including the `inference` "
+            "profile when indexing is enabled) before this Compose overlay.\n"
+            if specification.tooling.rag.enabled
+            else ""
+        )
         port_block = (
             f"""
 ## Generated host-port block
@@ -227,7 +234,7 @@ python -m autoforge.main validate-ports --env-file environment/.env --env-file d
 The check is read-only and rejects duplicate published host ports; it does not
 allocate ports or replace specification validation.
 
-{bootstrap_note}The Windows bootstrap performs the same read-only Compose port-collision
+{rag_note}{bootstrap_note}The Windows bootstrap performs the same read-only Compose port-collision
 preflight, then builds the local application image before starting containers. The public proxy listens on
 `PUBLIC_BIND_ADDRESS:PUBLIC_HTTP_PORT`; application,
 database, Redis, RabbitMQ, and Airflow host ports remain governed by the integration

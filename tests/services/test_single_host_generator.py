@@ -11,6 +11,7 @@ from autoforge.core.specification import (
     LocalEnvironmentSpec,
     ProjectInfo,
     ProjectSpec,
+    RagSpec,
     SingleHostSpec,
     ToolingSpec,
 )
@@ -29,6 +30,7 @@ def single_host_specification(
     application_replicas: int = 3,
     host_port_base: int | None = None,
     bootstrap_provider: str = "none",
+    rag: bool = False,
 ) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
@@ -45,6 +47,7 @@ def single_host_specification(
             ]
         ),
         tooling=ToolingSpec(
+            rag=RagSpec(enabled=rag),
             local_environment=LocalEnvironmentSpec(
                 enabled=True, application_enabled=True, host_port_base=host_port_base
             ),
@@ -141,6 +144,16 @@ def test_render_adds_windows_bootstrap_only_when_selected() -> None:
     assert "up -d --wait" in bootstrap
     assert 'COMPOSE_IGNORE_ORPHANS = "true"' in bootstrap
     assert "runtime.env" in bootstrap
+
+
+def test_render_documents_separate_rag_start_order() -> None:
+    files = SingleHostOperatingGenerator().render(
+        single_host_specification(enabled=True, rag=True)
+    )
+
+    readme = files[PurePosixPath("deploy", "single-host", "README.md")]
+    assert "deploy/rag/compose.rag.yaml" in readme
+    assert "inference" in readme
 
 
 def test_single_host_requires_local_application_environment() -> None:
