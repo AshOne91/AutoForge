@@ -1,14 +1,14 @@
 # Next Task
 
-## Next executable unit: Control Plane heartbeat write continuity through replica loss
+## Next executable unit: Control Plane PostgreSQL migration-ledger adapter
 
-OWNERSHIP: AutoForge owns the Control Plane HTTP/readiness contract and generated
-manifest. PostgreSQL migration execution and provider runtime remain external.
+OWNERSHIP: AutoForge owns ordered migration artifact discovery and the typed
+version-ledger contract. The provider-owned single executor owns when and where
+migrations run; Kubernetes application manifests must not execute them.
 
-Using a provider-backed disposable database, record a generated KIS service
-heartbeat through the internal Control Plane ClusterIP, delete one exact Control
-Plane Pod, then record a second distinct generated heartbeat through the same
-ClusterIP. Confirm both authenticated records remain queryable while the
-Deployment replaces the deleted Pod. Remove only disposable resources afterward.
-Do not generate a migration Job, PostgreSQL StatefulSet/PVC, dashboard, metrics
-backend, or agent orchestration.
+Add the smallest PostgreSQL infrastructure adapter for the existing
+`MigrationVersionLedger` contract and its explicit SQL table. Verify persisted
+applied-version read/write behavior with the existing isolated PostgreSQL test
+pattern. Do not add an executor, application-startup migration, Kubernetes Job,
+PostgreSQL StatefulSet/PVC, provider SDK, advisory-lock orchestration, retry
+policy, rollback policy, or schema tooling in this unit.

@@ -40,6 +40,11 @@ AutoForge currently has working foundations for:
   initialization bootstrap. They are not a durable migration runner: new files
   are not applied automatically to an existing named volume, and provider-owned
   version tracking, retry, and rollback policy remain unimplemented.
+- The core now has a provider-neutral Control Plane migration boundary:
+  immutable SQL artifacts derive a checksum, ordering rejects duplicate versions,
+  applied migration evidence is timezone-aware, and `MigrationVersionLedger`
+  defines the async durable-ledger seam. No PostgreSQL ledger adapter, executor,
+  startup migration, retry policy, or rollback policy exists yet.
 - Kubernetes generation now has an opt-in Control Plane profile. It emits a
   separate `control-plane.yaml` with a two-replica Deployment, private ClusterIP
   Service, pre-created Secret references, `/health` liveness, and `/readiness`
@@ -73,6 +78,13 @@ AutoForge currently has working foundations for:
   active record. An earlier immediate one-shot logged a transient `URLError`, so
   the verified contract is the reporter's normal retrying lifespan rather than a
   startup-only single attempt. All disposable resources were removed.
+- The Control Plane heartbeat write-continuity drill then recorded a generated
+  KIS heartbeat, deleted one exact Control Plane Pod, and recorded a second
+  generated heartbeat through the unchanged ClusterIP while one replica
+  survived. Both authenticated records remained active within the server-owned
+  TTL window, and the Deployment restored two ready replicas. This is a
+  single-Pod replacement check, not database or multi-cluster failover proof;
+  all disposable resources were removed.
 - Control Plane HTTP health is split: public `/health` remains process liveness,
   while `/readiness` checks the configured PostgreSQL JobStore and service-heartbeat
   store through their normal read paths and returns `503` on store failure. Focused
