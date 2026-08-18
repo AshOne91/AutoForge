@@ -36,6 +36,13 @@ AutoForge currently has working foundations for:
   `49700` HTTP binding, required local secret environment file, and process
   liveness probe. A disposable Docker Compose run verified health and authenticated
   heartbeat persistence, then removed its containers, network, and data volume.
+- KIS's default user-owned specification now opts into the generated heartbeat
+  reporter. Regeneration exposed and then corrected a generator-side Ruff issue
+  (lifespan import ordering and an over-broad reporter exception handler). A
+  separately running local Control Plane persisted one authenticated KIS report
+  (`kis_auto_trading` `0.1.0`, database/session-store dependencies `ok`) while
+  KIS continued to return `GET /health` through Nginx with HTTP 200. The
+  endpoint and token remained in ignored local environment files.
 - GitHub webhook verification and delivery deduplication
 - GitHub Actions/Jenkins validation configuration generation
 - generated Dockerfile and local/integration Compose environments

@@ -240,6 +240,9 @@ def test_control_plane_heartbeat_generates_opt_in_lifecycle_reporter() -> None:
     ]
 
     ast.parse(reporter)
+    assert lifespan.index("application.generated.service_heartbeat") < lifespan.index(
+        "application.observability"
+    )
     assert "service_heartbeat_lifespan(app)" in lifespan
     assert lifespan.index("database_lifespan(app)") < lifespan.index(
         "service_heartbeat_lifespan(app)"
@@ -250,6 +253,7 @@ def test_control_plane_heartbeat_generates_opt_in_lifecycle_reporter() -> None:
     assert "CONTROL_PLANE_HEARTBEAT_URL" in reporter
     assert "CONTROL_PLANE_API_TOKEN" in reporter
     assert "asyncio.to_thread(_post_heartbeat, endpoint, token)" in reporter
+    assert "except (OSError, ValueError) as error" in reporter
     assert "'dependencies': _DEPENDENCIES" in reporter
 
 

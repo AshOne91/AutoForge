@@ -720,6 +720,7 @@ class FastAPIProjectGenerator:
         has_heartbeat_reporter: bool,
     ) -> str:
         imports = ""
+        heartbeat_import = ""
         entries = ""
         if has_database:
             imports += (
@@ -740,7 +741,7 @@ class FastAPIProjectGenerator:
                 "        await stack.enter_async_context(session_store_lifespan(app))\n"
             )
         if has_heartbeat_reporter:
-            imports += (
+            heartbeat_import = (
                 f"from {package_name}.application.generated.service_heartbeat import (\n"
                 "    service_heartbeat_lifespan,\n"
                 ")\n"
@@ -754,6 +755,7 @@ class FastAPIProjectGenerator:
             "\n"
             "from fastapi import FastAPI\n"
             "\n"
+            f"{heartbeat_import}"
             f"from {package_name}.application.observability import LOGGER\n"
             f"{imports}"
             "\n"
@@ -826,7 +828,7 @@ class FastAPIProjectGenerator:
             "    while True:\n"
             "        try:\n"
             "            await asyncio.to_thread(_post_heartbeat, endpoint, token)\n"
-            "        except Exception as error:\n"
+            "        except (OSError, ValueError) as error:\n"
             "            LOGGER.warning(\n"
             "                'service heartbeat report failed: %s', type(error).__name__\n"
             "            )\n"
