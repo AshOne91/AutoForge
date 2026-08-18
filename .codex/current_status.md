@@ -400,6 +400,15 @@ from each Deployment. This is a single-node validation, not multi-node HA proof.
 The Kubernetes Nginx template forwards `X-Real-IP`, `X-Forwarded-For`, and
 `X-Forwarded-Proto`.
 
+A fresh KIS HA workspace then built its generated Dockerfile and applied its
+generated Kubernetes base-server manifest in an isolated Docker Desktop
+namespace. With a validation-only Secret, all three application Pods and both
+Nginx Pods became Ready; an Nginx-local request traversed the internal ClusterIP
+backend and returned `/health` 200. Deleting one application Pod restored three
+current Ready Pods while that route remained healthy. The namespace was removed.
+This proves generated local Kubernetes topology and Pod replacement only, not
+provider database, Redis, RabbitMQ, or multi-node Kubernetes failover.
+
 KIS runtime verification confirms the generated PostgreSQL HA mode elects one
 leader with two streaming replicas, exposes the existing `postgres:5432` writer
 contract through HAProxy, and promotes a replacement leader after the active

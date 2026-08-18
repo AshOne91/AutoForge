@@ -1,14 +1,15 @@
 # Next Task
 
-## Next executable unit: local Kubernetes generated-topology reconciliation
+## Next executable unit: single-host Redis primary-failover reconciliation
 
-Use the same freshly generated KIS HA workspace to build its generated
-application image and apply the generated Kubernetes base-server manifest in an
-isolated Docker Desktop Kubernetes namespace. Verify the declared Nginx and
-application replica counts, the internal service route, and one application Pod
-replacement without changing the running lightweight Compose profile.
+Using a fresh generated KIS HA workspace, identify the elected Redis Cluster
+primary for one application session key, stop only that primary, and verify its
+replica promotion, cluster slot health, application continuity, and rejoin after
+restart. Reuse the current generated service names and connection contracts; do
+not hand-edit generated Compose artifacts or replace the running lightweight
+profile.
 
 Do not select a cloud deployment provider, add Kubernetes migration resources,
-or replace the active lightweight profile during this unit. Those are later
-deployment concerns after both local Docker logical-node and local Kubernetes
-topologies are reproducible.
+or replace the active lightweight profile during this unit. Kubernetes
+provider-store connectivity is a later concern after the Docker logical-node
+failover path is reproducible.
