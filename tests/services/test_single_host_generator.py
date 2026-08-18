@@ -138,6 +138,8 @@ def test_render_adds_windows_bootstrap_only_when_selected() -> None:
     assert "docker compose" in bootstrap
     assert "Docker engine did not become ready" in bootstrap
     assert "config --format json" in bootstrap
+    assert "External RAG network" in bootstrap
+    assert "docker network inspect" in bootstrap
     assert "Published host port collision" in bootstrap
     assert "docker compose @composeArgs build" in bootstrap
     assert "Docker Compose image build failed" in bootstrap
