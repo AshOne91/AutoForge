@@ -1,12 +1,12 @@
 # Next Task
 
-## Next executable unit: Select Kubernetes Control Plane deployment provider
+## Next executable unit: Control Plane DB-aware readiness contract
 
-OWNERSHIP: AutoForge owns the Control Plane and generated heartbeat contracts;
-the deployment provider owns Secret injection and endpoint exposure.
+OWNERSHIP: AutoForge owns Control Plane HTTP health semantics. PostgreSQL
+availability remains a provider-owned dependency.
 
-Compare the existing Docker profile with one provider-selected Kubernetes
-deployment contract for the Control Plane: Secret binding, private PostgreSQL
-dependency, health/readiness behavior, and an external synthetic probe. Choose
-the provider before adding manifests or generator output. Do not add a sidecar,
-dashboard, metrics backend, or agent orchestration.
+Add a dedicated readiness endpoint that verifies the configured Control Plane
+store is usable without changing `/health` process-liveness semantics. Cover a
+ready store and an unavailable store with focused HTTP tests. Do not generate a
+Kubernetes manifest yet, and do not add a sidecar, dashboard, metrics backend,
+or agent orchestration.

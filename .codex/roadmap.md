@@ -49,10 +49,12 @@ sequencing.
 - [ ] host bootstrap/deployment contract for Docker auto-start, AWS Launch Template
   UserData, image refresh, and secret injection after registry and host ownership
   boundaries are explicit
-- [ ] Kubernetes or managed-provider Control Plane deployment integration for
-  generated service heartbeats: retain Pull probes as the routing and restart
-  authority, bind endpoint/token through the selected provider Secret mechanism,
-  and retain an external synthetic probe for public-path checks
+- [ ] Kubernetes-native Control Plane deployment implementation after DB-aware
+  readiness and migration operating contracts exist: use the selected standard
+  Secret binding and private ClusterIP Service from
+  [ADR-0003](../docs/adr/0003-kubernetes-native-control-plane-provider.md), while
+  keeping Pull probes authoritative and external synthetic probes on the consumer
+  public path
 - [ ] external metrics backend adapter (Prometheus/OpenTelemetry, when selected)
 - [ ] artifact publishing
 - [ ] deployment plugins

@@ -53,8 +53,10 @@ instance identity, 그리고 시작 완료된 database/session-store의 최대 �
 보고한다. URL 또는 token이 없으면 application은 정상적으로 시작하고 reporter만 비활성화된다.
 보고 실패도 secret 또는 URL을 기록하지 않는 경고만 남기며 readiness를 실패시키지 않는다.
 
-Kubernetes Secret binding, Control Plane deployment profile, dashboard, metrics backend와
-agent orchestration은 이 계약에 포함하지 않는다.
+Kubernetes-native Control Plane deployment provider 선택은
+[ADR-0003](../adr/0003-kubernetes-native-control-plane-provider.md)가 소유한다.
+현재 reporter 계약과 Kubernetes base-server generator는 Control Plane manifest를 아직
+생성하지 않는다. dashboard, metrics backend와 agent orchestration도 이 계약에 포함하지 않는다.
 
 ## 동시성 계약
 
@@ -183,9 +185,10 @@ docker compose --env-file deploy/control-plane/.env -f deploy/control-plane/comp
 ```
 
 `.env`는 Git에서 제외되는 Docker Compose의 로컬 secret staging이다. API token과 database
-password 또는 `AUTOFORGE_DATABASE_URL`은 image·Compose manifest에 기록하지 않는다. Kubernetes
-또는 managed provider를 선택하면 같은 환경변수 계약을 해당 provider의 Secret mechanism으로
-바인딩해야 한다.
+password 또는 `AUTOFORGE_DATABASE_URL`은 image·Compose manifest에 기록하지 않는다. 선택된
+Kubernetes-native profile은 같은 환경변수 계약을 미리 생성된 Kubernetes Secret의 runtime
+binding으로 사용한다. Control Plane의 DB-aware readiness와 migration operating contract가
+구현되기 전에는 해당 manifest를 생성하지 않는다.
 
 ## 패키지 경계
 
