@@ -60,6 +60,10 @@ AutoForge currently has working foundations for:
   application startup or generated Kubernetes resources. A disposable subprocess
   check verified first-run output and repeat-run silence for both a custom
   artifact and the actual `001`??`007` Control Plane directory.
+- A disposable subprocess failure drill then supplied one valid DDL artifact and
+  one invalid SQL artifact to the provider CLI. It returned nonzero with only a
+  bounded error type, exposed neither the database URL nor SQL text, and left no
+  ledger evidence or partially created table after transaction rollback.
 - Kubernetes generation now has an opt-in Control Plane profile. It emits a
   separate `control-plane.yaml` with a two-replica Deployment, private ClusterIP
   Service, pre-created Secret references, `/health` liveness, and `/readiness`

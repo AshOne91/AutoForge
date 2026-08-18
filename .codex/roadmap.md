@@ -49,10 +49,10 @@ sequencing.
 - [ ] host bootstrap/deployment contract for Docker auto-start, AWS Launch Template
   UserData, image refresh, and secret injection after registry and host ownership
   boundaries are explicit
-- [ ] Kubernetes-native Control Plane provider/runtime deployment after a provider
-  migration executor and durable version-tracking implementation exist; the
-  opt-in manifest generator and resource contract are now present. Use the selected standard
-  Secret binding and private ClusterIP Service from
+- [ ] Kubernetes-native Control Plane provider/runtime deployment after a deployment
+  provider is selected. The opt-in manifest generator, durable version ledger,
+  provider-invoked migration executor, and resource contract are now present. Use
+  the selected standard Secret binding and private ClusterIP Service from
   [ADR-0003](../docs/adr/0003-kubernetes-native-control-plane-provider.md), while
   keeping Pull probes authoritative and external synthetic probes on the consumer
   public path

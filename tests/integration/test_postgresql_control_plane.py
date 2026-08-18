@@ -375,6 +375,84 @@ def test_control_plane_migration_cli_runs_in_subprocess(tmp_path: Path) -> None:
         asyncio.run(cleanup())
 
 
+def test_control_plane_migration_cli_contains_failed_batch(tmp_path: Path) -> None:
+    async def cleanup() -> None:
+        assert DATABASE_URL is not None
+        engine = create_async_engine(DATABASE_URL)
+        try:
+            async with engine.begin() as connection:
+                await connection.execute(
+                    text("DROP TABLE IF EXISTS autoforge_migration_cli_failure_probe")
+                )
+                await connection.execute(
+                    text(
+                        "DELETE FROM autoforge_migration_versions "
+                        "WHERE version IN (900021, 900022)"
+                    )
+                )
+        finally:
+            await engine.dispose()
+
+    migrations = tmp_path / "migrations"
+    migrations.mkdir()
+    (migrations / "900021_failure_probe.sql").write_text(
+        "CREATE TABLE autoforge_migration_cli_failure_probe (value INTEGER NOT NULL);",
+        encoding="utf-8",
+    )
+    (migrations / "900022_failure.sql").write_text(
+        "SELECT not_valid_postgresql_syntax;",
+        encoding="utf-8",
+    )
+    environment = {**os.environ, "AUTOFORGE_DATABASE_URL": DATABASE_URL or ""}
+    command = [
+        sys.executable,
+        "-m",
+        "autoforge.main",
+        "migrate-control-plane",
+        "--migration-directory",
+        str(migrations),
+    ]
+    try:
+        asyncio.run(cleanup())
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            check=False,
+            text=True,
+            env=environment,
+        )
+        assert result.returncode == 1
+        assert result.stdout == ""
+        assert "Error: Control Plane migration failed:" in result.stderr
+        assert "validation" not in result.stderr
+        assert "not_valid_postgresql_syntax" not in result.stderr
+
+        async def verify() -> tuple[object | None, int]:
+            assert DATABASE_URL is not None
+            engine = create_async_engine(DATABASE_URL)
+            try:
+                async with engine.connect() as connection:
+                    table = await connection.scalar(
+                        text("SELECT to_regclass('autoforge_migration_cli_failure_probe')")
+                    )
+                    count = await connection.scalar(
+                        text(
+                            "SELECT count(*) FROM autoforge_migration_versions "
+                            "WHERE version IN (900021, 900022)"
+                        )
+                    )
+                    assert count is not None
+                    return table, count
+            finally:
+                await engine.dispose()
+
+        table, count = asyncio.run(verify())
+        assert table is None
+        assert count == 0
+    finally:
+        asyncio.run(cleanup())
+
+
 def test_postgresql_persists_committing_lifecycle_and_commit_result() -> None:
     async def scenario() -> None:
         assert DATABASE_URL is not None
