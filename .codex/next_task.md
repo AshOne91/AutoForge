@@ -1,12 +1,12 @@
 # Next Task
 
-## Next executable unit: RAG-unavailable durable-worker readiness check
+## Next executable unit: generated RAG overlay bootstrap contract
 
 OWNERSHIP: AutoForge local-environment generator and generated worker runtime
 contract.
 
-Stop one declared RAG endpoint in the local KIS overlay and verify the
-RAG-enabled Durable Worker becomes unready without changing its RabbitMQ
-consumer contract. Restore the endpoint and verify the worker returns healthy.
-Do not couple the separately managed Compose projects or alter RAG-free
+Review the generated single-host bootstrap boundary for the separately managed
+RAG overlay. Define the smallest operator-facing preflight or documented launch
+ordering that prevents a RAG-enabled Worker from starting before its external
+services, without merging Compose projects or making RAG mandatory for RAG-free
 profiles.

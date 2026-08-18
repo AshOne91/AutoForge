@@ -97,6 +97,9 @@ AutoForge currently has working foundations for:
   the selected search backend, and Ollama respond. KIS regenerated this
   contract and verified the worker healthy with its separately managed RAG
   overlay running.
+- KIS stopped only the RAG Ollama service for the healthcheck threshold: the
+  Durable Worker became `unhealthy`, then returned `healthy` after Ollama
+  recovery. RabbitMQ and database services remained untouched.
 - generated KIS durable-job endpoints are runtime-verified for Bearer-token
   authentication, idempotent `(job_type, run_key)` requests, `automation` store
   routing, and status retrieval; generated Airflow uses those endpoints rather
