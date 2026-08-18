@@ -100,6 +100,9 @@ AutoForge currently has working foundations for:
 - KIS stopped only the RAG Ollama service for the healthcheck threshold: the
   Durable Worker became `unhealthy`, then returned `healthy` after Ollama
   recovery. RabbitMQ and database services remained untouched.
+- RAG-enabled single-host README generation now documents the separate RAG
+  overlay and inference-profile startup order; the generated KIS README was
+  regenerated and pushed without merging Compose projects.
 - generated KIS durable-job endpoints are runtime-verified for Bearer-token
   authentication, idempotent `(job_type, run_key)` requests, `automation` store
   routing, and status retrieval; generated Airflow uses those endpoints rather
