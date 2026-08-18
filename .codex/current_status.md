@@ -80,8 +80,8 @@ AutoForge currently has working foundations for:
   separate `control-plane.yaml` with a two-replica Deployment, private ClusterIP
   Service, pre-created Secret references, `/health` liveness, and `/readiness`
   readiness, plus a zero-value Secret template. It does not add database or
-  migration resources; generator and full-suite validation pass. Cluster runtime
-  provider migration executor verification remains pending. The
+  migration resources; provider migration remains an explicit pre-rollout
+  operation. Generator and full-suite validation pass. The
   local `kubectl` client is installed; an initial client-only dry-run was blocked
   by kubeconfig/API discovery and was later superseded by the disposable cluster
   drill below.
@@ -96,6 +96,15 @@ AutoForge currently has working foundations for:
   `/readiness` 200 with `{"status":"ready"}`, and the Service was confirmed as
   `ClusterIP:8000`. The namespace and temporary database container were removed
   after verification.
+- A later disposable Docker Desktop Kubernetes migration-boundary drill ran the
+  packaged provider image against isolated PostgreSQL before deploying the
+  Control Plane. The migration ledger contained versions `1` through `7`; the
+  runtime received its database URL only through a Secret, rolled out two current
+  Ready replicas, and both returned `/readiness` 200 with `{"status":"ready"}`.
+  The Service had a ClusterIP and no Kubernetes Job resource existed. The
+  namespace and temporary database container were removed. This verifies the
+  explicit external pre-rollout boundary, not a selected production provider,
+  database HA, backup, or restore policy.
 - The provider-backed Control Plane replica continuity drill deleted one running
   Pod, confirmed the surviving Pod's ClusterIP `/readiness` remained 200 and its
   local `/health` remained 200, then observed Kubernetes recreate the deleted Pod.
