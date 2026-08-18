@@ -82,6 +82,7 @@ async def test_validator_runs_import_then_pytest(tmp_path: Path) -> None:
         "-m",
         "pip",
         "wheel",
+        "--no-cache-dir",
         "--no-deps",
         "--no-build-isolation",
         "--wheel-dir",

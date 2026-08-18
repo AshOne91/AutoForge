@@ -11,7 +11,10 @@ from autoforge.services.generation import DockerfileGenerator
 
 
 def project_specification(
-    *, enabled: bool = False, has_database: bool = False
+    *,
+    enabled: bool = False,
+    has_database: bool = False,
+    local_application_enabled: bool = False,
 ) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
@@ -28,7 +31,13 @@ def project_specification(
             if has_database
             else []
         ),
-        tooling={"docker": {"enabled": enabled}},
+        tooling={
+            "docker": {"enabled": enabled},
+            "local_environment": {
+                "enabled": local_application_enabled,
+                "application_enabled": local_application_enabled,
+            },
+        },
     )
 
 
@@ -56,6 +65,14 @@ def test_render_creates_expected_dockerfile_when_enabled() -> None:
     assert 'CMD ["uvicorn", "game_server.main:app"' in dockerfile
     assert "secret" not in dockerfile.lower()
     assert "deploy" not in dockerfile.lower()
+
+
+def test_render_creates_dockerfile_for_local_application_runtime() -> None:
+    files = DockerfileGenerator().render(
+        project_specification(local_application_enabled=True)
+    )
+
+    assert PurePosixPath("Dockerfile") in files
 
 
 def test_render_includes_migration_files_for_database_projects() -> None:

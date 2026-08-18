@@ -336,6 +336,13 @@ Local/integration Compose and Kubernetes base manifests are generated under thei
 own contracts. Artifact publishing, live deployment, and cloud credentials are not
 owned by the Dockerfile Generator.
 
+`DockerfileGenerator` now also renders a generated `Dockerfile` whenever the
+local application runtime is enabled, even when `tooling.docker.enabled` is not
+set. This closes a real empty-workspace failure in which generated Compose used
+`build: Dockerfile` but depended on a stale pre-existing file. The project
+validator also passes `--no-cache-dir` to `pip wheel`, avoiding a Windows shared
+pip-cache ACL failure without changing generated package contents.
+
 Generated Compose reuses its application image tag. Runtime verification therefore
 rebuilds the image after consumer source changes. Redis Cluster nodes advertise
 Compose service hostnames and the idempotent initializer reintroduces persisted
@@ -351,6 +358,13 @@ Compose profile. An isolated KIS Compose drill verifies Nginx `/health`, exactly
 three healthy application replicas, and recovery through the proxy after one
 application container is restarted. Host backup/bootstrap procedures remain
 unverified.
+A fresh empty workspace generated from KIS `autoforge.ha.yaml` now independently
+passed the complete AutoForge generation validation, then started the same Nginx
+and three application replicas with three etcd members, three Patroni PostgreSQL
+members, six Redis Cluster members, and three RabbitMQ members. Restarting one
+application container preserved proxied health and recovered that container. The
+drill used its own `596xx` host ports, Compose project, and volumes, leaving the
+running lightweight KIS profile unchanged.
 The single-host specification now supports the explicit
 `windows_task_scheduler` bootstrap provider and generates a PowerShell script
 that reruns the named Compose project with `up -d --wait`; task registration and

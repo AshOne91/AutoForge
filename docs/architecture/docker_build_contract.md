@@ -1,7 +1,9 @@
 # Docker Build 계약
 
 이 문서는 AutoForge가 생성하는 프로젝트의 Docker Build 책임 범위를 정의한다.
-`DockerfileGenerator`는 이 계약에 따라 선택적으로 Dockerfile을 생성한다.
+`DockerfileGenerator`는 이 계약에 따라 Dockerfile을 생성한다. 명시적
+`tooling.docker.enabled`뿐 아니라, 생성된 Compose가 `Dockerfile`을 build input으로
+필요로 하는 `tooling.local_environment.application_enabled`도 생성 조건이다.
 
 ## 목적
 
@@ -30,15 +32,19 @@ Dockerfile Generator는 다음만 책임진다.
 ## 생성 경계
 
 Docker 파일은 다른 Generator가 소유한 파일을 직접 수정하지 않는다. 파일 충돌은
-`GenerationPlan`의 소유권과 manifest 검증으로 탐지해야 한다. Docker 관련 설정이
-`ProjectSpec`에 없으면 Docker 생성물은 출력하지 않는 것이 기본값이다.
+`GenerationPlan`의 소유권과 manifest 검증으로 탐지해야 한다. 명시적 Docker 설정과
+local application runtime 설정이 모두 없으면 Docker 생성물은 출력하지 않는 것이
+기본값이다. local application runtime이 켜진 경우에는 Compose가 기존 파일에 우연히
+의존하지 않도록 generated `Dockerfile`을 함께 계획해야 한다.
 
 ## 검증 계약
 
 다음 조건을 검증한다.
 
-1. 명세가 비활성화된 경우 Docker 파일이 생성되지 않는지 확인한다.
-2. 활성화된 경우 Dockerfile 경로·소유권·명세 해시가 계획에 포함되는지 확인한다.
+1. 명시적 Docker와 local application runtime이 모두 비활성화된 경우 Docker 파일이
+   생성되지 않는지 확인한다.
+2. 명시적 Docker 또는 local application runtime이 활성화된 경우 Dockerfile
+   경로·소유권·명세 해시가 계획에 포함되는지 확인한다.
 3. 생성된 Dockerfile에 secret, 배포 명령, 외부 작업 디렉터리 참조가 없는지 확인한다.
 4. 프로젝트의 기존 import, pytest, Ruff 검증과 Docker 계약 검증을 분리한다.
 5. 실제 이미지 빌드는 Docker가 설치된 환경의 별도 통합 검증으로 둔다.

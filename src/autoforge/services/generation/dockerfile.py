@@ -12,7 +12,7 @@ from autoforge.core.generation import (
 from autoforge.core.specification import ProjectSpec
 
 GENERATOR_ID: Final = "autoforge.generator.dockerfile"
-GENERATOR_VERSION: Final = "0.1.0"
+GENERATOR_VERSION: Final = "0.2.0"
 DOCKERFILE_GENERATOR_ID: Final = GENERATOR_ID
 DOCKERFILE_GENERATOR_VERSION: Final = GENERATOR_VERSION
 
@@ -27,7 +27,11 @@ class DockerfileGenerator:
         return GENERATOR_VERSION
 
     def render(self, specification: ProjectSpec) -> dict[PurePosixPath, str]:
-        if not specification.tooling.docker.enabled:
+        local_application_enabled = (
+            specification.tooling.local_environment.enabled
+            and specification.tooling.local_environment.application_enabled
+        )
+        if not (specification.tooling.docker.enabled or local_application_enabled):
             return {}
         return {
             PurePosixPath("Dockerfile"): self._render_dockerfile(

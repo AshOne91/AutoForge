@@ -63,6 +63,7 @@ class ProjectValidator:
                     "-m",
                     "pip",
                     "wheel",
+                    "--no-cache-dir",
                     "--no-deps",
                     "--no-build-isolation",
                     "--wheel-dir",
