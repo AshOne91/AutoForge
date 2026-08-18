@@ -643,6 +643,13 @@ against the current generated KIS HA workspace: `redis-7000` stopped,
 the session, application health remained available, and `redis-7000` rejoined as
 a replica.
 
+A disposable KIS scaffold-preservation drill then generated the current HA
+workspace, placed the existing consumer-owned identity handler and its direct
+password helper into it, and regenerated. Both extension file hashes were
+unchanged; the manifest recorded `handlers.py` as `scaffolded` and `preserved`.
+This confirms the intended boundary: AutoForge owns generated infrastructure,
+routes, and models, while KIS owns its login and password policy.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:
