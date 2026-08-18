@@ -13,7 +13,10 @@ generated project. The dated inventory is preserved as
 `docs/reference/base_server_service_capability_map.md`; this Roadmap owns future
 sequencing.
 
-- [ ] reusable service-composition contract: independently deployable services with explicit configuration, lifecycle, health, and Event/Queue boundaries
+- [x] local integration service-composition contract: generated Compose에서 파생한
+  `environment/service-composition.json`이 서비스별 configuration, lifecycle,
+  health, dependency 및 Redis/RabbitMQ/Durable Job 경계를 기록한다. 향후 배포
+  provider는 이 파생 산출물을 새 정본으로 바꾸지 않고 필요할 때 소비한다.
 - [ ] canonical ingestion/indexing handoff after a consumer chooses its record contract
 - [ ] embedding and reranking provider contracts after the selected consumer establishes an evaluation dataset and relevance target
 - [ ] Redis distributed lock after a real concurrency-critical consumer path exists

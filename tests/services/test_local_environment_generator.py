@@ -1,3 +1,4 @@
+import json
 from pathlib import PurePosixPath
 
 import pytest
@@ -120,6 +121,49 @@ def test_render_is_empty_until_enabled() -> None:
     assert LocalEnvironmentGenerator().render(integration_specification()) == {}
 
 
+def test_render_creates_service_composition_from_generated_compose() -> None:
+    files = LocalEnvironmentGenerator().render(
+        integration_specification(
+            enabled=True,
+            application=True,
+            durable_jobs=True,
+            postgres_mode="ha",
+            rabbitmq_mode="cluster",
+            rabbitmq_queue_type="quorum",
+        )
+    )
+
+    composition = json.loads(files[PurePosixPath("environment/service-composition.json")])
+    services = {service["name"]: service for service in composition["services"]}
+    declared = {
+        service["name"]: service
+        for service in composition["declared_service_contracts"]
+    }
+
+    assert composition["compose_file"] == "environment/compose.integration.yml"
+    assert services["migrate"]["lifecycle"] == "one_shot"
+    assert services["migrate"]["dependencies"] == {
+        "postgres-ha-init": "service_completed_successfully"
+    }
+    assert services["application"]["healthcheck"] is True
+    assert services["application"]["restart_policy"] == "unless-stopped"
+    assert "RABBITMQ_URL" in services["outbox-relay"]["configuration_env"]
+    assert declared["session"]["configuration_env"] == [
+        "REDIS_CLUSTER_URL",
+        "REDIS_CLUSTER_STARTUP_NODES",
+    ]
+    assert declared["events"]["event_queue"]["queue_type"] == "quorum"
+    assert composition["durable_jobs"] == [
+        {
+            "event_type": "news.collection.requested",
+            "name": "news_collection",
+            "routing_key": "news.collection.requested",
+            "schedule": "0 * * * *",
+            "store": "automation",
+        }
+    ]
+
+
 def test_render_creates_mysql_standalone_environment() -> None:
     files = LocalEnvironmentGenerator().render(
         integration_specification(
@@ -210,6 +254,7 @@ def test_render_creates_disposable_kis_integration_services() -> None:
 
     assert set(files) == {
         PurePosixPath("environment", "compose.integration.yml"),
+        PurePosixPath("environment", "service-composition.json"),
         PurePosixPath("environment", ".env.example"),
         PurePosixPath("environment", "README.md"),
         PurePosixPath("environment", "postgres-init", "00-databases.sql"),

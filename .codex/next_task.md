@@ -1,15 +1,12 @@
 # Next Task
 
-## Next executable unit: isolated application crash-recovery acceptance drill
+## Next executable unit: Control Plane service-heartbeat contract slice
 
-OWNERSHIP: AutoForge generated single-host runtime contract and KIS HA-profile
-validation.
+OWNERSHIP: AutoForge Control Plane and generated service runtime; KIS is the
+consumer validation project.
 
-Define and run one reproducible failure mechanism that Docker recognizes as an
-unexpected application-container exit in a disposable, separately named HA
-Compose project. Verify `RestartCount` increases, the stopped replica returns
-healthy under the generated restart policy, and Nginx `/health` stays HTTP 200
-throughout. Do not use `docker stop` or `docker kill` as evidence of restart
-policy behavior: Docker treats those as operator-initiated stops. Preserve the
-normal KIS workspace and its retained HA volumes; this is an isolated validation
-task, not a reason to alter the generated runtime contract.
+Introduce the smallest authenticated, expiring heartbeat contract for a running
+service identity, deployed version, and bounded dependency summary. Keep
+generated Compose/Kubernetes pull probes as the routing and restart authority,
+and keep public synthetic probes external. Start with one storage/API vertical
+slice; do not add a dashboard, a new metrics backend, or agent orchestration.

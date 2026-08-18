@@ -1,4 +1,7 @@
+import json
 from pathlib import PurePosixPath
+
+import yaml
 
 from autoforge.core.generation import (
     FileOwnership,
@@ -61,24 +64,27 @@ class LocalEnvironmentGenerator:
         if has_durable_jobs and "airflow" not in database_names:
             database_names.append("airflow")
 
+        compose = self._render_compose(
+            specification,
+            database_names=database_names,
+            database_provider=database_provider,
+            postgres_mode=postgres_mode,
+            mysql_mode=mysql_mode,
+            redis_mode=redis_mode,
+            redis_service=redis_service,
+            has_rabbitmq=bool(rabbitmq_services),
+            rabbitmq_mode=rabbitmq_mode,
+            airflow_scheduler_replicas=airflow_scheduler_replicas,
+            has_durable_jobs=has_durable_jobs,
+            has_application=has_application,
+            has_migration=has_migration,
+            has_rag=has_rag,
+            host_port_base=host_port_base,
+        )
         files = {
-            PurePosixPath("environment", "compose.integration.yml"): self._render_compose(
-                specification,
-                database_names=database_names,
-                database_provider=database_provider,
-                postgres_mode=postgres_mode,
-                mysql_mode=mysql_mode,
-                redis_mode=redis_mode,
-                redis_service=redis_service,
-                has_rabbitmq=bool(rabbitmq_services),
-                rabbitmq_mode=rabbitmq_mode,
-                airflow_scheduler_replicas=airflow_scheduler_replicas,
-                has_durable_jobs=has_durable_jobs,
-                has_application=has_application,
-                has_migration=has_migration,
-                has_rag=has_rag,
-                host_port_base=host_port_base,
-            ),
+            PurePosixPath("environment", "compose.integration.yml"): compose,
+            PurePosixPath("environment", "service-composition.json"):
+                self._render_service_composition(specification, compose),
             PurePosixPath("environment", ".env.example"): self._render_env(
                 specification,
                 database_provider=database_provider,
@@ -176,6 +182,91 @@ class LocalEnvironmentGenerator:
         if modes == {"sentinel"}:
             raise ValueError("local environment does not yet support Redis Sentinel")
         return next(iter(modes), None)
+
+    @classmethod
+    def _render_service_composition(
+        cls,
+        specification: ProjectSpec,
+        compose_content: str,
+    ) -> str:
+        """Render a read-only service view from the generated Compose source."""
+        compose = yaml.safe_load(compose_content)
+        services = compose["services"]
+        contract = {
+            "contract_version": "1",
+            "profile": "local-integration",
+            "compose_file": "environment/compose.integration.yml",
+            "services": [
+                cls._describe_composed_service(name, services[name])
+                for name in sorted(services)
+            ],
+            "declared_service_contracts": [
+                cls._describe_declared_service(service)
+                for service in specification.application.services
+            ],
+            "durable_jobs": [
+                {
+                    "name": job.name,
+                    "store": job.store,
+                    "event_type": job.event_type,
+                    "routing_key": job.routing_key,
+                    "schedule": job.schedule,
+                }
+                for job in specification.application.durable_jobs
+            ],
+        }
+        return json.dumps(contract, indent=2, sort_keys=True) + "\n"
+
+    @staticmethod
+    def _describe_composed_service(name: str, definition: dict[str, object]) -> dict[str, object]:
+        dependency_conditions = {
+            dependency: (
+                settings.get("condition", "service_started")
+                if isinstance(settings, dict)
+                else "service_started"
+            )
+            for dependency, settings in definition.get("depends_on", {}).items()
+        }
+        environment = definition.get("environment", {})
+        restart_policy = definition.get("restart", "no")
+        return {
+            "name": name,
+            "lifecycle": "one_shot" if restart_policy == "no" else "long_running",
+            "restart_policy": restart_policy,
+            "healthcheck": "healthcheck" in definition,
+            "dependencies": dependency_conditions,
+            "configuration_env": sorted(environment) if isinstance(environment, dict) else [],
+            "published_ports": definition.get("ports", []),
+        }
+
+    @staticmethod
+    def _describe_declared_service(service: ServiceSpec) -> dict[str, object]:
+        if service.kind == "redis_session":
+            connection_env = {
+                "standalone": [service.url_env],
+                "cluster": [service.cluster_url_env, service.cluster_startup_nodes_env],
+                "sentinel": [service.sentinel_urls_env],
+            }[service.mode]
+            return {
+                "name": service.name,
+                "kind": service.kind,
+                "mode": service.mode,
+                "configuration_env": connection_env,
+            }
+        return {
+            "name": service.name,
+            "kind": service.kind,
+            "configuration_env": [service.connection_url_env],
+            "event_queue": {
+                "exchange": service.exchange,
+                "queue": service.queue,
+                "routing_key": service.routing_key,
+                "dead_letter_exchange": service.dead_letter_exchange,
+                "dead_letter_queue": service.dead_letter_queue,
+                "queue_type": service.queue_type,
+                "outbox_stores": service.outbox_stores,
+            },
+        }
 
     def _render_compose(
         self,

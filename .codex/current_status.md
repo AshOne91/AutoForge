@@ -197,6 +197,13 @@ AutoForge currently has working foundations for:
 
 ## Docker work
 
+- Local Environment Generator는 생성된 Compose에서 파생한
+  `environment/service-composition.json`을 함께 생성한다. 이 generated-only manifest는
+  서비스별 configuration environment name, lifecycle/restart policy, healthcheck,
+  dependency condition과 Redis/RabbitMQ/Durable Job 계약을 기록하며, 별도 명세나
+  런타임 제어면을 만들지 않는다. KIS 기본 명세를 재생성해 11개 Compose service의
+  lifecycle·health 조건이 manifest와 일치함을 확인했다.
+
 The optional Dockerfile Generator and generated-project daemon build are verified.
 Local/integration Compose and Kubernetes base manifests are generated under their
 own contracts. Artifact publishing, live deployment, and cloud credentials are not
