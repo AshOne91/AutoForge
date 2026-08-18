@@ -151,6 +151,18 @@ foreach ($service in $config.services.PSObject.Properties) {
 $env:COMPOSE_IGNORE_ORPHANS = "true"
 docker compose @composeArgs build
 if ($LASTEXITCODE -ne 0) { throw "Docker Compose image build failed." }
+if ($null -ne $ragNetworkDefinition -and $ragNetworkDefinition.Value.external) {
+  $ragPreflight = @'
+from urllib.request import urlopen
+import os
+urlopen(os.environ["RAG_SEARCH_URL"] + "/_cluster/health", timeout=5).read()
+urlopen(os.environ["RAG_OLLAMA_URL"] + "/api/tags", timeout=5).read()
+'@
+  docker compose @composeArgs run --rm --no-deps --no-TTY --entrypoint python application -c $ragPreflight
+  if ($LASTEXITCODE -ne 0) {
+    throw "RAG endpoints are unavailable. Start the generated RAG overlay and inference profile first."
+  }
+}
 docker compose @composeArgs up -d --wait
 '''
 
@@ -188,7 +200,9 @@ server {
         rag_note = (
             "RAG is selected for this project. Start the separately managed "
             "`deploy/rag/compose.rag.yaml` overlay (including the `inference` "
-            "profile when indexing is enabled) before this Compose overlay.\n"
+            "profile when indexing is enabled) before this Compose overlay. The "
+            "Windows bootstrap checks the configured search and Ollama endpoints "
+            "before starting the application.\n"
             if specification.tooling.rag.enabled
             else ""
         )

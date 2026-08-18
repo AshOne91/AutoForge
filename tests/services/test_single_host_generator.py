@@ -140,6 +140,10 @@ def test_render_adds_windows_bootstrap_only_when_selected() -> None:
     assert "config --format json" in bootstrap
     assert "External RAG network" in bootstrap
     assert "docker network inspect" in bootstrap
+    assert "RAG_SEARCH_URL" in bootstrap
+    assert "RAG_OLLAMA_URL" in bootstrap
+    assert "run --rm --no-deps --no-TTY --entrypoint python application" in bootstrap
+    assert "RAG endpoints are unavailable" in bootstrap
     assert "Published host port collision" in bootstrap
     assert "docker compose @composeArgs build" in bootstrap
     assert "Docker Compose image build failed" in bootstrap
@@ -156,6 +160,7 @@ def test_render_documents_separate_rag_start_order() -> None:
     readme = files[PurePosixPath("deploy", "single-host", "README.md")]
     assert "deploy/rag/compose.rag.yaml" in readme
     assert "inference" in readme
+    assert "search and Ollama endpoints" in readme
 
 
 def test_single_host_requires_local_application_environment() -> None:

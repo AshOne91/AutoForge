@@ -1,12 +1,13 @@
 # Next Task
 
-## Next executable unit: RAG endpoint bootstrap preflight
+## Next executable unit: HA RAG bootstrap runtime drill
 
-OWNERSHIP: AutoForge local-environment generator and generated worker runtime
-contract.
+OWNERSHIP: AutoForge generated Windows bootstrap and KIS HA-profile validation.
 
-Review whether the generated bootstrap should perform a bounded read-only
-endpoint check for the selected RAG search backend and Ollama after the external
-network check but before application startup. Keep the existing Worker
-healthcheck as the final readiness authority; do not merge Compose projects or
-make RAG mandatory for RAG-free profiles.
+In a disposable HA-profile runtime, start the generated RAG overlay with its
+inference profile, run the generated Windows bootstrap, and prove the new
+in-network endpoint preflight passes before Compose startup. Then stop one RAG
+dependency long enough to prove bootstrap fails with the explicit preflight
+error, restore it, and return the consumer repository to the lightweight default
+profile. Keep the durable-worker healthcheck as the final readiness authority;
+do not merge Compose projects or make RAG mandatory for RAG-free profiles.

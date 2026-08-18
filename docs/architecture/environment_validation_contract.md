@@ -113,6 +113,13 @@ and 30 retries. The probe command remains image-native; Qdrant uses a Bash TCP
 probe because its image does not contain `curl`, while search, Kibana, and
 Filebeat use their available HTTP or native connectivity checks.
 
+When RAG is selected, the generated Windows single-host bootstrap first confirms
+the external RAG network, then—after building the generated application image—runs
+a read-only request from that image to the configured search `/_cluster/health`
+and Ollama `/api/tags` endpoints. A missing endpoint stops bootstrap with an
+actionable start-order error; this does not apply to RAG-free profiles and does
+not replace the durable worker healthcheck as the readiness authority.
+
 The default `rabbitmq_mode: standalone` profile has one persisted broker. The
 opt-in `rabbitmq_mode: cluster` profile emits three RabbitMQ nodes, persistent
 node data, a shared `RABBITMQ_ERLANG_COOKIE`, and HAProxy behind the unchanged
