@@ -45,7 +45,10 @@ AutoForge currently has working foundations for:
   Service, pre-created Secret references, `/health` liveness, and `/readiness`
   readiness, plus a zero-value Secret template. It does not add database or
   migration resources; generator and full-suite validation pass. Cluster runtime
-  deployment and provider migration executor verification remain pending.
+  deployment and provider migration executor verification remain pending. The
+  local `kubectl` client is installed, but kubeconfig/API discovery is not
+  accessible in the current environment, so client dry-run and rollout remain
+  unverified.
 - Control Plane HTTP health is split: public `/health` remains process liveness,
   while `/readiness` checks the configured PostgreSQL JobStore and service-heartbeat
   store through their normal read paths and returns `503` on store failure. Focused
