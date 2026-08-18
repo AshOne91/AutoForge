@@ -634,6 +634,15 @@ the generated multi-startup-node client contract. The Nginx health endpoint
 remained available; restarting `redis-7000` returned it as a healthy replica.
 This is single-host container resilience, not host or availability-zone HA.
 
+The same procedure is now a KIS user-owned operational verifier at
+`scripts/verify_generated_redis_failover.py`. It reuses the existing isolated
+Compose lifecycle, requires an explicit HA generated workspace, and rejects the
+lightweight standalone-Redis profile before Docker startup. The verifier passed
+against the current generated KIS HA workspace: `redis-7000` stopped,
+`redis-7004` promoted, the generated multi-startup-node session client retained
+the session, application health remained available, and `redis-7000` rejoined as
+a replica.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:
