@@ -215,4 +215,4 @@ def test_generated_project_has_a_complete_docker_build_context(
     assert (tmp_path / "src/game_server").is_dir()
     assert "COPY pyproject.toml README.md ./" in dockerfile
     assert "COPY src ./src" in dockerfile
-    assert 'CMD ["uvicorn", "game_server.main:app"' in dockerfile
+    assert 'CMD ["python", "-m", "uvicorn", "game_server.main:app"' in dockerfile

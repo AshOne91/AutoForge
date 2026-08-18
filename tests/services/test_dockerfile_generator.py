@@ -62,7 +62,7 @@ def test_render_creates_expected_dockerfile_when_enabled() -> None:
     assert "WORKDIR /app" in dockerfile
     assert "COPY src ./src" in dockerfile
     assert 'RUN pip install --no-cache-dir .' in dockerfile
-    assert 'CMD ["uvicorn", "game_server.main:app"' in dockerfile
+    assert 'CMD ["python", "-m", "uvicorn", "game_server.main:app"' in dockerfile
     assert "secret" not in dockerfile.lower()
     assert "deploy" not in dockerfile.lower()
 
@@ -83,6 +83,7 @@ def test_render_includes_migration_files_for_database_projects() -> None:
     assert "COPY alembic.ini ./" in dockerfile
     assert "COPY migrations ./migrations" in dockerfile
     assert "COPY scripts ./scripts" in dockerfile
+    assert "COPY src ./src\nCOPY alembic.ini ./" in dockerfile
 
 
 def test_plan_matches_rendered_content_hashes() -> None:

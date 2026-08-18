@@ -86,7 +86,6 @@ class DockerfileGenerator:
             "\n"
             "COPY pyproject.toml README.md ./\n"
             "COPY src ./src\n"
-            "\n"
             + migration_files
             + "\n"
             + 'RUN pip install --no-cache-dir .\n'
@@ -94,6 +93,6 @@ class DockerfileGenerator:
             'EXPOSE 8000\n'
             "\n"
             "CMD ["
-            f'"uvicorn", "{package_name}.main:app", '
+            f'"python", "-m", "uvicorn", "{package_name}.main:app", '
             '"--host", "0.0.0.0", "--port", "8000"]\n'
         )
