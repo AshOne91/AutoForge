@@ -1,11 +1,12 @@
 # Next Task
 
-## Next executable unit: Provider-backed Control Plane readiness validation
+## Next executable unit: Control Plane Kubernetes replica continuity drill
 
 OWNERSHIP: AutoForge owns the Control Plane HTTP/readiness contract and generated
 manifest. PostgreSQL migration execution and provider runtime remain external.
 
-Repeat the disposable Kubernetes rollout with a provider-owned PostgreSQL endpoint
-whose schema has migrations `001`–`006` applied. Confirm both replicas become
-ready, then remove only the disposable resources. Do not generate a migration Job,
-PostgreSQL StatefulSet/PVC, dashboard, metrics backend, or agent orchestration.
+Repeat the provider-backed disposable rollout, delete one Control Plane Pod, and
+confirm the surviving replica and ClusterIP Service remain ready before the Pod is
+recreated. Remove only the disposable resources afterward. Do not generate a
+migration Job, PostgreSQL StatefulSet/PVC, dashboard, metrics backend, or agent
+orchestration.
