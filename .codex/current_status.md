@@ -64,6 +64,15 @@ AutoForge currently has working foundations for:
   Pod, confirmed the surviving Pod's ClusterIP `/readiness` remained 200 and its
   local `/health` remained 200, then observed Kubernetes recreate the deleted Pod.
   Both replicas returned `Ready=True`; all disposable resources were removed.
+- A subsequent disposable Kubernetes interoperability drill ran the actual
+  generated KIS `service_heartbeat_lifespan` from the `kis-auto-trading:local`
+  image against the Control Plane ClusterIP and provider-backed PostgreSQL store.
+  After 35 seconds, the reporter's scheduled delivery produced one authenticated
+  `kis_auto_trading` heartbeat record with the generated version and dependency
+  summary; repeated delivery upserted that instance instead of creating a second
+  active record. An earlier immediate one-shot logged a transient `URLError`, so
+  the verified contract is the reporter's normal retrying lifespan rather than a
+  startup-only single attempt. All disposable resources were removed.
 - Control Plane HTTP health is split: public `/health` remains process liveness,
   while `/readiness` checks the configured PostgreSQL JobStore and service-heartbeat
   store through their normal read paths and returns `503` on store failure. Focused
