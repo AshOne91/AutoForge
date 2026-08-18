@@ -1,11 +1,12 @@
 # Next Task
 
-## Next executable unit: Kubernetes-native Control Plane manifest contract
+## Next executable unit: Control Plane Kubernetes specification profile
 
-OWNERSHIP: AutoForge owns the generated Control Plane Deployment, Service, Secret
-binding, and probe contract. PostgreSQL migration execution remains provider-owned.
+OWNERSHIP: AutoForge owns the Control Plane specification and generated manifest.
+PostgreSQL migration execution remains provider-owned.
 
-Define the generated Kubernetes-native resource contract using the selected
-Secret keys, private ClusterIP Service, `/health` liveness, and `/readiness`
-readiness. Do not generate a migration Job, PostgreSQL StatefulSet/PVC, dashboard,
-metrics backend, or agent orchestration.
+Add the smallest opt-in specification profile and generator output for the
+documented Deployment, private ClusterIP Service, Secret references, and probes.
+Keep it separate from the consumer `base-server.yaml` output. Do not generate a
+migration Job, PostgreSQL StatefulSet/PVC, dashboard, metrics backend, or agent
+orchestration.

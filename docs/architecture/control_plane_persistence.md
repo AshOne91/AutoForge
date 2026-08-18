@@ -65,6 +65,14 @@ Kubernetes-native Control Plane deployment provider 선택은
 현재 reporter 계약과 Kubernetes base-server generator는 Control Plane manifest를 아직
 생성하지 않는다. dashboard, metrics backend와 agent orchestration도 이 계약에 포함하지 않는다.
 
+향후 Control Plane manifest의 최소 생성 계약은 다음과 같다. `Deployment` 하나와
+cluster-internal `ClusterIP Service` 하나를 생성하고, 미리 생성된 opaque `Secret`의
+`AUTOFORGE_DATABASE_URL`과 `AUTOFORGE_CONTROL_PLANE_TOKEN`을 runtime environment로
+주입한다. `/health`는 liveness probe, `/readiness`는 readiness probe로 사용한다.
+외부 `LoadBalancer`, PostgreSQL `StatefulSet`/PVC, migration Job, Secret 값, dashboard와
+metrics backend는 생성하지 않는다. 현재 `KubernetesBaseServerGenerator`는 이 계약을
+아직 소유하지 않으므로 `base-server.yaml`에 Control Plane 리소스를 섞지 않는다.
+
 ## 동시성 계약
 
 ### Idempotent claim
