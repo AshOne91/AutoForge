@@ -205,6 +205,7 @@ def test_render_creates_opt_in_mysql_operator_cluster_manifest() -> None:
     assert document["metadata"]["name"] == "identity-mysql"
     assert document["spec"]["secretName"] == "mysql-operator-bootstrap"
     assert document["spec"]["tlsSecretName"] == "mysql-operator-tls"
+    assert document["spec"]["tlsCASecretName"] == "identity-mysql-ca"
     assert document["spec"]["instances"] == 3
     assert document["spec"]["router"]["instances"] == 2
     assert document["spec"]["datadirVolumeClaimTemplate"]["storageClassName"] == "fast-ssd"
@@ -216,6 +217,7 @@ def test_render_creates_opt_in_mysql_operator_cluster_manifest() -> None:
     assert "Copy-Item mysql-operator-bootstrap.env.example mysql_operator_bootstrap.env" in readme
     assert "kubectl create secret generic mysql-operator-bootstrap" in readme
     assert "mysql-operator-tls" in readme
+    assert "identity-mysql-ca" in readme
 
 
 def test_render_keeps_mysql_ha_as_an_external_kubernetes_database_provider() -> None:

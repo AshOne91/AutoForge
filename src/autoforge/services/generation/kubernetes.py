@@ -65,6 +65,7 @@ class KubernetesBaseServerGenerator:
                     profile.mysql_operator.bootstrap_secret_name
                 ),
                 mysql_operator_tls_secret_name=profile.mysql_operator.tls_secret_name,
+                mysql_operator_cluster_name=profile.mysql_operator.cluster_name,
             ),
             PurePosixPath("deploy", "kubernetes", "secret.env.example"): "".join(
                 f"{environment_name}=\n"
@@ -470,6 +471,7 @@ metadata:
 spec:
   secretName: {bootstrap_secret_name}
   tlsSecretName: {tls_secret_name}
+  tlsCASecretName: {cluster_name}-ca
   instances: {instances}
   version: {mysql_version}
   router:
@@ -495,6 +497,7 @@ spec:
         mysql_operator_enabled: bool,
         mysql_operator_bootstrap_secret_name: str,
         mysql_operator_tls_secret_name: str,
+        mysql_operator_cluster_name: str,
     ) -> str:
         required_keys = "".join(f"- `{name}`\n" for name in secret_environment_names)
         collector_section = ""
@@ -533,6 +536,8 @@ kubectl create secret generic {mysql_operator_bootstrap_secret_name} --namespace
 
 `{mysql_operator_tls_secret_name}` must be created outside this directory as a
 Kubernetes TLS Secret containing the Operator-approved certificate and key.
+`{mysql_operator_cluster_name}-ca` must be a generic
+Secret containing `ca.pem` for the same certificate authority.
 
 """
         else:
