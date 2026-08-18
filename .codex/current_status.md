@@ -106,9 +106,13 @@ AutoForge currently has working foundations for:
 - The generated Windows single-host bootstrap now checks the resolved external
   RAG network before image build or Compose startup. When RAG is selected, it
   then performs read-only in-network requests to the configured search and Ollama
-  endpoints after image build and before application startup; the durable-worker
-  healthcheck remains the final readiness authority. KIS bootstrap passed the
-  network preflight, rebuilt the image, and restored the complete declared profile.
+  endpoints after image build and before application startup, passing Python source
+  through standard input to avoid Windows native-argument quoting; the durable-worker
+  healthcheck remains the final readiness authority. A live KIS HA RAG drill passed
+  that preflight and then created the HA services; stopping Ollama produced the
+  explicit preflight error before application startup and recovery restored it. The
+  full HA startup then encountered stale local Patroni DCS state from prior retained
+  volumes, so the lightweight default profile was restored without deleting data.
 - generated KIS durable-job endpoints are runtime-verified for Bearer-token
   authentication, idempotent `(job_type, run_key)` requests, `automation` store
   routing, and status retrieval; generated Airflow uses those endpoints rather

@@ -142,7 +142,8 @@ def test_render_adds_windows_bootstrap_only_when_selected() -> None:
     assert "docker network inspect" in bootstrap
     assert "RAG_SEARCH_URL" in bootstrap
     assert "RAG_OLLAMA_URL" in bootstrap
-    assert "run --rm --no-deps --no-TTY --entrypoint python application" in bootstrap
+    assert "run --rm --no-deps --no-TTY --entrypoint python application -" in bootstrap
+    assert "-c $ragPreflight" not in bootstrap
     assert "RAG endpoints are unavailable" in bootstrap
     assert "Published host port collision" in bootstrap
     assert "docker compose @composeArgs build" in bootstrap

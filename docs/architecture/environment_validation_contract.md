@@ -120,6 +120,11 @@ and Ollama `/api/tags` endpoints. A missing endpoint stops bootstrap with an
 actionable start-order error; this does not apply to RAG-free profiles and does
 not replace the durable worker healthcheck as the readiness authority.
 
+A fresh local HA validation must use an explicitly isolated Compose project,
+fresh volumes, and a non-overlapping host-port block. Reusing retained Patroni
+and etcd volumes is an operator-recovery scenario, not a valid clean-bootstrap
+test, and validation must not erase those volumes merely to obtain a new leader.
+
 The default `rabbitmq_mode: standalone` profile has one persisted broker. The
 opt-in `rabbitmq_mode: cluster` profile emits three RabbitMQ nodes, persistent
 node data, a shared `RABBITMQ_ERLANG_COOKIE`, and HAProxy behind the unchanged
