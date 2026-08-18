@@ -1,14 +1,11 @@
 # Next Task
 
-## Next executable unit: ingestion/indexing generation-boundary decision
+## Next executable unit: Yahoo provider payload-normalization test
 
-Compare the runtime-verified KIS news flow with the existing AutoForge module
-and RAG contracts. Identify the smallest reusable ingestion/indexing contract,
-if one exists, without moving domain-specific Yahoo collection, article
-normalization, or search mapping into generated code. Confirm generated,
-scaffolded, and user-owned boundaries before proposing any specification or
-generator change.
+Add a focused KIS consumer test for the current nested Yahoo payload
+normalization: title, canonical URL fallback, publication time, publisher, and
+malformed-record filtering. Keep it independent of live network calls.
 
-Do not create a new contract merely because KIS has a working news extension.
-The result must either reuse an existing AutoForge contract or state the exact
-consumer requirement that the current contract cannot express.
+Do not introduce new persisted or indexed fields. A later schema change needs
+recorded provider evidence and its own specification-to-generation vertical
+slice.

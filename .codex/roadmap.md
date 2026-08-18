@@ -17,7 +17,8 @@ sequencing.
   `environment/service-composition.json`이 서비스별 configuration, lifecycle,
   health, dependency 및 Redis/RabbitMQ/Durable Job 경계를 기록한다. 향후 배포
   provider는 이 파생 산출물을 새 정본으로 바꾸지 않고 필요할 때 소비한다.
-- [ ] canonical ingestion/indexing handoff after a consumer chooses its record contract
+- [ ] generic record-to-search handoff after consumer evidence establishes a
+  common source identity, document projection, and query/relevance contract
 - [ ] embedding and reranking provider contracts after the selected consumer establishes an evaluation dataset and relevance target
 - [ ] Redis distributed lock after a real concurrency-critical consumer path exists
 - [ ] Realtime/WebSocket and notification Blueprint after a consumer path exists:
