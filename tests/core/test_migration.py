@@ -5,6 +5,7 @@ import pytest
 from autoforge.core.migration import (
     AppliedMigration,
     MigrationArtifact,
+    discover_migrations,
     order_migrations,
 )
 
@@ -64,3 +65,32 @@ def test_applied_migration_normalizes_persisted_evidence() -> None:
 
     assert applied.checksum == "a" * 64
     assert applied.applied_at.tzinfo is UTC
+
+
+def test_discover_migrations_orders_direct_sql_artifacts(tmp_path) -> None:
+    (tmp_path / "002_second.sql").write_text("SELECT 2;", encoding="utf-8")
+    (tmp_path / "001_first.sql").write_text("SELECT 1;", encoding="utf-8")
+    (tmp_path / "notes.txt").write_text("ignored", encoding="utf-8")
+
+    artifacts = discover_migrations(tmp_path)
+
+    assert [artifact.version for artifact in artifacts] == [1, 2]
+    assert artifacts[0].path.as_posix() == "001_first.sql"
+
+
+@pytest.mark.parametrize("filename", ["migration.sql", "000_invalid.sql", "001_.sql"])
+def test_discover_migrations_rejects_malformed_sql_filenames(
+    tmp_path, filename: str
+) -> None:
+    (tmp_path / filename).write_text("SELECT 1;", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="invalid migration filename"):
+        discover_migrations(tmp_path)
+
+
+def test_discover_migrations_rejects_duplicate_versions(tmp_path) -> None:
+    (tmp_path / "001_first.sql").write_text("SELECT 1;", encoding="utf-8")
+    (tmp_path / "001_second.sql").write_text("SELECT 2;", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="unique"):
+        discover_migrations(tmp_path)
