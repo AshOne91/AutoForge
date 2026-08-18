@@ -8,12 +8,24 @@ services:
       POSTGRES_PASSWORD: ${CONTROL_DB_PASSWORD:?set CONTROL_DB_PASSWORD}
     volumes:
       - control-db-data:/var/lib/postgresql/data
-      - ../postgresql/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 3s
       retries: 20
+
+  control-plane-migrate:
+    build:
+      context: ../..
+      dockerfile: deploy/control-plane/Dockerfile
+    image: autoforge-control-plane:local
+    restart: "no"
+    depends_on:
+      control-db:
+        condition: service_healthy
+    environment:
+      AUTOFORGE_DATABASE_URL: ${AUTOFORGE_DATABASE_URL:?set AUTOFORGE_DATABASE_URL}
+    command: ["migrate-control-plane"]
 
   control-plane:
     build:
@@ -24,6 +36,8 @@ services:
     depends_on:
       control-db:
         condition: service_healthy
+      control-plane-migrate:
+        condition: service_completed_successfully
     environment:
       AUTOFORGE_DATABASE_URL: ${AUTOFORGE_DATABASE_URL:?set AUTOFORGE_DATABASE_URL}
       AUTOFORGE_CONTROL_PLANE_TOKEN: ${CONTROL_PLANE_API_TOKEN:?set CONTROL_PLANE_API_TOKEN}

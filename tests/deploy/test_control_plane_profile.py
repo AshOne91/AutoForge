@@ -11,11 +11,29 @@ def test_control_plane_profile_has_private_database_and_liveness_probe() -> None
     compose = yaml.safe_load((PROFILE_ROOT / "compose.yaml").read_text(encoding="utf-8"))
     services = compose["services"]
 
-    assert set(services) == {"control-db", "control-plane"}
+    assert set(services) == {"control-db", "control-plane-migrate", "control-plane"}
     assert "ports" not in services["control-db"]
+    assert services["control-db"]["volumes"] == [
+        "control-db-data:/var/lib/postgresql/data"
+    ]
+    assert services["control-plane-migrate"]["restart"] == "no"
+    assert services["control-plane-migrate"]["command"] == [
+        "migrate-control-plane"
+    ]
+    assert (
+        services["control-plane-migrate"]["image"]
+        == "autoforge-control-plane:local"
+    )
+    assert services["control-plane-migrate"]["depends_on"] == {
+        "control-db": {"condition": "service_healthy"}
+    }
+    assert services["control-plane-migrate"]["environment"] == {
+        "AUTOFORGE_DATABASE_URL": "${AUTOFORGE_DATABASE_URL:?set AUTOFORGE_DATABASE_URL}"
+    }
     assert services["control-plane"]["restart"] == "unless-stopped"
     assert services["control-plane"]["depends_on"] == {
-        "control-db": {"condition": "service_healthy"}
+        "control-db": {"condition": "service_healthy"},
+        "control-plane-migrate": {"condition": "service_completed_successfully"},
     }
     assert services["control-plane"]["environment"] == {
         "AUTOFORGE_DATABASE_URL": "${AUTOFORGE_DATABASE_URL:?set AUTOFORGE_DATABASE_URL}",

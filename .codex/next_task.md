@@ -1,16 +1,15 @@
 # Next Task
 
-## Next executable unit: Control Plane initialization-path reconciliation
+## Next executable unit: Control Plane legacy bootstrap-volume policy
 
-OWNERSHIP: AutoForge owns the local Compose bootstrap configuration, ordered
-migration artifacts, and the durable version-ledger contract. A provider owns
-when and where the explicit executor runs; Kubernetes application manifests
+OWNERSHIP: AutoForge owns the ordered migration artifacts and durable
+version-ledger contract. An operator owns whether a prior local Compose volume
+is retained, backed up, reset, or explicitly reconciled; application manifests
 must not execute migrations.
 
-Establish one safe ownership boundary for a new empty Control Plane database:
-either Docker-entrypoint initialization records durable version evidence, or the
-provider CLI is the only artifact executor. Prove the chosen path against the
-existing Compose profile without reapplying schema SQL to a bootstrap-initialized
-database. Do not add application-startup migration, Kubernetes Job, PostgreSQL
-StatefulSet/PVC, provider SDK, retry policy, rollback policy, or generated schema
-tooling in this unit.
+Define and verify the safe operator procedure for a named volume created by the
+former Docker-entrypoint SQL bootstrap: detect the missing ledger evidence,
+preserve data, and make the supported recovery choice explicit. Do not
+automatically reapply schema SQL, mutate a legacy volume, add application-startup
+migration, Kubernetes Job, PostgreSQL StatefulSet/PVC, provider SDK, retry
+policy, rollback policy, or generated schema tooling in this unit.

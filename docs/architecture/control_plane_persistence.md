@@ -57,8 +57,8 @@ Control Plane 자신은 unauthenticated `GET /health`와 `GET /readiness`를 분
 `/health`는 process liveness만 반환한다. `/readiness`는 runtime에서 구성된
 PostgreSQL JobStore와 service-heartbeat store의 기존 read path를 호출하며, 연결 또는
 필수 table을 사용할 수 없으면 `503`을 반환한다. 아직 Compose healthcheck는 의도적으로
-`/health`만 사용한다. Kubernetes manifest에는 provider migration executor가 준비될 때까지
-이 readiness endpoint를 연결하지 않는다.
+`/health`만 사용한다. Kubernetes runtime manifest는 provider migration executor와
+분리되며 migration을 호출하지 않는다.
 
 Kubernetes-native Control Plane deployment provider 선택은
 [ADR-0003](../adr/0003-kubernetes-native-control-plane-provider.md)가 소유한다.
@@ -179,11 +179,12 @@ grace period를 준다. 제한 시간을 넘으면 Pipeline과 heartbeat를 취�
 `007_migration_versions.sql`까지 순서로 명시적으로 적용한다. 로컬 통합 구성은
 `compose.integration.yaml`을 사용한다.
 
-이 파일 집합의 현재 실행 방식은 PostgreSQL 공식 image의 초기화 디렉터리
-부트스트랩이다. 빈 data volume에서만 숫자 순서대로 한 번 실행되며, 각 파일은
-`IF NOT EXISTS` 또는 안전한 constraint 교체를 사용해 재실행 가능한 DDL을 지향한다.
-기존 named volume에 새 SQL 파일이 추가되어도 entrypoint가 다시 실행하지 않으므로,
-이를 운영 migration 완료로 간주하지 않는다.
+`deploy/control-plane/compose.yaml`의 빈 data volume은 PostgreSQL image 초기화
+디렉터리를 사용하지 않는다. provider-owned one-shot `control-plane-migrate` service가
+숫자 순서대로 SQL을 적용하고 같은 transaction에서 durable version ledger를 기록한 뒤
+application rollout을 허용한다. 이전 Docker-entrypoint bootstrap으로 schema만 만든 named
+volume은 ledger evidence가 없으므로 자동으로 재실행하거나 운영 migration 완료로 간주하지
+않는다.
 
 운영 migration의 책임은 Control Plane application이나 Kubernetes manifest가 아니라
 배포 provider가 소유한다. provider-owned 단일 executor는 database advisory lock으로
@@ -206,9 +207,11 @@ Compose의 `autoforge_test` 계정과 password는 로컬 통합 테스트 전용
 파일이나 image에 넣지 않고 배포 환경의 secret provider로 주입해야 한다.
 
 `deploy/control-plane/compose.yaml`은 heartbeat intake를 위한 별도 로컬 운영 profile이다.
-`control-db`는 named volume과 migration mount를 사용하지만 host port를 열지 않으며,
-`control-plane`만 기본 `127.0.0.1:49700`을 공개한다. profile은 DB health 뒤에만 server를
-시작하고 `/health` liveness probe를 사용한다. 이 probe는 HTTP process liveness만 확인하며
+`control-db`는 named volume을 사용하지만 host port를 열지 않는다. one-shot
+`control-plane-migrate`는 DB health 뒤에 provider CLI로 ordered SQL을 적용하고 ledger에
+기록한다. `control-plane`은 이 migration service의 성공 뒤에만 시작하며 기본
+`127.0.0.1:49700`을 공개한다. profile은 `/health` liveness probe를 사용한다. 이 probe는
+HTTP process liveness만 확인하며
 traffic routing의 권한은 유지하되 PostgreSQL의 별도 장애 진단을 대신하지 않는다.
 
 ```powershell

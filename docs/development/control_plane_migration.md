@@ -35,8 +35,13 @@ docker run --rm --network <provider-network> `
   autoforge-control-plane:<tag> migrate-control-plane
 ```
 
-The local Control Plane Compose profile has a separate empty-volume bootstrap:
-PostgreSQL runs the same SQL files through `docker-entrypoint-initdb.d`. That
-bootstrap does not record applied versions in the migration ledger, so do not
-run the CLI against that already initialized volume. Reconciliation of the two
-initialization paths is tracked as the next Control Plane task.
+The local Control Plane Compose profile uses this same explicit path. Its
+one-shot `control-plane-migrate` service waits for PostgreSQL, applies and
+records the artifacts, and the long-running `control-plane` service waits for
+that successful completion. PostgreSQL no longer receives the SQL directory
+through `docker-entrypoint-initdb.d`.
+
+Volumes created by an earlier Compose profile may contain schema SQL without
+migration-ledger evidence. Do not manually run this CLI against such a volume:
+back up the data and follow the dedicated legacy-volume reconciliation procedure
+when it is available.

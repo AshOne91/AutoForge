@@ -36,11 +36,14 @@ AutoForge currently has working foundations for:
   `49700` HTTP binding, required local secret environment file, and process
   liveness probe. A disposable Docker Compose run verified health and authenticated
   heartbeat persistence, then removed its containers, network, and data volume.
-- The local Control Plane Compose profile initializes an empty private volume
-  from ordered SQL artifacts. That Docker-entrypoint bootstrap does not record
-  applied versions in the durable migration ledger, so the explicit provider
-  CLI must not be run against the same already initialized volume. Reconciliation
-  of those two initialization paths remains outstanding.
+- The local Control Plane Compose profile now gives an empty private volume one
+  migration owner: the one-shot `control-plane-migrate` service waits for
+  PostgreSQL, invokes the provider CLI, and records versions before the
+  long-running application may start. It no longer mounts SQL into
+  `docker-entrypoint-initdb.d`. A disposable Compose run verified migration
+  exit `0`, durable ledger versions `1` through `7`, and Control Plane `/health`
+  `200`, then removed its containers, network, and data volume. Existing volumes
+  created by the former initialization path are deliberately not auto-reconciled.
 - The core now has a provider-neutral Control Plane migration boundary:
   immutable SQL artifacts derive a checksum, ordering rejects duplicate versions,
   direct UTF-8 SQL discovery accepts the declared zero-padded filename format and
