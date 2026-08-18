@@ -625,6 +625,15 @@ messaging/Durable Jobs remain excluded from the MySQL profile. The published
 `mysql/mysql-router:8.0` image remains incompatible with MySQL 8.4 writer
 routing and is not generated.
 
+A fresh, isolated KIS HA workspace generated from the current AutoForge source
+was then verified for Redis primary failover without changing any generated
+Compose artifact. The generated `RedisSessionStore` wrote and read a valid
+session, its elected primary `redis-7000` was stopped, `redis-7004` promoted
+while all 16,384 slots remained available, and the same session was read through
+the generated multi-startup-node client contract. The Nginx health endpoint
+remained available; restarting `redis-7000` returned it as a healthy replica.
+This is single-host container resilience, not host or availability-zone HA.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:

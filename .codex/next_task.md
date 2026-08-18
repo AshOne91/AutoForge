@@ -1,15 +1,17 @@
 # Next Task
 
-## Next executable unit: single-host Redis primary-failover reconciliation
+## Next executable unit: durable Redis primary-failover verifier
 
-Using a fresh generated KIS HA workspace, identify the elected Redis Cluster
-primary for one application session key, stop only that primary, and verify its
-replica promotion, cluster slot health, application continuity, and rejoin after
-restart. Reuse the current generated service names and connection contracts; do
-not hand-edit generated Compose artifacts or replace the running lightweight
-profile.
+Confirm the ownership of the existing KIS generated-runtime verification
+scripts. If they are user-owned, extend the closest existing verifier to reuse
+its isolated Compose lifecycle and Redis topology helpers for the already-proven
+session-key primary failover path: promotion, all-slot health, generated
+multi-startup-node session read, and stopped-node rejoin. Do not hand-edit
+generated Compose artifacts, replace the lightweight profile, or change the
+AutoForge generator unless the durable verifier exposes a new generated-output
+defect.
 
-Do not select a cloud deployment provider, add Kubernetes migration resources,
-or replace the active lightweight profile during this unit. Kubernetes
-provider-store connectivity is a later concern after the Docker logical-node
-failover path is reproducible.
+Do not select a cloud deployment provider or add Kubernetes stateful-provider
+resources during this unit. Kubernetes provider-store connectivity remains a
+later concern after this Docker logical-node failure check is reproducible by a
+checked-in operational verifier.
