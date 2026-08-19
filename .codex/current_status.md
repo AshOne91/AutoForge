@@ -344,7 +344,10 @@ AutoForge currently has working foundations for:
 - KIS `news_index` now reuses that durable retry path for transient RAG
   dependencies: network errors and HTTP 408, 429, and 5xx requeue the same
   canonical `source_keys`; non-transient HTTP 4xx errors remain failed. The
-  focused handler tests cover all of those classifications.
+  focused handler tests cover all of those classifications. An isolated runtime
+  drill collected and initially indexed ten AAPL articles, stopped only Ollama,
+  observed the original index Job fail, restored Ollama, and observed its
+  `retry:1` Job succeed with ten OpenSearch documents retained.
 
 ## Docker work
 
