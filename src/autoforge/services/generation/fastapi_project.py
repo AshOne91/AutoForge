@@ -539,9 +539,12 @@ class FastAPIProjectGenerator:
             aliases.append(alias)
         for module_name in sorted(module_names):
             alias = f"{module_name}_router"
+            module_path = f"{package_name}.modules.{module_name}.generated.router"
+            single_line = f"from {module_path} import router as {alias}"
             package_imports.append(
-                f"from {package_name}.modules.{module_name}.generated.router "
-                f"import router as {alias}"
+                single_line
+                if len(single_line) <= 88
+                else f"from {module_path} import (\n    router as {alias},\n)"
             )
 
         if not aliases:

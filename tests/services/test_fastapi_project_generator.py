@@ -167,6 +167,22 @@ def test_render_module_registry_in_declared_order() -> None:
     assert "    tutorial_router,\n    item_router,\n" in registry
 
 
+def test_render_module_registry_wraps_long_imports_for_ruff() -> None:
+    files = FastAPIProjectGenerator().render(
+        project_specification(
+            package_name="kis_auto_trading",
+            modules=["market_data"],
+        )
+    )
+    registry = files[
+        PurePosixPath("src/kis_auto_trading/application/generated/module_registry.py")
+    ]
+
+    assert "from kis_auto_trading.modules.market_data.generated.router import (" in registry
+    assert "    router as market_data_router,\n)" in registry
+    assert all(len(line) <= 88 for line in registry.splitlines())
+
+
 def test_app_factory_registers_module_routers() -> None:
     files = FastAPIProjectGenerator().render(project_specification())
     app_factory = files[PurePosixPath("src/game_server/application/app_factory.py")]
