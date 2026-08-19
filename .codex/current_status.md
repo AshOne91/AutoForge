@@ -195,6 +195,12 @@ AutoForge currently has working foundations for:
   shared. Their source identities, document projections, field exclusions, and
   relevance fields differ, so the roadmap prerequisite for a generic
   record-to-search generator is not yet met and no generic route was added.
+  The existing terminal-retry event records are deliberately not exposed through
+  that operator router: current Elasticsearch access is a generated local
+  Filebeat development collector, not an application query contract. It has no
+  application-owned authenticated endpoint, retention policy, or approved
+  redacted response projection, so adding a direct log-search client would
+  prematurely expose arbitrary log fields.
 - default-generated, profile-selected MinIO S3-compatible local storage with
   idempotent backup-bucket bootstrap; generated Compose and an actual MinIO
   backup round trip are runtime-verified
