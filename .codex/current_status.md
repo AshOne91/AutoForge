@@ -8,7 +8,9 @@
   namespaced key with a bounded TTL, replay completed JSON responses, reject
   conflicting reuse, and release failed claims. KIS `update_profile` is the
   first consumer opt-in; generated HA output and the request contract validate
-  cleanly. Multi-replica live contention is still unverified.
+  cleanly. An isolated Docker drill with two API replicas proved one in-flight
+  winner, a 200 replayed response, and 409 conflicting-key rejection through
+  Nginx; the disposable stack was removed afterward.
 
 AutoForge currently has working foundations for:
 
