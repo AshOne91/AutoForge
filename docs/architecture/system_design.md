@@ -40,13 +40,10 @@ Core 명세와 생성 계약은 GitHub, Webhook, Redis, Database, RabbitMQ 같�
 의존 조건과 명세의 Redis/RabbitMQ·Durable Job 계약을 읽기 전용으로 요약한다. 이는
 두 번째 명세가 아니다. `autoforge.yaml`과 생성된 Compose가 정본이며, manifest는
 배포·검증 도구와 운영자가 그 결과를 기계적으로 읽기 위한 파생 산출물이다.
-
-`tooling.local_environment`가 선택되면 AutoForge는
-`environment/service-composition.json`도 생성한다. 이 파일은 같은 생성 실행에서
-만든 Compose의 서비스 이름, 설정 환경 변수 이름, 수명주기, 재시작 정책, healthcheck,
-의존 조건과 명세의 Redis/RabbitMQ·Durable Job 계약을 읽기 전용으로 요약한다. 이는
-두 번째 명세가 아니다. `autoforge.yaml`과 생성된 Compose가 정본이며, manifest는
-배포·검증 도구와 운영자가 그 결과를 기계적으로 읽기 위한 파생 산출물이다.
+생성된 Compose topology에서 `api`, `relay`, `worker`, `scheduler`,
+`initializer`, `infrastructure` 역할도 파생한다. 이 역할은 배포 구성을 읽기 위한
+메타데이터이지 독립 Application module 배치나 replica 정책을 선택하는 별도 명세는
+아니다.
 
 생성 프로젝트의 Service는 단순 라이브러리 호출이 아니라, 선택적으로 배포·확장·관측할 수 있는 Runtime 경계다. 각 Service는 자신의 설정, 수명주기, 상태 확인과 통신 계약을 소유하고, Application Composition Root 또는 명시적인 Event/Queue 계약으로 다른 Service와 조합된다. 모든 프로젝트에 모든 Service를 포함하지 않으며, ProjectSpec이 필요한 Service만 선택한다.
 

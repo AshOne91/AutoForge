@@ -1,6 +1,6 @@
 # Next Task
 
-## Next executable unit: bound role-specific application composition
+## Next executable unit: select one KIS workload for role-specific composition
 
 The default standalone profile and generated HA runtime proofs for Redis
 Cluster, PostgreSQL Patroni/HAProxy, RabbitMQ, and the two-scheduler Airflow
@@ -49,10 +49,15 @@ round-trip, then was removed. A separate token-protected internal GET now reads
 one snapshot by UUID through the same generated `find_by_id` contract, returns
 404 when absent, and keeps database failures detail-safe.
 
-The next slice examines the existing `ApplicationSpec` and generated
-service-composition artifacts to bound the smallest missing contract for
-role-specific application composition. Reuse existing API, worker, scheduler,
-relay, initializer, and infrastructure role metadata when it already expresses
-the requirement. Do not introduce new deployment roles, replicas, generator
-abstractions, or consumer behavior until the existing ownership and test path
-show a concrete missing contract.
+The role-composition boundary is now bounded: generated
+`environment/service-composition.json` already derives API, relay, worker,
+scheduler, initializer, and infrastructure runtime roles from Compose, but
+`ApplicationSpec` does not select separate application module sets for them.
+
+The next slice must select one KIS workload that genuinely needs an independent
+application role, then define only its input, lifecycle, and ownership boundary.
+Do not add a generic application-role field, new deployment role, replica
+policy, or generator abstraction before that workload exists. The current
+market-price snapshot endpoint remains a synchronous operator API path; making
+it scheduled or autonomous would be a financial-domain decision, not an
+infrastructure default.
