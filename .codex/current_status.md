@@ -505,8 +505,8 @@ RabbitMQ connection; KIS live verification reaches `healthy` and reconnects
 after a broker restart under `restart: unless-stopped`. Host Docker auto-start
 and AWS Launch Template UserData remain deployment concerns outside the
 disposable integration profile. KIS live verification also keeps the generated
-application HTTP healthcheck healthy across a PostgreSQL restart; that endpoint
-now also probes internal PostgreSQL and Redis reachability. Redis Cluster mode
+application dependency readiness healthcheck healthy across a PostgreSQL restart;
+the `/readiness` endpoint probes internal PostgreSQL and Redis reachability. Redis Cluster mode
 uses `require_full_coverage=True`, `PING`, and a multi-node startup list. KIS
 live verification reports a six-node cluster with three primaries, three
 replicas, all 16,384 slots, and stable healthy checks. Stopping `redis-7000`
