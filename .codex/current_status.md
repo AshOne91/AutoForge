@@ -172,7 +172,12 @@ AutoForge currently has working foundations for:
   The KIS OpenSearch profile responds on `49460`, persists its named-volume data
   across container restart, and exposes the generated hybrid-search client path.
   With the installed `embeddinggemma` model, KIS indexed and retrieved a live
-  news probe through combined keyword and vector search.
+  news probe through combined keyword and vector search. KIS now has a second,
+  operator-owned Durable Job history consumer: it indexes `job_id`, job type,
+  run key, status, bounded error/result summaries, and timestamps in a separate
+  index while excluding payload values. The two consumers share only the
+  KIS-local hybrid backend transport; their document projections remain
+  consumer-owned.
 - default-generated, profile-selected MinIO S3-compatible local storage with
   idempotent backup-bucket bootstrap; generated Compose and an actual MinIO
   backup round trip are runtime-verified
