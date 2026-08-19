@@ -482,6 +482,11 @@ def test_runtime_environments_require_unique_non_generated_names() -> None:
         )
 
 
+def test_runtime_environment_requires_non_empty_health_test_value() -> None:
+    with pytest.raises(ValidationError, match="String should have at least 1 character"):
+        RuntimeEnvironmentSpec(name="KIS_API_URL", health_test_value="")
+
+
 def test_endpoint_service_token_is_optional_and_typed() -> None:
     endpoint = EndpointSpec.model_validate(
         {

@@ -15,6 +15,7 @@ from autoforge.core.specification import (
     DatabaseStoreSpec,
     ProjectInfo,
     ProjectSpec,
+    RuntimeEnvironmentSpec,
     ServiceSpec,
     ServiceTokenSpec,
     ToolingSpec,
@@ -34,6 +35,7 @@ def project_specification(
     ruff_exclude: list[str] | None = None,
     dependencies: list[str] | None = None,
     database_provider: str = "postgresql",
+    runtime_environments: list[RuntimeEnvironmentSpec] | None = None,
     service_tokens: list[ServiceTokenSpec] | None = None,
 ) -> ProjectSpec:
     return ProjectSpec(
@@ -49,6 +51,7 @@ def project_specification(
             modules=modules or [],
             services=services or [],
             databases=databases or [],
+            runtime_environments=runtime_environments or [],
             service_tokens=service_tokens or [],
             control_plane_heartbeat=control_plane_heartbeat
             or ControlPlaneHeartbeatSpec(),
@@ -181,6 +184,24 @@ def test_render_module_registry_wraps_long_imports_for_ruff() -> None:
     assert "from kis_auto_trading.modules.market_data.generated.router import (" in registry
     assert "    router as market_data_router,\n)" in registry
     assert all(len(line) <= 88 for line in registry.splitlines())
+
+
+def test_runtime_environments_flow_to_generated_health_test() -> None:
+    files = FastAPIProjectGenerator().render(
+        project_specification(
+            runtime_environments=[
+                RuntimeEnvironmentSpec(
+                    name="PAYMENTS_API_URL",
+                    health_test_value="https://example.invalid",
+                ),
+                RuntimeEnvironmentSpec(name="PAYMENTS_API_KEY"),
+            ]
+        )
+    )
+    health_test = files[PurePosixPath("tests/test_health.py")]
+
+    assert 'monkeypatch.setenv("PAYMENTS_API_URL", "https://example.invalid")' in health_test
+    assert 'monkeypatch.setenv("PAYMENTS_API_KEY", "test-value")' in health_test
 
 
 def test_app_factory_registers_module_routers() -> None:

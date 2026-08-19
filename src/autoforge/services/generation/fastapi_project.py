@@ -122,6 +122,10 @@ class FastAPIProjectGenerator:
                     self._redis_test_environment(service)
                     for service in session_services
                 ],
+                runtime_env_values=[
+                    (environment.name, environment.health_test_value)
+                    for environment in specification.application.runtime_environments
+                ],
                 database_env_names=database_env_names,
                 database_provider=database_provider,
                 has_database=has_database,
@@ -826,17 +830,26 @@ class FastAPIProjectGenerator:
     def _render_health_test(
         package_name: str,
         redis_env_values: list[tuple[str, str]],
+        runtime_env_values: list[tuple[str, str]],
         database_env_names: list[str],
         database_provider: str,
         has_database: bool,
         has_session_store: bool,
     ) -> str:
         redis_env_names = [name for name, _ in redis_env_values]
-        required_env_names = [*redis_env_names, *database_env_names]
+        required_env_names = [
+            *redis_env_names,
+            *(name for name, _ in runtime_env_values),
+            *database_env_names,
+        ]
         monkeypatch_argument = "monkeypatch: pytest.MonkeyPatch" if required_env_names else ""
         redis_env_setup = "".join(
             f'    monkeypatch.setenv("{name}", "{value}")\n'
             for name, value in redis_env_values
+        )
+        runtime_env_setup = "".join(
+            f'    monkeypatch.setenv("{name}", "{value}")\n'
+            for name, value in runtime_env_values
         )
         database_env_setup = "".join(
             f'    monkeypatch.setenv("{name}", '
@@ -904,6 +917,7 @@ class FastAPIProjectGenerator:
             "\n"
             f"def test_health({monkeypatch_argument}) -> None:\n"
             f"{redis_env_setup}"
+            f"{runtime_env_setup}"
             f"{database_env_setup}"
             f"{readiness_dependency}"
             f"{readiness_unavailable_dependency}"

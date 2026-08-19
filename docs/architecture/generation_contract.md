@@ -102,6 +102,11 @@ same keys. Kubernetes therefore requires each declared Secret key to exist;
 make a missing Kubernetes Secret key valid. Specification values and Secrets
 remain operator-owned and are never emitted into a manifest.
 
+Generated `tests/test_health.py` sets every declared name from its
+`health_test_value` before application lifespan starts. That value is test-only
+and committed with the specification, so it MUST be non-secret; it is never
+forwarded to Compose, Kubernetes, or a runtime Secret.
+
 ### Session access-level authorization
 
 `EndpointSpec.access_level` selects a generated FastAPI session guard for a

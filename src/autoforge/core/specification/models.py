@@ -240,6 +240,7 @@ class RuntimeEnvironmentSpec(StrictSpecModel):
 
     name: str = Field(pattern=r"^[A-Z][A-Z0-9_]*$")
     required: bool = True
+    health_test_value: str = Field(default="test-value", min_length=1)
 
 
 class ApplicationSpec(StrictSpecModel):
