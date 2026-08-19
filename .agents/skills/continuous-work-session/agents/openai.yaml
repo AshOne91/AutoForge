@@ -1,0 +1,4 @@
+interface:
+  display_name: "Continuous Work Session"
+  short_description: "Run verified work units until a defined stop condition."
+  default_prompt: "Use $continuous-work-session in ON mode and stop only at its defined checkpoints."

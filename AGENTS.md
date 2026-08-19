@@ -82,6 +82,10 @@ Keep this file short.
 
 Put specialized procedures in `.agents/skills/` and load them only when relevant.
 
+For explicitly enabled unattended multi-unit work, use the
+`continuous-work-session` Skill. It defines the durable checkpoint and mandatory
+stop conditions; it does not relax this file's safety rules.
+
 For documentation creation, modification, merge, move, or deletion, use the
 `docs-governance` Skill. Prefer updating an existing authoritative document over
 creating a new document.
