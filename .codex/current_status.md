@@ -201,6 +201,10 @@ AutoForge currently has working foundations for:
   application-owned authenticated endpoint, retention policy, or approved
   redacted response projection, so adding a direct log-search client would
   prematurely expose arbitrary log fields.
+  The canonical observability contract already selects provider-side log
+  exploration: generated applications do not query Elasticsearch or Kibana.
+  Local operators use the generated observability profile, while any production
+  query API remains a deployment-provider concern rather than a KIS route.
 - default-generated, profile-selected MinIO S3-compatible local storage with
   idempotent backup-bucket bootstrap; generated Compose and an actual MinIO
   backup round trip are runtime-verified
