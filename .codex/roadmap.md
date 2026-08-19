@@ -24,9 +24,9 @@ sequencing.
 - [ ] Realtime/WebSocket and notification Blueprint after a consumer path exists:
   event-driven fan-out, in-app persistence, channel adapters, deduplication,
   rate limiting, and delivery/error observability
-- [ ] operator-facing ingestion lifecycle endpoints after a consumer path exists:
-  execute, status, health, stop, and data/result retrieval mapped to durable Jobs
-  rather than request-bound work
+- [x] operator-facing ingestion lifecycle endpoints: the generated Durable Job
+  API provides idempotent execution, status/result retrieval, application health,
+  and requested-job cancellation rather than request-bound work
 - [ ] cloud S3/object-storage provider after raw-document persistence is selected
 - [ ] external-provider resiliency adapter after a provider is selected
 
