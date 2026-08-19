@@ -969,6 +969,8 @@ class EndpointSpec(StrictSpecModel):
     dependencies: list[EndpointDependency] = Field(default_factory=list)
     service_token: str | None = None
     access_level: EndpointAccessLevel | None = None
+    idempotency: bool = False
+    idempotency_ttl_seconds: int = Field(default=86400, ge=1, le=604800)
 
     @field_validator("name", "handler")
     @classmethod
@@ -999,6 +1001,8 @@ class EndpointSpec(StrictSpecModel):
 
     @model_validator(mode="after")
     def validate_access_boundary(self) -> EndpointSpec:
+        if self.idempotency and self.method is HttpMethod.GET:
+            raise ValueError("GET endpoints cannot enable idempotency")
         if self.access_level is None:
             return self
         if self.service_token is not None:

@@ -427,6 +427,24 @@ def test_endpoint_dependency_is_typed_unique_and_optional() -> None:
         )
 
 
+def test_endpoint_idempotency_requires_a_mutating_method() -> None:
+    endpoint_data = {
+        "name": "submit",
+        "method": "POST",
+        "path": "/submit",
+        "response": {"fields": []},
+        "handler": "submit",
+        "idempotency": True,
+    }
+
+    endpoint = EndpointSpec.model_validate(endpoint_data)
+
+    assert endpoint.idempotency is True
+    assert endpoint.idempotency_ttl_seconds == 86400
+    with pytest.raises(ValidationError, match="GET endpoints cannot enable idempotency"):
+        EndpointSpec.model_validate({**endpoint_data, "method": "GET"})
+
+
 def test_service_tokens_require_unique_names_and_secret_environments() -> None:
     token = ServiceTokenSpec(name="operator", token_env="OPERATOR_API_TOKEN")
 

@@ -2,6 +2,14 @@
 
 ## Stable foundation
 
+- State-changing endpoints can opt into a separate Redis-backed request replay
+  contract with `EndpointSpec.idempotency`. Generated routes require an
+  `Idempotency-Key`, fingerprint the method/path/body, atomically claim the
+  namespaced key with a bounded TTL, replay completed JSON responses, reject
+  conflicting reuse, and release failed claims. KIS `update_profile` is the
+  first consumer opt-in; generated HA output and the request contract validate
+  cleanly. Multi-replica live contention is still unverified.
+
 AutoForge currently has working foundations for:
 
 - specification and generation contracts

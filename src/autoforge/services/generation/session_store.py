@@ -47,6 +47,7 @@ class SessionStoreGenerator:
             root / "protocol.py": self._render_protocol(),
             root / "fake.py": self._render_fake(),
             root / "redis.py": self._render_redis(service),
+            root / "request_replay.py": self._render_request_replay(),
             root / "provider.py": self._render_provider(service),
         }
 
@@ -89,6 +90,11 @@ class SessionStoreGenerator:
         return (
             "from .fake import FakeSessionStore\n"
             "from .protocol import (\n"
+            "    ReplayClaim,\n"
+            "    ReplayRecord,\n"
+            "    RequestReplayConflict,\n"
+            "    RequestReplayInProgress,\n"
+            "    RequestReplayStore,\n"
             "    SessionData,\n"
             "    SessionStore,\n"
             "    SessionStoreError,\n"
@@ -97,6 +103,11 @@ class SessionStoreGenerator:
             "\n"
             "__all__ = [\n"
             '    "FakeSessionStore",\n'
+            '    "ReplayClaim",\n'
+            '    "ReplayRecord",\n'
+            '    "RequestReplayConflict",\n'
+            '    "RequestReplayInProgress",\n'
+            '    "RequestReplayStore",\n'
             '    "SessionData",\n'
             '    "SessionStore",\n'
             '    "SessionStoreError",\n'
@@ -215,6 +226,40 @@ class SessionStoreGenerator:
             "    async def revoke(self, session_id: str) -> bool: ...\n"
             "\n"
             "    async def revoke_user_sessions(self, user_id: str) -> int: ...\n"
+            "\n"
+            "\n"
+            "@dataclass(frozen=True, slots=True)\n"
+            "class ReplayClaim:\n"
+            "    key: str\n"
+            "    fingerprint: str\n"
+            "    token: str\n"
+            "    ttl_seconds: int\n"
+            "\n"
+            "\n"
+            "@dataclass(frozen=True, slots=True)\n"
+            "class ReplayRecord:\n"
+            "    status_code: int\n"
+            "    body: str\n"
+            "\n"
+            "\n"
+            "class RequestReplayConflict(SessionStoreError):\n"
+            "    pass\n"
+            "\n"
+            "\n"
+            "class RequestReplayInProgress(SessionStoreError):\n"
+            "    pass\n"
+            "\n"
+            "\n"
+            "class RequestReplayStore(Protocol):\n"
+            "    async def claim(\n"
+            "        self, key: str, fingerprint: str, ttl_seconds: int\n"
+            "    ) -> ReplayClaim | ReplayRecord: ...\n"
+            "\n"
+            "    async def complete(\n"
+            "        self, claim: ReplayClaim, status_code: int, body: str\n"
+            "    ) -> None: ...\n"
+            "\n"
+            "    async def abort(self, claim: ReplayClaim) -> None: ...\n"
         )
 
     @staticmethod
@@ -411,6 +456,112 @@ class SessionStoreGenerator:
         )
 
     @staticmethod
+    def _render_request_replay() -> str:
+        return (
+            "import hashlib\n"
+            "import json\n"
+            "import secrets\n"
+            "from typing import Final\n"
+            "\n"
+            "from redis.exceptions import RedisError\n"
+            "\n"
+            "from .protocol import (\n"
+            "    ReplayClaim,\n"
+            "    ReplayRecord,\n"
+            "    RequestReplayConflict,\n"
+            "    RequestReplayInProgress,\n"
+            "    SessionStoreError,\n"
+            ")\n"
+            "\n"
+            "_COMPLETE_SCRIPT: Final = \"\"\"\n"
+            "local value = redis.call('get', KEYS[1])\n"
+            "if not value then return 0 end\n"
+            "local payload = cjson.decode(value)\n"
+            "if payload['token'] ~= ARGV[1] then return 0 end\n"
+            "payload['status'] = 'completed'\n"
+            "payload['status_code'] = tonumber(ARGV[2])\n"
+            "payload['body'] = ARGV[3]\n"
+            "redis.call('set', KEYS[1], cjson.encode(payload), 'EX', ARGV[4])\n"
+            "return 1\n"
+            "\"\"\"\n"
+            "_ABORT_SCRIPT: Final = \"\"\"\n"
+            "local value = redis.call('get', KEYS[1])\n"
+            "if not value then return 0 end\n"
+            "local payload = cjson.decode(value)\n"
+            "if payload['token'] ~= ARGV[1] then return 0 end\n"
+            "return redis.call('del', KEYS[1])\n"
+            "\"\"\"\n"
+            "\n"
+            "\n"
+            "class RedisRequestReplayStore:\n"
+            "    def __init__(self, client: object, namespace: str) -> None:\n"
+            "        self._client = client\n"
+            "        self._namespace = namespace\n"
+            "\n"
+            "    async def claim(\n"
+            "        self, key: str, fingerprint: str, ttl_seconds: int\n"
+            "    ) -> ReplayClaim | ReplayRecord:\n"
+            "        if not key.strip():\n"
+            '            raise ValueError("idempotency key must not be empty")\n'
+            "        if ttl_seconds <= 0:\n"
+            '            raise ValueError("idempotency ttl must be positive")\n'
+            "        token = secrets.token_urlsafe(24)\n"
+            "        redis_key = self._key(key)\n"
+            "        payload = json.dumps(\n"
+            "            {'fingerprint': fingerprint, 'status': 'pending', 'token': token},\n"
+            "            separators=(',', ':'),\n"
+            "        )\n"
+            "        try:\n"
+            "            created = await self._client.set(\n"
+            "                redis_key, payload, ex=ttl_seconds, nx=True\n"
+            "            )\n"
+            "            if created:\n"
+            "                return ReplayClaim(key, fingerprint, token, ttl_seconds)\n"
+            "            raw = await self._client.get(redis_key)\n"
+            "        except RedisError as error:\n"
+            '            raise SessionStoreError("request replay claim failed") from error\n'
+            "        if raw is None:\n"
+            '            raise RequestReplayInProgress("request replay claim is changing")\n'
+            "        try:\n"
+            "            existing = json.loads(raw)\n"
+            "        except (TypeError, ValueError) as error:\n"
+            '            raise SessionStoreError("request replay record is invalid") from error\n'
+            "        if existing.get('fingerprint') != fingerprint:\n"
+            '            raise RequestReplayConflict("idempotency key was reused with a different request")\n'
+            "        if existing.get('status') == 'completed':\n"
+            "            return ReplayRecord(\n"
+            "                status_code=int(existing['status_code']),\n"
+            "                body=str(existing['body']),\n"
+            "            )\n"
+            '        raise RequestReplayInProgress("request with this idempotency key is in progress")\n'
+            "\n"
+            "    async def complete(\n"
+            "        self, claim: ReplayClaim, status_code: int, body: str\n"
+            "    ) -> None:\n"
+            "        try:\n"
+            "            updated = await self._client.eval(\n"
+            "                _COMPLETE_SCRIPT, 1, self._key(claim.key), claim.token,\n"
+            "                str(status_code), body, str(claim.ttl_seconds),\n"
+            "            )\n"
+            "        except RedisError as error:\n"
+            '            raise SessionStoreError("request replay completion failed") from error\n'
+            "        if not updated:\n"
+            '            raise SessionStoreError("request replay claim was lost")\n'
+            "\n"
+            "    async def abort(self, claim: ReplayClaim) -> None:\n"
+            "        try:\n"
+            "            await self._client.eval(\n"
+            "                _ABORT_SCRIPT, 1, self._key(claim.key), claim.token\n"
+            "            )\n"
+            "        except RedisError as error:\n"
+            '            raise SessionStoreError("request replay abort failed") from error\n'
+            "\n"
+            "    def _key(self, key: str) -> str:\n"
+            "        digest = hashlib.sha256(key.encode('utf-8')).hexdigest()\n"
+            '        return f"{self._namespace}:{{replay}}:request:{digest}"\n'
+        )
+
+    @staticmethod
     def _render_provider(service: ServiceSpec) -> str:
         if service.mode == "sentinel":
             return SessionStoreGenerator._render_sentinel_provider(service)
@@ -427,8 +578,9 @@ class SessionStoreGenerator:
             "from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer\n"
             "from redis.asyncio import Redis\n"
             "\n"
-            "from .protocol import SessionData, SessionStore, SessionStoreError\n"
+            "from .protocol import RequestReplayStore, SessionData, SessionStore, SessionStoreError\n"
             "from .redis import RedisSessionStore\n"
+            "from .request_replay import RedisRequestReplayStore\n"
             "\n"
             f"REDIS_URL_ENV = {url_env}\n"
             "\n"
@@ -444,10 +596,12 @@ class SessionStoreGenerator:
             "        )\n"
             "    client = Redis.from_url(redis_url, decode_responses=True)\n"
             "    app.state.session_store = RedisSessionStore(client)\n"
+            f"    app.state.request_replay_store = RedisRequestReplayStore(client, {json.dumps(service.namespace)})\n"
             "    try:\n"
             "        yield\n"
             "    finally:\n"
             "        del app.state.session_store\n"
+            "        del app.state.request_replay_store\n"
             "        await client.aclose()\n"
             "\n"
             "\n"
@@ -457,6 +611,15 @@ class SessionStoreGenerator:
             "    except AttributeError as error:\n"
             "        raise SessionStoreError(\n"
             '            "SessionStore is not initialized"\n'
+            "        ) from error\n"
+            "\n"
+            "\n"
+            "def get_request_replay_store(request: Request) -> RequestReplayStore:\n"
+            "    try:\n"
+            "        return request.app.state.request_replay_store\n"
+            "    except AttributeError as error:\n"
+            "        raise SessionStoreError(\n"
+            '            \"RequestReplayStore is not initialized\"\n'
             "        ) from error\n"
             "\n"
             "\n"
@@ -499,8 +662,9 @@ class SessionStoreGenerator:
             "from redis.asyncio.cluster import RedisCluster\n"
             "from redis.cluster import ClusterNode\n"
             "\n"
-            "from .protocol import SessionData, SessionStore, SessionStoreError\n"
+            "from .protocol import RequestReplayStore, SessionData, SessionStore, SessionStoreError\n"
             "from .redis import RedisSessionStore\n"
+            "from .request_replay import RedisRequestReplayStore\n"
             "\n"
             f"REDIS_CLUSTER_URL_ENV = {cluster_url_env}\n"
             f"REDIS_CLUSTER_STARTUP_NODES_ENV = {cluster_startup_nodes_env}\n"
@@ -534,10 +698,12 @@ class SessionStoreGenerator:
             "        reinitialize_steps=1,\n"
             "    )\n"
             "    app.state.session_store = RedisSessionStore(client)\n"
+            f"    app.state.request_replay_store = RedisRequestReplayStore(client, {json.dumps(service.namespace)})\n"
             "    try:\n"
             "        yield\n"
             "    finally:\n"
             "        del app.state.session_store\n"
+            "        del app.state.request_replay_store\n"
             "        await client.aclose()\n"
             "\n"
             "\n"
@@ -547,6 +713,15 @@ class SessionStoreGenerator:
             "    except AttributeError as error:\n"
             "        raise SessionStoreError(\n"
             '            "SessionStore is not initialized"\n'
+            "        ) from error\n"
+            "\n"
+            "\n"
+            "def get_request_replay_store(request: Request) -> RequestReplayStore:\n"
+            "    try:\n"
+            "        return request.app.state.request_replay_store\n"
+            "    except AttributeError as error:\n"
+            "        raise SessionStoreError(\n"
+            '            \"RequestReplayStore is not initialized\"\n'
             "        ) from error\n"
             "\n"
             "\n"
@@ -587,8 +762,9 @@ class SessionStoreGenerator:
             "from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer\n"
             "from redis.asyncio.sentinel import Sentinel\n"
             "\n"
-            "from .protocol import SessionData, SessionStore, SessionStoreError\n"
+            "from .protocol import RequestReplayStore, SessionData, SessionStore, SessionStoreError\n"
             "from .redis import RedisSessionStore\n"
+            "from .request_replay import RedisRequestReplayStore\n"
             "\n"
             f"REDIS_SENTINEL_URLS_ENV = {sentinel_urls_env}\n"
             f"REDIS_SENTINEL_MASTER = {master_name}\n"
@@ -635,10 +811,12 @@ class SessionStoreGenerator:
             "        decode_responses=True,\n"
             "    )\n"
             "    app.state.session_store = RedisSessionStore(client)\n"
+            f"    app.state.request_replay_store = RedisRequestReplayStore(client, {json.dumps(service.namespace)})\n"
             "    try:\n"
             "        yield\n"
             "    finally:\n"
             "        del app.state.session_store\n"
+            "        del app.state.request_replay_store\n"
             "        await client.aclose()\n"
             "        for sentinel_client in sentinel.sentinels:\n"
             "            await sentinel_client.aclose()\n"
@@ -650,6 +828,15 @@ class SessionStoreGenerator:
             "    except AttributeError as error:\n"
             "        raise SessionStoreError(\n"
             '            "SessionStore is not initialized"\n'
+            "        ) from error\n"
+            "\n"
+            "\n"
+            "def get_request_replay_store(request: Request) -> RequestReplayStore:\n"
+            "    try:\n"
+            "        return request.app.state.request_replay_store\n"
+            "    except AttributeError as error:\n"
+            "        raise SessionStoreError(\n"
+            '            \"RequestReplayStore is not initialized\"\n'
             "        ) from error\n"
             "\n"
             "\n"

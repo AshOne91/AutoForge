@@ -243,6 +243,30 @@ def test_router_calls_async_handlers_with_schema_types() -> None:
     assert "raise NotImplementedError" in handlers
 
 
+def test_idempotent_endpoint_generates_redis_replay_boundary() -> None:
+    specification = tutorial_specification()
+    endpoint = specification.endpoints[1].model_copy(
+        update={
+            "idempotency": True,
+            "dependencies": [EndpointDependency.SESSION_STORE],
+        }
+    )
+    specification = specification.model_copy(
+        update={"endpoints": [specification.endpoints[0], endpoint]}
+    )
+
+    router = FastAPIModuleGenerator("game_server").render(specification)[
+        PurePosixPath("src/game_server/modules/tutorial/generated/router.py")
+    ]
+
+    ast.parse(router)
+    assert "Idempotency-Key" in router
+    assert "replay_store.claim" in router
+    assert "replay_store.complete" in router
+    assert "replay_store.abort" in router
+    assert "JSONResponse" in router
+
+
 def test_session_store_dependency_is_injected_into_handler() -> None:
     specification = tutorial_specification()
     dependent_endpoint = specification.endpoints[1].model_copy(

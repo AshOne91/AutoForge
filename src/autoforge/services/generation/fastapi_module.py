@@ -160,18 +160,34 @@ class FastAPIModuleGenerator:
         has_database_registry = self._requires_database_registry(specification)
         has_service_token = self._requires_service_token(specification)
         has_access_level = self._requires_access_level(specification)
+        has_idempotency = any(endpoint.idempotency for endpoint in specification.endpoints)
         has_dependencies = (
             has_session_store
             or has_current_session
             or has_database_registry
             or has_service_token
             or has_access_level
+            or has_idempotency
         )
-        fastapi_names = "APIRouter, Depends" if has_dependencies else "APIRouter"
+        fastapi_names = ["APIRouter"]
+        if has_dependencies:
+            fastapi_names.append("Depends")
+        if has_idempotency:
+            fastapi_names.extend(["HTTPException", "Request"])
         imports: list[str] = []
+        if has_idempotency:
+            imports.extend(["import hashlib", "import json"])
         if has_dependencies:
             imports.extend(["from typing import Annotated", ""])
-        imports.extend([f"from fastapi import {fastapi_names}", ""])
+        elif has_idempotency:
+            imports.append("")
+        imports.append(f"from fastapi import {', '.join(fastapi_names)}")
+        if has_idempotency:
+            imports.extend([
+                "from fastapi.encoders import jsonable_encoder",
+                "from fastapi.responses import JSONResponse",
+            ])
+        imports.append("")
         if has_access_level:
             imports.append(
                 self._render_from_import(
@@ -192,7 +208,7 @@ class FastAPIModuleGenerator:
                     ),
                 ]
             )
-        if has_session_store or has_current_session:
+        if has_session_store or has_current_session or has_idempotency:
             protocol_names = []
             provider_names = []
             if has_current_session:
@@ -201,6 +217,18 @@ class FastAPIModuleGenerator:
             if has_session_store:
                 protocol_names.append("SessionStore")
                 provider_names.append("get_session_store")
+            if has_idempotency:
+                protocol_names.extend(
+                    [
+                        "ReplayRecord",
+                        "RequestReplayConflict",
+                        "RequestReplayInProgress",
+                        "RequestReplayStore",
+                    ]
+                )
+                provider_names.append("get_request_replay_store")
+            protocol_names.sort()
+            provider_names.sort()
             imports.extend(
                 [
                     self._render_from_import(
@@ -286,6 +314,8 @@ class FastAPIModuleGenerator:
         lines = [f"@router.{method}({', '.join(decorator_arguments)})"]
         parameters: list[str] = []
         arguments: list[str] = []
+        if endpoint.idempotency:
+            parameters.append("    http_request: Request,")
         if endpoint.request is not None:
             parameters.append(f"    request: {self._request_type(endpoint)},")
             arguments.append("request")
@@ -310,6 +340,11 @@ class FastAPIModuleGenerator:
                 "AsyncSessionRegistry, Depends(get_session_registry)],"
             )
             arguments.append("session_registry")
+        if endpoint.idempotency:
+            parameters.append(
+                "    replay_store: Annotated["
+                "RequestReplayStore, Depends(get_request_replay_store)],"
+            )
 
         if parameters:
             lines.append(f"async def {endpoint.name}(")
@@ -318,9 +353,38 @@ class FastAPIModuleGenerator:
         else:
             lines.append(f"async def {endpoint.name}() -> {response_type}:")
         joined_arguments = ", ".join(arguments)
-        lines.append(
-            f"    return await handlers.{endpoint.handler}({joined_arguments})"
-        )
+        handler_call = f"await handlers.{endpoint.handler}({joined_arguments})"
+        if endpoint.idempotency:
+            request_body = (
+                "request.model_dump_json()" if endpoint.request is not None else '""'
+            )
+            lines.extend(
+                [
+                    '    idempotency_key = http_request.headers.get("Idempotency-Key")',
+                    "    if not idempotency_key:",
+                    '        raise HTTPException(status_code=400, detail="Idempotency-Key header is required")',
+                    f'    fingerprint_source = "{endpoint.method.value}:{endpoint.path}:" + {request_body}',
+                    '    fingerprint = hashlib.sha256(fingerprint_source.encode("utf-8")).hexdigest()',
+                    "    try:",
+                    f"        replay = await replay_store.claim(idempotency_key, fingerprint, {endpoint.idempotency_ttl_seconds})",
+                    "    except RequestReplayConflict as error:",
+                    '        raise HTTPException(status_code=409, detail=str(error)) from error',
+                    "    except RequestReplayInProgress as error:",
+                    '        raise HTTPException(status_code=409, detail=str(error)) from error',
+                    "    if isinstance(replay, ReplayRecord):",
+                    "        return JSONResponse(status_code=replay.status_code, content=json.loads(replay.body))",
+                    "    try:",
+                    f"        result = {handler_call}",
+                    '        body = json.dumps(jsonable_encoder(result), separators=(",", ":"))',
+                    "        await replay_store.complete(replay, 200, body)",
+                    "        return result",
+                    "    except Exception:",
+                    "        await replay_store.abort(replay)",
+                    "        raise",
+                ]
+            )
+        else:
+            lines.append(f"    return {handler_call}")
         return "\n".join(lines)
 
     def _render_handlers(self, specification: ModuleSpec) -> str:

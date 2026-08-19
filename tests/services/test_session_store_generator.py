@@ -97,6 +97,7 @@ def test_render_produces_protocol_fake_and_redis_adapter() -> None:
         root / "fake.py",
         root / "provider.py",
         root / "redis.py",
+        root / "request_replay.py",
     }
     for content in files.values():
         ast.parse(content)
@@ -104,6 +105,7 @@ def test_render_produces_protocol_fake_and_redis_adapter() -> None:
     protocol = files[root / "protocol.py"]
     fake = files[root / "fake.py"]
     redis = files[root / "redis.py"]
+    replay = files[root / "request_replay.py"]
     provider = files[root / "provider.py"]
     access_control = files[root.parent / "access_control.py"]
     assert "class SessionStore(Protocol):" in protocol
@@ -120,6 +122,8 @@ def test_render_produces_protocol_fake_and_redis_adapter() -> None:
     assert "SessionStoreError" in redis
     assert "Redis | RedisCluster" in redis
     assert 'f"{self._namespace}:{{{routing_tag}}}:session:' in redis
+    assert "class RedisRequestReplayStore:" in replay
+    assert "_COMPLETE_SCRIPT" in replay
     assert 'REDIS_URL_ENV = "REDIS_URL"' in provider
     assert "async def session_store_lifespan(" in provider
     assert "Redis.from_url(redis_url, decode_responses=True)" in provider
@@ -180,7 +184,7 @@ def test_cluster_provider_uses_async_cluster_discovery_contract() -> None:
 def test_plan_marks_all_session_files_generated() -> None:
     plan = SessionStoreGenerator().plan(project_specification())
 
-    assert len(plan.files) == 6
+    assert len(plan.files) == 7
     assert all(file.ownership is FileOwnership.GENERATED for file in plan.files)
 
 

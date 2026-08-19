@@ -33,11 +33,13 @@ sequencing.
   source, service secret, trusted ingress allowlist를 서로 대체하지 않는
   FastAPI dependency로 연결한다. 전역 `TemplateService`나 하드코딩된 IP 목록은
   생성하지 않는다.
-- [ ] request replay/idempotency contract: 상태를 바꾸는 KIS 소비자 slice가 생기면
-  `SessionStore`와 별도의 Redis-backed request claim/replay 계약을 검증한다.
-  session·endpoint·idempotency key 범위, 원자 claim, TTL, 완료 응답 재전달,
-  multi-replica 동시성 테스트를 먼저 확정한다. 주문 실행 전 필수이지만, 읽기 전용
-  조회나 이미 DB unique key로 보호되는 Durable Job에는 추측으로 적용하지 않는다.
+- [~] request replay/idempotency contract: `SessionStore`와 별도의
+  Redis-backed request claim/replay 계약이 `EndpointSpec.idempotency`로
+  생성된다. session·endpoint·idempotency key 범위, 원자 claim, TTL, 완료 응답
+  재전달, 충돌 재사용 거부, 실패 claim 해제를 구현했다. KIS `update_profile`이
+  첫 consumer opt-in이며, multi-replica live contention 검증과 주문 실행 적용은
+  남아 있다. 읽기 전용 조회나 이미 DB unique key로 보호되는 Durable Job에는
+  추측으로 적용하지 않는다.
 - [ ] generic record-to-search handoff after consumer evidence establishes a
   common source identity, document projection, and query/relevance contract
 - [ ] embedding and reranking provider contracts after the selected consumer establishes an evaluation dataset and relevance target
