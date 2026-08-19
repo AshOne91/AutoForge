@@ -1,6 +1,6 @@
 # Next Task
 
-## Next executable unit: register the read-only KIS client in the application lifespan
+## Next executable unit: add an operator-token-protected KIS current-price route
 
 The default standalone profile and generated HA runtime proofs for Redis
 Cluster, PostgreSQL Patroni/HAProxy, RabbitMQ, and the two-scheduler Airflow
@@ -31,9 +31,13 @@ optional token scope through the contract in both profiles.
 KIS now has a user-owned read-only domestic-price client that obtains its Bearer
 token exclusively from `KisTokenCoordinator`. Its only endpoint is the official
 current-price `GET`, and its request/response behavior is verified entirely with
-fakes.
+fakes. The client is registered through the generated `USER_LIFESPANS` hook,
+which stores it in `app.state` and closes it at shutdown without a startup
+request.
 
-The next slice registers that client as a user-owned FastAPI lifespan dependency
-with explicit shutdown. It may construct configuration and shared clients but
-must not make a KIS request during startup. Keep it free of a public route,
-background polling, account access, and all order operations.
+The next slice adds one user-owned internal current-price route. It must reuse
+the existing generated `operator` service-token guard, obtain the lifespan-owned
+client from `app.state`, validate its six-digit stock-code input, and map only
+known KIS client failures to a safe response. Its tests must use fakes only. Do
+not add a public route, background polling, account access, or any order
+operation.

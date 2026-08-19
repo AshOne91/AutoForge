@@ -895,7 +895,7 @@ release after an invalid response, refresh-in-progress handling, and the
 official request shape. Regenerating KIS exposed generated Ruff defects in the
 three contracts; AutoForge corrected the Enum default and import rendering at
 the generator source. AutoForge regression is `613 passed, 17 skipped`; KIS is
-`69 passed` with one pre-existing FastAPI/Starlette `TestClient` deprecation
+`70 passed` with one pre-existing FastAPI/Starlette `TestClient` deprecation
 warning. No live KIS credential, token request, trading route, or order was
 executed. The coordinator is not yet registered in a FastAPI lifespan or a
 container runtime path.
@@ -918,8 +918,10 @@ token coordinator, exposing only domestic-stock current-price `GET
 /uapi/domestic-stock/v1/quotations/inquire-price` with `FHKST01010100`. It
 validates the six-digit stock code, checks the KIS HTTP/envelope response, and
 uses fake transport tests for the request headers, query, success, and error
-paths. It has no FastAPI route or lifespan registration, makes no live request,
-and exposes no account or order operation.
+paths. It is registered through the generated `USER_LIFESPANS` extension hook:
+startup constructs and stores it in `app.state` without a KIS request, and
+shutdown closes its shared HTTP and Redis clients. It has no FastAPI route,
+makes no live request during startup, and exposes no account or order operation.
 
 ## Development tooling
 
