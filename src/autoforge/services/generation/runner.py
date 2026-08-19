@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from pathlib import PurePosixPath
 
 from autoforge.core.generation import (
+    FileOwnership,
     GenerationManifest,
     GenerationPlan,
     Generator,
@@ -39,11 +40,39 @@ class GenerationRunner[SpecificationT: (ProjectSpec, ModuleSpec)]:
     ) -> GenerationManifest:
         plan, rendered = self.compose(specification, generators)
         resolved = self._resolver.resolve(plan, workspace, manifest)
-        return self._applier.apply(
+        current = self._applier.apply(
             job_id=job_id,
             plan=resolved,
             rendered_files=rendered,
             workspace=workspace,
+        )
+        return self._retain_unplanned_generated_files(current, manifest)
+
+    @staticmethod
+    def _retain_unplanned_generated_files(
+        current: GenerationManifest,
+        previous: GenerationManifest | None,
+    ) -> GenerationManifest:
+        if previous is None:
+            return current
+
+        current_paths = {file.relative_path for file in current.files}
+        retained = [
+            file
+            for file in previous.files
+            if file.ownership is FileOwnership.GENERATED
+            and file.relative_path not in current_paths
+        ]
+        if not retained:
+            return current
+
+        return current.model_copy(
+            update={
+                "files": sorted(
+                    [*current.files, *retained],
+                    key=lambda file: file.relative_path.as_posix(),
+                )
+            }
         )
 
     @staticmethod

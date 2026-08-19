@@ -134,6 +134,33 @@ def _write_identity_account_specifications(root: Path) -> GenerationJobRequest:
     return request
 
 
+def _write_rag_project_specification(
+    root: Path, *, enabled: bool, host_port_base: int = 49400
+) -> GenerationJobRequest:
+    project_path = root / "autoforge.yaml"
+    specifications_path = root / "specifications"
+    output_path = root / "output"
+    specifications_path.mkdir(exist_ok=True)
+    project_path.write_text(
+        'spec_version: "1"\n'
+        "tooling:\n"
+        "  rag:\n"
+        f"    enabled: {str(enabled).lower()}\n"
+        f"    host_port_base: {host_port_base}\n"
+        "project:\n"
+        "  name: Sample\n"
+        "  package_name: sample\n"
+        '  version: "0.1.0"\n'
+        "application: {}\n",
+        encoding="utf-8",
+    )
+    return GenerationJobRequest(
+        project_path=project_path,
+        specifications_path=specifications_path,
+        output_path=output_path,
+    )
+
+
 def _subscribe_lifecycle(bus: EventBus) -> RecordingHandler:
     handler = RecordingHandler()
     for event_type in (
@@ -180,6 +207,40 @@ def test_generation_pipeline_generates_validates_and_persists_job(
             ValidationCompletedEvent,
         ]
         assert {event.correlation_id for event in handler.events} == {"job-001"}
+
+    asyncio.run(scenario())
+
+
+def test_generation_pipeline_retains_opt_in_generated_files_when_disabled(
+    tmp_path: Path,
+) -> None:
+    async def scenario() -> None:
+        pipeline = GenerationJobPipeline(
+            job_store=InMemoryJobStore(),
+            event_bus=EventBus(),
+            validator=SuccessfulValidator(),
+        )
+
+        await pipeline.run(
+            _write_rag_project_specification(tmp_path, enabled=True),
+            job_id="job-rag-enabled",
+        )
+        await pipeline.run(
+            _write_rag_project_specification(tmp_path, enabled=False),
+            job_id="job-rag-disabled",
+        )
+        execution = await pipeline.run(
+            _write_rag_project_specification(
+                tmp_path, enabled=True, host_port_base=49500
+            ),
+            job_id="job-rag-reenabled",
+        )
+
+        assert execution.job.status is GenerationJobStatus.SUCCEEDED
+        assert (
+            "QDRANT_HTTP_PORT=49550"
+            in (tmp_path / "output/deploy/rag/.env.example").read_text()
+        )
 
     asyncio.run(scenario())
 
