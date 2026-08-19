@@ -1,14 +1,12 @@
 # Next Task
 
-## Next executable unit: single-host bootstrap composition contract
+## Next executable unit: second search-consumer evidence gate
 
-Inspect the generated Windows `start-compose.ps1` path and its owning
-`SingleHostOperatingGenerator` test. Confirm that a selected `single_host`
-profile starts the dependency base Compose and the generated overlay together,
-so the documented Nginx and configured application scale actually apply after
-host boot. Add a focused generator test only if that composition contract is
-not already covered.
+Before adding a generic AutoForge record-to-search generator contract, establish
+a second concrete consumer with a stable source identity, canonical document
+projection, and query/relevance requirement. Compare it with the KIS news path
+to identify the genuinely shared fields and ownership boundary. Do not create a
+one-consumer abstraction or move Yahoo-specific normalization into AutoForge.
 
-Keep the base integration Compose separately runnable for resource-light
-development. Do not change active local Docker projects or add another
-bootstrap provider.
+Until that evidence exists, keep KIS search indexing consumer-owned and reuse
+the existing selectable RAG infrastructure only.

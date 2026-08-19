@@ -357,6 +357,8 @@ AutoForge currently has working foundations for:
   integration Compose remains dependency-oriented, while the generated
   `single_host` overlay adds Nginx and the configured application scale. The
   default KIS overlay has one application replica; its HA overlay has three.
+  The Windows bootstrap generator test now explicitly asserts both environment
+  files and both Compose files, preventing a boot path that omits that overlay.
 
 ## Docker work
 
