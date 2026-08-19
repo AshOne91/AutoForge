@@ -1,6 +1,6 @@
 # Next Task
 
-## Next executable unit: declare global market-price snapshot persistence
+## Next executable unit: persist one operator-requested market-price snapshot
 
 The default standalone profile and generated HA runtime proofs for Redis
 Cluster, PostgreSQL Patroni/HAProxy, RabbitMQ, and the two-scheduler Airflow
@@ -24,9 +24,10 @@ only with fakes; no live credential or order execution is required.
 The generic `ApplicationSpec.runtime_environments` contract is implemented and
 verified: it delivers declared names to local Compose, Kubernetes Secret
 references, and empty environment examples without putting values or KIS names
-in AutoForge generators. Required values fail fast locally; Kubernetes requires
-every declared Secret key. KIS declares its base URL, app key, app secret, and
-optional token scope through the contract in both profiles.
+in AutoForge generators. It also declares non-secret `health_test_value` data
+for the generated health test only. Required values fail fast locally;
+Kubernetes requires every declared Secret key. KIS declares its base URL, app
+key, app secret, and optional token scope through the contract in both profiles.
 
 KIS now has a user-owned read-only domestic-price client that obtains its Bearer
 token exclusively from `KisTokenCoordinator`. Its only endpoint is the official
@@ -38,9 +39,10 @@ token, validates the stock code before I/O, and exposes only the safe price
 projection. A real read-only check is present but skipped unless explicitly
 enabled with `KIS_READ_ONLY_INTEGRATION=1`.
 
-The next slice declares one global KIS market-price snapshot persistence model
-through the existing AutoForge specification and generation contract. Determine
-the correct Global database boundary from the current KIS stores, then generate
-the model, repository, migration, and SQL artifacts with tests. Do not add a
-fetch job, public route, portfolio data, order/execution, or live KIS call in
-the same unit.
+The global `automation`-store `market_price_snapshots` model, repository,
+Alembic baseline, and raw SQL are generated and verified. The next slice adds a
+consumer-owned persistence boundary that writes one snapshot from the existing
+operator-requested read-only price result through that generated repository and
+the existing automation session. Keep the endpoint internal and token-guarded;
+do not add polling, a durable job, a public route, portfolio data,
+order/execution, or a live KIS call.

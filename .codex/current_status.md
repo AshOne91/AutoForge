@@ -901,12 +901,13 @@ order was executed.
 
 `ApplicationSpec.runtime_environments` now supplies the generic generated
 runtime-environment contract that a consumer needs before it can register a
-credentialed client. It stores names and local requiredness only, validates
-unique names and collisions with generated service-token or heartbeat names,
-and renders them into local Compose, Kubernetes Secret references, and empty
-environment examples. Required values fail fast in local Compose; Kubernetes
-still requires every declared Secret key. The contract is verified by focused
-specification, local-environment, and Kubernetes-generator tests.
+credentialed client. It stores names, local requiredness, and a non-secret
+`health_test_value`; the generated health test uses that value before lifespan
+startup, while Compose, Kubernetes, and environment examples receive names only.
+Names remain unique and cannot collide with generated service-token or heartbeat
+names. Required values fail fast in local Compose; Kubernetes still requires
+every declared Secret key. The contract is verified by focused specification,
+local-environment, Kubernetes-generator, and FastAPI-project-generator tests.
 
 KIS now declares `KIS_API_URL`, `KIS_APP_KEY`, `KIS_APP_SECRET`, and optional
 `KIS_TOKEN_SCOPE` through that contract in both standalone and HA
@@ -936,6 +937,16 @@ skipped unless `KIS_READ_ONLY_INTEGRATION=1` is explicitly set. It can perform
 only the existing current-price GET with configured credentials and an optional
 six-digit `KIS_INTEGRATION_STOCK_CODE`, then closes its HTTP and Redis clients.
 No live invocation has been authorized or executed.
+
+KIS now declares a `market_data` module through the existing AutoForge database
+contract. Its `MarketPriceSnapshot` model, repository protocol/fake/SQLAlchemy
+adapter, raw SQL, and independent Alembic baseline are generated from one
+specification. `market_price_snapshots` is explicitly placed in the global
+`automation` store because external market data is shared across users and
+shards. The slice has no persistence writer, polling job, public route,
+portfolio data, order/execution behavior, or live KIS call. KIS verification is
+`75 passed, 1 skipped`; the one existing FastAPI/Starlette TestClient deprecation
+warning remains external to this change.
 
 ## Development tooling
 
