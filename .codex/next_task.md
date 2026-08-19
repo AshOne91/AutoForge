@@ -1,13 +1,14 @@
 # Next Task
 
-## Next executable unit: news-index retry boundary
+## Next executable unit: isolated news-index retry runtime drill
 
-Inspect the KIS `news_index` Durable Job when its selected RAG backend or
-embedding provider is unavailable. Decide whether the existing consumer-owned
-bounded retry pattern can safely be reused with `source_keys`, stable run keys,
-and explicit transient-error classification. Prove the current failure path
-first; do not add a generic AutoForge retry policy, a new queue, or a scheduler
-unless more than one generated consumer needs that contract.
+In a disposable KIS workspace and non-overlapping port block, start the normal
+application/Durable Job stack plus its RAG overlay. Stop only the selected search
+backend or Ollama long enough to force one `news_index` retry, restore it, and
+confirm that the retry job succeeds using the original canonical `source_keys`.
+Inspect Durable Job status and the indexed document count. Clean up only the
+disposable project resources afterward.
 
-Keep backend-specific HTTP handling in KIS unless the evidence identifies a
-generated runtime contract as the responsible boundary.
+Do not change production-like long-running local projects during this drill, and
+do not generalize the consumer-owned retry policy into AutoForge without a
+second generated consumer needing it.

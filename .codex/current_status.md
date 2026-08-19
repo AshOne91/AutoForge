@@ -341,6 +341,11 @@ AutoForge currently has working foundations for:
   exponentially delayed retries, and focused tests now cover both timeout and
   provider-level failures at that same retry boundary.
 
+- KIS `news_index` now reuses that durable retry path for transient RAG
+  dependencies: network errors and HTTP 408, 429, and 5xx requeue the same
+  canonical `source_keys`; non-transient HTTP 4xx errors remain failed. The
+  focused handler tests cover all of those classifications.
+
 ## Docker work
 
 - Local Environment Generator는 생성된 Compose에서 파생한
