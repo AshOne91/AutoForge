@@ -14,6 +14,7 @@ from autoforge.core.specification import (
     ProjectInfo,
     ProjectSpec,
     ServiceSpec,
+    ServiceTokenSpec,
 )
 from autoforge.services.generation.local_environment import LocalEnvironmentGenerator
 
@@ -611,6 +612,36 @@ def test_render_connects_docker_application_to_airflow() -> None:
     assert "APPLICATION_PORT=28000" in environment
     assert "DURABLE_JOB_API_URL=http://application:8000" in environment
     assert "migrations run before the generated application starts" in readme
+
+
+def test_application_receives_all_service_tokens_but_airflow_receives_only_its_scope() -> None:
+    specification = integration_specification(
+        enabled=True,
+        durable_jobs=True,
+        application=True,
+    )
+    application = specification.application.model_copy(
+        update={
+            "service_tokens": [
+                ServiceTokenSpec(
+                    name="operator", token_env="OPERATOR_API_TOKEN"
+                )
+            ]
+        }
+    )
+
+    compose = yaml.safe_load(
+        LocalEnvironmentGenerator().render(
+            specification.model_copy(update={"application": application})
+        )[PurePosixPath("environment", "compose.integration.yml")]
+    )
+
+    assert compose["services"]["application"]["environment"][
+        "OPERATOR_API_TOKEN"
+    ] == "${OPERATOR_API_TOKEN:?set OPERATOR_API_TOKEN}"
+    assert "OPERATOR_API_TOKEN" not in compose["services"]["airflow-webserver"][
+        "environment"
+    ]
 
 
 def test_durable_job_worker_receives_control_plane_heartbeat_environment() -> None:

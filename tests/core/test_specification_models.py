@@ -34,6 +34,7 @@ from autoforge.core.specification import (
     ResponseSpec,
     SchemaSpec,
     ServiceSpec,
+    ServiceTokenSpec,
     TableSpec,
     ToolingSpec,
 )
@@ -422,6 +423,51 @@ def test_endpoint_dependency_is_typed_unique_and_optional() -> None:
     with pytest.raises(ValidationError, match="session_store"):
         EndpointSpec.model_validate(
             {**endpoint_data, "dependencies": ["unknown_store"]}
+        )
+
+
+def test_service_tokens_require_unique_names_and_secret_environments() -> None:
+    token = ServiceTokenSpec(name="operator", token_env="OPERATOR_API_TOKEN")
+
+    application = ApplicationSpec(service_tokens=[token])
+
+    assert application.service_token_environments == {
+        "operator": "OPERATOR_API_TOKEN"
+    }
+    with pytest.raises(ValidationError, match="token names must be unique"):
+        ApplicationSpec(service_tokens=[token, token])
+    with pytest.raises(ValidationError, match="token environments must be unique"):
+        ApplicationSpec(
+            service_tokens=[
+                token,
+                ServiceTokenSpec(name="reporting", token_env="OPERATOR_API_TOKEN"),
+            ]
+        )
+
+
+def test_endpoint_service_token_is_optional_and_typed() -> None:
+    endpoint = EndpointSpec.model_validate(
+        {
+            "name": "search",
+            "method": "GET",
+            "path": "/search",
+            "response": {"fields": []},
+            "handler": "search",
+            "service_token": "operator",
+        }
+    )
+
+    assert endpoint.service_token == "operator"
+    with pytest.raises(ValidationError, match="소문자로 시작"):
+        EndpointSpec.model_validate(
+            {
+                "name": "search",
+                "method": "GET",
+                "path": "/search",
+                "response": {"fields": []},
+                "handler": "search",
+                "service_token": "operator-token",
+            }
         )
 
 

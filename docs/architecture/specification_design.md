@@ -146,6 +146,11 @@ ApplicationSpec은 FastAPI Framework, Module 참조, Redis/RabbitMQ Service,
 Runtime Database Store와 Outbox 기반 Durable Job을 선언한다. 이름과 참조의
 중복·누락은 명세 검증 단계에서 거부한다.
 
+`service_tokens` declares named service-to-service callers with a unique
+`token_env`. It does not define human roles. See
+[Generation Contract](generation_contract.md#scoped-service-token-authentication)
+for generated runtime behavior and secret delivery.
+
 `durable_job_worker_restart_policy`는 Durable Job worker 컨테이너의 재시작
 정책을 명시한다. 기본값은 `unless-stopped`이며, 이 필드는 현재 단일
 `durable-job-worker` 구성의 생명주기 경계만 소유한다. worker의 이벤트·큐
@@ -204,6 +209,13 @@ endpoints:
 ModuleSpec의 EndpointSpec은 Pydantic Request/Response Schema, FastAPI Router와
 Handler 연결을 정의한다. HTTP 이외의 Transport Message는 이 명세 버전의
 계약에 포함하지 않는다.
+
+An endpoint may set `service_token: <declared caller name>`. This generates a
+FastAPI dependency before the handler runs, and project validation rejects a
+caller absent from `ApplicationSpec.service_tokens` (or the compatible
+`durable_jobs` caller when Durable Jobs are enabled). The field is only for
+internal service identity; session roles, ingress trust, and request replay are
+separate contracts.
 
 ## Module 책임 경계
 

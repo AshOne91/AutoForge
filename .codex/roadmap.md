@@ -25,7 +25,9 @@ sequencing.
   조정, portfolio, order/execution, risk limit와 감사 이력을 하나의 소비자 수직
   흐름으로 검증한다. 거래 전략과 투자 판단은 KIS 소비자 소유이며 AutoForge는
   검증된 공통 인프라·생성 계약만 일반화한다.
-- [ ] domain request-execution policy: 실제 소비자 요구가 확인되면 endpoint마다
+- [~] domain request-execution policy: `ApplicationSpec.service_tokens`와
+  `EndpointSpec.service_token`은 named internal service caller를 fail-closed
+  FastAPI dependency로 연결한다. 아직 endpoint마다
   anonymous, authenticated user, privileged operator, internal service 같은 호출
   정책을 명시한다. 생성기는 Redis session의 사용자 identity, user-owned role
   source, service secret, trusted ingress allowlist를 서로 대체하지 않는

@@ -1,12 +1,12 @@
 # Next Task
 
-## Next executable unit: KIS invocation-policy evidence
+## Next executable unit: KIS human-role source and mutation boundary
 
-Inspect the existing KIS user session, internal Durable Job API token, and
-operator routes to make one explicit actor matrix: user, privileged operator,
-and internal service. Identify the user-owned persistent role source and one
-state-changing endpoint that needs request replay before adding a generated
-policy or Redis request contract.
+The named internal service-token slice is complete: Durable Job and operator
+search now use different declared credentials. Identify the user-owned
+persistent source for human operator roles and one actual state-changing KIS
+endpoint. Only then define the smallest authenticated-session role policy and
+the request-replay requirement for that mutation.
 
 Do not add a generic role enum, IP allowlist, or replay store solely from the
 historical references. Keep read-only market-data work independent, and do not

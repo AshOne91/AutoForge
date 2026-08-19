@@ -582,6 +582,23 @@ def validate_endpoint_dependencies(
         raise GenerationSpecificationError(
             "Endpoint dependency 'session_store' requires a redis_session service."
         )
+    declared_service_tokens = set(
+        project_spec.application.service_token_environments
+    )
+    unknown_service_tokens = sorted(
+        {
+            endpoint.service_token
+            for module_spec in module_specs
+            for endpoint in module_spec.endpoints
+            if endpoint.service_token is not None
+            and endpoint.service_token not in declared_service_tokens
+        }
+    )
+    if unknown_service_tokens:
+        raise GenerationSpecificationError(
+            "Endpoint service tokens are not declared by the application: "
+            f"{unknown_service_tokens}"
+        )
 
 
 def validate_database_placements(

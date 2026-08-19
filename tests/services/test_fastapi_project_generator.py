@@ -16,6 +16,7 @@ from autoforge.core.specification import (
     ProjectInfo,
     ProjectSpec,
     ServiceSpec,
+    ServiceTokenSpec,
     ToolingSpec,
 )
 from autoforge.services.generation import FastAPIProjectGenerator
@@ -33,6 +34,7 @@ def project_specification(
     ruff_exclude: list[str] | None = None,
     dependencies: list[str] | None = None,
     database_provider: str = "postgresql",
+    service_tokens: list[ServiceTokenSpec] | None = None,
 ) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
@@ -47,6 +49,7 @@ def project_specification(
             modules=modules or [],
             services=services or [],
             databases=databases or [],
+            service_tokens=service_tokens or [],
             control_plane_heartbeat=control_plane_heartbeat
             or ControlPlaneHeartbeatSpec(),
         ),
@@ -472,6 +475,25 @@ def test_mysql_runtime_selects_async_driver_and_health_url() -> None:
     assert "cryptography>=44,<47" in pyproject["project"]["dependencies"]
     assert "asyncpg>=0.30,<1" not in pyproject["project"]["dependencies"]
     assert "mysql+asyncmy://" in health_test
+
+
+def test_service_tokens_generate_a_shared_scope_guard() -> None:
+    files = FastAPIProjectGenerator().render(
+        project_specification(
+            service_tokens=[
+                ServiceTokenSpec(name="operator", token_env="OPERATOR_API_TOKEN")
+            ]
+        )
+    )
+
+    guard = files[
+        PurePosixPath("src/game_server/infrastructure/service_tokens.py")
+    ]
+
+    ast.parse(guard)
+    assert "'operator': 'OPERATOR_API_TOKEN'" in guard
+    assert "compare_digest(token, expected_token)" in guard
+    assert "service API token is not configured" in guard
 
 
 def test_plan_matches_rendered_content_hashes() -> None:

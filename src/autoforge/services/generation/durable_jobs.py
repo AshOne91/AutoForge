@@ -64,7 +64,12 @@ class DurableJobGenerator:
             if job.schedule is not None:
                 files[
                     PurePosixPath("airflow", "dags", f"{job.name}.py")
-                ] = self._render_airflow_dag(job)
+                ] = self._render_airflow_dag(
+                    job,
+                    specification.application.service_token_environments[
+                        "durable_jobs"
+                    ],
+                )
         return files
 
     def plan(self, specification: ProjectSpec) -> GenerationPlan:
@@ -512,7 +517,7 @@ class DurableJobGenerator:
         )
 
     @staticmethod
-    def _render_airflow_dag(job: DurableJobSpec) -> str:
+    def _render_airflow_dag(job: DurableJobSpec, token_env: str) -> str:
         payload_env = f"DURABLE_JOB_{job.name.upper()}_PAYLOAD_JSON"
         return (
             "\"\"\"Generated Airflow orchestration for a durable job.\"\"\"\n"
@@ -535,7 +540,7 @@ class DurableJobGenerator:
             "\n"
             "def _request(method: str, path: str, body: dict[str, object] | None = None) -> dict[str, object]:\n"
             "    base_url = os.environ['DURABLE_JOB_API_URL'].rstrip('/')\n"
-            "    api_token = os.environ['DURABLE_JOB_API_TOKEN']\n"
+            f"    api_token = os.environ[{token_env!r}]\n"
             "    data = json.dumps(body).encode() if body is not None else None\n"
             "    request = Request(\n"
             "        f'{base_url}{path}', data=data, method=method,\n"

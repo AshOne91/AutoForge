@@ -157,8 +157,12 @@ class FastAPIModuleGenerator:
         has_session_store = self._requires_session_store(specification)
         has_current_session = self._requires_current_session(specification)
         has_database_registry = self._requires_database_registry(specification)
+        has_service_token = self._requires_service_token(specification)
         has_dependencies = (
-            has_session_store or has_current_session or has_database_registry
+            has_session_store
+            or has_current_session
+            or has_database_registry
+            or has_service_token
         )
         fastapi_names = "APIRouter, Depends" if has_dependencies else "APIRouter"
         imports: list[str] = []
@@ -198,6 +202,13 @@ class FastAPIModuleGenerator:
                         provider_names,
                     ),
                 ]
+            )
+        if has_service_token:
+            imports.append(
+                self._render_from_import(
+                    f"{self._package_name}.infrastructure.service_tokens",
+                    ["require_service_token"],
+                )
             )
         if specification.endpoints:
             imports.append(f"from {module_path} import handlers")
@@ -250,9 +261,13 @@ class FastAPIModuleGenerator:
         response_type = self._response_type(endpoint)
         method = endpoint.method.value.lower()
         path = json.dumps(endpoint.path, ensure_ascii=False)
-        lines = [
-            f"@router.{method}({path}, response_model={response_type})",
-        ]
+        decorator_arguments = [path, f"response_model={response_type}"]
+        if endpoint.service_token is not None:
+            token_name = json.dumps(endpoint.service_token, ensure_ascii=False)
+            decorator_arguments.append(
+                f"dependencies=[Depends(require_service_token({token_name}))]"
+            )
+        lines = [f"@router.{method}({', '.join(decorator_arguments)})"]
         parameters: list[str] = []
         arguments: list[str] = []
         if endpoint.request is not None:
@@ -441,5 +456,12 @@ class FastAPIModuleGenerator:
         return any(
             EndpointDependency.DATABASE_SESSION_REGISTRY
             in endpoint.dependencies
+            for endpoint in specification.endpoints
+        )
+
+    @staticmethod
+    def _requires_service_token(specification: ModuleSpec) -> bool:
+        return any(
+            endpoint.service_token is not None
             for endpoint in specification.endpoints
         )

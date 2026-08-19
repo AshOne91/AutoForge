@@ -16,6 +16,7 @@ from autoforge.core.specification import (
     ProjectInfo,
     ProjectSpec,
     ServiceSpec,
+    ServiceTokenSpec,
     ToolingSpec,
 )
 from autoforge.services.generation.kubernetes import KubernetesBaseServerGenerator
@@ -327,6 +328,30 @@ def test_render_adds_durable_job_api_token_only_for_durable_jobs() -> None:
 
     assert "key: DURABLE_JOB_API_TOKEN" in manifest
     assert "DURABLE_JOB_API_TOKEN=\n" in secret_environment
+
+
+def test_render_adds_declared_service_token_to_application_secret() -> None:
+    specification = base_server_specification(enabled=True)
+    application = specification.application.model_copy(
+        update={
+            "service_tokens": [
+                ServiceTokenSpec(
+                    name="operator", token_env="OPERATOR_API_TOKEN"
+                )
+            ]
+        }
+    )
+
+    files = KubernetesBaseServerGenerator().render(
+        specification.model_copy(update={"application": application})
+    )
+    manifest = files[PurePosixPath("deploy", "kubernetes", "base-server.yaml")]
+    secret_environment = files[
+        PurePosixPath("deploy", "kubernetes", "secret.env.example")
+    ]
+
+    assert "key: OPERATOR_API_TOKEN" in manifest
+    assert "OPERATOR_API_TOKEN=\n" in secret_environment
 
 
 def test_plan_marks_base_server_manifest_generated() -> None:

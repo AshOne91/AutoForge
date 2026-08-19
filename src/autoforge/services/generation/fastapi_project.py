@@ -41,6 +41,9 @@ class FastAPIProjectGenerator:
         has_database = bool(database_stores)
         has_session_store = bool(session_services)
         has_durable_jobs = bool(specification.application.durable_jobs)
+        service_token_environments = (
+            specification.application.service_token_environments
+        )
         heartbeat = specification.application.control_plane_heartbeat
         has_heartbeat_reporter = heartbeat.enabled
         database_provider = specification.tooling.local_environment.database_provider
@@ -141,6 +144,10 @@ class FastAPIProjectGenerator:
                     **({"database": "ok"} if has_database else {}),
                     **({"session_store": "ok"} if has_session_store else {}),
                 },
+            )
+        if service_token_environments:
+            rendered[package_root / "infrastructure" / "service_tokens.py"] = (
+                self._render_service_tokens(service_token_environments)
             )
         if has_durable_jobs:
             rendered[package_root / "routers" / "durable_jobs.py"] = (
@@ -525,14 +532,49 @@ class FastAPIProjectGenerator:
         return "\n\n".join(sections) + "\n"
 
     @staticmethod
-    def _render_durable_jobs_router(package_name: str) -> str:
+    def _render_service_tokens(token_environments: dict[str, str]) -> str:
+        entries = "".join(
+            f"    {name!r}: {environment!r},\n"
+            for name, environment in sorted(token_environments.items())
+        )
         return (
+            "from __future__ import annotations\n"
+            "\n"
             "import os\n"
-            "from datetime import datetime\n"
+            "from collections.abc import Callable\n"
             "from secrets import compare_digest\n"
             "from typing import Annotated\n"
             "\n"
-            "from fastapi import APIRouter, Depends, Header, HTTPException, Query, status\n"
+            "from fastapi import Header, HTTPException\n"
+            "\n"
+            "SERVICE_TOKEN_ENVIRONMENTS = {\n"
+            + entries
+            + "}\n"
+            "\n"
+            "\n"
+            "def require_service_token(name: str) -> Callable[..., None]:\n"
+            "    token_env = SERVICE_TOKEN_ENVIRONMENTS[name]\n"
+            "\n"
+            "    def require_token(\n"
+            "        authorization: Annotated[str | None, Header()] = None,\n"
+            "    ) -> None:\n"
+            "        expected_token = os.getenv(token_env)\n"
+            "        if not expected_token:\n"
+            "            raise HTTPException(status_code=503, detail='service API token is not configured')\n"
+            "        scheme, _, token = (authorization or '').partition(' ')\n"
+            "        if scheme != 'Bearer' or not compare_digest(token, expected_token):\n"
+            "            raise HTTPException(status_code=401, detail='invalid service API token')\n"
+            "\n"
+            "    return require_token\n"
+        )
+
+    @staticmethod
+    def _render_durable_jobs_router(package_name: str) -> str:
+        return (
+            "from datetime import datetime\n"
+            "from typing import Annotated\n"
+            "\n"
+            "from fastapi import APIRouter, Depends, HTTPException, Query, status\n"
             "from pydantic import BaseModel, Field\n"
             "\n"
             f"from {package_name}.infrastructure.database.provider import get_session_registry\n"
@@ -543,6 +585,7 @@ class FastAPIProjectGenerator:
             "    DurableJobStatus,\n"
             ")\n"
             f"from {package_name}.infrastructure.durable_jobs.repository import DurableJobRepository\n"
+            f"from {package_name}.infrastructure.service_tokens import require_service_token\n"
             "\n"
             "\n"
             "class DurableJobTriggerRequest(BaseModel):\n"
@@ -567,21 +610,10 @@ class FastAPIProjectGenerator:
             "    updated_at: datetime\n"
             "\n"
             "\n"
-            "def require_durable_job_api_token(\n"
-            "    authorization: Annotated[str | None, Header()] = None,\n"
-            ") -> None:\n"
-            "    expected_token = os.getenv('DURABLE_JOB_API_TOKEN')\n"
-            "    if not expected_token:\n"
-            "        raise HTTPException(status_code=503, detail='durable job API token is not configured')\n"
-            "    scheme, _, token = (authorization or '').partition(' ')\n"
-            "    if scheme != 'Bearer' or not compare_digest(token, expected_token):\n"
-            "        raise HTTPException(status_code=401, detail='invalid durable job API token')\n"
-            "\n"
-            "\n"
             "router = APIRouter(\n"
             "    prefix='/internal/jobs',\n"
             "    tags=['durable-jobs'],\n"
-            "    dependencies=[Depends(require_durable_job_api_token)],\n"
+            "    dependencies=[Depends(require_service_token('durable_jobs'))],\n"
             ")\n"
             "\n"
             "\n"

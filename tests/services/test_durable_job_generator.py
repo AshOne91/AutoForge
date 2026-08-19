@@ -10,6 +10,7 @@ from autoforge.core.specification import (
     ProjectInfo,
     ProjectSpec,
     ServiceSpec,
+    ServiceTokenSpec,
 )
 from autoforge.services.generation.durable_jobs import DurableJobGenerator
 from autoforge.services.generation.fastapi_project import FastAPIProjectGenerator
@@ -147,6 +148,25 @@ def test_durable_job_generator_omits_airflow_dag_without_schedule() -> None:
     assert not any(path.parts[0] == "airflow" for path in files)
 
 
+def test_durable_job_airflow_uses_declared_service_token_environment() -> None:
+    specification = durable_job_specification()
+    application = specification.application.model_copy(
+        update={
+            "service_tokens": [
+                ServiceTokenSpec(
+                    name="durable_jobs", token_env="WORKFLOW_API_TOKEN"
+                )
+            ]
+        }
+    )
+
+    dag = DurableJobGenerator().render(
+        specification.model_copy(update={"application": application})
+    )[PurePosixPath("airflow/dags/news_collection.py")]
+
+    assert "api_token = os.environ['WORKFLOW_API_TOKEN']" in dag
+
+
 def test_durable_job_worker_reuses_control_plane_heartbeat_when_enabled() -> None:
     specification = durable_job_specification()
     application = specification.application.model_copy(
@@ -168,6 +188,9 @@ def test_fastapi_project_registers_durable_job_endpoints() -> None:
     files = FastAPIProjectGenerator().render(durable_job_specification())
 
     router = files[PurePosixPath("src/kis_auto_trading/routers/durable_jobs.py")]
+    service_tokens = files[
+        PurePosixPath("src/kis_auto_trading/infrastructure/service_tokens.py")
+    ]
     app_factory = files[
         PurePosixPath("src/kis_auto_trading/application/app_factory.py")
     ]
@@ -177,12 +200,10 @@ def test_fastapi_project_registers_durable_job_endpoints() -> None:
     assert "@router.post(" in router
     assert "status.HTTP_202_ACCEPTED" in router
     assert "ShardTarget(store=definition.store)" in router
-    assert "from secrets import compare_digest" in router
-    assert "DURABLE_JOB_API_TOKEN" in router
+    assert "'durable_jobs': 'DURABLE_JOB_API_TOKEN'" in service_tokens
     assert "DurableJobStatus" in router
-    assert "Header" in router
-    assert "def require_durable_job_api_token(" in router
-    assert "dependencies=[Depends(require_durable_job_api_token)]" in router
+    assert "from kis_auto_trading.infrastructure.service_tokens import require_service_token" in router
+    assert "dependencies=[Depends(require_service_token('durable_jobs'))]" in router
     assert "@router.get('/{job_type}', response_model=list[DurableJobStatusResponse])" in router
     assert "Query(ge=1, le=100)" in router
     assert "list_recent(" in router

@@ -249,6 +249,43 @@ def test_current_session_dependency_requires_session_service() -> None:
         _validate_endpoint_dependencies(project_spec, [module_spec])
 
 
+def test_endpoint_service_token_requires_application_declaration() -> None:
+    project_spec = ProjectSpec.model_validate(
+        {
+            "spec_version": "1",
+            "project": {
+                "name": "Sample",
+                "package_name": "sample",
+                "version": "0.1.0",
+            },
+            "application": {},
+        }
+    )
+    module_spec = ModuleSpec.model_validate(
+        {
+            "spec_version": "1",
+            "module": {
+                "name": "operations",
+                "display_name": "Operations",
+                "route_prefix": "/operations",
+            },
+            "endpoints": [
+                {
+                    "name": "search",
+                    "method": "GET",
+                    "path": "/search",
+                    "response": {"fields": []},
+                    "handler": "search",
+                    "service_token": "operator",
+                }
+            ],
+        }
+    )
+
+    with pytest.raises(typer.BadParameter, match="service tokens are not declared"):
+        _validate_endpoint_dependencies(project_spec, [module_spec])
+
+
 def test_plugin_reports_unavailable_command() -> None:
     result = runner.invoke(app, ["plugin"])
 

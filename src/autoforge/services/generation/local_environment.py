@@ -322,7 +322,6 @@ class LocalEnvironmentGenerator:
                     specification,
                     redis_mode=redis_mode,
                     redis_service=redis_service,
-                    has_durable_jobs=has_durable_jobs,
                     has_migration=has_migration,
                     has_rag=has_rag,
                     host_port_base=host_port_base,
@@ -348,6 +347,9 @@ class LocalEnvironmentGenerator:
         if has_durable_jobs:
             services.append(
                 self._render_airflow(
+                    durable_job_token_env=specification.application.service_token_environments[
+                        "durable_jobs"
+                    ],
                     has_application=has_application,
                     postgres_mode=postgres_mode,
                     scheduler_replicas=airflow_scheduler_replicas,
@@ -1086,7 +1088,6 @@ class LocalEnvironmentGenerator:
         *,
         redis_mode: str | None,
         redis_service: ServiceSpec | None,
-        has_durable_jobs: bool,
         has_migration: bool,
         has_rag: bool,
         host_port_base: int | None,
@@ -1114,10 +1115,8 @@ class LocalEnvironmentGenerator:
                 "      redis-cluster-init:\n"
                 "        condition: service_completed_successfully\n"
             )
-        durable_job_environment = (
-            "      DURABLE_JOB_API_TOKEN: ${DURABLE_JOB_API_TOKEN:?set DURABLE_JOB_API_TOKEN}\n"
-            if has_durable_jobs
-            else ""
+        service_token_environment = self._render_service_token_environment(
+            specification
         )
         heartbeat_environment = ""
         heartbeat = specification.application.control_plane_heartbeat
@@ -1141,7 +1140,7 @@ class LocalEnvironmentGenerator:
             "    environment:\n"
             + self._render_database_environment(specification)
             + redis_environment
-            + durable_job_environment
+            + service_token_environment
             + heartbeat_environment
             + rag_environment
             + "      LOG_DIRECTORY: /app/logs\n"
@@ -1157,6 +1156,15 @@ class LocalEnvironmentGenerator:
             "      interval: 5s\n"
             "      timeout: 3s\n"
             "      retries: 20\n"
+        )
+
+    @staticmethod
+    def _render_service_token_environment(specification: ProjectSpec) -> str:
+        return "".join(
+            f"      {token_env}: ${{{token_env}:?set {token_env}}}\n"
+            for _, token_env in sorted(
+                specification.application.service_token_environments.items()
+            )
         )
 
     def _render_outbox_relay(
@@ -1270,6 +1278,7 @@ class LocalEnvironmentGenerator:
     def _render_airflow(
         cls,
         *,
+        durable_job_token_env: str,
         has_application: bool,
         postgres_mode: str,
         scheduler_replicas: int,
@@ -1306,7 +1315,7 @@ class LocalEnvironmentGenerator:
             "      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: \"true\"\n"
             + scheduler_ha_environment
             + f"      DURABLE_JOB_API_URL: ${{DURABLE_JOB_API_URL:-{api_url}}}\n"
-            + "      DURABLE_JOB_API_TOKEN: ${DURABLE_JOB_API_TOKEN:?set DURABLE_JOB_API_TOKEN}\n"
+            + f"      {durable_job_token_env}: ${{{durable_job_token_env}:?set {durable_job_token_env}}}\n"
         )
         volumes = (
             "      - ../airflow/dags:/opt/airflow/dags:ro\n"
@@ -1502,9 +1511,14 @@ class LocalEnvironmentGenerator:
                         else []
                     ),
                     f"DURABLE_JOB_API_URL={durable_job_api_url}\n",
-                    "DURABLE_JOB_API_TOKEN=change-me\n",
                 ]
             )
+        lines.extend(
+            f"{token_env}=change-me\n"
+            for _, token_env in sorted(
+                specification.application.service_token_environments.items()
+            )
+        )
         if has_application:
             lines.append(f"APPLICATION_PORT={application_port}\n")
         heartbeat = specification.application.control_plane_heartbeat

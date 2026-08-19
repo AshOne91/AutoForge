@@ -31,6 +31,12 @@ AutoForge currently has working foundations for:
   application container. Generator/specification/Compose focused tests pass, and
   an in-process generated-reporter to Control Plane interoperability test confirms
   authenticated storage of normalized instance/version/dependency data.
+- generated scoped service-token authentication: `ApplicationSpec.service_tokens`
+  declares unique named internal callers; generated module endpoints may require
+  one by name, and missing or mismatched Bearer credentials fail closed. KIS
+  validates that its Durable Job and operator-search APIs reject each other's
+  token while accepting their own. Human operator roles and order request replay
+  are not implemented by this service-token slice.
 - generated FastAPI application composition now always has an outer lifespan and
   keeps `application/extensions.py` scaffolded. Consumers may add ordered
   `USER_LIFESPANS` contexts after generated database, session, and heartbeat

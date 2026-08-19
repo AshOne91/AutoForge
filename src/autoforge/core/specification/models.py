@@ -216,12 +216,25 @@ class ControlPlaneHeartbeatSpec(StrictSpecModel):
         return self
 
 
+class ServiceTokenSpec(StrictSpecModel):
+    """A named service-to-service credential accepted by generated routes."""
+
+    name: str
+    token_env: str = Field(pattern=r"^[A-Z][A-Z0-9_]*$")
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        return validate_python_name(value)
+
+
 class ApplicationSpec(StrictSpecModel):
     framework: Literal["fastapi"] = "fastapi"
     modules: list[str] = Field(default_factory=list)
     services: list[ServiceSpec] = Field(default_factory=list)
     databases: list[DatabaseStoreSpec] = Field(default_factory=list)
     durable_jobs: list[DurableJobSpec] = Field(default_factory=list)
+    service_tokens: list[ServiceTokenSpec] = Field(default_factory=list)
     control_plane_heartbeat: ControlPlaneHeartbeatSpec = Field(
         default_factory=ControlPlaneHeartbeatSpec
     )
@@ -248,6 +261,12 @@ class ApplicationSpec(StrictSpecModel):
         job_names = [job.name for job in self.durable_jobs]
         if len(job_names) != len(set(job_names)):
             raise ValueError("Application Durable Job names must be unique")
+        token_names = [token.name for token in self.service_tokens]
+        if len(token_names) != len(set(token_names)):
+            raise ValueError("Application service token names must be unique")
+        token_environments = [token.token_env for token in self.service_tokens]
+        if len(token_environments) != len(set(token_environments)):
+            raise ValueError("Application service token environments must be unique")
         unknown_outbox_stores = sorted(
             {
                 store
@@ -293,6 +312,17 @@ class ApplicationSpec(StrictSpecModel):
                 f"{missing_outbox_stores}"
             )
         return self
+
+    @property
+    def service_token_environments(self) -> dict[str, str]:
+        """Return generated service-token names and their secret environments."""
+
+        environments = {
+            token.name: token.token_env for token in self.service_tokens
+        }
+        if self.durable_jobs:
+            environments.setdefault("durable_jobs", "DURABLE_JOB_API_TOKEN")
+        return environments
 
 
 class ToolingSpec(StrictSpecModel):
@@ -930,10 +960,18 @@ class EndpointSpec(StrictSpecModel):
     response: ResponseSpec
     handler: str
     dependencies: list[EndpointDependency] = Field(default_factory=list)
+    service_token: str | None = None
 
     @field_validator("name", "handler")
     @classmethod
     def validate_python_names(cls, value: str) -> str:
+        return validate_python_name(value)
+
+    @field_validator("service_token")
+    @classmethod
+    def validate_service_token(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         return validate_python_name(value)
 
     @field_validator("path")

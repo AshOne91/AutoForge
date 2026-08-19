@@ -70,9 +70,25 @@ worker로 전달되는 생성 계약이다. (job_type, run_key)는 idempotency k
 한정된 최신 Job 이력을 반환한다. 정렬은 `updated_at` 내림차순, `job_id`
 내림차순이며, 기존 trigger/status API와 같은 token 인증 경계를 사용한다.
 
-The generated Durable Job router exports `require_durable_job_api_token` for
-user-owned internal routers that need the same token boundary. This avoids
-duplicating the token comparison policy in each consumer extension.
+### Scoped service-token authentication
+
+`ApplicationSpec.service_tokens` declares one named service caller and one
+secret environment name per entry. A generated `EndpointSpec.service_token`
+must name one of those callers; generation rejects an undeclared reference.
+The generated `infrastructure/service_tokens.py` maps that name to its secret
+environment and `require_service_token(name)` fails closed: an absent secret is
+`503`, and a missing or mismatched Bearer token is `401`.
+
+Durable Jobs use the logical `durable_jobs` caller. Existing Durable Job
+projects retain `DURABLE_JOB_API_TOKEN` when they do not declare an override.
+Generated Compose and Kubernetes application configuration receive the declared
+secret environments; generated Airflow receives only the Durable Job token it
+uses. A user-owned internal router may reuse the generated guard, but must use
+its own declared caller name rather than sharing a Durable Job credential.
+
+Service tokens identify an internal service, not a human user or an operator
+role. User roles remain consumer-owned identity data and require a separate
+authenticated-session policy before an endpoint may rely on them.
 
 DELETE /internal/jobs/{job_type}/{job_id}는 아직 worker가 claim하지 않은
 requested Job만 cancelled로 전이한다. 이미 전달된 Outbox message는 삭제하지
