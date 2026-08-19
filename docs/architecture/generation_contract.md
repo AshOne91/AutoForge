@@ -146,6 +146,13 @@ application/generated/module_registry.py
 - Generator와 명세 Hash를 Metadata에 기록한다.
 - 내용 Hash가 예상과 다르면 수동 변경으로 판단하고 정책에 따라 충돌시킨다.
 
+When `tooling.search.enabled` is selected, every file under
+`infrastructure/search/` is GENERATED: configuration, transport protocol,
+deterministic fake, HTTP client, and `SearchService` lifecycle boundary. The
+consumer owns FastAPI lifespan registration, index mappings, document
+projections, and query/relevance policy. Regeneration must not turn the
+generated service into a process-global singleton or overwrite consumer code.
+
 ### SCAFFOLDED
 
 최초 한 번만 골격을 생성하고 이후 사용자 소유로 전환되는 파일이다.

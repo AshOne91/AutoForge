@@ -822,6 +822,16 @@ volumes were removed afterward. This proves the generated skeleton and the KIS
 consumer extension compose correctly; it is not a claim that domain handlers are
 generated automatically.
 
+`tooling.search` now generates an opt-in `infrastructure/search` runtime
+contract for Elasticsearch or OpenSearch: configuration, async HTTP client,
+protocol, deterministic fake, health check, document index/delete, raw query,
+and explicit async close boundary. The generated project receives the runtime
+`httpx` dependency only when selected. Index mappings, embeddings, document
+projection, relevance, FastAPI lifespan registration, and KIS adoption remain
+consumer-owned. AutoForge generator, Spec, and plugin regression tests passed
+(`283 passed`); no external search container or KIS runtime was started for this
+generator-only slice.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:

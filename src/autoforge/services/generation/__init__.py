@@ -37,6 +37,7 @@ from autoforge.services.generation.runner import (
     GenerationRunner,
     GenerationRunnerError,
 )
+from autoforge.services.generation.search import SearchServiceGenerator
 from autoforge.services.generation.session_store import SessionStoreGenerator
 from autoforge.services.generation.single_host import SingleHostOperatingGenerator
 from autoforge.services.generation.sqlalchemy import (
@@ -74,6 +75,7 @@ __all__ = [
     "RepositoryGenerator",
     "SQLAlchemyInfrastructureGenerator",
     "SQLAlchemyModelGenerator",
+    "SearchServiceGenerator",
     "SessionStoreGenerator",
     "SingleHostOperatingGenerator",
     "StoredManifest",

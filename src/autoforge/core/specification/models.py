@@ -338,6 +338,7 @@ class ToolingSpec(StrictSpecModel):
     docker: DockerSpec = Field(default_factory=lambda: DockerSpec())
     elk: ElkSpec = Field(default_factory=lambda: ElkSpec())
     rag: RagSpec = Field(default_factory=lambda: RagSpec())
+    search: SearchSpec = Field(default_factory=lambda: SearchSpec())
     storage: StorageSpec = Field(default_factory=lambda: StorageSpec())
     kubernetes: KubernetesSpec = Field(default_factory=lambda: KubernetesSpec())
     single_host: SingleHostSpec = Field(default_factory=lambda: SingleHostSpec())
@@ -417,6 +418,18 @@ class RagSpec(StrictSpecModel):
         validate_semantic_version
     )
     _validate_ollama_version = field_validator("ollama_version")(validate_semantic_version)
+
+
+class SearchSpec(StrictSpecModel):
+    """Generate an opt-in application search-service boundary."""
+
+    enabled: bool = False
+    backend: Literal["elasticsearch", "opensearch"] = "elasticsearch"
+    url_environment: str = Field(default="SEARCH_URL", pattern=r"^[A-Z][A-Z0-9_]*$")
+    default_index: str = Field(
+        default="documents", pattern=r"^[a-z0-9][a-z0-9_-]*$"
+    )
+    timeout_seconds: float = Field(default=5.0, gt=0, le=60)
 
 
 class StorageSpec(StrictSpecModel):

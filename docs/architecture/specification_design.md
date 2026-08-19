@@ -79,6 +79,21 @@ This contract covers generated local containers only. Managed cloud search
 services, including AWS OpenSearch Service authentication, are not generated or
 runtime-verified by this setting.
 
+### SearchService runtime boundary
+
+`tooling.search` opt-in generates an application-facing asynchronous
+`SearchService` for either `elasticsearch` or `opensearch`. Its specification
+selects the backend name, URL environment variable, default index, and request
+timeout. The generated project adds `httpx` to its runtime dependencies only
+when this service is selected.
+
+The contract owns transport health checks plus index, document, and raw-query
+operations. It deliberately does not define an index mapping, embedding model,
+document projection, or relevance policy: those are consumer-owned domain
+decisions. `tooling.rag` remains the independent local-container overlay; a
+consumer may point `tooling.search.url_environment` at `RAG_SEARCH_URL`, but
+selecting SearchService does not create or configure a RAG stack.
+
 ### Local database provider
 
 `tooling.local_environment.database_provider` selects the local generated

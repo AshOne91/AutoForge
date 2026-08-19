@@ -72,6 +72,7 @@ class FastAPIProjectGenerator:
                     service.kind == "rabbitmq"
                     for service in specification.application.services
                 ),
+                include_search=specification.tooling.search.enabled,
                 database_provider=database_provider,
                 ruff_exclude=specification.tooling.ruff_exclude,
             ),
@@ -224,6 +225,7 @@ class FastAPIProjectGenerator:
         dependencies: list[str],
         include_redis: bool,
         include_rabbitmq: bool,
+        include_search: bool,
         database_provider: str,
         ruff_exclude: list[str],
     ) -> str:
@@ -231,6 +233,7 @@ class FastAPIProjectGenerator:
         rabbitmq_dependency = (
             '    "aio-pika>=9.5,<10",\n' if include_rabbitmq else ""
         )
+        search_dependency = '    "httpx>=0.28,<1",\n' if include_search else ""
         database_dependency = (
             '    "asyncmy>=0.2,<1",\n'
             '    "cryptography>=44,<47",\n'
@@ -263,6 +266,7 @@ class FastAPIProjectGenerator:
             '    "alembic>=1.18,<2",\n'
             f"{database_dependency}"
             '    "fastapi",\n'
+            f"{search_dependency}"
             f"{redis_dependency}"
             '    "sqlalchemy>=2.0,<3",\n'
             '    "uvicorn",\n'

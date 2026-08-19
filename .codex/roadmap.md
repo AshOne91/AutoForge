@@ -13,6 +13,14 @@ generated project. The dated inventory is preserved as
 `docs/reference/base_server_service_capability_map.md`; this Roadmap owns future
 sequencing.
 
+The execution unit is a `base_server/service/<name>` responsibility, not only
+its Docker container. Each selected service must reach a reusable AutoForge
+contract: specification selection, generated config/protocol/client/service
+lifecycle, health boundary, fake or deterministic test seam, ownership metadata,
+and one KIS consumer proof. Start from service dependencies and preserve the
+current async dependency-injection style rather than copying Base Server's
+process-global singleton pattern.
+
 - [x] local integration service-composition contract: generated Compose에서 파생한
   `environment/service-composition.json`이 서비스별 configuration, lifecycle,
   health, dependency 및 Redis/RabbitMQ/Durable Job 경계를 기록한다. 향후 배포
@@ -40,12 +48,18 @@ sequencing.
   첫 consumer opt-in이며, 두 API 복제의 동시 요청에서 승자·재생·충돌 거부를
   검증했다. 주문 실행 적용은 남아 있다. 읽기 전용 조회나 이미 DB unique key로 보호되는 Durable Job에는
   추측으로 적용하지 않는다.
+- [x] `base_server/service/search` runtime contract: `tooling.search` generates
+  an Elasticsearch/OpenSearch common `SearchService` with config, protocol,
+  deterministic fake, async HTTP adapter, lifecycle, and generated ownership
+  metadata. Index mappings, embeddings, document projection, and relevance
+  policy remain consumer-owned; the RAG overlay remains an infrastructure concern.
 - [~] record-to-search boundary established by two KIS projections:
   `source_key`/`news_index` and `job_id`/`durable_job_history_index` carry only
   canonical identities or safe summaries, while the consumer owns document
-  projection and hybrid query policy. Generalize this into an AutoForge
-  generator only after an independent consumer project or an explicit
-  ProjectSpec requirement demonstrates that the shape is stable.
+  projection and hybrid query policy. The transport boundary is now generated;
+  a generic projection generator remains deferred until an independent consumer
+  project or an explicit ProjectSpec requirement demonstrates that its shape is
+  stable.
 - [ ] embedding and reranking provider contracts after the selected consumer establishes an evaluation dataset and relevance target
 - [ ] Redis distributed lock after a real concurrency-critical consumer path exists
 - [ ] Realtime/WebSocket and notification Blueprint after a consumer path exists:
