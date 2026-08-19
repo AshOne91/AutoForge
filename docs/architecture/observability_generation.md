@@ -57,10 +57,12 @@ Filebeat registry는 named volume을 사용해 프로세스 재시작 뒤에도 
 
 ## Health signal boundaries
 
-Generated FastAPI applications expose a local `/health` endpoint. Generated
-Compose health checks and Kubernetes readiness/liveness probes actively pull
-that endpoint; they are the authority for local restart and traffic-routing
-decisions. A service that is not ready must not receive application traffic.
+Generated FastAPI applications separate `/health` process liveness from
+`/readiness` dependency readiness. Generated Compose health checks and
+Kubernetes application readiness probes actively pull `/readiness`; Kubernetes
+liveness probes pull `/health`. These pull probes are the authority for local
+restart and traffic-routing decisions. A service that is not ready must not
+receive application traffic.
 
 Operational state has a separate boundary from that local decision. The generated
 Control Plane heartbeat reporter can push an authenticated, expiring heartbeat containing

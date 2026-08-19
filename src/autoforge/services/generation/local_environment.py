@@ -1127,42 +1127,6 @@ class LocalEnvironmentGenerator:
                 f"      {heartbeat.token_env}: ${{{heartbeat.token_env}:-}}\n"
             )
         rag_environment = self._render_rag_environment(specification) if has_rag else ""
-        dependency_targets: list[tuple[str, int]] = []
-        if specification.application.databases:
-            if specification.tooling.local_environment.database_provider == "mysql":
-                mysql_port = (
-                    6446
-                    if specification.tooling.local_environment.mysql_mode == "ha"
-                    else 3306
-                )
-                dependency_targets.append(("mysql", mysql_port))
-            else:
-                dependency_targets.append(("postgres", 5432))
-        if redis_mode == "standalone":
-            dependency_targets.append(("redis", 6379))
-        dependency_probe = (
-            "[socket.create_connection(target, 2).close() for target in "
-            f"{dependency_targets!r}]"
-            if dependency_targets
-            else "[]"
-        )
-        healthcheck_imports = "from urllib.request import urlopen; import socket"
-        healthcheck_probe = f"urlopen('http://127.0.0.1:8000/health').read(); {dependency_probe}"
-        if redis_mode == "cluster":
-            healthcheck_imports += "; import asyncio, os; from urllib.parse import urlparse; from redis.cluster import ClusterNode; from redis.asyncio.cluster import RedisCluster"
-            healthcheck_probe += (
-                f"; startup_nodes=[ClusterNode(urlparse(value).hostname, urlparse(value).port or 6379) for value in os.environ['{redis_service.cluster_startup_nodes_env}'].split(',')]; "
-                f"client=RedisCluster.from_url(os.environ['{redis_service.cluster_url_env}'], "
-                "startup_nodes=startup_nodes, "
-                "decode_responses=True, require_full_coverage=True); "
-                "asyncio.run(client.ping())"
-            )
-        elif redis_mode == "standalone":
-            healthcheck_imports += "; import asyncio, os; from redis.asyncio import Redis"
-            healthcheck_probe += (
-                "; client=Redis.from_url(os.environ['REDIS_URL']); "
-                "asyncio.run(client.ping())"
-            )
         depends_on = (
             "    depends_on:\n" + "".join(dependencies)
             if dependencies
@@ -1189,7 +1153,7 @@ class LocalEnvironmentGenerator:
             + depends_on
             + "    healthcheck:\n"
             '      test: ["CMD", "python", "-c", '
-            f'"{healthcheck_imports}; {healthcheck_probe}"]\n'
+            '"from urllib.request import urlopen; urlopen(\'http://127.0.0.1:8000/readiness\').read()"]\n'
             "      interval: 5s\n"
             "      timeout: 3s\n"
             "      retries: 20\n"

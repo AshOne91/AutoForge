@@ -259,7 +259,7 @@ def test_render_creates_mysql_ha_environment() -> None:
         "mysql-router-bootstrap": {"condition": "service_completed_successfully"}
     }
     assert "@mysql:6446/identity?charset=utf8mb4" in compose["services"]["application"]["environment"]["IDENTITY_DATABASE_URL"]
-    assert "('mysql', 6446)" in compose["services"]["application"]["healthcheck"]["test"][-1]
+    assert "/readiness" in compose["services"]["application"]["healthcheck"]["test"][-1]
     assert "mysql-router-data" in compose["volumes"]
     assert "MYSQL_CLUSTER_ADMIN_PASSWORD=change-me-cluster" in environment
     assert compose["services"]["mysql"]["build"]["args"] == {
@@ -680,7 +680,7 @@ def test_render_marks_runtime_services_restartable() -> None:
         "CMD",
         "python",
         "-c",
-        "from urllib.request import urlopen; import socket; import asyncio, os; from urllib.parse import urlparse; from redis.cluster import ClusterNode; from redis.asyncio.cluster import RedisCluster; urlopen('http://127.0.0.1:8000/health').read(); [socket.create_connection(target, 2).close() for target in [('postgres', 5432)]]; startup_nodes=[ClusterNode(urlparse(value).hostname, urlparse(value).port or 6379) for value in os.environ['REDIS_CLUSTER_STARTUP_NODES'].split(',')]; client=RedisCluster.from_url(os.environ['REDIS_CLUSTER_URL'], startup_nodes=startup_nodes, decode_responses=True, require_full_coverage=True); asyncio.run(client.ping())",
+        "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/readiness').read()",
     ]
 
 

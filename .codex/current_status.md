@@ -441,7 +441,8 @@ three application replicas, but both counts are specification values rather than
 architectural constants. Kubernetes exposes independent `proxy_replicas` and
 `application_replicas` settings; the single-host Compose profile exposes
 `application_replicas` and intentionally keeps one Nginx owner for its one public
-host port. Its basic readiness and liveness probes use `/health`; explicit
+host port. Generated applications use `/readiness` for dependency readiness and
+`/health` for process liveness; explicit
 SIGTERM/preStop draining, KIS OAuth token coordination, and multi-node log
 persistence remain unverified. A Docker Desktop Kubernetes check applied the
 generated profile, observed 2/2 proxy and 3/3 application readiness, returned

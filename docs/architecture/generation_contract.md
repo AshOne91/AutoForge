@@ -78,12 +78,13 @@ relay별 정책 필드를 만들지 않으며, 기존 `aio-pika` 연결 확인�
 healthcheck으로 표현한다. migration과 RabbitMQ의 초기 준비 상태는 생성된 Compose
 `depends_on` 조건으로 검증한다.
 
-생성된 application의 기존 `/health` 응답은 내부 PostgreSQL 서비스의 TCP
-연결 가능 여부와 Redis 서비스의 연결 확인을 함께 수행한다. Redis Cluster
-모드에서는 기존 `redis` 클라이언트의 `require_full_coverage=True`와 `PING`을
-사용해 전체 슬롯 커버리지를 확인한다. 이는 인증된 SQL 쿼리를 대체하지
-않으며, 애플리케이션 컨테이너가 의존 서비스의 단절이나 불완전한 Redis
-Cluster를 healthy로 오판하지 않게 하는 최소 readiness 검사다.
+생성된 application은 process liveness와 dependency readiness를 분리한다.
+`/health`는 process liveness만 반환한다. `/readiness`는 생성된 모든 database
+engine에 `SELECT 1`을 실행하고 SessionStore의 `health_check()`를 호출한다.
+Redis SessionStore는 기존 client의 `PING`을 사용하며 Cluster mode에서는
+`require_full_coverage=True` 설정도 유지한다. 하나라도 실패하면 `/readiness`는
+`503`을 반환한다. Compose healthcheck와 Kubernetes application readiness probe는
+이 endpoint를 사용하고, Kubernetes liveness probe는 계속 `/health`를 사용한다.
 
 ## 생성 파일 소유권
 

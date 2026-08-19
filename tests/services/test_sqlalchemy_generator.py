@@ -121,6 +121,8 @@ def test_infrastructure_generator_renders_async_session_and_router() -> None:
     assert "class ShardRoutingError(RuntimeError):" in routing
     assert "class AsyncSessionRegistry:" in session
     assert "async_sessionmaker(engine, expire_on_commit=False)" in session
+    assert "async def health_check(self) -> None:" in session
+    assert "await connection.execute(text('SELECT 1'))" in session
     assert "raise ShardRoutingError" in session
     assert "global" not in session.split("if engine is None:", maxsplit=1)[1]
 

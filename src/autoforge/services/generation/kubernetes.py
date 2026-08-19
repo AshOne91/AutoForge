@@ -450,7 +450,7 @@ spec:
           value: /app/logs
 {application_environment}        readinessProbe:
           httpGet:
-            path: /health
+            path: /readiness
             port: http
           initialDelaySeconds: 3
           periodSeconds: 5

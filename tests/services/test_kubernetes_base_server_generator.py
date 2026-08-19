@@ -198,6 +198,16 @@ def test_render_creates_zero_secret_proxy_and_application_topology() -> None:
     assert "does not create database clusters, Routers, or StatefulSets." in readme
     assert "hostPath is node-local" in readme
     assert PurePosixPath("deploy", "kubernetes", "mysql-operator.yaml") not in files
+    documents = list(yaml.safe_load_all(manifest))
+    application = next(
+        document
+        for document in documents
+        if document["kind"] == "Deployment"
+        and document["metadata"]["name"] == "kis-auto-trading"
+    )
+    container = application["spec"]["template"]["spec"]["containers"][0]
+    assert container["readinessProbe"]["httpGet"]["path"] == "/readiness"
+    assert container["livenessProbe"]["httpGet"]["path"] == "/health"
 
 
 def test_render_creates_opt_in_control_plane_profile_separately() -> None:

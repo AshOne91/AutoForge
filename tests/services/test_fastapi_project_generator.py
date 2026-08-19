@@ -215,6 +215,13 @@ def test_session_service_generates_and_registers_lifespan() -> None:
     )
     assert "lifespan=lifespan" in app_factory
     assert 'monkeypatch.setenv("GAME_REDIS_URL"' in health_test
+    health_router = files[PurePosixPath("src/game_server/routers/health.py")]
+    assert '@router.get("/health")' in health_router
+    assert '@router.get("/readiness")' in health_router
+    assert "detail=f'{state_name} is not ready'" in health_router
+    assert "except (SessionStoreError):" in health_router
+    assert "assert not_ready.status_code == 503" in health_test
+    assert 'readiness.json() == {"status": "ready"}' in health_test
 
 
 def test_control_plane_heartbeat_generates_opt_in_lifecycle_reporter() -> None:

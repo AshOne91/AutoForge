@@ -108,10 +108,12 @@ def test_render_produces_protocol_fake_and_redis_adapter() -> None:
     assert "def create_session_id(user_id: str) -> str:" in protocol
     assert "def _session_routing_tag(session_id: str) -> str:" in protocol
     assert "async def revoke_user_sessions" in protocol
+    assert "async def health_check(self) -> None:" in protocol
     assert "class FakeSessionStore:" in fake
     assert '_namespace = "kis_session"' in redis
     assert "_ttl_seconds = 3600" in redis
     assert "pipeline(transaction=True)" in redis
+    assert "if not await self._client.ping():" in redis
     assert "except RedisError as error:" in redis
     assert "SessionStoreError" in redis
     assert "Redis | RedisCluster" in redis

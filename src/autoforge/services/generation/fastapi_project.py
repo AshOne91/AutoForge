@@ -101,7 +101,11 @@ class FastAPIProjectGenerator:
                 has_durable_jobs=has_durable_jobs,
             ),
             package_root / "routers" / "__init__.py": "",
-            package_root / "routers" / "health.py": self._render_health_router(),
+            package_root / "routers" / "health.py": self._render_health_router(
+                package_name=package_name,
+                has_database=has_database,
+                has_session_store=has_session_store,
+            ),
             PurePosixPath("tests", "test_health.py"): self._render_health_test(
                 package_name,
                 redis_env_values=[
@@ -110,6 +114,8 @@ class FastAPIProjectGenerator:
                 ],
                 database_env_names=database_env_names,
                 database_provider=database_provider,
+                has_database=has_database,
+                has_session_store=has_session_store,
             ),
         }
         if has_lifespan:
@@ -658,16 +664,73 @@ class FastAPIProjectGenerator:
         )
 
     @staticmethod
-    def _render_health_router() -> str:
+    def _render_health_router(
+        *, package_name: str, has_database: bool, has_session_store: bool
+    ) -> str:
+        required_dependencies = tuple(
+            name
+            for name, enabled in (
+                ("session_registry", has_database),
+                ("session_store", has_session_store),
+            )
+            if enabled
+        )
+        readiness_third_party_imports = ""
+        readiness_local_imports = ""
+        readiness_errors: list[str] = []
+        if has_database:
+            readiness_third_party_imports += "from sqlalchemy.exc import SQLAlchemyError\n"
+            readiness_errors.append("SQLAlchemyError")
+        if has_session_store:
+            readiness_local_imports += (
+                f"from {package_name}.infrastructure.session_store.protocol import "
+                "SessionStoreError\n"
+            )
+            readiness_errors.append("SessionStoreError")
+        if not readiness_errors:
+            readiness_errors.append("RuntimeError")
+        readiness_error_types = ", ".join(readiness_errors)
+        readiness_exception = (
+            f"        except ({readiness_error_types}):\n"
+            if readiness_error_types
+            else ""
+        )
+        imports = (
+            "from fastapi import APIRouter, HTTPException, Request, status\n"
+            + readiness_third_party_imports
+            + ("\n" if readiness_local_imports else "")
+            + readiness_local_imports
+            + "\n"
+        )
         return (
-            "from fastapi import APIRouter\n"
-            "\n"
+            f"{imports}"
             'router = APIRouter(tags=["health"])\n'
+            f"_REQUIRED_DEPENDENCIES = {required_dependencies!r}\n"
             "\n"
             "\n"
             '@router.get("/health")\n'
             "async def health() -> dict[str, str]:\n"
             '    return {"status": "ok"}\n'
+            "\n"
+            "\n"
+            '@router.get("/readiness")\n'
+            "async def readiness(request: Request) -> dict[str, str]:\n"
+            "    for state_name in _REQUIRED_DEPENDENCIES:\n"
+            "        dependency = getattr(request.app.state, state_name, None)\n"
+            "        health_check = getattr(dependency, 'health_check', None)\n"
+            "        if health_check is None:\n"
+            "            raise HTTPException(\n"
+            "                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,\n"
+            "                detail=f'{state_name} is not initialized',\n"
+            "            )\n"
+            "        try:\n"
+            "            await health_check()\n"
+            f"{readiness_exception}"
+            "            raise HTTPException(\n"
+            "                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,\n"
+            "                detail=f'{state_name} is not ready',\n"
+            "            ) from None\n"
+            '    return {"status": "ready"}\n'
         )
 
     @staticmethod
@@ -676,6 +739,8 @@ class FastAPIProjectGenerator:
         redis_env_values: list[tuple[str, str]],
         database_env_names: list[str],
         database_provider: str,
+        has_database: bool,
+        has_session_store: bool,
     ) -> str:
         redis_env_names = [name for name, _ in redis_env_values]
         required_env_names = [*redis_env_names, *database_env_names]
@@ -693,6 +758,41 @@ class FastAPIProjectGenerator:
             )
             for name in database_env_names
         )
+        readiness_state_names = tuple(
+            state_name
+            for state_name, enabled in (
+                ("session_registry", has_database),
+                ("session_store", has_session_store),
+            )
+            if enabled
+        )
+        readiness_state_setup = "".join(
+            f"        app.state.{state_name} = ReadyDependency()\n"
+            for state_name in readiness_state_names
+        )
+        readiness_dependency = (
+            "    class ReadyDependency:\n"
+            "        async def health_check(self) -> None:\n"
+            "            return None\n"
+            "\n"
+            if readiness_state_setup
+            else ""
+        )
+        readiness_missing_state_check = (
+            '        not_ready = client.get("/readiness")\n'
+            if readiness_state_setup
+            else ""
+        )
+        readiness_missing_state_setup = (
+            f"        app.state.{readiness_state_names[0]} = None\n"
+            if readiness_state_names
+            else ""
+        )
+        readiness_missing_state_assertion = (
+            "    assert not_ready.status_code == 503\n"
+            if readiness_state_setup
+            else ""
+        )
         pytest_import = "import pytest\n" if required_env_names else ""
         return (
             f"{pytest_import}"
@@ -704,11 +804,19 @@ class FastAPIProjectGenerator:
             f"def test_health({monkeypatch_argument}) -> None:\n"
             f"{redis_env_setup}"
             f"{database_env_setup}"
+            f"{readiness_dependency}"
             "    with TestClient(app) as client:\n"
             '        response = client.get("/health")\n'
+            f"{readiness_missing_state_setup}"
+            f"{readiness_missing_state_check}"
+            f"{readiness_state_setup}"
+            '        readiness = client.get("/readiness")\n'
             "\n"
             "    assert response.status_code == 200\n"
             '    assert response.json() == {"status": "ok"}\n'
+            f"{readiness_missing_state_assertion}"
+            "    assert readiness.status_code == 200\n"
+            '    assert readiness.json() == {"status": "ready"}\n'
         )
 
     @staticmethod
