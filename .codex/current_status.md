@@ -952,6 +952,15 @@ portfolio data, order/execution behavior, or live KIS call. KIS verification is
 `77 passed, 1 skipped`; the one existing FastAPI/Starlette TestClient deprecation
 warning remains external to this change.
 
+An opt-in database integration test now validates the migration/runtime boundary
+without a KIS request. A disposable PostgreSQL container created the four
+generated logical databases, applied the full generated Alembic history
+including `af_automation_market_data_0001`, then saved and read one snapshot via
+the generated SQLAlchemy repository. The container was removed afterward. The
+default KIS suite is `77 passed, 2 skipped`; both integration tests require
+explicit external configuration, and the same unrelated TestClient warning
+remains.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:

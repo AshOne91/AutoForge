@@ -1,6 +1,6 @@
 # Next Task
 
-## Next executable unit: verify market-price migration and repository runtime
+## Next executable unit: read one persisted market-price snapshot by ID
 
 The default standalone profile and generated HA runtime proofs for Redis
 Cluster, PostgreSQL Patroni/HAProxy, RabbitMQ, and the two-scheduler Airflow
@@ -43,11 +43,12 @@ The global `automation`-store `market_price_snapshots` model, repository,
 Alembic baseline, and raw SQL are generated and verified. The consumer-owned
 writer uses the existing automation session, while a separate token-protected
 internal POST requests one price and writes one snapshot. The original internal
-GET remains read-only.
+GET remains read-only. A disposable PostgreSQL container applied the full
+generated migration history and verified one generated SQLAlchemy save/read
+round-trip, then was removed.
 
-The next slice is a disposable database verification: apply the generated
-automation migration history to an isolated PostgreSQL instance, save and read
-one generated `MarketPriceSnapshot` through the SQLAlchemy repository, then
-remove the temporary runtime. Do not run a migration against the persistent
-local KIS database, add polling, a durable job, a public route, portfolio data,
-order/execution, or a live KIS call.
+The next slice adds a token-protected internal GET that reads one generated
+`MarketPriceSnapshot` by its UUID through the existing automation session and
+returns 404 when absent. Reuse the generated `find_by_id` contract; do not add
+an unbounded stock-code history query, polling, a durable job, a public route,
+portfolio data, order/execution, or a live KIS call.
