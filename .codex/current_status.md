@@ -72,7 +72,10 @@ AutoForge currently has working foundations for:
   standalone image. A fresh generation from `autoforge.ha.yaml` now validates
   successfully and emits the cluster provider plus matching
   `REDIS_CLUSTER_URL`/`REDIS_CLUSTER_STARTUP_NODES` Compose and Kubernetes
-  Secret contracts.
+  Secret contracts. That generated HA workspace then passed the disposable
+  Redis runtime drill: a session survived `redis-7000` primary loss and
+  `redis-7004` promotion, the application stayed healthy, and the stopped node
+  rejoined as a replica.
 - generated FastAPI application composition now always has an outer lifespan and
   keeps `application/extensions.py` scaffolded. Consumers may add ordered
   `USER_LIFESPANS` contexts after generated database, session, and heartbeat
