@@ -43,7 +43,6 @@ class FastAPIProjectGenerator:
         has_durable_jobs = bool(specification.application.durable_jobs)
         heartbeat = specification.application.control_plane_heartbeat
         has_heartbeat_reporter = heartbeat.enabled
-        has_lifespan = has_database or has_session_store or has_heartbeat_reporter
         database_provider = specification.tooling.local_environment.database_provider
         database_env_names = [
             environment_name
@@ -100,7 +99,6 @@ class FastAPIProjectGenerator:
                 package_name=package_name,
                 project_name=project.name,
                 version=project.version,
-                has_lifespan=has_lifespan,
                 has_durable_jobs=has_durable_jobs,
             ),
             package_root / "routers" / "__init__.py": "",
@@ -121,15 +119,14 @@ class FastAPIProjectGenerator:
                 has_session_store=has_session_store,
             ),
         }
-        if has_lifespan:
-            rendered[
-                package_root / "application" / "generated" / "lifespan.py"
-            ] = self._render_lifespan(
-                package_name,
-                has_database=has_database,
-                has_session_store=has_session_store,
-                has_heartbeat_reporter=has_heartbeat_reporter,
-            )
+        rendered[
+            package_root / "application" / "generated" / "lifespan.py"
+        ] = self._render_lifespan(
+            package_name,
+            has_database=has_database,
+            has_session_store=has_session_store,
+            has_heartbeat_reporter=has_heartbeat_reporter,
+        )
         if has_heartbeat_reporter:
             rendered[
                 package_root / "application" / "generated" / "service_heartbeat.py"
@@ -323,21 +320,16 @@ class FastAPIProjectGenerator:
         package_name: str,
         project_name: str,
         version: str,
-        has_lifespan: bool,
         has_durable_jobs: bool,
     ) -> str:
         title_literal = json.dumps(project_name, ensure_ascii=False)
         version_literal = json.dumps(version, ensure_ascii=False)
-        lifespan_import = ""
-        lifespan_line = ""
+        lifespan_import = (
+            f"from {package_name}.application.generated.lifespan import lifespan\n"
+        )
+        lifespan_line = "        lifespan=lifespan,\n"
         durable_jobs_import = ""
         durable_jobs_line = ""
-        if has_lifespan:
-            lifespan_import = (
-                f"from {package_name}.application.generated.lifespan "
-                "import lifespan\n"
-            )
-            lifespan_line = "        lifespan=lifespan,\n"
         if has_durable_jobs:
             durable_jobs_import = (
                 f"from {package_name}.routers.durable_jobs "
@@ -379,9 +371,15 @@ class FastAPIProjectGenerator:
     @staticmethod
     def _render_extension_routers() -> str:
         return (
-            "from fastapi import APIRouter\n"
+            "from collections.abc import Callable\n"
+            "from contextlib import AbstractAsyncContextManager\n"
+            "\n"
+            "from fastapi import APIRouter, FastAPI\n"
+            "\n"
+            "UserLifespanFactory = Callable[[FastAPI], AbstractAsyncContextManager[None]]\n"
             "\n"
             "USER_ROUTERS: tuple[APIRouter, ...] = ()\n"
+            "USER_LIFESPANS: tuple[UserLifespanFactory, ...] = ()\n"
         )
 
     @staticmethod
@@ -906,6 +904,7 @@ class FastAPIProjectGenerator:
             "\n"
             "from fastapi import FastAPI\n"
             "\n"
+            f"from {package_name}.application import extensions\n"
             f"{heartbeat_import}"
             f"from {package_name}.application.observability import LOGGER\n"
             f"{imports}"
@@ -916,6 +915,8 @@ class FastAPIProjectGenerator:
             "    LOGGER.info('application starting')\n"
             "    async with AsyncExitStack() as stack:\n"
             f"{entries}"
+            "        for lifespan_factory in getattr(extensions, 'USER_LIFESPANS', ()):\n"
+            "            await stack.enter_async_context(lifespan_factory(app))\n"
             "        try:\n"
             "            yield\n"
             "        finally:\n"

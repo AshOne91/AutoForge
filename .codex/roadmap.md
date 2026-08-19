@@ -17,6 +17,14 @@ sequencing.
   `environment/service-composition.json`이 서비스별 configuration, lifecycle,
   health, dependency 및 Redis/RabbitMQ/Durable Job 경계를 기록한다. 향후 배포
   provider는 이 파생 산출물을 새 정본으로 바꾸지 않고 필요할 때 소비한다.
+- [ ] role-specific application composition: API, worker, scheduler, model 같은
+  독립 배포 역할에 Module과 Service를 명시적으로 배치하는 명세·생성 계약을 실제
+  소비자 증거가 생길 때 추가한다. replica 수와 별개의 역할 구성이며, 이름만 다른
+  애플리케이션을 미리 생성하지 않는다.
+- [ ] KIS trading Blueprint validation: 시장 데이터 수집, KIS 인증·공유 token
+  조정, portfolio, order/execution, risk limit와 감사 이력을 하나의 소비자 수직
+  흐름으로 검증한다. 거래 전략과 투자 판단은 KIS 소비자 소유이며 AutoForge는
+  검증된 공통 인프라·생성 계약만 일반화한다.
 - [ ] generic record-to-search handoff after consumer evidence establishes a
   common source identity, document projection, and query/relevance contract
 - [ ] embedding and reranking provider contracts after the selected consumer establishes an evaluation dataset and relevance target

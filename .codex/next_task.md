@@ -1,14 +1,13 @@
 # Next Task
 
-## Next executable unit: provider-selected observability query adapter
+## Next executable unit: KIS market-data provider boundary
 
-When a production observability provider is selected, define a deployment-owned
-query adapter with its secret, retention, redaction, and bounded operator
-response contract. The current local Filebeat/Elasticsearch profile remains
-development-only collection; generated applications do not query logs directly.
-Do not route logs through the RAG hybrid-search abstraction or add a generic
-cross-index router.
+Inspect the existing KIS consumer and the official KIS API contract for one
+read-only quotation or market-data slice. Define the user-owned normalized
+quote boundary, credential/token ownership, and bounded freshness/cache policy
+before implementation. Reuse generated session, logging, Durable Job, and
+infrastructure contracts only where the actual read-only slice needs them.
 
-KIS identity and account records remain excluded because they contain credential
-or personal investment-profile data and have no established search/relevance use
-case.
+Do not generate order execution, portfolio mutation, trading strategy, or shared
+OAuth token coordination until the read-only provider slice demonstrates a
+concrete reusable requirement.

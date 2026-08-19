@@ -1,6 +1,7 @@
 import ast
+import importlib
 import tomllib
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
 from autoforge.core.generation import (
     FileOwnership,
@@ -23,6 +24,7 @@ from autoforge.services.generation import FastAPIProjectGenerator
 def project_specification(
     *,
     name: str = "Game Server",
+    package_name: str = "game_server",
     description: str = "모듈형 FastAPI 게임 서버",
     modules: list[str] | None = None,
     services: list[ServiceSpec] | None = None,
@@ -36,7 +38,7 @@ def project_specification(
         spec_version="1",
         project=ProjectInfo(
             name=name,
-            package_name="game_server",
+            package_name=package_name,
             version="0.1.0",
             description=description,
             dependencies=dependencies or [],
@@ -76,6 +78,7 @@ def test_render_returns_minimum_fastapi_project_files() -> None:
         PurePosixPath("src/game_server/application/extensions.py"),
         PurePosixPath("src/game_server/application/app_factory.py"),
         PurePosixPath("src/game_server/application/generated/__init__.py"),
+        PurePosixPath("src/game_server/application/generated/lifespan.py"),
         PurePosixPath("src/game_server/application/generated/module_registry.py"),
         PurePosixPath("src/game_server/routers/__init__.py"),
         PurePosixPath("src/game_server/routers/health.py"),
@@ -174,6 +177,38 @@ def test_app_factory_registers_module_routers() -> None:
     assert "configure_logging()" in app_factory
     assert "install_request_logging(app)" in app_factory
     assert "USER_ROUTERS: tuple[APIRouter, ...] = ()" in extensions
+    assert "USER_LIFESPANS: tuple[UserLifespanFactory, ...] = ()" in extensions
+
+
+def test_lifespan_supports_user_contexts_and_legacy_extensions(
+    tmp_path: Path, monkeypatch
+) -> None:
+    package_name = "lifecycle_server"
+    files = dict(
+        FastAPIProjectGenerator().render(project_specification(package_name=package_name))
+    )
+    extensions_path = PurePosixPath(
+        f"src/{package_name}/application/extensions.py"
+    )
+    files[extensions_path] = (
+        "from fastapi import APIRouter\n\n"
+        "USER_ROUTERS: tuple[APIRouter, ...] = ()\n"
+    )
+    lifespan = files[
+        PurePosixPath(f"src/{package_name}/application/generated/lifespan.py")
+    ]
+
+    assert "getattr(extensions, 'USER_LIFESPANS', ())" in lifespan
+    for relative_path, content in files.items():
+        target = tmp_path.joinpath(*relative_path.parts)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.syspath_prepend(str(tmp_path / "src"))
+    app = importlib.import_module(f"{package_name}.main").app
+
+    assert app.title == "Game Server"
 
 
 def test_observability_records_safe_request_metadata() -> None:
@@ -213,6 +248,9 @@ def test_session_service_generates_and_registers_lifespan() -> None:
     assert lifespan_path in files
     assert "AsyncExitStack" in files[lifespan_path]
     assert "session_store_lifespan(app)" in files[lifespan_path]
+    assert files[lifespan_path].index("session_store_lifespan(app)") < files[
+        lifespan_path
+    ].index("for lifespan_factory in getattr(extensions, 'USER_LIFESPANS', ())")
     assert "application starting" in files[lifespan_path]
     assert "application stopping" in files[lifespan_path]
     assert "from game_server.application.generated.lifespan import lifespan" in (
@@ -252,6 +290,9 @@ def test_control_plane_heartbeat_generates_opt_in_lifecycle_reporter() -> None:
     ]
 
     ast.parse(reporter)
+    assert lifespan.index("from game_server.application import extensions") < lifespan.index(
+        "application.generated.service_heartbeat"
+    )
     assert lifespan.index("application.generated.service_heartbeat") < lifespan.index(
         "application.observability"
     )

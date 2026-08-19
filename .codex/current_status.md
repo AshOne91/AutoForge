@@ -31,6 +31,12 @@ AutoForge currently has working foundations for:
   application container. Generator/specification/Compose focused tests pass, and
   an in-process generated-reporter to Control Plane interoperability test confirms
   authenticated storage of normalized instance/version/dependency data.
+- generated FastAPI application composition now always has an outer lifespan and
+  keeps `application/extensions.py` scaffolded. Consumers may add ordered
+  `USER_LIFESPANS` contexts after generated database, session, and heartbeat
+  contexts are ready; `AsyncExitStack` closes them first. Older preserved
+  extensions without that new optional tuple remain compatible. Focused generator
+  tests, the full AutoForge suite, and a disposable KIS regeneration all passed.
 - local Control Plane heartbeat deployment profile: an independently built server
   image, private PostgreSQL volume, versioned SQL initialization, loopback-only
   `49700` HTTP binding, required local secret environment file, and process

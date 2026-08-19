@@ -134,6 +134,14 @@ application/extensions.py
 consumer edits. Application-specific internal endpoints register here instead of
 patching a generated router.
 
+The same scaffold may declare ordered `USER_LIFESPANS` FastAPI lifespan
+factories. The generated application always owns the outer lifespan: generated
+database, session, and heartbeat contexts enter first; user contexts enter next
+and therefore exit first through `AsyncExitStack`. A preserved older extension
+without `USER_LIFESPANS` is treated as an empty tuple, so regeneration does not
+require a consumer-owned compatibility edit. This is application composition,
+not a `ModuleSpec` lifecycle field or a global service container.
+
 ### USER_OWNED
 
 사용자가 직접 만든 파일이다.
