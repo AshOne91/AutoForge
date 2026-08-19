@@ -47,12 +47,14 @@ AutoForge currently has working foundations for:
   supports `user`, `operator`, `developer`, and `administrator`, requires
   `current_session`, and cannot share an endpoint with a service token. The
   generated guard reads the Redis session claim and returns `403` for a missing,
-  invalid, or insufficient level. KIS persists its default `user` level in the
-  global Identity store, copies it into each login session, and declares the
-  generated account-profile routes as `user`. Its focused HTTP test proves an
-  operator guard denies `user` and invalid claims while allowing `operator`.
-  KIS does not yet expose privileged-role provisioning or a public human
-  operator endpoint.
+  invalid, or insufficient level. The reusable `identity_session_profile`
+  Blueprint now generates global `LoginAccount.access_level` (`user` by default)
+  and `AccessLevelAudit` schema/repositories. KIS validates that generated
+  contract with its consumer-owned incremental migration, copies the level into
+  each login session, and declares generated account-profile routes as `user`.
+  Its focused HTTP test proves an operator guard denies `user` and invalid claims
+  while allowing `operator`. KIS does not yet expose privileged-role provisioning
+  or a public human operator endpoint.
 - generated FastAPI application composition now always has an outer lifespan and
   keeps `application/extensions.py` scaffolded. Consumers may add ordered
   `USER_LIFESPANS` contexts after generated database, session, and heartbeat

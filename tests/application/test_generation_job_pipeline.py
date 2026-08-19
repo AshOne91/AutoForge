@@ -306,6 +306,20 @@ def test_generation_pipeline_generates_identity_session_profile_blueprint(
             tmp_path
             / "output/src/base_server/modules/account/handlers.py"
         ).is_file()
+        identity_models = (
+            tmp_path / "output/src/base_server/modules/identity/generated/models.py"
+        ).read_text(encoding="utf-8")
+        assert "access_level: str = 'user'" in identity_models
+        assert "class AccessLevelAudit(BaseModel):" in identity_models
+        identity_sql = (
+            tmp_path / "output/database/global/0001_identity.sql"
+        ).read_text(encoding="utf-8")
+        assert "access_level" in identity_sql
+        assert "access_level_audits" in identity_sql
+        identity_migration = (
+            tmp_path / "output/migrations/identity/versions/0001_identity.py"
+        ).read_text(encoding="utf-8")
+        assert "access_level_audits" in identity_migration
         assert (
             tmp_path / "output/environment/compose.integration.yml"
         ).is_file()

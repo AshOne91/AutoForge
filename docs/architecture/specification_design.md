@@ -221,10 +221,13 @@ An endpoint may instead set `access_level` to `user`, `operator`, `developer`,
 or `administrator`. It must also declare `current_session`; generation places a
 ranked session-access guard before its handler. `access_level` and
 `service_token` are mutually exclusive because a human session claim and an
-internal service credential are different trust boundaries. The consumer-owned
-identity module decides how the `access_level` claim is persisted and
-provisioned; the generated guard only fails closed when that claim is absent,
-invalid, or too low.
+internal service credential are different trust boundaries. The reusable
+`identity_session_profile` Blueprint declares a global `LoginAccount.access_level`
+with default `user` and an `AccessLevelAudit` record, so fresh projects generate
+the shared persistence contract with their Identity module. A consumer owns how
+it copies that persisted level into a session, performs privileged provisioning,
+and revokes existing sessions; the generated guard only fails closed when that
+claim is absent, invalid, or too low.
 
 ## Module 책임 경계
 

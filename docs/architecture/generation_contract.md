@@ -98,10 +98,13 @@ implicit default.
 
 Service tokens identify an internal service, not a human user or operator
 role. `access_level` and `service_token` therefore cannot be combined on one
-generated endpoint. Persistence, initial provisioning, role-change audit, and
-session revocation remain consumer-owned identity policy. In particular, a
-consumer must revoke existing user sessions when it changes a persisted access
-level so that stale Redis claims cannot retain the prior authority.
+generated endpoint. The reusable `identity_session_profile` Blueprint generates
+the global `LoginAccount.access_level` and `AccessLevelAudit` persistence
+contract for fresh projects. Initial provisioning, the policy that writes an
+audit record, and session revocation remain consumer-owned identity behavior.
+An existing consumer adds an incremental migration rather than rewriting its
+generated baseline; it must revoke existing user sessions when it changes a
+persisted access level so stale Redis claims cannot retain prior authority.
 
 DELETE /internal/jobs/{job_type}/{job_id}는 아직 worker가 claim하지 않은
 requested Job만 cancelled로 전이한다. 이미 전달된 Outbox message는 삭제하지

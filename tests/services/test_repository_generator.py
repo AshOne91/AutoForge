@@ -206,6 +206,61 @@ def test_render_unique_query_in_protocol_and_fake() -> None:
     assert "if item.risk_tolerance == risk_tolerance" in fake
 
 
+def test_wraps_long_generated_model_imports() -> None:
+    specification = account_specification()
+    assert specification.database is not None
+    specification.models.append(
+        ModelSpec(
+            name="AccessLevelAudit",
+            fields=[
+                FieldSpec(
+                    name="audit_id",
+                    type=FieldType(kind=FieldTypeKind.UUID),
+                ),
+            ],
+        )
+    )
+    specification.database.tables.append(
+        TableSpec(
+            name="access_level_audits",
+            columns=[
+                ColumnSpec(
+                    name="audit_id",
+                    type=FieldType(kind=FieldTypeKind.UUID),
+                    primary_key=True,
+                ),
+            ],
+        )
+    )
+    specification.database.repositories.append(
+        RepositorySpec(
+            name="AccessLevelAuditRepository",
+            aggregate="AccessLevelAudit",
+            table="access_level_audits",
+            operations=["find_by_id", "save"],
+        )
+    )
+
+    files = RepositoryGenerator("kis_auto_trading").render(specification)
+
+    expected_import = (
+        "from kis_auto_trading.modules.account.generated.models import (\n"
+        "    AccessLevelAudit,\n"
+        "    UserProfile,\n"
+        ")"
+    )
+    assert expected_import in files[
+        PurePosixPath(
+            "src/kis_auto_trading/modules/account/generated/repository.py"
+        )
+    ]
+    assert expected_import in files[
+        PurePosixPath(
+            "src/kis_auto_trading/modules/account/generated/fake_repository.py"
+        )
+    ]
+
+
 @pytest.mark.anyio
 async def test_generated_fake_repository_can_save_and_find(
     tmp_path: Path,

@@ -312,10 +312,13 @@ class RepositoryGenerator:
         specification: ModuleSpec,
         repositories: list[RepositorySpec],
     ) -> str:
-        aggregates = ", ".join(
-            sorted({repository.aggregate for repository in repositories})
+        module_path = (
+            f"{self._package_name}.modules.{specification.module.name}.generated.models"
         )
-        return (
-            f"from {self._package_name}.modules.{specification.module.name}."
-            f"generated.models import {aggregates}"
-        )
+        aggregates = sorted({repository.aggregate for repository in repositories})
+        single_line = f"from {module_path} import {', '.join(aggregates)}"
+        if len(single_line) <= 88:
+            return single_line
+
+        rendered_aggregates = "".join(f"    {aggregate},\n" for aggregate in aggregates)
+        return f"from {module_path} import (\n{rendered_aggregates})"
