@@ -1,13 +1,14 @@
 # Next Task
 
-## Next executable unit: terminal news-index retry observability
+## Next executable unit: single-host proxy profile contract
 
-Add one focused consumer test for a final transient `news_index` failure. It
-must confirm no fourth Job is created and that the structured log contains the
-`news_index_retries_exhausted` event type, original job ID, run key, attempt,
-and maximum-attempt fields. Reuse the existing logging path; do not add an
-external alert adapter or a new observability service.
+Generate the same KIS specification into a disposable workspace with its
+lightweight default and HA profiles. Confirm the intended profile boundary:
+the default profile may stay direct and resource-light, while the HA profile
+must generate a reverse proxy and the declared application replica topology.
+Run the narrow generator tests that own this contract. If HA generation does
+not produce the proxy, trace the AutoForge source before changing consumer
+files or adding a second Compose stack.
 
-Keep terminal signal delivery as the existing observability pipeline concern.
-Do not generalize the consumer-owned retry policy into AutoForge without a
-second generated consumer needing it.
+Preserve the single-server resource-saving profile. Do not make the lightweight
+default HA by accident, and do not modify running local Docker projects.

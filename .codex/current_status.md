@@ -349,6 +349,10 @@ AutoForge currently has working foundations for:
   observed the original index Job fail, restored Ollama, and observed its
   `retry:1` Job succeed with ten OpenSearch documents retained.
 
+- A final transient `news_index` failure now emits the structured
+  `news_index_retries_exhausted` signal with the job identity and bounded retry
+  metadata. The focused test proves that it does not create a fourth Job.
+
 ## Docker work
 
 - Local Environment Generator는 생성된 Compose에서 파생한
