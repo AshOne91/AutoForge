@@ -1,6 +1,6 @@
 # Next Task
 
-## Next executable unit: validate generated token coordination in KIS
+## Next executable unit: build the first KIS Open API token-coordinator slice
 
 The default standalone profile and generated HA runtime proofs for Redis
 Cluster, PostgreSQL Patroni/HAProxy, RabbitMQ, and the two-scheduler Airflow
@@ -13,9 +13,12 @@ API, relay, worker, scheduler, initializer, and infrastructure roles.
 external-provider and distributed-lock contracts intentionally keep KIS
 credentials, token policy, and trading semantics outside generated code.
 
-The next slice is a KIS consumer validation: inspect ownership, then compose the
-generated external-provider and distributed-lock contracts around one KIS token
-refresh path. The consumer must own credentials, cache record shape, refresh
-policy, and domain errors. AutoForge must be corrected first if regeneration
-reveals a generated-contract gap; no hand-edited generated output is a permanent
-fix.
+KIS currently has Redis session and Yahoo-news integrations but no KIS Open API
+OAuth token implementation. The next slice must therefore create the first
+consumer-owned KIS token coordinator, using the generated external-provider and
+distributed-lock contracts only after their generated ownership is selected in
+the consumer specification. It must use the official KIS API contract, keep
+credentials out of source control, and prove cache/lease behavior with a fake;
+live credentials or order execution are not prerequisites. AutoForge must be
+corrected first if regeneration reveals a generated-contract gap; no hand-edited
+generated output is a permanent fix.

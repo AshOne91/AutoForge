@@ -40,8 +40,8 @@ Template를 조합한다”는 런타임 의미를 보존한다.
 | `queue` | 비동기 메시지 전달 | RabbitMQ 기반 완료 | durable job/outbox와 함께 생성 |
 | `outbox` | DB 변경과 메시지의 일관성 | 완료 | durable-job Blueprint의 공통 기반 |
 | `scheduler` | 주기 실행 | Airflow 생성·런타임 검증 완료 | 실제 일정과 업무 handler는 소비자 소유 |
-| `lock` | 분산 잠금 | 미구현 | Redis lock은 실제 경쟁 구간이 확인될 때 공통 역량으로 추가 |
-| `external` | 외부 HTTP/API, retry, rate limit | 미구현 | 공급자별 adapter와 정책은 소비자 코드, 재사용 계약만 추출 |
+| `lock` | 분산 잠금 | AutoForge generated lease contract 완료 | 실제 경쟁 구간이 consumer에서 선택될 때 lock key·TTL·업무 정책을 연결 |
+| `external` | 외부 HTTP/API, retry, rate limit | AutoForge generated HTTP contract 완료 | 공급자별 adapter와 정책은 소비자 코드, 재사용 transport 계약만 제공 |
 | `websocket` | 연결·채널·broadcast | 미구현 | 실제 Realtime 소비자가 생기면 Redis 확장형 Blueprint로 구현 |
 | `notification` | WebSocket/email/SMS 알림 | 미구현 | 전달 채널은 공통화, 수신자·문구·업무 정책은 소비자 소유 |
 | `email` | 이메일 전달 | 미구현 | notification 사용 사례가 확정된 뒤 provider adapter로 추가 |
