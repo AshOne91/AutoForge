@@ -442,7 +442,9 @@ architectural constants. Kubernetes exposes independent `proxy_replicas` and
 `application_replicas` settings; the single-host Compose profile exposes
 `application_replicas` and intentionally keeps one Nginx owner for its one public
 host port. Generated applications use `/readiness` for dependency readiness and
-`/health` for process liveness; explicit
+`/health` for process liveness. A rebuilt default KIS Compose application is
+healthy under that `/readiness` check; its internal `/readiness` and proxied
+`/health` each returned HTTP 200. Explicit
 SIGTERM/preStop draining, KIS OAuth token coordination, and multi-node log
 persistence remain unverified. A Docker Desktop Kubernetes check applied the
 generated profile, observed 2/2 proxy and 3/3 application readiness, returned
