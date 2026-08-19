@@ -62,6 +62,7 @@ def test_object_storage_generator_renders_default_minio_contract() -> None:
     assert "mc mb --ignore-existing" in compose
     assert "idempotently creates `S3_BUCKET`" in readme
     assert "rather than adding it to a Compose `--wait` health gate" in readme
+    assert readme.endswith("file as a production topology.\n")
     parsed = yaml.safe_load(compose)
     assert set(parsed["services"]) == {"minio", "minio-init"}
     assert parsed["services"]["minio"]["profiles"] == ["storage"]

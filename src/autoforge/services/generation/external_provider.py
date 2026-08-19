@@ -213,7 +213,6 @@ class ExternalProviderGenerator:
             "from .config import ExternalProviderConfig\n"
             "from .protocol import ExternalResponse\n"
             "\n"
-            "\n"
             "_DEFAULT_RETRY_SAFE_METHODS = frozenset({'GET', 'HEAD', 'OPTIONS'})\n"
             "\n"
             "\n"

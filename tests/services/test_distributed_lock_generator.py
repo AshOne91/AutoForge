@@ -62,6 +62,7 @@ def test_distributed_lock_generator_renders_generated_runtime_contract() -> None
     }
     assert "KIS_LOCK_REDIS_URL" in files[root / "config.py"]
     assert 'DEFAULT_KEY_PREFIX: Final = "kis-lock"' in files[root / "config.py"]
+    assert "mode: RedisMode = RedisMode.STANDALONE" in files[root / "config.py"]
     assert "class DistributedLock:" in files[root / "service.py"]
     assert "class FakeDistributedLockClient:" in files[root / "fake.py"]
     assert "_RELEASE_IF_OWNER" in files[root / "redis.py"]
@@ -85,6 +86,7 @@ def test_distributed_lock_generator_preserves_redis_cluster_selection() -> None:
     ]
 
     assert 'DEFAULT_MODE: Final = "cluster"' in config
+    assert "mode: RedisMode = RedisMode.CLUSTER" in config
     assert "REDIS_CLUSTER_STARTUP_NODES_ENV" in config
     assert "RedisCluster.from_url" in adapter
 

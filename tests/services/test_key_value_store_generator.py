@@ -62,6 +62,7 @@ def test_key_value_store_generator_renders_generated_runtime_contract() -> None:
     }
     assert "KIS_CACHE_REDIS_URL" in files[root / "config.py"]
     assert 'DEFAULT_KEY_PREFIX: Final = "kis-cache"' in files[root / "config.py"]
+    assert "mode: RedisMode = RedisMode.STANDALONE" in files[root / "config.py"]
     assert "class KeyValueStore:" in files[root / "service.py"]
     assert "class FakeKeyValueStoreClient:" in files[root / "fake.py"]
     assert "class RedisKeyValueStoreClient:" in files[root / "redis.py"]
@@ -78,6 +79,7 @@ def test_key_value_store_generator_preserves_redis_cluster_selection() -> None:
     )
 
     assert 'DEFAULT_MODE: Final = "cluster"' in files[root / "config.py"]
+    assert "mode: RedisMode = RedisMode.CLUSTER" in files[root / "config.py"]
     assert "RedisCluster.from_url" in files[root / "redis.py"]
 
 

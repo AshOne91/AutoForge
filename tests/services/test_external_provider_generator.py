@@ -63,6 +63,12 @@ def test_external_provider_generator_renders_generated_runtime_contract() -> Non
     assert "class FakeExternalProviderClient:" in files[root / "fake.py"]
     assert "class ExternalResponse:" in files[root / "protocol.py"]
     assert "retry_safe" in files[root / "http_client.py"]
+    assert "from .protocol import ExternalResponse\n\n_DEFAULT_RETRY_SAFE_METHODS" in files[
+        root / "http_client.py"
+    ]
+    assert "from .protocol import ExternalResponse\n\n\nclass FakeExternalProviderClient" in files[
+        root / "fake.py"
+    ]
     for path, source in files.items():
         ast.parse(source, filename=path.as_posix())
 

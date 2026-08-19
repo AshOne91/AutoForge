@@ -173,8 +173,8 @@ named Docker volume and the API/console bind to `LOCAL_BIND_ADDRESS` only.
 Replace the sample root credentials before starting the profile. Production
 requires separate credentials, encrypted backups, bucket policies, lifecycle
 rules, and a cluster-aware object-storage deployment; do not use this Compose
- file as a production topology.
- '''
+file as a production topology.
+'''
 
     @staticmethod
     def _render_runtime_init() -> str:

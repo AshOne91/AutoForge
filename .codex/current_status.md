@@ -884,6 +884,23 @@ Sentinel output is generated and parsed but has not yet had a dedicated runtime
 drill. Value serialization, cache invalidation, key design, FastAPI lifespan
 registration, and KIS adoption remain consumer-owned.
 
+KIS now selects the generated external-provider, distributed-lock, and
+key-value-store contracts in both its default standalone and HA Redis Cluster
+specifications. Its user-owned `KisTokenCoordinator` composes those contracts
+for the official `POST /oauth2/tokenP` client-credentials request: it caches a
+validated token with a 60-second expiry safety margin, uses a per-credential
+hashed Redis lock/cache scope, re-checks the cache after lock acquisition, and
+does not retry the POST automatically. Focused fakes verify cache reuse, lock
+release after an invalid response, refresh-in-progress handling, and the
+official request shape. Regenerating KIS exposed generated Ruff defects in the
+three contracts; AutoForge corrected the Enum default and import rendering at
+the generator source. AutoForge regression is `610 passed, 17 skipped`; KIS is
+`66 passed` with one pre-existing FastAPI/Starlette `TestClient` deprecation
+warning. No live KIS credential, token request, trading route, or order was
+executed. The coordinator is not yet registered in a FastAPI lifespan or a
+container runtime path, so the existing generated Compose/Kubernetes profiles
+intentionally do not yet forward KIS-specific credential environments.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:

@@ -1,6 +1,6 @@
 # Next Task
 
-## Next executable unit: build the first KIS Open API token-coordinator slice
+## Next executable unit: declare user-owned application runtime environments in the specification
 
 The default standalone profile and generated HA runtime proofs for Redis
 Cluster, PostgreSQL Patroni/HAProxy, RabbitMQ, and the two-scheduler Airflow
@@ -14,12 +14,23 @@ AutoForge runtime services. The external-provider, distributed-lock, and
 key-value-store contracts intentionally keep KIS credentials, token policy, and
 trading semantics outside generated code.
 
-KIS currently has Redis session and Yahoo-news integrations but no KIS Open API
-OAuth token implementation. The next slice must therefore create the first
-consumer-owned KIS token coordinator, using the generated external-provider and
-distributed-lock contracts only after their generated ownership is selected in
-the consumer specification. It must use the official KIS API contract, keep
-credentials out of source control, and prove cache/lease behavior with a fake;
-live credentials or order execution are not prerequisites. AutoForge must be
-corrected first if regeneration reveals a generated-contract gap; no hand-edited
-generated output is a permanent fix.
+KIS now selects the generated external-provider, distributed-lock, and
+key-value-store contracts in its standalone and HA specifications. The first
+consumer-owned token coordinator calls the official `/oauth2/tokenP`
+client-credentials endpoint, caches a validated token before expiry, and uses a
+per-credential Redis lease to prevent replica refresh storms. It is verified
+only with fakes; no live credential or order execution is required.
+
+The coordinator is deliberately not registered in FastAPI yet. Before a
+containerized KIS client can consume it, AutoForge needs one generic,
+spec-declared application runtime-environment contract: named required or
+optional variables must flow into generated local Compose, Kubernetes Secret
+references, and generated environment examples without hard-coding KIS names
+in a generator. Prove that contract in a disposable generated workspace and
+then declare the KIS URL, app key, app secret, and scope through it.
+
+Only after that contract is verified should the next slice add a user-owned,
+read-only KIS API client that obtains its Bearer token exclusively from the
+coordinator. Select one documented non-order endpoint only after its official
+request/response contract is verified. Do not add a FastAPI route, live request,
+or order endpoint in the same unit.

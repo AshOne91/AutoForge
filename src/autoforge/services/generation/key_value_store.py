@@ -119,7 +119,7 @@ class KeyValueStoreGenerator:
             "\n"
             "@dataclass(frozen=True, slots=True)\n"
             "class KeyValueStoreConfig:\n"
-            "    mode: RedisMode = RedisMode(DEFAULT_MODE)\n"
+            f"    mode: RedisMode = RedisMode.{key_value_store.mode.upper()}\n"
             "    redis_url: str = ''\n"
             "    cluster_startup_nodes: tuple[str, ...] = ()\n"
             "    sentinel_urls: str = ''\n"
