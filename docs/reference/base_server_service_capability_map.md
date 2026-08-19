@@ -34,7 +34,7 @@ Template를 조합한다”는 런타임 의미를 보존한다.
 | `core` | 설정, lifecycle, 로그, 모니터 | 부분 완료 | 명시적 lifespan/config/logging 계약을 공통 생성기로 유지 |
 | `net` | FastAPI, middleware, HTTP 경계 | 완료 | FastAPI application/router 생성기로 유지 |
 | `db` | Global/Shard DB, 연결, SQL | PostgreSQL 완료 | MySQL은 소비자 요구가 생길 때 provider로 추가 |
-| `cache` | Redis cache/session/pool | session·cluster 검증 완료 | 범용 cache 정책은 실제 사용 사례가 생길 때 |
+| `cache` | Redis cache/session/pool | session·cluster 및 generated key-value contract 완료 | consumer가 실제 key/value·TTL·무효화 정책을 선택할 때 조합 |
 | `security` | 인증, 토큰, 비밀번호 보안 | identity/session 기준선 완료 | credential·권한 정책은 SCAFFOLDED 소비자 코드 |
 | `event` | 프로세스 내부 이벤트 | EventBus 기반 완료 | application event 계약은 Blueprint별로 추가 |
 | `queue` | 비동기 메시지 전달 | RabbitMQ 기반 완료 | durable job/outbox와 함께 생성 |

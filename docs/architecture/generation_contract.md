@@ -147,17 +147,18 @@ application/generated/module_registry.py
 - 내용 Hash가 예상과 다르면 수동 변경으로 판단하고 정책에 따라 충돌시킨다.
 
 When `tooling.distributed_lock.enabled`, `tooling.external_provider.enabled`,
-`tooling.search.enabled`, `tooling.vector_store.enabled`, or
-`tooling.storage.runtime_enabled` is selected, every file under the corresponding
-`infrastructure/distributed_lock/`, `infrastructure/external_provider/`,
+`tooling.key_value_store.enabled`, `tooling.search.enabled`,
+`tooling.vector_store.enabled`, or `tooling.storage.runtime_enabled` is selected,
+every file under the corresponding `infrastructure/distributed_lock/`,
+`infrastructure/external_provider/`, `infrastructure/key_value_store/`,
 `infrastructure/search/`, `infrastructure/vector_store/`, or
 `infrastructure/object_storage/` path is GENERATED. Each contains configuration,
 transport protocol, deterministic fake, provider adapter, and explicit service
-lifecycle boundary. The consumer owns FastAPI lifespan registration, lock-key
-and critical-section policy, provider credentials and schemas, index or
-collection schema, object key layout, document projection, embedding, and
-query/relevance policy. Regeneration must not turn generated services into
-process-global singletons or overwrite consumer code.
+lifecycle boundary. The consumer owns FastAPI lifespan registration, lock-key and
+critical-section policy, cache key/value/invalidation policy, provider credentials
+and schemas, index or collection schema, object key layout, document projection,
+embedding, and query/relevance policy. Regeneration must not turn generated
+services into process-global singletons or overwrite consumer code.
 
 ### SCAFFOLDED
 

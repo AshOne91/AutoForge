@@ -341,6 +341,9 @@ class ToolingSpec(StrictSpecModel):
     distributed_lock: DistributedLockSpec = Field(
         default_factory=lambda: DistributedLockSpec()
     )
+    key_value_store: KeyValueStoreSpec = Field(
+        default_factory=lambda: KeyValueStoreSpec()
+    )
     external_provider: ExternalProviderSpec = Field(
         default_factory=lambda: ExternalProviderSpec()
     )
@@ -470,6 +473,33 @@ class DistributedLockSpec(StrictSpecModel):
     sentinel_master: str = "lock-primary"
     key_prefix: str = Field(default="lock", pattern=r"^[a-z][a-z0-9:_-]*$")
     ttl_seconds: int = Field(default=30, gt=0, le=86400)
+
+    @field_validator("sentinel_master")
+    @classmethod
+    def validate_sentinel_master(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("sentinel_master must not be empty")
+        return value
+
+
+class KeyValueStoreSpec(StrictSpecModel):
+    """Generate an opt-in Redis key-value store boundary."""
+
+    enabled: bool = False
+    mode: Literal["standalone", "sentinel", "cluster"] = "standalone"
+    url_environment: str = Field(default="REDIS_URL", pattern=r"^[A-Z][A-Z0-9_]*$")
+    cluster_url_environment: str = Field(
+        default="REDIS_CLUSTER_URL", pattern=r"^[A-Z][A-Z0-9_]*$"
+    )
+    cluster_startup_nodes_environment: str = Field(
+        default="REDIS_CLUSTER_STARTUP_NODES", pattern=r"^[A-Z][A-Z0-9_]*$"
+    )
+    sentinel_urls_environment: str = Field(
+        default="REDIS_SENTINEL_URLS", pattern=r"^[A-Z][A-Z0-9_]*$"
+    )
+    sentinel_master: str = "cache-primary"
+    key_prefix: str = Field(default="cache", pattern=r"^[a-z][a-z0-9:_-]*$")
+    ttl_seconds: int = Field(default=300, gt=0, le=86400)
 
     @field_validator("sentinel_master")
     @classmethod

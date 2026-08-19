@@ -9,9 +9,10 @@ API, relay, worker, scheduler, initializer, and infrastructure roles.
 
 `base_server/service/search`, `base_server/service/vectordb`,
 `base_server/service/storage`, `base_server/service/external`, and
-`base_server/service/lock` are now selected AutoForge runtime services. The
-external-provider and distributed-lock contracts intentionally keep KIS
-credentials, token policy, and trading semantics outside generated code.
+`base_server/service/lock`, and `base_server/service/cache` are now selected
+AutoForge runtime services. The external-provider, distributed-lock, and
+key-value-store contracts intentionally keep KIS credentials, token policy, and
+trading semantics outside generated code.
 
 KIS currently has Redis session and Yahoo-news integrations but no KIS Open API
 OAuth token implementation. The next slice must therefore create the first

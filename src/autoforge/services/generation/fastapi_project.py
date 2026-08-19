@@ -69,6 +69,7 @@ class FastAPIProjectGenerator:
                     for service in specification.application.services
                 ),
                 include_distributed_lock=specification.tooling.distributed_lock.enabled,
+                include_key_value_store=specification.tooling.key_value_store.enabled,
                 include_rabbitmq=any(
                     service.kind == "rabbitmq"
                     for service in specification.application.services
@@ -229,6 +230,7 @@ class FastAPIProjectGenerator:
         dependencies: list[str],
         include_redis: bool,
         include_distributed_lock: bool,
+        include_key_value_store: bool,
         include_rabbitmq: bool,
         include_external_provider: bool,
         include_search: bool,
@@ -239,7 +241,7 @@ class FastAPIProjectGenerator:
     ) -> str:
         redis_dependency = (
             '    "redis>=5,<7",\n'
-            if include_redis or include_distributed_lock
+            if include_redis or include_distributed_lock or include_key_value_store
             else ""
         )
         rabbitmq_dependency = (

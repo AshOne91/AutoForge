@@ -54,6 +54,11 @@ from autoforge.services.generation.fastapi_project import (
     GENERATOR_VERSION,
     FastAPIProjectGenerator,
 )
+from autoforge.services.generation.key_value_store import (
+    KEY_VALUE_STORE_GENERATOR_ID,
+    KEY_VALUE_STORE_GENERATOR_VERSION,
+    KeyValueStoreGenerator,
+)
 from autoforge.services.generation.kubernetes import (
     KUBERNETES_BASE_SERVER_GENERATOR_ID,
     KUBERNETES_BASE_SERVER_GENERATOR_VERSION,
@@ -284,6 +289,18 @@ def create_fastapi_generator_plugins(
                 name=SINGLE_HOST_GENERATOR_ID,
                 version=SINGLE_HOST_GENERATOR_VERSION,
                 description="단일 물리 Docker host 운영 오버레이 Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
+    project_registry.register(
+        GeneratorPluginAdapter(
+            KeyValueStoreGenerator(),
+            PluginMetadata(
+                name=KEY_VALUE_STORE_GENERATOR_ID,
+                version=KEY_VALUE_STORE_GENERATOR_VERSION,
+                description="Async Redis key-value store Generator",
                 capabilities=(PluginCapability.GENERATOR,),
                 supported_specification_versions=("1",),
             ),

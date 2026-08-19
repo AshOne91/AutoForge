@@ -21,6 +21,7 @@ from autoforge.services.generation.external_provider import (
 )
 from autoforge.services.generation.fastapi_module import MODULE_GENERATOR_ID
 from autoforge.services.generation.fastapi_project import GENERATOR_ID
+from autoforge.services.generation.key_value_store import KEY_VALUE_STORE_GENERATOR_ID
 from autoforge.services.generation.kubernetes import (
     KUBERNETES_BASE_SERVER_GENERATOR_ID,
 )
@@ -89,6 +90,7 @@ def test_builtin_catalog_contains_expected_plugins() -> None:
         DISTRIBUTED_LOCK_GENERATOR_ID,
         DURABLE_JOB_GENERATOR_ID,
         EXTERNAL_PROVIDER_GENERATOR_ID,
+        KEY_VALUE_STORE_GENERATOR_ID,
         MESSAGING_GENERATOR_ID,
         SEARCH_SERVICE_GENERATOR_ID,
         SESSION_STORE_GENERATOR_ID,

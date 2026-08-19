@@ -12,6 +12,7 @@ from autoforge.services.generation.fastapi_module import FastAPIModuleGenerator
 from autoforge.services.generation.fastapi_project import (
     FastAPIProjectGenerator,
 )
+from autoforge.services.generation.key_value_store import KeyValueStoreGenerator
 from autoforge.services.generation.kubernetes import KubernetesBaseServerGenerator
 from autoforge.services.generation.local_environment import LocalEnvironmentGenerator
 from autoforge.services.generation.manifest_store import (
@@ -67,6 +68,7 @@ __all__ = [
     "GenerationPlanResolver",
     "GenerationRunner",
     "GenerationRunnerError",
+    "KeyValueStoreGenerator",
     "KubernetesBaseServerGenerator",
     "LocalEnvironmentGenerator",
     "ManifestStore",

@@ -873,6 +873,17 @@ implementation. Lock key design, critical-section duration, wait/retry policy,
 token-cache policy, FastAPI lifespan registration, and KIS adoption remain
 consumer-owned.
 
+`tooling.key_value_store` now generates an opt-in
+`infrastructure/key_value_store` runtime contract for standalone Redis, Redis
+Sentinel, or Redis Cluster selection. It provides TTL `get`/`set`/`delete`, a
+deterministic expiry fake, health check, and explicit async lifecycle without
+adding a global cache singleton or application cache policy. The generated
+standalone adapter passed a disposable Redis verification for set/get/delete;
+the temporary container and workspace were removed afterward. Cluster and
+Sentinel output is generated and parsed but has not yet had a dedicated runtime
+drill. Value serialization, cache invalidation, key design, FastAPI lifespan
+registration, and KIS adoption remain consumer-owned.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:

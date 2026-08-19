@@ -143,6 +143,21 @@ quorum, fencing-token protocol, automatic lease renewal, or business
 idempotency mechanism. Consumers own lock-key design, critical-section duration,
 TTL selection, retry/wait policy, and the work protected by a lease.
 
+### KeyValueStore runtime boundary
+
+`tooling.key_value_store` opt-in generates an application-facing asynchronous
+`KeyValueStore` boundary. Like DistributedLock, its specification selects a
+standalone, Sentinel, or Cluster Redis connection, environment names, key prefix,
+and default TTL while preserving one `get`/`set`/`delete` interface. The generated
+project adds `redis` only when this service, DistributedLock, or a Redis
+SessionStore is selected.
+
+The contract owns string values, TTL-based expiry, health checks, and explicit
+close. It does not define serialization schemas, cache-aside policy, distributed
+coordination, ranking, hashes, eviction policy, or cache metrics. Consumers own
+key design, value serialization, TTL selection, cache invalidation, and the
+business meaning of missing data.
+
 ### ObjectStorage runtime boundary
 
 `tooling.storage.runtime_enabled` opt-in extends the existing `StorageSpec` and

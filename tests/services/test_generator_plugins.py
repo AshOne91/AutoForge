@@ -8,6 +8,7 @@ from autoforge.core.specification import (
     DistributedLockSpec,
     DockerSpec,
     ExternalProviderSpec,
+    KeyValueStoreSpec,
     KubernetesSpec,
     LocalEnvironmentSpec,
     ModuleInfo,
@@ -35,6 +36,7 @@ from autoforge.services.generation.external_provider import (
 )
 from autoforge.services.generation.fastapi_module import MODULE_GENERATOR_ID
 from autoforge.services.generation.fastapi_project import GENERATOR_ID
+from autoforge.services.generation.key_value_store import KEY_VALUE_STORE_GENERATOR_ID
 from autoforge.services.generation.kubernetes import (
     KUBERNETES_BASE_SERVER_GENERATOR_ID,
 )
@@ -74,6 +76,7 @@ def test_fastapi_generator_plugins_register_real_generators() -> None:
         DISTRIBUTED_LOCK_GENERATOR_ID,
         DURABLE_JOB_GENERATOR_ID,
         EXTERNAL_PROVIDER_GENERATOR_ID,
+        KEY_VALUE_STORE_GENERATOR_ID,
         MESSAGING_GENERATOR_ID,
         SEARCH_SERVICE_GENERATOR_ID,
         SESSION_STORE_GENERATOR_ID,
@@ -258,6 +261,34 @@ def test_distributed_lock_generator_plugin_is_empty_until_enabled() -> None:
 
     assert PurePosixPath(
         "src", "game_server", "infrastructure", "distributed_lock", "service.py"
+    ) in rendered
+
+
+def test_key_value_store_generator_plugin_is_empty_until_enabled() -> None:
+    plugins = create_fastapi_generator_plugins("game_server")
+    specification = ProjectSpec(
+        spec_version="1",
+        project=ProjectInfo(
+            name="Game Server",
+            package_name="game_server",
+            version="0.1.0",
+        ),
+        application=ApplicationSpec(),
+    )
+
+    assert plugins.project.get(KEY_VALUE_STORE_GENERATOR_ID).render(specification) == {}
+
+    requested = specification.model_copy(
+        update={
+            "tooling": ToolingSpec(
+                key_value_store=KeyValueStoreSpec(enabled=True)
+            )
+        }
+    )
+    rendered = plugins.project.get(KEY_VALUE_STORE_GENERATOR_ID).render(requested)
+
+    assert PurePosixPath(
+        "src", "game_server", "infrastructure", "key_value_store", "service.py"
     ) in rendered
 
 

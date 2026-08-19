@@ -76,6 +76,11 @@ process-global singleton pattern.
   connection selection without exposing topology through its interface. Redlock,
   fencing tokens, automatic renewal, critical-section policy, and KIS token
   policy remain deliberately outside the generated contract.
+- [x] `base_server/service/cache` runtime contract:
+  `tooling.key_value_store` generates a topology-selected Redis string
+  key-value boundary with TTL, deterministic expiry fake, and explicit async
+  lifecycle. Value schema, cache-aside/invalidation policy, ranking, hashes,
+  cache metrics, and KIS token-record policy remain consumer-owned.
 - [~] record-to-search boundary established by two KIS projections:
   `source_key`/`news_index` and `job_id`/`durable_job_history_index` carry only
   canonical identities or safe summaries, while the consumer owns document
@@ -84,7 +89,6 @@ process-global singleton pattern.
   project or an explicit ProjectSpec requirement demonstrates that its shape is
   stable.
 - [ ] embedding and reranking provider contracts after the selected consumer establishes an evaluation dataset and relevance target
-- [ ] Redis distributed lock after a real concurrency-critical consumer path exists
 - [ ] Realtime/WebSocket and notification Blueprint after a consumer path exists:
   event-driven fan-out, in-app persistence, channel adapters, deduplication,
   rate limiting, and delivery/error observability
