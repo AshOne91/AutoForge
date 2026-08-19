@@ -1,13 +1,14 @@
 # Next Task
 
-## Next executable unit: KIS market-data provider boundary
+## Next executable unit: KIS invocation-policy evidence
 
-Inspect the existing KIS consumer and the official KIS API contract for one
-read-only quotation or market-data slice. Define the user-owned normalized
-quote boundary, credential/token ownership, and bounded freshness/cache policy
-before implementation. Reuse generated session, logging, Durable Job, and
-infrastructure contracts only where the actual read-only slice needs them.
+Inspect the existing KIS user session, internal Durable Job API token, and
+operator routes to make one explicit actor matrix: user, privileged operator,
+and internal service. Identify the user-owned persistent role source and one
+state-changing endpoint that needs request replay before adding a generated
+policy or Redis request contract.
 
-Do not generate order execution, portfolio mutation, trading strategy, or shared
-OAuth token coordination until the read-only provider slice demonstrates a
-concrete reusable requirement.
+Do not add a generic role enum, IP allowlist, or replay store solely from the
+historical references. Keep read-only market-data work independent, and do not
+generate order execution or portfolio mutation before this policy boundary is
+proven.

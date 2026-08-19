@@ -25,6 +25,17 @@ sequencing.
   조정, portfolio, order/execution, risk limit와 감사 이력을 하나의 소비자 수직
   흐름으로 검증한다. 거래 전략과 투자 판단은 KIS 소비자 소유이며 AutoForge는
   검증된 공통 인프라·생성 계약만 일반화한다.
+- [ ] domain request-execution policy: 실제 소비자 요구가 확인되면 endpoint마다
+  anonymous, authenticated user, privileged operator, internal service 같은 호출
+  정책을 명시한다. 생성기는 Redis session의 사용자 identity, user-owned role
+  source, service secret, trusted ingress allowlist를 서로 대체하지 않는
+  FastAPI dependency로 연결한다. 전역 `TemplateService`나 하드코딩된 IP 목록은
+  생성하지 않는다.
+- [ ] request replay/idempotency contract: 상태를 바꾸는 KIS 소비자 slice가 생기면
+  `SessionStore`와 별도의 Redis-backed request claim/replay 계약을 검증한다.
+  session·endpoint·idempotency key 범위, 원자 claim, TTL, 완료 응답 재전달,
+  multi-replica 동시성 테스트를 먼저 확정한다. 주문 실행 전 필수이지만, 읽기 전용
+  조회나 이미 DB unique key로 보호되는 Durable Job에는 추측으로 적용하지 않는다.
 - [ ] generic record-to-search handoff after consumer evidence establishes a
   common source identity, document projection, and query/relevance contract
 - [ ] embedding and reranking provider contracts after the selected consumer establishes an evaluation dataset and relevance target

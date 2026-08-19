@@ -64,6 +64,30 @@ Template 등록, Controller callback 연결, 접속 객체 생성, Packet dispat
 DB 저장과 종료 처리를 담당한다. Application은 단순 실행 파일이 아니라
 Composition Root다.
 
+## 공통 요청 실행선
+
+`InfraProtocol`에는 요청의 `protocolType`도 기록된다. 실제 `game-server`는
+도메인 Controller가 각 endpoint를 직접 보안 처리하지 않고, `TemplateService`의
+`RunAnonymous`, `RunUser`, `RunOperator`, `RunAdministrator` 중 하나를 선택해
+공통 실행선으로 보낸다. 이 선택은 다음 정책을 한 곳에서 적용한다.
+
+- `User`: Redis access token으로 세션을 읽고 세션 상태, 서버 상태, 요청 시퀀스를
+  확인한다.
+- `Operator`: 세션의 account level 또는 IP allowlist를 확인한 뒤 같은 요청 시퀀스를
+  적용한다.
+- `Administrator`: 사용자 세션 대신 IP allowlist만으로 운영 endpoint를 분리한다.
+- 공통선: 요청/응답 감사 로그를 남기고, 오류도 같은 형태의 응답으로 정리한다.
+
+`TemplateSequence`는 단순 캐시가 아니다. Redis의 session·path·sequence 키로
+진행 중인 요청을 감지하고, 짧은 TTL 동안 완료 응답을 보관해 같은 요청에는 이전
+응답을 다시 준다. 이는 복수 서버에서도 도메인 handler가 중복 실행되지 않게 하는
+요청 재전달 안전장치다.
+
+`base_server`는 이 구조를 FastAPI의 `run_user`와 `run_administrator`로 옮기려는
+참고 구현이다. 다만 현재 `run_user`의 sequence 검증은 TODO이고
+`run_operator`의 session 검증은 주석 처리되어 있다. 따라서 이것은 현재 검증된
+AutoForge 계약의 근거가 아니며, 완성된 `game-server`의 의도만 참고한다.
+
 ## Account 수직 흐름
 
 `CG_CREATE_PLAYER`는 명세의 Protocol ID와 request/response Member에서 Packet과
