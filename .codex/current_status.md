@@ -364,7 +364,9 @@ AutoForge currently has working foundations for:
   requested-job cancellation, and
   cancellation races. When Control Plane heartbeats are enabled, the generated
   Durable Worker reuses that push contract under its own service identity;
-  Compose passes the same opt-in endpoint and token environment to it.
+  Compose passes the same opt-in endpoint and token environment to it. The
+  rebuilt single-host application returned HTTP 200 for the authenticated recent
+  history route; its current development database contains no job records.
 
 - Fresh KIS profile generation confirms the local proxy boundary: the base
   integration Compose remains dependency-oriented, while the generated
