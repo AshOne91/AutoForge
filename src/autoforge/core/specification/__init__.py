@@ -39,6 +39,7 @@ from autoforge.core.specification.models import (
     StorageSpec,
     TableSpec,
     ToolingSpec,
+    VectorStoreSpec,
 )
 from autoforge.core.specification.types import FieldType, FieldTypeKind
 
@@ -85,4 +86,5 @@ __all__ = [
     "StorageSpec",
     "TableSpec",
     "ToolingSpec",
+    "VectorStoreSpec",
 ]

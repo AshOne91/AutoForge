@@ -16,6 +16,7 @@ from autoforge.core.specification import (
     SearchSpec,
     StorageSpec,
     ToolingSpec,
+    VectorStoreSpec,
 )
 from autoforge.services.generation import create_fastapi_generator_plugins
 from autoforge.services.generation.alembic import (
@@ -49,6 +50,7 @@ from autoforge.services.generation.sqlalchemy import (
     SQLALCHEMY_PROJECT_GENERATOR_ID,
 )
 from autoforge.services.generation.storage import OBJECT_STORAGE_GENERATOR_ID
+from autoforge.services.generation.vector_store import VECTOR_STORE_GENERATOR_ID
 
 
 def test_fastapi_generator_plugins_register_real_generators() -> None:
@@ -67,6 +69,7 @@ def test_fastapi_generator_plugins_register_real_generators() -> None:
         MESSAGING_GENERATOR_ID,
         SEARCH_SERVICE_GENERATOR_ID,
         SESSION_STORE_GENERATOR_ID,
+        VECTOR_STORE_GENERATOR_ID,
         SINGLE_HOST_GENERATOR_ID,
         SQLALCHEMY_PROJECT_GENERATOR_ID,
         OBJECT_STORAGE_GENERATOR_ID,
@@ -191,6 +194,30 @@ def test_search_service_generator_plugin_is_empty_until_enabled() -> None:
 
     assert PurePosixPath(
         "src", "game_server", "infrastructure", "search", "service.py"
+    ) in rendered
+
+
+def test_vector_store_generator_plugin_is_empty_until_enabled() -> None:
+    plugins = create_fastapi_generator_plugins("game_server")
+    specification = ProjectSpec(
+        spec_version="1",
+        project=ProjectInfo(
+            name="Game Server",
+            package_name="game_server",
+            version="0.1.0",
+        ),
+        application=ApplicationSpec(),
+    )
+
+    assert plugins.project.get(VECTOR_STORE_GENERATOR_ID).render(specification) == {}
+
+    requested = specification.model_copy(
+        update={"tooling": ToolingSpec(vector_store=VectorStoreSpec(enabled=True))}
+    )
+    rendered = plugins.project.get(VECTOR_STORE_GENERATOR_ID).render(requested)
+
+    assert PurePosixPath(
+        "src", "game_server", "infrastructure", "vector_store", "service.py"
     ) in rendered
 
 

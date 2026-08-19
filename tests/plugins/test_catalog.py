@@ -36,6 +36,7 @@ from autoforge.services.generation.sqlalchemy import (
     SQLALCHEMY_PROJECT_GENERATOR_ID,
 )
 from autoforge.services.generation.storage import OBJECT_STORAGE_GENERATOR_ID
+from autoforge.services.generation.vector_store import VECTOR_STORE_GENERATOR_ID
 from autoforge.services.validation import (
     PROJECT_VALIDATOR_ID,
     ProcessResult,
@@ -83,6 +84,7 @@ def test_builtin_catalog_contains_expected_plugins() -> None:
         MESSAGING_GENERATOR_ID,
         SEARCH_SERVICE_GENERATOR_ID,
         SESSION_STORE_GENERATOR_ID,
+        VECTOR_STORE_GENERATOR_ID,
         SINGLE_HOST_GENERATOR_ID,
         SQLALCHEMY_PROJECT_GENERATOR_ID,
         OBJECT_STORAGE_GENERATOR_ID,

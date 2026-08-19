@@ -832,6 +832,14 @@ consumer-owned. AutoForge generator, Spec, and plugin regression tests passed
 (`283 passed`); no external search container or KIS runtime was started for this
 generator-only slice.
 
+`tooling.vector_store` now generates an opt-in `infrastructure/vector_store`
+runtime contract for Qdrant: configuration with optional API-key environment
+reference, async HTTP client, protocol, deterministic fake, readiness check,
+point upsert/delete/get, raw query, and explicit async close boundary. Qdrant
+collection schema, vector dimension, distance metric, embedding, hybrid
+relevance, FastAPI lifespan registration, and KIS adoption remain consumer-owned.
+No Qdrant container was started for this generator-only slice.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:

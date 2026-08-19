@@ -106,6 +106,11 @@ from autoforge.services.generation.storage import (
     OBJECT_STORAGE_GENERATOR_VERSION,
     ObjectStorageGenerator,
 )
+from autoforge.services.generation.vector_store import (
+    VECTOR_STORE_GENERATOR_ID,
+    VECTOR_STORE_GENERATOR_VERSION,
+    VectorStoreGenerator,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -293,6 +298,18 @@ def create_fastapi_generator_plugins(
                 name=OBJECT_STORAGE_GENERATOR_ID,
                 version=OBJECT_STORAGE_GENERATOR_VERSION,
                 description="Local MinIO S3-compatible object storage overlay Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
+    project_registry.register(
+        GeneratorPluginAdapter(
+            VectorStoreGenerator(),
+            PluginMetadata(
+                name=VECTOR_STORE_GENERATOR_ID,
+                version=VECTOR_STORE_GENERATOR_VERSION,
+                description="Async Qdrant VectorStore Generator",
                 capabilities=(PluginCapability.GENERATOR,),
                 supported_specification_versions=("1",),
             ),

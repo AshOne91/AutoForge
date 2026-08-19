@@ -45,6 +45,7 @@ from autoforge.services.generation.sqlalchemy import (
     SQLAlchemyModelGenerator,
 )
 from autoforge.services.generation.storage import ObjectStorageGenerator
+from autoforge.services.generation.vector_store import VectorStoreGenerator
 
 __all__ = [
     "MANIFEST_RELATIVE_PATH",
@@ -79,5 +80,6 @@ __all__ = [
     "SessionStoreGenerator",
     "SingleHostOperatingGenerator",
     "StoredManifest",
+    "VectorStoreGenerator",
     "create_fastapi_generator_plugins",
 ]

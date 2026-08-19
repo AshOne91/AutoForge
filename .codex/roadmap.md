@@ -53,6 +53,11 @@ process-global singleton pattern.
   deterministic fake, async HTTP adapter, lifecycle, and generated ownership
   metadata. Index mappings, embeddings, document projection, and relevance
   policy remain consumer-owned; the RAG overlay remains an infrastructure concern.
+- [x] `base_server/service/vectordb` runtime contract: `tooling.vector_store`
+  generates Qdrant readiness, point upsert/delete/get, raw query transport,
+  deterministic fake, async lifecycle, and generated ownership metadata without
+  bundling a provider SDK. Collection schema, vector dimensions, embedding, and
+  hybrid relevance policy remain consumer-owned.
 - [~] record-to-search boundary established by two KIS projections:
   `source_key`/`news_index` and `job_id`/`durable_job_history_index` carry only
   canonical identities or safe summaries, while the consumer owns document

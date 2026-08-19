@@ -94,6 +94,21 @@ decisions. `tooling.rag` remains the independent local-container overlay; a
 consumer may point `tooling.search.url_environment` at `RAG_SEARCH_URL`, but
 selecting SearchService does not create or configure a RAG stack.
 
+### VectorStore runtime boundary
+
+`tooling.vector_store` opt-in generates an application-facing asynchronous
+Qdrant `VectorStore`. Its specification selects the URL environment variable,
+an optional API-key environment variable, default collection, and request
+timeout. Selecting either SearchService or VectorStore adds `httpx` to generated
+runtime dependencies without adding a provider SDK.
+
+The contract owns readiness, point upsert/delete/get, and raw Qdrant query
+transport. Collection schema, vector size, distance metric, embedding, and
+hybrid relevance policy remain consumer-owned. `tooling.rag` remains the local
+Qdrant container overlay; a consumer may point
+`tooling.vector_store.url_environment` at `RAG_QDRANT_URL`, but selecting
+VectorStore does not create or configure a RAG stack.
+
 ### Local database provider
 
 `tooling.local_environment.database_provider` selects the local generated

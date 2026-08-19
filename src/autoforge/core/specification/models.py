@@ -340,6 +340,7 @@ class ToolingSpec(StrictSpecModel):
     rag: RagSpec = Field(default_factory=lambda: RagSpec())
     search: SearchSpec = Field(default_factory=lambda: SearchSpec())
     storage: StorageSpec = Field(default_factory=lambda: StorageSpec())
+    vector_store: VectorStoreSpec = Field(default_factory=lambda: VectorStoreSpec())
     kubernetes: KubernetesSpec = Field(default_factory=lambda: KubernetesSpec())
     single_host: SingleHostSpec = Field(default_factory=lambda: SingleHostSpec())
     local_environment: LocalEnvironmentSpec = Field(
@@ -428,6 +429,20 @@ class SearchSpec(StrictSpecModel):
     url_environment: str = Field(default="SEARCH_URL", pattern=r"^[A-Z][A-Z0-9_]*$")
     default_index: str = Field(
         default="documents", pattern=r"^[a-z0-9][a-z0-9_-]*$"
+    )
+    timeout_seconds: float = Field(default=5.0, gt=0, le=60)
+
+
+class VectorStoreSpec(StrictSpecModel):
+    """Generate an opt-in Qdrant vector-store service boundary."""
+
+    enabled: bool = False
+    url_environment: str = Field(default="VECTOR_DB_URL", pattern=r"^[A-Z][A-Z0-9_]*$")
+    api_key_environment: str | None = Field(
+        default=None, pattern=r"^[A-Z][A-Z0-9_]*$"
+    )
+    default_collection: str = Field(
+        default="vectors", pattern=r"^[a-z0-9][a-z0-9_-]*$"
     )
     timeout_seconds: float = Field(default=5.0, gt=0, le=60)
 
