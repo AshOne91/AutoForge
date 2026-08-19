@@ -894,12 +894,11 @@ does not retry the POST automatically. Focused fakes verify cache reuse, lock
 release after an invalid response, refresh-in-progress handling, and the
 official request shape. Regenerating KIS exposed generated Ruff defects in the
 three contracts; AutoForge corrected the Enum default and import rendering at
-the generator source. AutoForge regression is `610 passed, 17 skipped`; KIS is
-`66 passed` with one pre-existing FastAPI/Starlette `TestClient` deprecation
+the generator source. AutoForge regression is `613 passed, 17 skipped`; KIS is
+`69 passed` with one pre-existing FastAPI/Starlette `TestClient` deprecation
 warning. No live KIS credential, token request, trading route, or order was
 executed. The coordinator is not yet registered in a FastAPI lifespan or a
-container runtime path, so the existing generated Compose/Kubernetes profiles
-intentionally do not yet forward KIS-specific credential environments.
+container runtime path.
 
 `ApplicationSpec.runtime_environments` now supplies the generic generated
 runtime-environment contract that a consumer needs before it can register a
@@ -908,9 +907,19 @@ unique names and collisions with generated service-token or heartbeat names,
 and renders them into local Compose, Kubernetes Secret references, and empty
 environment examples. Required values fail fast in local Compose; Kubernetes
 still requires every declared Secret key. The contract is verified by focused
-specification, local-environment, and Kubernetes-generator tests. KIS has not
-declared its credentials through this field yet because its coordinator is still
-unregistered from the application runtime.
+specification, local-environment, and Kubernetes-generator tests.
+
+KIS now declares `KIS_API_URL`, `KIS_APP_KEY`, `KIS_APP_SECRET`, and optional
+`KIS_TOKEN_SCOPE` through that contract in both standalone and HA
+specifications. Regenerated Compose fails fast for the first three values and
+Kubernetes references all four from its application Secret. The user-owned
+`KisMarketDataClient` shares the generated external-provider boundary and the
+token coordinator, exposing only domestic-stock current-price `GET
+/uapi/domestic-stock/v1/quotations/inquire-price` with `FHKST01010100`. It
+validates the six-digit stock code, checks the KIS HTTP/envelope response, and
+uses fake transport tests for the request headers, query, success, and error
+paths. It has no FastAPI route or lifespan registration, makes no live request,
+and exposes no account or order operation.
 
 ## Development tooling
 

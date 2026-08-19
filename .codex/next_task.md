@@ -1,6 +1,6 @@
 # Next Task
 
-## Next executable unit: add a user-owned read-only KIS API client
+## Next executable unit: register the read-only KIS client in the application lifespan
 
 The default standalone profile and generated HA runtime proofs for Redis
 Cluster, PostgreSQL Patroni/HAProxy, RabbitMQ, and the two-scheduler Airflow
@@ -25,11 +25,15 @@ The generic `ApplicationSpec.runtime_environments` contract is implemented and
 verified: it delivers declared names to local Compose, Kubernetes Secret
 references, and empty environment examples without putting values or KIS names
 in AutoForge generators. Required values fail fast locally; Kubernetes requires
-every declared Secret key.
+every declared Secret key. KIS declares its base URL, app key, app secret, and
+optional token scope through the contract in both profiles.
 
-The next slice declares the KIS base URL, app key, app secret, and token scope
-as consumer runtime-environment names, then adds a user-owned read-only KIS API
-client that obtains its Bearer token exclusively from `KisTokenCoordinator`.
-Select one documented non-order endpoint only after verifying its official
-request and response contract. Keep this slice free of FastAPI routes, live
-requests, and all order endpoints.
+KIS now has a user-owned read-only domestic-price client that obtains its Bearer
+token exclusively from `KisTokenCoordinator`. Its only endpoint is the official
+current-price `GET`, and its request/response behavior is verified entirely with
+fakes.
+
+The next slice registers that client as a user-owned FastAPI lifespan dependency
+with explicit shutdown. It may construct configuration and shared clients but
+must not make a KIS request during startup. Keep it free of a public route,
+background polling, account access, and all order operations.
