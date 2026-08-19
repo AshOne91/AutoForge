@@ -1,12 +1,13 @@
 # Next Task
 
-## Next executable unit: optional generated-artifact ownership retention
+## Next executable unit: external news-provider resilience boundary
 
-Reproduce the opt-in RAG lifecycle in a temporary workspace: generate it,
-disable the profile, then enable it again with a changed configuration. Confirm
-that previously generated RAG files retain manifest ownership and are safely
-replaceable rather than becoming conflicts.
+Inspect the existing KIS Yahoo provider path and its durable `news_collection`
+consumer. Establish the smallest reusable resilience boundary for an external
+provider: explicit timeout, classified transient failure, and bounded retry
+ownership. Reuse existing AutoForge and KIS infrastructure where it already
+exists; do not add a queue, scheduler, or generic provider framework until the
+current call path demonstrates that it needs one.
 
-Preserve scaffolded and user-owned files. Do not add a cleanup command or change
-consumer files until the smallest responsible AutoForge manifest lifecycle
-behavior is proven.
+Keep Yahoo-specific normalization in the consumer project. Fix AutoForge only
+if the evidence shows that a generated runtime contract is responsible.

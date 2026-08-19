@@ -330,6 +330,12 @@ AutoForge currently has working foundations for:
   migrations, collected and indexed ten AAPL articles, and confirmed a
   non-empty `content` field with OpenSearch `text` mapping.
 
+- Optional generated artifacts now retain manifest ownership when a profile is
+  disabled. A disposable KIS lifecycle proved enable → disable → changed-port
+  re-enable for RAG, and the tracked KIS manifest safely re-adopted its matching
+  historical RAG, ELK, Filebeat, PostgreSQL HA, and RabbitMQ HA outputs without
+  changing their file content.
+
 ## Docker work
 
 - Local Environment Generator는 생성된 Compose에서 파생한
