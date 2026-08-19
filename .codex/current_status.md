@@ -177,7 +177,9 @@ AutoForge currently has working foundations for:
   run key, status, bounded error/result summaries, and timestamps in a separate
   index while excluding payload values. The two consumers share only the
   KIS-local hybrid backend transport; their document projections remain
-  consumer-owned.
+  consumer-owned. Both the default and explicit HA KIS input specifications
+  declare the history-index Durable Job; a disposable HA generation verified the
+  generated contract contains it.
 - default-generated, profile-selected MinIO S3-compatible local storage with
   idempotent backup-bucket bootstrap; generated Compose and an actual MinIO
   backup round trip are runtime-verified
