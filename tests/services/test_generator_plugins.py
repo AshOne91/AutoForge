@@ -6,6 +6,7 @@ from autoforge.core.specification import (
     CiSpec,
     DatabaseStoreSpec,
     DockerSpec,
+    ExternalProviderSpec,
     KubernetesSpec,
     LocalEnvironmentSpec,
     ModuleInfo,
@@ -27,6 +28,9 @@ from autoforge.services.generation.ci import CI_GENERATOR_ID
 from autoforge.services.generation.dockerfile import DOCKERFILE_GENERATOR_ID
 from autoforge.services.generation.durable_jobs import DURABLE_JOB_GENERATOR_ID
 from autoforge.services.generation.elk import ELK_GENERATOR_ID
+from autoforge.services.generation.external_provider import (
+    EXTERNAL_PROVIDER_GENERATOR_ID,
+)
 from autoforge.services.generation.fastapi_module import MODULE_GENERATOR_ID
 from autoforge.services.generation.fastapi_project import GENERATOR_ID
 from autoforge.services.generation.kubernetes import (
@@ -66,6 +70,7 @@ def test_fastapi_generator_plugins_register_real_generators() -> None:
         LOCAL_ENVIRONMENT_GENERATOR_ID,
         RAG_INFRASTRUCTURE_GENERATOR_ID,
         DURABLE_JOB_GENERATOR_ID,
+        EXTERNAL_PROVIDER_GENERATOR_ID,
         MESSAGING_GENERATOR_ID,
         SEARCH_SERVICE_GENERATOR_ID,
         SESSION_STORE_GENERATOR_ID,
@@ -194,6 +199,34 @@ def test_search_service_generator_plugin_is_empty_until_enabled() -> None:
 
     assert PurePosixPath(
         "src", "game_server", "infrastructure", "search", "service.py"
+    ) in rendered
+
+
+def test_external_provider_generator_plugin_is_empty_until_enabled() -> None:
+    plugins = create_fastapi_generator_plugins("game_server")
+    specification = ProjectSpec(
+        spec_version="1",
+        project=ProjectInfo(
+            name="Game Server",
+            package_name="game_server",
+            version="0.1.0",
+        ),
+        application=ApplicationSpec(),
+    )
+
+    assert plugins.project.get(EXTERNAL_PROVIDER_GENERATOR_ID).render(specification) == {}
+
+    requested = specification.model_copy(
+        update={
+            "tooling": ToolingSpec(
+                external_provider=ExternalProviderSpec(enabled=True)
+            )
+        }
+    )
+    rendered = plugins.project.get(EXTERNAL_PROVIDER_GENERATOR_ID).render(requested)
+
+    assert PurePosixPath(
+        "src", "game_server", "infrastructure", "external_provider", "service.py"
     ) in rendered
 
 

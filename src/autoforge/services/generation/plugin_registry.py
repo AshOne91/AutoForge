@@ -34,6 +34,11 @@ from autoforge.services.generation.elk import (
     ELK_GENERATOR_VERSION,
     ElkStackGenerator,
 )
+from autoforge.services.generation.external_provider import (
+    EXTERNAL_PROVIDER_GENERATOR_ID,
+    EXTERNAL_PROVIDER_GENERATOR_VERSION,
+    ExternalProviderGenerator,
+)
 from autoforge.services.generation.fastapi_module import (
     MODULE_GENERATOR_ID,
     MODULE_GENERATOR_VERSION,
@@ -202,6 +207,18 @@ def create_fastapi_generator_plugins(
                 name=ELK_GENERATOR_ID,
                 version=ELK_GENERATOR_VERSION,
                 description="Development Elasticsearch, Kibana and Filebeat overlay Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
+    project_registry.register(
+        GeneratorPluginAdapter(
+            ExternalProviderGenerator(),
+            PluginMetadata(
+                name=EXTERNAL_PROVIDER_GENERATOR_ID,
+                version=EXTERNAL_PROVIDER_GENERATOR_VERSION,
+                description="Async external HTTP provider Generator",
                 capabilities=(PluginCapability.GENERATOR,),
                 supported_specification_versions=("1",),
             ),

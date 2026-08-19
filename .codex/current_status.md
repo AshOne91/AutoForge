@@ -849,6 +849,17 @@ readiness and put/get/list/delete; its container and temporary workspace were
 removed afterward. Object layout, retention, encryption, presigned URLs, FastAPI
 lifespan registration, and KIS adoption remain consumer-owned.
 
+`tooling.external_provider` now generates an opt-in
+`infrastructure/external_provider` runtime contract with URL configuration,
+health check, response bytes/status/headers, deterministic fake, async HTTP
+adapter, and explicit close boundary. Bounded transport retry is safe-method
+only by default (`GET`, `HEAD`, `OPTIONS`); a caller must explicitly opt in to a
+retry for a side-effecting request. Provider credentials, token coordination,
+domain payloads, idempotency policy, FastAPI lifespan registration, and KIS
+adoption remain consumer-owned. Generator plan, generated fake, and HTTP retry
+classification are verified through a deterministic `httpx.MockTransport`; no
+external provider or KIS endpoint was called for this slice.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:

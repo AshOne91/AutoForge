@@ -63,6 +63,12 @@ process-global singleton pattern.
   config/protocol/fake/aioboto3 lifecycle alongside the MinIO overlay. Generated
   adapter verification passed against a disposable MinIO service; object layout,
   retention, encryption policy, and presigned URL policy remain consumer-owned.
+- [x] `base_server/service/external` runtime contract:
+  `tooling.external_provider` generates a generic async HTTP provider with
+  config/protocol/fake/HTTP lifecycle, health, bounded retry classification, and
+  generated ownership metadata. Only safe read methods retry by default;
+  credentials, provider schemas, token policy, business idempotency, and KIS
+  semantics remain consumer-owned.
 - [~] record-to-search boundary established by two KIS projections:
   `source_key`/`news_index` and `job_id`/`durable_job_history_index` carry only
   canonical identities or safe summaries, while the consumer owns document
@@ -80,7 +86,6 @@ process-global singleton pattern.
   cancellation; the separately generated Worker reports its health to the
   Control Plane heartbeat endpoint rather than tying work to request lifetime
 - [ ] cloud S3/object-storage provider after raw-document persistence is selected
-- [ ] external-provider resiliency adapter after a provider is selected
 
 - [ ] MySQL Operator Kubernetes HA profile: multi-host placement, durable
   storage, backups, restore drills, and production observability. Do not use

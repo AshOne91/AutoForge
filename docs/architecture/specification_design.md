@@ -109,6 +109,23 @@ Qdrant container overlay; a consumer may point
 `tooling.vector_store.url_environment` at `RAG_QDRANT_URL`, but selecting
 VectorStore does not create or configure a RAG stack.
 
+### ExternalProvider runtime boundary
+
+`tooling.external_provider` opt-in generates an application-facing asynchronous
+`ExternalProvider` HTTP boundary. Its specification selects the base-URL
+environment variable, health path, timeout, retry limit, and retry delay. The
+generated project adds `httpx` only when this service, SearchService, or
+VectorStore is selected.
+
+The contract owns provider-relative requests, response status/headers/bytes,
+health checks, explicit close, and bounded transport retry. `GET`, `HEAD`, and
+`OPTIONS` are retry-safe by default; potentially side-effecting methods such as
+`POST` are retried only when a consumer explicitly passes `retry_safe=True`.
+Provider authentication, request/response schema, credential and token policy,
+business idempotency, and domain error handling remain consumer-owned. The
+contract does not generate KIS-specific behavior or a process-global client
+pool.
+
 ### ObjectStorage runtime boundary
 
 `tooling.storage.runtime_enabled` opt-in extends the existing `StorageSpec` and

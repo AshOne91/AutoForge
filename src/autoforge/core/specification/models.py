@@ -338,6 +338,9 @@ class ToolingSpec(StrictSpecModel):
     docker: DockerSpec = Field(default_factory=lambda: DockerSpec())
     elk: ElkSpec = Field(default_factory=lambda: ElkSpec())
     rag: RagSpec = Field(default_factory=lambda: RagSpec())
+    external_provider: ExternalProviderSpec = Field(
+        default_factory=lambda: ExternalProviderSpec()
+    )
     search: SearchSpec = Field(default_factory=lambda: SearchSpec())
     storage: StorageSpec = Field(default_factory=lambda: StorageSpec())
     vector_store: VectorStoreSpec = Field(default_factory=lambda: VectorStoreSpec())
@@ -431,6 +434,19 @@ class SearchSpec(StrictSpecModel):
         default="documents", pattern=r"^[a-z0-9][a-z0-9_-]*$"
     )
     timeout_seconds: float = Field(default=5.0, gt=0, le=60)
+
+
+class ExternalProviderSpec(StrictSpecModel):
+    """Generate an opt-in async external HTTP provider boundary."""
+
+    enabled: bool = False
+    url_environment: str = Field(
+        default="EXTERNAL_PROVIDER_URL", pattern=r"^[A-Z][A-Z0-9_]*$"
+    )
+    health_path: str = Field(default="/", pattern=r"^/")
+    timeout_seconds: float = Field(default=5.0, gt=0, le=60)
+    max_retries: int = Field(default=2, ge=0, le=5)
+    retry_delay_seconds: float = Field(default=0.1, ge=0, le=5)
 
 
 class VectorStoreSpec(StrictSpecModel):
