@@ -181,7 +181,8 @@ def test_fastapi_project_registers_durable_job_endpoints() -> None:
     assert "DURABLE_JOB_API_TOKEN" in router
     assert "DurableJobStatus" in router
     assert "Header" in router
-    assert "dependencies=[Depends(_require_durable_job_api_token)]" in router
+    assert "def require_durable_job_api_token(" in router
+    assert "dependencies=[Depends(require_durable_job_api_token)]" in router
     assert "@router.get('/{job_type}', response_model=list[DurableJobStatusResponse])" in router
     assert "Query(ge=1, le=100)" in router
     assert "list_recent(" in router

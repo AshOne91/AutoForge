@@ -85,6 +85,9 @@ class FastAPIProjectGenerator:
             / "application"
             / "observability.py": self._render_observability(package_name),
             package_root / "application" / "__init__.py": "",
+            package_root
+            / "application"
+            / "extensions.py": self._render_extension_routers(),
             package_root / "application" / "generated" / "__init__.py": "",
             package_root
             / "application"
@@ -187,7 +190,7 @@ class FastAPIProjectGenerator:
         if relative_path in {
             PurePosixPath(".gitignore"),
             PurePosixPath("README.md"),
-        }:
+        } or relative_path.parts[-2:] == ("application", "extensions.py"):
             return FileOwnership.SCAFFOLDED
         return FileOwnership.GENERATED
 
@@ -344,6 +347,7 @@ class FastAPIProjectGenerator:
         return (
             "from fastapi import FastAPI\n"
             "\n"
+            f"from {package_name}.application.extensions import USER_ROUTERS\n"
             f"{lifespan_import}"
             f"from {package_name}.application.generated.module_registry "
             "import MODULE_ROUTERS\n"
@@ -365,9 +369,19 @@ class FastAPIProjectGenerator:
             "    install_request_logging(app)\n"
             "    app.include_router(health_router)\n"
             f"{durable_jobs_line}"
+            "    for router in USER_ROUTERS:\n"
+            "        app.include_router(router)\n"
             "    for router in MODULE_ROUTERS:\n"
             "        app.include_router(router)\n"
             "    return app\n"
+        )
+
+    @staticmethod
+    def _render_extension_routers() -> str:
+        return (
+            "from fastapi import APIRouter\n"
+            "\n"
+            "USER_ROUTERS: tuple[APIRouter, ...] = ()\n"
         )
 
     @staticmethod
@@ -555,7 +569,7 @@ class FastAPIProjectGenerator:
             "    updated_at: datetime\n"
             "\n"
             "\n"
-            "def _require_durable_job_api_token(\n"
+            "def require_durable_job_api_token(\n"
             "    authorization: Annotated[str | None, Header()] = None,\n"
             ") -> None:\n"
             "    expected_token = os.getenv('DURABLE_JOB_API_TOKEN')\n"
@@ -569,7 +583,7 @@ class FastAPIProjectGenerator:
             "router = APIRouter(\n"
             "    prefix='/internal/jobs',\n"
             "    tags=['durable-jobs'],\n"
-            "    dependencies=[Depends(_require_durable_job_api_token)],\n"
+            "    dependencies=[Depends(require_durable_job_api_token)],\n"
             ")\n"
             "\n"
             "\n"

@@ -70,6 +70,10 @@ worker로 전달되는 생성 계약이다. (job_type, run_key)는 idempotency k
 한정된 최신 Job 이력을 반환한다. 정렬은 `updated_at` 내림차순, `job_id`
 내림차순이며, 기존 trigger/status API와 같은 token 인증 경계를 사용한다.
 
+The generated Durable Job router exports `require_durable_job_api_token` for
+user-owned internal routers that need the same token boundary. This avoids
+duplicating the token comparison policy in each consumer extension.
+
 DELETE /internal/jobs/{job_type}/{job_id}는 아직 worker가 claim하지 않은
 requested Job만 cancelled로 전이한다. 이미 전달된 Outbox message는 삭제하지
 않지만 worker의 원자적 requested → running claim이 실패하므로 handler를 실행하지
@@ -117,12 +121,18 @@ application/generated/module_registry.py
 ```text
 modules/item/handlers.py
 modules/item/service.py
+application/extensions.py
 ```
 
 - 파일이 없을 때만 생성한다.
 - 파일이 있으면 변경하지 않는다.
 - 명세에 새 Handler가 추가돼도 기존 파일을 자동 덮어쓰지 않는다.
 - 누락된 구현은 검증 결과 또는 별도 보조 파일로 보고한다.
+
+`application/extensions.py` is scaffolded application composition: generated
+`app_factory.py` includes its `USER_ROUTERS`, while AutoForge preserves later
+consumer edits. Application-specific internal endpoints register here instead of
+patching a generated router.
 
 ### USER_OWNED
 

@@ -73,6 +73,7 @@ def test_render_returns_minimum_fastapi_project_files() -> None:
         PurePosixPath("src/game_server/modules/__init__.py"),
         PurePosixPath("src/game_server/application/__init__.py"),
         PurePosixPath("src/game_server/application/observability.py"),
+        PurePosixPath("src/game_server/application/extensions.py"),
         PurePosixPath("src/game_server/application/app_factory.py"),
         PurePosixPath("src/game_server/application/generated/__init__.py"),
         PurePosixPath("src/game_server/application/generated/module_registry.py"),
@@ -163,12 +164,16 @@ def test_render_module_registry_in_declared_order() -> None:
 def test_app_factory_registers_module_routers() -> None:
     files = FastAPIProjectGenerator().render(project_specification())
     app_factory = files[PurePosixPath("src/game_server/application/app_factory.py")]
+    extensions = files[PurePosixPath("src/game_server/application/extensions.py")]
 
+    assert "import USER_ROUTERS" in app_factory
+    assert "for router in USER_ROUTERS:" in app_factory
     assert "import MODULE_ROUTERS" in app_factory
     assert "for router in MODULE_ROUTERS:" in app_factory
     assert "app.include_router(router)" in app_factory
     assert "configure_logging()" in app_factory
     assert "install_request_logging(app)" in app_factory
+    assert "USER_ROUTERS: tuple[APIRouter, ...] = ()" in extensions
 
 
 def test_observability_records_safe_request_metadata() -> None:
@@ -447,10 +452,17 @@ def test_user_maintained_project_files_are_scaffolded() -> None:
 
     assert ownership[PurePosixPath("README.md")] is FileOwnership.SCAFFOLDED
     assert ownership[PurePosixPath(".gitignore")] is FileOwnership.SCAFFOLDED
+    extension_path = PurePosixPath("src/game_server/application/extensions.py")
+    assert ownership[extension_path] is FileOwnership.SCAFFOLDED
     assert all(
         value is FileOwnership.GENERATED
         for path, value in ownership.items()
-        if path not in {PurePosixPath(".gitignore"), PurePosixPath("README.md")}
+        if path
+        not in {
+            PurePosixPath(".gitignore"),
+            PurePosixPath("README.md"),
+            extension_path,
+        }
     )
 
 
