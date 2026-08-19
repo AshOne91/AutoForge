@@ -321,12 +321,14 @@ def test_database_store_generates_and_registers_lifespan() -> None:
         PurePosixPath("src/game_server/application/generated/lifespan.py")
     ]
     health_test = files[PurePosixPath("tests/test_health.py")]
+    health_router = files[PurePosixPath("src/game_server/routers/health.py")]
 
     assert "database_lifespan(app)" in lifespan
     assert "session_store_lifespan" not in lifespan
     assert 'monkeypatch.setenv("IDENTITY_DATABASE_URL"' in health_test
     assert 'monkeypatch.setenv("IDENTITY_SHARD_1_DATABASE_URL"' in health_test
     assert "postgresql+asyncpg://" in health_test
+    assert "except (SQLAlchemyError, OSError):" in health_router
 
 
 def test_render_composes_identity_session_and_sharded_profile_foundation() -> None:

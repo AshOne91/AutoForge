@@ -680,7 +680,7 @@ class FastAPIProjectGenerator:
         readiness_errors: list[str] = []
         if has_database:
             readiness_third_party_imports += "from sqlalchemy.exc import SQLAlchemyError\n"
-            readiness_errors.append("SQLAlchemyError")
+            readiness_errors.extend(("SQLAlchemyError", "OSError"))
         if has_session_store:
             readiness_local_imports += (
                 f"from {package_name}.infrastructure.session_store.protocol import "
@@ -778,15 +778,27 @@ class FastAPIProjectGenerator:
             if readiness_state_setup
             else ""
         )
+        readiness_unavailable_dependency = (
+            "    class UnavailableDependency:\n"
+            "        async def health_check(self) -> None:\n"
+            "            raise OSError('database unavailable')\n"
+            "\n"
+            if has_database
+            else ""
+        )
         readiness_missing_state_check = (
             '        not_ready = client.get("/readiness")\n'
             if readiness_state_setup
             else ""
         )
         readiness_missing_state_setup = (
-            f"        app.state.{readiness_state_names[0]} = None\n"
-            if readiness_state_names
-            else ""
+            "        app.state.session_registry = UnavailableDependency()\n"
+            if has_database
+            else (
+                f"        app.state.{readiness_state_names[0]} = None\n"
+                if readiness_state_names
+                else ""
+            )
         )
         readiness_missing_state_assertion = (
             "    assert not_ready.status_code == 503\n"
@@ -805,6 +817,7 @@ class FastAPIProjectGenerator:
             f"{redis_env_setup}"
             f"{database_env_setup}"
             f"{readiness_dependency}"
+            f"{readiness_unavailable_dependency}"
             "    with TestClient(app) as client:\n"
             '        response = client.get("/health")\n'
             f"{readiness_missing_state_setup}"
