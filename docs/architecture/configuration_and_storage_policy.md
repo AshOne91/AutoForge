@@ -27,6 +27,11 @@ not select or contain credentials. A generated runtime should receive only the
 configuration for its chosen environment, while secrets remain outside Git and
 outside generated manifests.
 
+`ApplicationSpec.runtime_environments` may declare only an application
+environment name and its local requiredness. Its value remains operator-owned:
+local execution reads it from the ignored environment file or process, and
+Kubernetes reads it from the configured Secret.
+
 ## Generated boundary
 
 Generated local environments mount `/app/logs` as writable runtime data. No

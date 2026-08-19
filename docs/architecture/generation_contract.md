@@ -86,6 +86,22 @@ secret environments; generated Airflow receives only the Durable Job token it
 uses. A user-owned internal router may reuse the generated guard, but must use
 its own declared caller name rather than sharing a Durable Job credential.
 
+### User-owned application runtime environments
+
+`ApplicationSpec.runtime_environments` declares user-owned application
+environment names without storing values. Generated local Compose forwards a
+required name as `${NAME:?set NAME}` and an optional name as `${NAME:-}`; the
+former fails before the application starts when absent, while the latter is an
+empty value when absent. Generated `environment/.env.example` lists each name
+with an empty value for the operator to supply outside Git.
+
+Generated Kubernetes application manifests reference every declared name from
+the configured application Secret, and generated `secret.env.example` lists the
+same keys. Kubernetes therefore requires each declared Secret key to exist;
+`required: false` changes only local Compose fail-fast behavior and does not
+make a missing Kubernetes Secret key valid. Specification values and Secrets
+remain operator-owned and are never emitted into a manifest.
+
 ### Session access-level authorization
 
 `EndpointSpec.access_level` selects a generated FastAPI session guard for a

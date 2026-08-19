@@ -166,6 +166,7 @@ class KubernetesBaseServerGenerator:
         environment_names.update(
             specification.application.service_token_environments.values()
         )
+        environment_names.update(specification.application.runtime_environment_names)
         environment_names.update(
             specification.tooling.kubernetes.additional_secret_env_names
         )

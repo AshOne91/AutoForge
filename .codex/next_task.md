@@ -1,6 +1,6 @@
 # Next Task
 
-## Next executable unit: declare user-owned application runtime environments in the specification
+## Next executable unit: add a user-owned read-only KIS API client
 
 The default standalone profile and generated HA runtime proofs for Redis
 Cluster, PostgreSQL Patroni/HAProxy, RabbitMQ, and the two-scheduler Airflow
@@ -21,16 +21,15 @@ client-credentials endpoint, caches a validated token before expiry, and uses a
 per-credential Redis lease to prevent replica refresh storms. It is verified
 only with fakes; no live credential or order execution is required.
 
-The coordinator is deliberately not registered in FastAPI yet. Before a
-containerized KIS client can consume it, AutoForge needs one generic,
-spec-declared application runtime-environment contract: named required or
-optional variables must flow into generated local Compose, Kubernetes Secret
-references, and generated environment examples without hard-coding KIS names
-in a generator. Prove that contract in a disposable generated workspace and
-then declare the KIS URL, app key, app secret, and scope through it.
+The generic `ApplicationSpec.runtime_environments` contract is implemented and
+verified: it delivers declared names to local Compose, Kubernetes Secret
+references, and empty environment examples without putting values or KIS names
+in AutoForge generators. Required values fail fast locally; Kubernetes requires
+every declared Secret key.
 
-Only after that contract is verified should the next slice add a user-owned,
-read-only KIS API client that obtains its Bearer token exclusively from the
-coordinator. Select one documented non-order endpoint only after its official
-request/response contract is verified. Do not add a FastAPI route, live request,
-or order endpoint in the same unit.
+The next slice declares the KIS base URL, app key, app secret, and token scope
+as consumer runtime-environment names, then adds a user-owned read-only KIS API
+client that obtains its Bearer token exclusively from `KisTokenCoordinator`.
+Select one documented non-order endpoint only after verifying its official
+request and response contract. Keep this slice free of FastAPI routes, live
+requests, and all order endpoints.

@@ -15,6 +15,7 @@ from autoforge.core.specification import (
     KubernetesSpec,
     ProjectInfo,
     ProjectSpec,
+    RuntimeEnvironmentSpec,
     ServiceSpec,
     ServiceTokenSpec,
     ToolingSpec,
@@ -151,6 +152,31 @@ def test_kubernetes_base_server_generator_satisfies_protocol() -> None:
 
 def test_render_is_empty_until_kubernetes_is_enabled() -> None:
     assert KubernetesBaseServerGenerator().render(base_server_specification()) == {}
+
+
+def test_runtime_environments_flow_to_kubernetes_secret_references() -> None:
+    specification = base_server_specification(enabled=True)
+    application = specification.application.model_copy(
+        update={
+            "runtime_environments": [
+                RuntimeEnvironmentSpec(name="PAYMENTS_API_KEY"),
+                RuntimeEnvironmentSpec(name="PAYMENTS_API_SECRET"),
+            ]
+        }
+    )
+
+    files = KubernetesBaseServerGenerator().render(
+        specification.model_copy(update={"application": application})
+    )
+    manifest = files[PurePosixPath("deploy", "kubernetes", "base-server.yaml")]
+    secret_environment = files[
+        PurePosixPath("deploy", "kubernetes", "secret.env.example")
+    ]
+
+    assert "key: PAYMENTS_API_KEY" in manifest
+    assert "key: PAYMENTS_API_SECRET" in manifest
+    assert "PAYMENTS_API_KEY=\n" in secret_environment
+    assert "PAYMENTS_API_SECRET=\n" in secret_environment
 
 
 def test_render_creates_zero_secret_proxy_and_application_topology() -> None:

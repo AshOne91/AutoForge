@@ -234,6 +234,7 @@ modules:
 services: []
 databases: []
 durable_jobs: []
+runtime_environments: []
 ```
 
 ApplicationSpec은 FastAPI Framework, Module 참조, Redis/RabbitMQ Service,
@@ -244,6 +245,13 @@ Runtime Database Store와 Outbox 기반 Durable Job을 선언한다. 이름과 �
 `token_env`. It does not define human roles. See
 [Generation Contract](generation_contract.md#scoped-service-token-authentication)
 for generated runtime behavior and secret delivery.
+
+`runtime_environments` declares user-owned application environment variable
+names and whether local execution requires each value. A specification stores
+names and requiredness only, never environment values or secret material. Names
+must be unique and cannot overlap generated service-token or enabled heartbeat
+environment names. See [Generation Contract](generation_contract.md#user-owned-application-runtime-environments)
+for generated delivery behavior.
 
 `durable_job_worker_restart_policy`는 Durable Job worker 컨테이너의 재시작
 정책을 명시한다. 기본값은 `unless-stopped`이며, 이 필드는 현재 단일

@@ -33,6 +33,7 @@ from autoforge.core.specification import (
     RepositoryQuerySpec,
     RepositorySpec,
     ResponseSpec,
+    RuntimeEnvironmentSpec,
     SchemaSpec,
     ServiceSpec,
     ServiceTokenSpec,
@@ -461,6 +462,23 @@ def test_service_tokens_require_unique_names_and_secret_environments() -> None:
                 token,
                 ServiceTokenSpec(name="reporting", token_env="OPERATOR_API_TOKEN"),
             ]
+        )
+
+
+def test_runtime_environments_require_unique_non_generated_names() -> None:
+    environment = RuntimeEnvironmentSpec(name="KIS_APP_KEY", required=False)
+
+    application = ApplicationSpec(runtime_environments=[environment])
+
+    assert application.runtime_environment_names == ("KIS_APP_KEY",)
+    with pytest.raises(ValidationError, match="runtime environment names must be unique"):
+        ApplicationSpec(runtime_environments=[environment, environment])
+    with pytest.raises(ValidationError, match="conflict with generated environments"):
+        ApplicationSpec(
+            service_tokens=[
+                ServiceTokenSpec(name="kis", token_env="KIS_APP_KEY")
+            ],
+            runtime_environments=[environment],
         )
 
 

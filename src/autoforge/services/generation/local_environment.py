@@ -1135,6 +1135,7 @@ class LocalEnvironmentGenerator:
         service_token_environment = self._render_service_token_environment(
             specification
         )
+        runtime_environment = self._render_runtime_environment(specification)
         heartbeat_environment = ""
         heartbeat = specification.application.control_plane_heartbeat
         if heartbeat.enabled:
@@ -1158,6 +1159,7 @@ class LocalEnvironmentGenerator:
             + self._render_database_environment(specification)
             + redis_environment
             + service_token_environment
+            + runtime_environment
             + heartbeat_environment
             + rag_environment
             + "      LOG_DIRECTORY: /app/logs\n"
@@ -1182,6 +1184,18 @@ class LocalEnvironmentGenerator:
             for _, token_env in sorted(
                 specification.application.service_token_environments.items()
             )
+        )
+
+    @staticmethod
+    def _render_runtime_environment(specification: ProjectSpec) -> str:
+        return "".join(
+            (
+                f"      {environment.name}: "
+                f"${{{environment.name}:?set {environment.name}}}\n"
+                if environment.required
+                else f"      {environment.name}: ${{{environment.name}:-}}\n"
+            )
+            for environment in specification.application.runtime_environments
         )
 
     def _render_outbox_relay(
@@ -1538,6 +1552,10 @@ class LocalEnvironmentGenerator:
         )
         if has_application:
             lines.append(f"APPLICATION_PORT={application_port}\n")
+            lines.extend(
+                f"{environment.name}=\n"
+                for environment in specification.application.runtime_environments
+            )
         heartbeat = specification.application.control_plane_heartbeat
         if heartbeat.enabled and has_application:
             lines.extend(

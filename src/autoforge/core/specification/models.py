@@ -235,6 +235,13 @@ class ServiceTokenSpec(StrictSpecModel):
         return validate_python_name(value)
 
 
+class RuntimeEnvironmentSpec(StrictSpecModel):
+    """A user-owned application environment variable forwarded at runtime."""
+
+    name: str = Field(pattern=r"^[A-Z][A-Z0-9_]*$")
+    required: bool = True
+
+
 class ApplicationSpec(StrictSpecModel):
     framework: Literal["fastapi"] = "fastapi"
     modules: list[str] = Field(default_factory=list)
@@ -242,6 +249,9 @@ class ApplicationSpec(StrictSpecModel):
     databases: list[DatabaseStoreSpec] = Field(default_factory=list)
     durable_jobs: list[DurableJobSpec] = Field(default_factory=list)
     service_tokens: list[ServiceTokenSpec] = Field(default_factory=list)
+    runtime_environments: list[RuntimeEnvironmentSpec] = Field(
+        default_factory=list
+    )
     control_plane_heartbeat: ControlPlaneHeartbeatSpec = Field(
         default_factory=ControlPlaneHeartbeatSpec
     )
@@ -274,6 +284,27 @@ class ApplicationSpec(StrictSpecModel):
         token_environments = [token.token_env for token in self.service_tokens]
         if len(token_environments) != len(set(token_environments)):
             raise ValueError("Application service token environments must be unique")
+        runtime_environment_names = [
+            environment.name for environment in self.runtime_environments
+        ]
+        if len(runtime_environment_names) != len(set(runtime_environment_names)):
+            raise ValueError("Application runtime environment names must be unique")
+        reserved_environment_names = set(self.service_token_environments.values())
+        if self.control_plane_heartbeat.enabled:
+            reserved_environment_names.update(
+                {
+                    self.control_plane_heartbeat.endpoint_env,
+                    self.control_plane_heartbeat.token_env,
+                }
+            )
+        duplicate_environment_names = sorted(
+            set(runtime_environment_names) & reserved_environment_names
+        )
+        if duplicate_environment_names:
+            raise ValueError(
+                "Application runtime environments conflict with generated "
+                f"environments: {duplicate_environment_names}"
+            )
         unknown_outbox_stores = sorted(
             {
                 store
@@ -330,6 +361,10 @@ class ApplicationSpec(StrictSpecModel):
         if self.durable_jobs:
             environments.setdefault("durable_jobs", "DURABLE_JOB_API_TOKEN")
         return environments
+
+    @property
+    def runtime_environment_names(self) -> tuple[str, ...]:
+        return tuple(environment.name for environment in self.runtime_environments)
 
 
 class ToolingSpec(StrictSpecModel):

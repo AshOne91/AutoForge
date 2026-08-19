@@ -901,6 +901,17 @@ executed. The coordinator is not yet registered in a FastAPI lifespan or a
 container runtime path, so the existing generated Compose/Kubernetes profiles
 intentionally do not yet forward KIS-specific credential environments.
 
+`ApplicationSpec.runtime_environments` now supplies the generic generated
+runtime-environment contract that a consumer needs before it can register a
+credentialed client. It stores names and local requiredness only, validates
+unique names and collisions with generated service-token or heartbeat names,
+and renders them into local Compose, Kubernetes Secret references, and empty
+environment examples. Required values fail fast in local Compose; Kubernetes
+still requires every declared Secret key. The contract is verified by focused
+specification, local-environment, and Kubernetes-generator tests. KIS has not
+declared its credentials through this field yet because its coordinator is still
+unregistered from the application runtime.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:

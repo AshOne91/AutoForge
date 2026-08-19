@@ -13,6 +13,7 @@ from autoforge.core.specification import (
     DurableJobSpec,
     ProjectInfo,
     ProjectSpec,
+    RuntimeEnvironmentSpec,
     ServiceSpec,
     ServiceTokenSpec,
 )
@@ -121,6 +122,30 @@ def test_local_environment_generator_satisfies_protocol() -> None:
     generator: Generator[ProjectSpec] = LocalEnvironmentGenerator()
 
     assert isinstance(generator, Generator)
+
+
+def test_runtime_environments_flow_to_application_compose_and_example() -> None:
+    specification = integration_specification(enabled=True, application=True)
+    application = specification.application.model_copy(
+        update={
+            "runtime_environments": [
+                RuntimeEnvironmentSpec(name="KIS_APP_KEY"),
+                RuntimeEnvironmentSpec(name="KIS_TOKEN_SCOPE", required=False),
+            ]
+        }
+    )
+
+    files = LocalEnvironmentGenerator().render(
+        specification.model_copy(update={"application": application})
+    )
+    compose = yaml.safe_load(files[PurePosixPath("environment/compose.integration.yml")])
+    environment = files[PurePosixPath("environment/.env.example")]
+
+    application_environment = compose["services"]["application"]["environment"]
+    assert application_environment["KIS_APP_KEY"] == "${KIS_APP_KEY:?set KIS_APP_KEY}"
+    assert application_environment["KIS_TOKEN_SCOPE"] == "${KIS_TOKEN_SCOPE:-}"
+    assert "KIS_APP_KEY=\n" in environment
+    assert "KIS_TOKEN_SCOPE=\n" in environment
 
 
 def test_render_is_empty_until_enabled() -> None:
