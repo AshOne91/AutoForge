@@ -37,6 +37,11 @@ AutoForge currently has working foundations for:
   validates that its Durable Job and operator-search APIs reject each other's
   token while accepting their own. Human operator roles and order request replay
   are not implemented by this service-token slice.
+- KIS profile updates now reuse the generated profile Repository and Outbox
+  boundary: a sequential repeat with the same resulting profile performs no
+  database save and emits no second `account.profile.updated` event. This is
+  consumer-owned duplicate-event suppression, not a cross-replica request-replay
+  or ordering guarantee.
 - generated FastAPI application composition now always has an outer lifespan and
   keeps `application/extensions.py` scaffolded. Consumers may add ordered
   `USER_LIFESPANS` contexts after generated database, session, and heartbeat
