@@ -1,6 +1,6 @@
 # Next Task
 
-## Next executable unit: read one persisted market-price snapshot by ID
+## Next executable unit: bound role-specific application composition
 
 The default standalone profile and generated HA runtime proofs for Redis
 Cluster, PostgreSQL Patroni/HAProxy, RabbitMQ, and the two-scheduler Airflow
@@ -45,10 +45,14 @@ writer uses the existing automation session, while a separate token-protected
 internal POST requests one price and writes one snapshot. The original internal
 GET remains read-only. A disposable PostgreSQL container applied the full
 generated migration history and verified one generated SQLAlchemy save/read
-round-trip, then was removed.
+round-trip, then was removed. A separate token-protected internal GET now reads
+one snapshot by UUID through the same generated `find_by_id` contract, returns
+404 when absent, and keeps database failures detail-safe.
 
-The next slice adds a token-protected internal GET that reads one generated
-`MarketPriceSnapshot` by its UUID through the existing automation session and
-returns 404 when absent. Reuse the generated `find_by_id` contract; do not add
-an unbounded stock-code history query, polling, a durable job, a public route,
-portfolio data, order/execution, or a live KIS call.
+The next slice examines the existing `ApplicationSpec` and generated
+service-composition artifacts to bound the smallest missing contract for
+role-specific application composition. Reuse existing API, worker, scheduler,
+relay, initializer, and infrastructure role metadata when it already expresses
+the requirement. Do not introduce new deployment roles, replicas, generator
+abstractions, or consumer behavior until the existing ownership and test path
+show a concrete missing contract.

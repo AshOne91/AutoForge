@@ -947,9 +947,12 @@ shards. A consumer-owned writer now creates one UUID/timestamped snapshot in
 that generated repository through the existing automation session. The existing
 internal GET stays read-only; a separate operator-token-protected POST requests
 the price and writes the snapshot, returning a safe generated snapshot model.
-Storage failures return a detail-safe 503. There is no polling job, public route,
-portfolio data, order/execution behavior, or live KIS call. KIS verification is
-`77 passed, 1 skipped`; the one existing FastAPI/Starlette TestClient deprecation
+Storage failures return a detail-safe 503. A separate operator-token-protected
+GET reads one snapshot by UUID through the same global session and generated
+`find_by_id` contract, returning 404 when absent and the same safe 503 boundary
+when storage is unavailable. There is no polling job, public route, portfolio
+data, order/execution behavior, or live KIS call. KIS verification is `80
+passed, 2 skipped`; the one existing FastAPI/Starlette TestClient deprecation
 warning remains external to this change.
 
 An opt-in database integration test now validates the migration/runtime boundary
