@@ -86,9 +86,22 @@ secret environments; generated Airflow receives only the Durable Job token it
 uses. A user-owned internal router may reuse the generated guard, but must use
 its own declared caller name rather than sharing a Durable Job credential.
 
-Service tokens identify an internal service, not a human user or an operator
-role. User roles remain consumer-owned identity data and require a separate
-authenticated-session policy before an endpoint may rely on them.
+### Session access-level authorization
+
+`EndpointSpec.access_level` selects a generated FastAPI session guard for a
+human caller. It accepts `user`, `operator`, `developer`, or `administrator`
+and requires the endpoint to declare `current_session`. The guard reads the
+`access_level` value from the already-validated Redis `SessionData` claim and
+uses that ordered hierarchy before the handler runs. A missing, malformed, or
+insufficient claim returns `403`; it never falls back to a service token or an
+implicit default.
+
+Service tokens identify an internal service, not a human user or operator
+role. `access_level` and `service_token` therefore cannot be combined on one
+generated endpoint. Persistence, initial provisioning, role-change audit, and
+session revocation remain consumer-owned identity policy. In particular, a
+consumer must revoke existing user sessions when it changes a persisted access
+level so that stale Redis claims cannot retain the prior authority.
 
 DELETE /internal/jobs/{job_type}/{job_id}는 아직 worker가 claim하지 않은
 requested Job만 cancelled로 전이한다. 이미 전달된 Outbox message는 삭제하지

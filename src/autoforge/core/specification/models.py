@@ -39,6 +39,13 @@ class EndpointDependency(StrEnum):
     DATABASE_SESSION_REGISTRY = "database_session_registry"
 
 
+class EndpointAccessLevel(StrEnum):
+    USER = "user"
+    OPERATOR = "operator"
+    DEVELOPER = "developer"
+    ADMINISTRATOR = "administrator"
+
+
 class ProjectInfo(StrictSpecModel):
     name: str = Field(min_length=1, max_length=100)
     package_name: str
@@ -961,6 +968,7 @@ class EndpointSpec(StrictSpecModel):
     handler: str
     dependencies: list[EndpointDependency] = Field(default_factory=list)
     service_token: str | None = None
+    access_level: EndpointAccessLevel | None = None
 
     @field_validator("name", "handler")
     @classmethod
@@ -988,6 +996,20 @@ class EndpointSpec(StrictSpecModel):
         if len(values) != len(set(values)):
             raise ValueError("Endpoint dependencies must be unique.")
         return values
+
+    @model_validator(mode="after")
+    def validate_access_boundary(self) -> EndpointSpec:
+        if self.access_level is None:
+            return self
+        if self.service_token is not None:
+            raise ValueError(
+                "Endpoint access_level and service_token cannot be combined."
+            )
+        if EndpointDependency.CURRENT_SESSION not in self.dependencies:
+            raise ValueError(
+                "Endpoint access_level requires the current_session dependency."
+            )
+        return self
 
 
 class ModuleSpec(StrictSpecModel):

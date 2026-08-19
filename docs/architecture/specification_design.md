@@ -217,6 +217,15 @@ caller absent from `ApplicationSpec.service_tokens` (or the compatible
 internal service identity; session roles, ingress trust, and request replay are
 separate contracts.
 
+An endpoint may instead set `access_level` to `user`, `operator`, `developer`,
+or `administrator`. It must also declare `current_session`; generation places a
+ranked session-access guard before its handler. `access_level` and
+`service_token` are mutually exclusive because a human session claim and an
+internal service credential are different trust boundaries. The consumer-owned
+identity module decides how the `access_level` claim is persisted and
+provisioned; the generated guard only fails closed when that claim is absent,
+invalid, or too low.
+
 ## Module 책임 경계
 
 ```text

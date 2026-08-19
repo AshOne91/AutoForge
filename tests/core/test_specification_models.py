@@ -15,6 +15,7 @@ from autoforge.core.specification import (
     DataPlacementSpec,
     DurableJobSpec,
     ElkSpec,
+    EndpointAccessLevel,
     EndpointDependency,
     EndpointSpec,
     FieldSpec,
@@ -468,6 +469,30 @@ def test_endpoint_service_token_is_optional_and_typed() -> None:
                 "handler": "search",
                 "service_token": "operator-token",
             }
+        )
+
+
+def test_endpoint_access_level_requires_a_human_session_and_excludes_service_token() -> None:
+    endpoint_data = {
+        "name": "manage_accounts",
+        "method": "GET",
+        "path": "/accounts",
+        "response": {"fields": []},
+        "handler": "manage_accounts",
+        "dependencies": ["current_session"],
+        "access_level": "operator",
+    }
+
+    endpoint = EndpointSpec.model_validate(endpoint_data)
+
+    assert endpoint.access_level is EndpointAccessLevel.OPERATOR
+    with pytest.raises(ValidationError, match="current_session"):
+        EndpointSpec.model_validate(
+            {**endpoint_data, "dependencies": []}
+        )
+    with pytest.raises(ValidationError, match="cannot be combined"):
+        EndpointSpec.model_validate(
+            {**endpoint_data, "service_token": "operator"}
         )
 
 

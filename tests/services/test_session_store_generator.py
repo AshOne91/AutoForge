@@ -91,6 +91,7 @@ def test_render_produces_protocol_fake_and_redis_adapter() -> None:
     )
 
     assert set(files) == {
+        root.parent / "access_control.py",
         root / "__init__.py",
         root / "protocol.py",
         root / "fake.py",
@@ -104,6 +105,7 @@ def test_render_produces_protocol_fake_and_redis_adapter() -> None:
     fake = files[root / "fake.py"]
     redis = files[root / "redis.py"]
     provider = files[root / "provider.py"]
+    access_control = files[root.parent / "access_control.py"]
     assert "class SessionStore(Protocol):" in protocol
     assert "def create_session_id(user_id: str) -> str:" in protocol
     assert "def _session_routing_tag(session_id: str) -> str:" in protocol
@@ -126,6 +128,9 @@ def test_render_produces_protocol_fake_and_redis_adapter() -> None:
     assert "bearer_scheme = HTTPBearer(auto_error=False)" in provider
     assert "async def get_current_session(" in provider
     assert "session_store.get(credentials.credentials)" in provider
+    assert "class AccessLevel(StrEnum):" in access_control
+    assert "def require_access_level(required: AccessLevel)" in access_control
+    assert "session access level is invalid" in access_control
 
 
 def test_without_session_service_produces_no_files() -> None:
@@ -175,7 +180,7 @@ def test_cluster_provider_uses_async_cluster_discovery_contract() -> None:
 def test_plan_marks_all_session_files_generated() -> None:
     plan = SessionStoreGenerator().plan(project_specification())
 
-    assert len(plan.files) == 5
+    assert len(plan.files) == 6
     assert all(file.ownership is FileOwnership.GENERATED for file in plan.files)
 
 

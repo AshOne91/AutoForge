@@ -42,6 +42,7 @@ class SessionStoreGenerator:
             "session_store",
         )
         return {
+            root.parent / "access_control.py": self._render_access_control(),
             root / "__init__.py": self._render_init(),
             root / "protocol.py": self._render_protocol(),
             root / "fake.py": self._render_fake(),
@@ -101,6 +102,61 @@ class SessionStoreGenerator:
             '    "SessionStoreError",\n'
             '    "create_session_id",\n'
             "]\n"
+        )
+
+    @staticmethod
+    def _render_access_control() -> str:
+        return (
+            "from __future__ import annotations\n"
+            "\n"
+            "from collections.abc import Callable\n"
+            "from enum import StrEnum\n"
+            "from typing import Annotated\n"
+            "\n"
+            "from fastapi import Depends, HTTPException, status\n"
+            "\n"
+            "from .session_store.protocol import SessionData\n"
+            "from .session_store.provider import get_current_session\n"
+            "\n"
+            "\n"
+            "class AccessLevel(StrEnum):\n"
+            "    USER = 'user'\n"
+            "    OPERATOR = 'operator'\n"
+            "    DEVELOPER = 'developer'\n"
+            "    ADMINISTRATOR = 'administrator'\n"
+            "\n"
+            "\n"
+            "ACCESS_LEVEL_RANK = {\n"
+            "    AccessLevel.USER: 10,\n"
+            "    AccessLevel.OPERATOR: 20,\n"
+            "    AccessLevel.DEVELOPER: 30,\n"
+            "    AccessLevel.ADMINISTRATOR: 40,\n"
+            "}\n"
+            "\n"
+            "\n"
+            "def require_access_level(required: AccessLevel) -> Callable[..., None]:\n"
+            "    required_level = AccessLevel(required)\n"
+            "\n"
+            "    async def require_human_access(\n"
+            "        current_session: Annotated[\n"
+            "            SessionData, Depends(get_current_session)\n"
+            "        ],\n"
+            "    ) -> None:\n"
+            "        raw_access_level = current_session.data.get('access_level')\n"
+            "        try:\n"
+            "            actual_level = AccessLevel(raw_access_level)\n"
+            "        except (TypeError, ValueError) as error:\n"
+            "            raise HTTPException(\n"
+            "                status_code=status.HTTP_403_FORBIDDEN,\n"
+            "                detail='session access level is invalid',\n"
+            "            ) from error\n"
+            "        if ACCESS_LEVEL_RANK[actual_level] < ACCESS_LEVEL_RANK[required_level]:\n"
+            "            raise HTTPException(\n"
+            "                status_code=status.HTTP_403_FORBIDDEN,\n"
+            "                detail='insufficient access level',\n"
+            "            )\n"
+            "\n"
+            "    return require_human_access\n"
         )
 
     @staticmethod

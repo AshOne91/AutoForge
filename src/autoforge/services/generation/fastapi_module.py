@@ -11,6 +11,7 @@ from autoforge.core.generation import (
     specification_hash,
 )
 from autoforge.core.specification import (
+    EndpointAccessLevel,
     EndpointDependency,
     EndpointSpec,
     FieldSpec,
@@ -158,17 +159,26 @@ class FastAPIModuleGenerator:
         has_current_session = self._requires_current_session(specification)
         has_database_registry = self._requires_database_registry(specification)
         has_service_token = self._requires_service_token(specification)
+        has_access_level = self._requires_access_level(specification)
         has_dependencies = (
             has_session_store
             or has_current_session
             or has_database_registry
             or has_service_token
+            or has_access_level
         )
         fastapi_names = "APIRouter, Depends" if has_dependencies else "APIRouter"
         imports: list[str] = []
         if has_dependencies:
             imports.extend(["from typing import Annotated", ""])
         imports.extend([f"from fastapi import {fastapi_names}", ""])
+        if has_access_level:
+            imports.append(
+                self._render_from_import(
+                    f"{self._package_name}.infrastructure.access_control",
+                    ["AccessLevel", "require_access_level"],
+                )
+            )
         if has_database_registry:
             imports.extend(
                 [
@@ -262,7 +272,13 @@ class FastAPIModuleGenerator:
         method = endpoint.method.value.lower()
         path = json.dumps(endpoint.path, ensure_ascii=False)
         decorator_arguments = [path, f"response_model={response_type}"]
-        if endpoint.service_token is not None:
+        if endpoint.access_level is not None:
+            access_level = EndpointAccessLevel(endpoint.access_level).name
+            decorator_arguments.append(
+                "dependencies=[Depends(require_access_level("
+                f"AccessLevel.{access_level}))]"
+            )
+        elif endpoint.service_token is not None:
             token_name = json.dumps(endpoint.service_token, ensure_ascii=False)
             decorator_arguments.append(
                 f"dependencies=[Depends(require_service_token({token_name}))]"
@@ -463,5 +479,12 @@ class FastAPIModuleGenerator:
     def _requires_service_token(specification: ModuleSpec) -> bool:
         return any(
             endpoint.service_token is not None
+            for endpoint in specification.endpoints
+        )
+
+    @staticmethod
+    def _requires_access_level(specification: ModuleSpec) -> bool:
+        return any(
+            endpoint.access_level is not None
             for endpoint in specification.endpoints
         )

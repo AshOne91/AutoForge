@@ -11,6 +11,7 @@ from autoforge.core.generation import (
     content_hash,
 )
 from autoforge.core.specification import (
+    EndpointAccessLevel,
     EndpointDependency,
     EndpointSpec,
     FieldSpec,
@@ -374,6 +375,27 @@ def test_service_token_dependency_protects_generated_endpoint() -> None:
         'dependencies=[Depends(require_service_token("operator"))]'
         in router
     )
+
+
+def test_access_level_dependency_protects_generated_endpoint() -> None:
+    specification = tutorial_specification()
+    protected_endpoint = specification.endpoints[0].model_copy(
+        update={
+            "access_level": EndpointAccessLevel.OPERATOR,
+            "dependencies": [EndpointDependency.CURRENT_SESSION],
+        }
+    )
+    specification = specification.model_copy(
+        update={"endpoints": [protected_endpoint, specification.endpoints[1]]}
+    )
+
+    router = FastAPIModuleGenerator("game_server").render(specification)[
+        PurePosixPath("src/game_server/modules/tutorial/generated/router.py")
+    ]
+
+    ast.parse(router)
+    assert "from game_server.infrastructure.access_control import AccessLevel, require_access_level" in router
+    assert "dependencies=[Depends(require_access_level(AccessLevel.OPERATOR))]" in router
 
 
 def test_same_specification_preserves_modified_handler(tmp_path: Path) -> None:

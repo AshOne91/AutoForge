@@ -35,13 +35,24 @@ AutoForge currently has working foundations for:
   declares unique named internal callers; generated module endpoints may require
   one by name, and missing or mismatched Bearer credentials fail closed. KIS
   validates that its Durable Job and operator-search APIs reject each other's
-  token while accepting their own. Human operator roles and order request replay
-  are not implemented by this service-token slice.
+  token while accepting their own. This internal-service boundary is separate
+  from generated human session access-level authorization and order request
+  replay.
 - KIS profile updates now reuse the generated profile Repository and Outbox
   boundary: a sequential repeat with the same resulting profile performs no
   database save and emits no second `account.profile.updated` event. This is
   consumer-owned duplicate-event suppression, not a cross-replica request-replay
   or ordering guarantee.
+- generated human session access authorization: `EndpointSpec.access_level`
+  supports `user`, `operator`, `developer`, and `administrator`, requires
+  `current_session`, and cannot share an endpoint with a service token. The
+  generated guard reads the Redis session claim and returns `403` for a missing,
+  invalid, or insufficient level. KIS persists its default `user` level in the
+  global Identity store, copies it into each login session, and declares the
+  generated account-profile routes as `user`. Its focused HTTP test proves an
+  operator guard denies `user` and invalid claims while allowing `operator`.
+  KIS does not yet expose privileged-role provisioning or a public human
+  operator endpoint.
 - generated FastAPI application composition now always has an outer lifespan and
   keeps `application/extensions.py` scaffolded. Consumers may add ordered
   `USER_LIFESPANS` contexts after generated database, session, and heartbeat
