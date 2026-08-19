@@ -349,6 +349,12 @@ AutoForge currently has working foundations for:
   observed the original index Job fail, restored Ollama, and observed its
   `retry:1` Job succeed with ten OpenSearch documents retained.
 
+- KIS keeps canonical Yahoo News collection available when its optional RAG
+  profile is disabled: it records an explicit `indexing_status: skipped` result
+  and structured skip signal instead of enqueueing an un-runnable index Job.
+  A manually requested index Job follows the same explicit no-op path; configured
+  RAG continues to use the existing index and retry contract.
+
 - A final transient `news_index` failure now emits the structured
   `news_index_retries_exhausted` signal with the job identity and bounded retry
   metadata. The focused test proves that it does not create a fourth Job.
