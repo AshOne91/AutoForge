@@ -11,12 +11,15 @@
   cleanly. An isolated Docker drill with two API replicas proved one in-flight
   winner, a 200 replayed response, and 409 conflicting-key rejection through
   Nginx; the disposable stack was removed afterward.
-- KIS now provides the first verified record-to-search handoff: canonical
-  `NewsArticle.source_key` values are carried by a durable `news_index` job,
-  reloaded from the automation store, projected by the consumer-owned
-  `NewsSearchIndexer` into `news-articles-v1`, and queried through the existing
-  Elasticsearch/OpenSearch keyword-plus-vector transport. AutoForge owns only
-  the optional RAG infrastructure and environment contract; it does not yet
+- KIS now provides two verified record-to-search handoffs over the same
+  transport: canonical `NewsArticle.source_key` values are carried by a
+  durable `news_index` job and projected by the consumer-owned
+  `NewsSearchIndexer` into `news-articles-v1`; `DurableJobRecord.job_id` values
+  are projected separately by `DurableJobHistorySearchIndexer` into
+  `operator-durable-jobs-v1` with a payload-safe summary. Both use the existing
+  Elasticsearch/OpenSearch keyword-plus-vector transport while retaining
+  domain-specific fields and relevance policy. AutoForge owns only the
+  optional RAG infrastructure and environment contract; it does not yet
   generate a domain projection or a second search API.
 
 AutoForge currently has working foundations for:

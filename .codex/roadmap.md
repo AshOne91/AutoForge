@@ -40,11 +40,12 @@ sequencing.
   첫 consumer opt-in이며, 두 API 복제의 동시 요청에서 승자·재생·충돌 거부를
   검증했다. 주문 실행 적용은 남아 있다. 읽기 전용 조회나 이미 DB unique key로 보호되는 Durable Job에는
   추측으로 적용하지 않는다.
-- [~] record-to-search boundary established from the KIS news consumer:
-  `source_key` is the canonical identity, the durable `news_index` payload carries
-  keys only, and the consumer owns the document projection and hybrid query
-  policy. Generalize this into an AutoForge generator only after a second
-  independent consumer demonstrates the same contract.
+- [~] record-to-search boundary established by two KIS projections:
+  `source_key`/`news_index` and `job_id`/`durable_job_history_index` carry only
+  canonical identities or safe summaries, while the consumer owns document
+  projection and hybrid query policy. Generalize this into an AutoForge
+  generator only after an independent consumer project or an explicit
+  ProjectSpec requirement demonstrates that the shape is stable.
 - [ ] embedding and reranking provider contracts after the selected consumer establishes an evaluation dataset and relevance target
 - [ ] Redis distributed lock after a real concurrency-critical consumer path exists
 - [ ] Realtime/WebSocket and notification Blueprint after a consumer path exists:
