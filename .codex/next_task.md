@@ -1,6 +1,6 @@
 # Next Task
 
-## Next executable unit: define generic record-to-search handoff
+## Next executable unit: validate a second record-to-search consumer
 
 The default standalone profile and generated HA runtime proofs for Redis
 Cluster, PostgreSQL Patroni/HAProxy, RabbitMQ, and the two-scheduler Airflow
@@ -9,8 +9,8 @@ API, relay, worker, scheduler, initializer, and infrastructure roles.
 
 Request replay/idempotency is now verified through KIS `update_profile`: two API
 replicas produced one in-flight winner, a replayed response, and conflicting-key
-rejection through Nginx. The next bounded unit is the existing record-to-search
-handoff item: identify one consumer-owned source record, projection identity,
-and query contract while reusing the current OpenSearch/RAG transport. Do not
-add a second search API or generic indexing abstraction before that slice is
-bounded.
+rejection through Nginx. The first record-to-search handoff is also bounded by
+the KIS news flow: `source_key` crosses the durable job, the consumer rebuilds
+the projection from canonical storage, and the existing hybrid transport serves
+queries. The next unit is to validate one independent consumer with the same
+shape before adding any AutoForge projection generator or generic search API.

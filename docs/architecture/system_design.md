@@ -52,6 +52,30 @@ Core 명세와 생성 계약은 GitHub, Webhook, Redis, Database, RabbitMQ 같�
 
 예를 들어 수집, canonical 저장, 임베딩, keyword/vector 검색, RAG 응답은 서로 다른 Service가 될 수 있다. AutoForge는 이들의 공통 배포·설정·소유권 골격을 생성하고, 소비자 프로젝트는 선택한 Service를 실제 도메인 흐름으로 조합한다. 현재 구현된 Service와 향후 확장 순서는 [current_status.md](../../.codex/current_status.md)와 [roadmap.md](../../.codex/roadmap.md)가 소유한다.
 
+### Record-to-search handoff boundary
+
+검색 인덱싱은 원본 데이터의 정본을 대체하지 않는 별도 projection이다. 현재
+검증된 KIS 뉴스 흐름은 다음 경계를 따른다.
+
+```text
+canonical NewsArticle(source_key)
+  → durable news_index job(source_keys)
+  → consumer-owned search document projection
+  → keyword + vector query
+```
+
+`source_key`는 데이터베이스 원본과 검색 문서를 연결하는 불변 identity이며,
+Durable Job payload에는 원본 문서 전체가 아니라 해당 identity만 전달한다.
+소비자는 원본을 다시 읽어 검색 문서와 임베딩 입력을 만들고, 검색 결과에서는
+임베딩 내부 필드를 외부 계약에 노출하지 않는다. `RAG_SEARCH_URL`과
+`RAG_SEARCH_BACKEND`는 Elasticsearch/OpenSearch transport를 선택하는
+provider-neutral runtime 경계다.
+
+이 경계에서 AutoForge가 현재 소유하는 것은 선택 가능한 검색 인프라의 생성과
+환경 계약뿐이다. 도메인별 source identity, projection 필드와 relevance/query
+정책은 소비자 프로젝트가 소유한다. 두 번째 독립 소비자가 같은 불변조건을
+요구하기 전에는 AutoForge에 범용 indexer나 별도 검색 API를 추가하지 않는다.
+
 ## 핵심 개념
 
 ### ProjectSpec
