@@ -190,6 +190,11 @@ AutoForge currently has working foundations for:
   same boundary and KIS-local news consumer; its HA Nginx verification returned
   401 without a token and 200 with one canonical news result, with no internal
   `embedding` field in the response.
+  A direct comparison of the two operator consumers confirms that only their
+  transport, token boundary, query bounds, and unavailable-backend handling are
+  shared. Their source identities, document projections, field exclusions, and
+  relevance fields differ, so the roadmap prerequisite for a generic
+  record-to-search generator is not yet met and no generic route was added.
 - default-generated, profile-selected MinIO S3-compatible local storage with
   idempotent backup-bucket bootstrap; generated Compose and an actual MinIO
   backup round trip are runtime-verified

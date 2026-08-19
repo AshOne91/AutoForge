@@ -1,12 +1,12 @@
 # Next Task
 
-## Next executable unit: compare proven operator search projections
+## Next executable unit: assess terminal retry log operator boundary
 
-Compare the now-proven KIS user-owned News and Durable Job search endpoints:
-their shared backend transport, authorization boundary, query limits, response
-projections, and excluded fields. Record whether any shared operator-search
-contract is actually justified. Do not create an AutoForge generic
-record-to-search generator or a generic cross-index route in this unit.
+Locate the existing KIS terminal-retry Elasticsearch fields and their current
+redaction/configuration boundary. If an existing safe contract exists, add one
+bounded user-owned, token-protected read endpoint; otherwise record the concrete
+blocker. Do not route this through the RAG hybrid-search abstraction and do not
+create a generic cross-index router.
 
 KIS identity and account records remain excluded because they contain credential
 or personal investment-profile data and have no established search/relevance use
