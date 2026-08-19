@@ -152,7 +152,11 @@ def test_render_creates_service_composition_from_generated_compose() -> None:
         "postgres-ha-init": "service_completed_successfully"
     }
     assert services["application"]["healthcheck"] is True
+    assert services["application"]["role"] == "api"
     assert services["application"]["restart_policy"] == "unless-stopped"
+    assert services["outbox-relay"]["role"] == "relay"
+    assert services["durable-job-worker"]["role"] == "worker"
+    assert services["airflow-scheduler"]["role"] == "scheduler"
     assert "RABBITMQ_URL" in services["outbox-relay"]["configuration_env"]
     assert declared["session"]["configuration_env"] == [
         "REDIS_CLUSTER_URL",

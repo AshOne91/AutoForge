@@ -459,6 +459,12 @@ AutoForge currently has working foundations for:
 
 ## Docker work
 
+- The generated `environment/service-composition.json` now records stable
+  API, relay, worker, scheduler, initializer, and infrastructure roles in
+  addition to lifecycle, health, dependencies, and configuration contracts.
+  KIS HA regeneration verified the role metadata without changing service
+  names or runtime behavior.
+
 - Local Environment Generator는 생성된 Compose에서 파생한
   `environment/service-composition.json`을 함께 생성한다. 이 generated-only manifest는
   서비스별 configuration environment name, lifecycle/restart policy, healthcheck,

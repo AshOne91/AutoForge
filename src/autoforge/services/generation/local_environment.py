@@ -231,6 +231,7 @@ class LocalEnvironmentGenerator:
         restart_policy = definition.get("restart", "no")
         return {
             "name": name,
+            "role": LocalEnvironmentGenerator._service_role(name),
             "lifecycle": "one_shot" if restart_policy == "no" else "long_running",
             "restart_policy": restart_policy,
             "healthcheck": "healthcheck" in definition,
@@ -238,6 +239,22 @@ class LocalEnvironmentGenerator:
             "configuration_env": sorted(environment) if isinstance(environment, dict) else [],
             "published_ports": definition.get("ports", []),
         }
+
+    @staticmethod
+    def _service_role(name: str) -> str:
+        """Expose the generated runtime role without changing service names."""
+
+        if name == "application":
+            return "api"
+        if name == "outbox-relay":
+            return "relay"
+        if name in {"message-worker", "durable-job-worker"}:
+            return "worker"
+        if name.startswith("airflow-"):
+            return "scheduler"
+        if name in {"migrate", "airflow-init", "postgres-ha-init", "mysql-init", "mysql-router-bootstrap"}:
+            return "initializer"
+        return "infrastructure"
 
     @staticmethod
     def _describe_declared_service(service: ServiceSpec) -> dict[str, object]:
