@@ -186,6 +186,10 @@ AutoForge currently has working foundations for:
   The user-owned `/internal/operator/search/durable-jobs` endpoint reuses the
   generated Durable Job token dependency through the scaffolded extension-router
   hook; the same HA Nginx boundary returned 401 without a token and 200 with one.
+  The parallel user-owned `/internal/operator/search/news` endpoint reuses the
+  same boundary and KIS-local news consumer; its HA Nginx verification returned
+  401 without a token and 200 with one canonical news result, with no internal
+  `embedding` field in the response.
 - default-generated, profile-selected MinIO S3-compatible local storage with
   idempotent backup-bucket bootstrap; generated Compose and an actual MinIO
   backup round trip are runtime-verified
