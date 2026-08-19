@@ -351,15 +351,17 @@ class FastAPIModuleGenerator:
                 f"from {self._package_name}.infrastructure.database.session "
                 "import AsyncSessionRegistry"
             )
-        if self._requires_session_store(specification):
-            imports.append(
-                f"from {self._package_name}.infrastructure.session_store.protocol "
-                "import SessionStore"
-            )
+        protocol_names = []
         if self._requires_current_session(specification):
+            protocol_names.append("SessionData")
+        if self._requires_session_store(specification):
+            protocol_names.append("SessionStore")
+        if protocol_names:
             imports.append(
-                f"from {self._package_name}.infrastructure.session_store.protocol "
-                "import SessionData"
+                self._render_from_import(
+                    f"{self._package_name}.infrastructure.session_store.protocol",
+                    protocol_names,
+                )
             )
         if model_names:
             imports.append(f"from {module_path}.models import {', '.join(model_names)}")

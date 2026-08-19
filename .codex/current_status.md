@@ -68,7 +68,11 @@ AutoForge currently has working foundations for:
   audit migration uses an Alembic revision ID within the default 32-character
   version column limit. The separate legacy scale-out Compose profile still
   exports `REDIS_CLUSTER_URL` while the current session provider requires
-  `REDIS_URL`; its fresh-stack verification is therefore a follow-up task.
+  `REDIS_URL`; it is a historical profile and is not used with the default
+  standalone image. A fresh generation from `autoforge.ha.yaml` now validates
+  successfully and emits the cluster provider plus matching
+  `REDIS_CLUSTER_URL`/`REDIS_CLUSTER_STARTUP_NODES` Compose and Kubernetes
+  Secret contracts.
 - generated FastAPI application composition now always has an outer lifespan and
   keeps `application/extensions.py` scaffolded. Consumers may add ordered
   `USER_LIFESPANS` contexts after generated database, session, and heartbeat

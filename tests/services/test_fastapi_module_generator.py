@@ -323,6 +323,30 @@ def test_handler_imports_sort_database_before_session_dependencies() -> None:
     )
 
 
+def test_handler_combines_session_protocol_imports() -> None:
+    specification = tutorial_specification()
+    dependent_endpoint = specification.endpoints[0].model_copy(
+        update={
+            "dependencies": [
+                EndpointDependency.CURRENT_SESSION,
+                EndpointDependency.SESSION_STORE,
+            ]
+        }
+    )
+    specification = specification.model_copy(
+        update={"endpoints": [dependent_endpoint, specification.endpoints[1]]}
+    )
+
+    handlers = FastAPIModuleGenerator("game_server").render(specification)[
+        PurePosixPath("src/game_server/modules/tutorial/handlers.py")
+    ]
+
+    assert (
+        "from game_server.infrastructure.session_store.protocol import "
+        "SessionData, SessionStore"
+    ) in handlers
+
+
 def test_current_session_dependency_is_injected_into_handler() -> None:
     specification = tutorial_specification()
     dependent_endpoint = specification.endpoints[0].model_copy(
