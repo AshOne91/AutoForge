@@ -1,13 +1,13 @@
 # Next Task
 
-## Next executable unit: external news-provider resilience boundary
+## Next executable unit: news-index retry boundary
 
-Inspect the existing KIS Yahoo provider path and its durable `news_collection`
-consumer. Establish the smallest reusable resilience boundary for an external
-provider: explicit timeout, classified transient failure, and bounded retry
-ownership. Reuse existing AutoForge and KIS infrastructure where it already
-exists; do not add a queue, scheduler, or generic provider framework until the
-current call path demonstrates that it needs one.
+Inspect the KIS `news_index` Durable Job when its selected RAG backend or
+embedding provider is unavailable. Decide whether the existing consumer-owned
+bounded retry pattern can safely be reused with `source_keys`, stable run keys,
+and explicit transient-error classification. Prove the current failure path
+first; do not add a generic AutoForge retry policy, a new queue, or a scheduler
+unless more than one generated consumer needs that contract.
 
-Keep Yahoo-specific normalization in the consumer project. Fix AutoForge only
-if the evidence shows that a generated runtime contract is responsible.
+Keep backend-specific HTTP handling in KIS unless the evidence identifies a
+generated runtime contract as the responsible boundary.

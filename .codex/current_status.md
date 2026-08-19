@@ -336,6 +336,11 @@ AutoForge currently has working foundations for:
   historical RAG, ELK, Filebeat, PostgreSQL HA, and RabbitMQ HA outputs without
   changing their file content.
 
+- KIS Yahoo collection already uses a 30-second provider timeout and classified
+  Yahoo errors. Its consumer-owned Durable Job handler requests at most three
+  exponentially delayed retries, and focused tests now cover both timeout and
+  provider-level failures at that same retry boundary.
+
 ## Docker work
 
 - Local Environment Generator는 생성된 Compose에서 파생한
