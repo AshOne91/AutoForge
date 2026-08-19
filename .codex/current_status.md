@@ -61,7 +61,14 @@ AutoForge currently has working foundations for:
   exposes a read-only `/api/identity/operator/session` endpoint generated from
   `EndpointSpec.access_level: operator`; its preserved handler returns the
   authenticated user ID and operator level. Focused and full KIS tests verify
-  the generated HTTP authorization path.
+  the generated HTTP authorization path. A fresh disposable current Compose
+  profile also verified the live flow through Nginx: the endpoint returned
+  `403` before provisioning, the old session returned `401` after the CLI
+  revoked it, and a new login returned `200` with `operator`. The consumer
+  audit migration uses an Alembic revision ID within the default 32-character
+  version column limit. The separate legacy scale-out Compose profile still
+  exports `REDIS_CLUSTER_URL` while the current session provider requires
+  `REDIS_URL`; its fresh-stack verification is therefore a follow-up task.
 - generated FastAPI application composition now always has an outer lifespan and
   keeps `application/extensions.py` scaffolded. Consumers may add ordered
   `USER_LIFESPANS` contexts after generated database, session, and heartbeat

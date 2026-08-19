@@ -1,10 +1,11 @@
 # Next Task
 
-## Next executable unit: KIS operator endpoint live verification
+## Next executable unit: align the legacy KIS scale-out Redis contract
 
-The generated operator-only human endpoint is implemented and covered by the
-full KIS test suite. The next bounded unit is a disposable live Compose check
-that exercises login, operator provisioning, session revocation, and the
-read-only `/api/identity/operator/session` request through the generated
-runtime. It must reuse the existing Identity, Redis, and access-level contracts;
-do not add new persistence or authorization rules.
+The current generated Compose profile and operator endpoint live flow are
+verified. The remaining bounded issue is the legacy `compose.integration.yaml`
+profile: it supplies `REDIS_CLUSTER_URL`, while the current session provider
+starts from `REDIS_URL`. Reconcile that environment contract against the
+provider's actual standalone/cluster client behavior, then rerun only the
+legacy scale-out health and session checks. Do not change the Identity or
+operator authorization contract as part of this task.
