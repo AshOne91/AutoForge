@@ -146,14 +146,15 @@ application/generated/module_registry.py
 - Generator와 명세 Hash를 Metadata에 기록한다.
 - 내용 Hash가 예상과 다르면 수동 변경으로 판단하고 정책에 따라 충돌시킨다.
 
-When `tooling.search.enabled` or `tooling.vector_store.enabled` is selected,
-every file under the corresponding `infrastructure/search/` or
-`infrastructure/vector_store/` path is GENERATED: configuration, transport
-protocol, deterministic fake, HTTP client, and service lifecycle boundary. The
-consumer owns FastAPI lifespan registration, index or collection schema,
-document projection, embedding, and query/relevance policy. Regeneration must
-not turn generated services into process-global singletons or overwrite consumer
-code.
+When `tooling.search.enabled`, `tooling.vector_store.enabled`, or
+`tooling.storage.runtime_enabled` is selected, every file under the corresponding
+`infrastructure/search/`, `infrastructure/vector_store/`, or
+`infrastructure/object_storage/` path is GENERATED. Each contains configuration,
+transport protocol, deterministic fake, provider adapter, and explicit service
+lifecycle boundary. The consumer owns FastAPI lifespan registration, index or
+collection schema, object key layout, document projection, embedding, and
+query/relevance policy. Regeneration must not turn generated services into
+process-global singletons or overwrite consumer code.
 
 ### SCAFFOLDED
 

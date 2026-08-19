@@ -109,6 +109,21 @@ Qdrant container overlay; a consumer may point
 `tooling.vector_store.url_environment` at `RAG_QDRANT_URL`, but selecting
 VectorStore does not create or configure a RAG stack.
 
+### ObjectStorage runtime boundary
+
+`tooling.storage.runtime_enabled` opt-in extends the existing `StorageSpec` and
+MinIO overlay with an asynchronous S3-compatible `ObjectStorage` runtime
+boundary. It uses the existing `S3_ENDPOINT_URL`, `S3_BUCKET`, `S3_PREFIX`,
+`S3_ACCESS_KEY`, and `S3_SECRET_KEY` environment contract, so the same selected
+service can target generated MinIO or a managed S3-compatible endpoint. The
+generated project adds `aioboto3` only when this runtime service is selected.
+
+The contract owns bucket readiness plus byte put/get/delete and key listing.
+Object keys, bucket lifecycle, retention, encryption policy, presigned URLs,
+and domain document layout remain consumer-owned. The default local StorageSpec
+continues to generate only its MinIO overlay; enabling the runtime service is a
+separate explicit choice.
+
 ### Local database provider
 
 `tooling.local_environment.database_provider` selects the local generated

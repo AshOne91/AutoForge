@@ -74,6 +74,7 @@ class FastAPIProjectGenerator:
                 ),
                 include_search=specification.tooling.search.enabled,
                 include_vector_store=specification.tooling.vector_store.enabled,
+                include_object_storage=specification.tooling.storage.runtime_enabled,
                 database_provider=database_provider,
                 ruff_exclude=specification.tooling.ruff_exclude,
             ),
@@ -228,6 +229,7 @@ class FastAPIProjectGenerator:
         include_rabbitmq: bool,
         include_search: bool,
         include_vector_store: bool,
+        include_object_storage: bool,
         database_provider: str,
         ruff_exclude: list[str],
     ) -> str:
@@ -239,6 +241,9 @@ class FastAPIProjectGenerator:
             '    "httpx>=0.28,<1",\n'
             if include_search or include_vector_store
             else ""
+        )
+        object_storage_dependency = (
+            '    "aioboto3>=15.5,<16",\n' if include_object_storage else ""
         )
         database_dependency = (
             '    "asyncmy>=0.2,<1",\n'
@@ -270,6 +275,7 @@ class FastAPIProjectGenerator:
             'dependencies = [\n'
             f"{rabbitmq_dependency}"
             '    "alembic>=1.18,<2",\n'
+            f"{object_storage_dependency}"
             f"{database_dependency}"
             '    "fastapi",\n'
             f"{httpx_dependency}"

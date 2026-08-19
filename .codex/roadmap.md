@@ -58,6 +58,11 @@ process-global singleton pattern.
   deterministic fake, async lifecycle, and generated ownership metadata without
   bundling a provider SDK. Collection schema, vector dimensions, embedding, and
   hybrid relevance policy remain consumer-owned.
+- [x] `base_server/service/storage` runtime contract: existing `StorageSpec` and
+  `ObjectStorageGenerator` now optionally generate S3-compatible ObjectStorage
+  config/protocol/fake/aioboto3 lifecycle alongside the MinIO overlay. Generated
+  adapter verification passed against a disposable MinIO service; object layout,
+  retention, encryption policy, and presigned URL policy remain consumer-owned.
 - [~] record-to-search boundary established by two KIS projections:
   `source_key`/`news_index` and `job_id`/`durable_job_history_index` carry only
   canonical identities or safe summaries, while the consumer owns document

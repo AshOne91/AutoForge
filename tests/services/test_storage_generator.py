@@ -1,5 +1,9 @@
-from pathlib import PurePosixPath
+import ast
+import os
+import sys
+from pathlib import Path, PurePosixPath
 
+import pytest
 import yaml
 
 from autoforge.core.specification import (
@@ -9,10 +13,14 @@ from autoforge.core.specification import (
     StorageSpec,
     ToolingSpec,
 )
+from autoforge.core.workspace import Workspace
+from autoforge.infrastructure.process import AsyncioProcessRunner
+from autoforge.services.generation import GenerationPlanApplier, GenerationPlanResolver
+from autoforge.services.generation.fastapi_project import FastAPIProjectGenerator
 from autoforge.services.generation.storage import ObjectStorageGenerator
 
 
-def specification(*, enabled: bool = True) -> ProjectSpec:
+def specification(*, enabled: bool = True, runtime_enabled: bool = False) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
         project=ProjectInfo(
@@ -21,7 +29,9 @@ def specification(*, enabled: bool = True) -> ProjectSpec:
             version="0.1.0",
         ),
         application=ApplicationSpec(),
-        tooling=ToolingSpec(storage=StorageSpec(enabled=enabled)),
+        tooling=ToolingSpec(
+            storage=StorageSpec(enabled=enabled, runtime_enabled=runtime_enabled)
+        ),
     )
 
 
@@ -65,3 +75,166 @@ def test_object_storage_generator_plan_marks_all_outputs_generated() -> None:
     assert len(plan.files) == 3
     assert {file.ownership.value for file in plan.files} == {"generated"}
     assert {file.source for file in plan.files} == {"project:object_storage"}
+
+
+def test_object_storage_runtime_is_opt_in_and_can_target_managed_storage() -> None:
+    files = ObjectStorageGenerator().render(
+        specification(enabled=False, runtime_enabled=True)
+    )
+    root = PurePosixPath("src", "kis_auto_trading", "infrastructure", "object_storage")
+
+    assert set(files) == {
+        root / "__init__.py",
+        root / "config.py",
+        root / "fake.py",
+        root / "protocol.py",
+        root / "s3.py",
+        root / "service.py",
+    }
+    assert "class ObjectStorage:" in files[root / "service.py"]
+    assert "class Aioboto3ObjectStorageClient:" in files[root / "s3.py"]
+    assert "S3_ENDPOINT_URL" in files[root / "config.py"]
+    for path, source in files.items():
+        ast.parse(source, filename=path.as_posix())
+
+
+def test_object_storage_runtime_adds_aioboto3_only_when_selected() -> None:
+    runtime_files = FastAPIProjectGenerator().render(
+        specification(runtime_enabled=True)
+    )
+    plain_files = FastAPIProjectGenerator().render(specification())
+    runtime_dependencies, _ = runtime_files[PurePosixPath("pyproject.toml")].split(
+        "[project.optional-dependencies]"
+    )
+    plain_dependencies, _ = plain_files[PurePosixPath("pyproject.toml")].split(
+        "[project.optional-dependencies]"
+    )
+
+    assert '    "aioboto3>=15.5,<16",' in runtime_dependencies
+    assert '    "aioboto3>=15.5,<16",' not in plain_dependencies
+
+
+@pytest.mark.anyio
+async def test_generated_object_storage_fake_is_deterministic(tmp_path: Path) -> None:
+    specification_value = specification(runtime_enabled=True)
+    workspace = Workspace(tmp_path)
+    project_generator = FastAPIProjectGenerator()
+    storage_generator = ObjectStorageGenerator()
+
+    for job_id, generator in [
+        ("project-job", project_generator),
+        ("storage-job", storage_generator),
+    ]:
+        rendered = generator.render(specification_value)
+        plan = GenerationPlanResolver().resolve(
+            generator.plan(specification_value), workspace
+        )
+        GenerationPlanApplier().apply(
+            job_id=job_id,
+            plan=plan,
+            rendered_files=rendered,
+            workspace=workspace,
+        )
+
+    code = (
+        "import asyncio\n"
+        "import sys\n"
+        "sys.path.insert(0, 'src')\n"
+        "from kis_auto_trading.infrastructure.object_storage import (\n"
+        "    FakeObjectStorageClient, ObjectStorage,\n"
+        ")\n"
+        "\n"
+        "async def verify():\n"
+        "    storage = ObjectStorage(FakeObjectStorageClient())\n"
+        "    await storage.health_check()\n"
+        "    await storage.put_bytes('raw/b.txt', b'B')\n"
+        "    await storage.put_bytes('raw/a.txt', b'A', content_type='text/plain')\n"
+        "    assert await storage.get_bytes('raw/a.txt') == b'A'\n"
+        "    assert await storage.list_keys('raw/') == ['raw/a.txt', 'raw/b.txt']\n"
+        "    await storage.delete('raw/a.txt')\n"
+        "    assert await storage.get_bytes('raw/a.txt') is None\n"
+        "    await storage.aclose()\n"
+        "\n"
+        "asyncio.run(verify())\n"
+    )
+    result = await AsyncioProcessRunner().run(
+        (sys.executable, "-c", code), cwd=workspace.root, timeout_seconds=10
+    )
+
+    assert result.succeeded, result.stderr
+
+
+@pytest.mark.integration
+@pytest.mark.anyio
+async def test_generated_object_storage_adapter_runs_against_explicit_s3_endpoint(
+    tmp_path: Path,
+) -> None:
+    endpoint = os.environ.get("AUTOFORGE_S3_INTEGRATION_ENDPOINT")
+    if endpoint is None:
+        pytest.skip("set AUTOFORGE_S3_INTEGRATION_ENDPOINT to run S3 integration")
+
+    access_key = os.environ.get("AUTOFORGE_S3_INTEGRATION_ACCESS_KEY", "autoforge")
+    secret_key = os.environ.get("AUTOFORGE_S3_INTEGRATION_SECRET_KEY", "change-me")
+    bucket = os.environ.get("AUTOFORGE_S3_INTEGRATION_BUCKET", "autoforge-integration")
+    specification_value = specification(runtime_enabled=True)
+    workspace = Workspace(tmp_path)
+    project_generator = FastAPIProjectGenerator()
+    storage_generator = ObjectStorageGenerator()
+
+    for job_id, generator in [
+        ("project-job", project_generator),
+        ("storage-job", storage_generator),
+    ]:
+        rendered = generator.render(specification_value)
+        plan = GenerationPlanResolver().resolve(
+            generator.plan(specification_value), workspace
+        )
+        GenerationPlanApplier().apply(
+            job_id=job_id,
+            plan=plan,
+            rendered_files=rendered,
+            workspace=workspace,
+        )
+
+    code = (
+        "import asyncio\n"
+        "import os\n"
+        "import sys\n"
+        "import aioboto3\n"
+        "sys.path.insert(0, 'src')\n"
+        "from kis_auto_trading.infrastructure.object_storage import ObjectStorage\n"
+        f"ENDPOINT = {endpoint!r}\n"
+        f"ACCESS_KEY = {access_key!r}\n"
+        f"SECRET_KEY = {secret_key!r}\n"
+        f"BUCKET = {bucket!r}\n"
+        "\n"
+        "async def verify():\n"
+        "    session = aioboto3.Session()\n"
+        "    async with session.client(\n"
+        "        's3', endpoint_url=ENDPOINT, region_name='us-east-1',\n"
+        "        aws_access_key_id=ACCESS_KEY, aws_secret_access_key=SECRET_KEY,\n"
+        "    ) as bootstrap:\n"
+        "        await bootstrap.create_bucket(Bucket=BUCKET)\n"
+        "    os.environ.update({\n"
+        "        'S3_ENDPOINT_URL': ENDPOINT, 'S3_BUCKET': BUCKET,\n"
+        "        'S3_ACCESS_KEY': ACCESS_KEY, 'S3_SECRET_KEY': SECRET_KEY,\n"
+        "        'S3_PREFIX': 'service',\n"
+        "    })\n"
+        "    storage = await ObjectStorage.from_environment()\n"
+        "    try:\n"
+        "        await storage.health_check()\n"
+        "        await storage.put_bytes('raw/a.txt', b'A', content_type='text/plain')\n"
+        "        assert await storage.get_bytes('raw/a.txt') == b'A'\n"
+        "        assert await storage.list_keys('raw/') == ['raw/a.txt']\n"
+        "        await storage.delete('raw/a.txt')\n"
+        "        assert await storage.get_bytes('raw/a.txt') is None\n"
+        "    finally:\n"
+        "        await storage.aclose()\n"
+        "\n"
+        "asyncio.run(verify())\n"
+    )
+    result = await AsyncioProcessRunner().run(
+        (sys.executable, "-c", code), cwd=workspace.root, timeout_seconds=30
+    )
+
+    assert result.succeeded, result.stderr

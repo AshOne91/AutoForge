@@ -840,6 +840,15 @@ collection schema, vector dimension, distance metric, embedding, hybrid
 relevance, FastAPI lifespan registration, and KIS adoption remain consumer-owned.
 No Qdrant container was started for this generator-only slice.
 
+The existing `StorageSpec` and `ObjectStorageGenerator` now support the separate
+`runtime_enabled` selection. It generates `infrastructure/object_storage` with
+S3-compatible configuration, deterministic fake, aioboto3 lifecycle adapter,
+and byte put/get/delete/list operations while retaining the existing MinIO
+overlay. The generated adapter passed a disposable MinIO verification for bucket
+readiness and put/get/list/delete; its container and temporary workspace were
+removed afterward. Object layout, retention, encryption, presigned URLs, FastAPI
+lifespan registration, and KIS adoption remain consumer-owned.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:
