@@ -895,7 +895,7 @@ release after an invalid response, refresh-in-progress handling, and the
 official request shape. Regenerating KIS exposed generated Ruff defects in the
 three contracts; AutoForge corrected the Enum default and import rendering at
 the generator source. AutoForge regression is `613 passed, 17 skipped`; KIS is
-`70 passed` with one pre-existing FastAPI/Starlette `TestClient` deprecation
+`74 passed` with one pre-existing FastAPI/Starlette `TestClient` deprecation
 warning. No live KIS credential, token request, trading route, or order was
 executed. The coordinator is not yet registered in a FastAPI lifespan or a
 container runtime path.
@@ -922,6 +922,15 @@ paths. It is registered through the generated `USER_LIFESPANS` extension hook:
 startup constructs and stores it in `app.state` without a KIS request, and
 shutdown closes its shared HTTP and Redis clients. It has no FastAPI route,
 makes no live request during startup, and exposes no account or order operation.
+
+KIS now exposes one user-owned internal current-price route at
+`/internal/operator/market-data/domestic-stock-price`. It reuses the generated
+`operator` service-token guard, accepts only a six-digit stock code, obtains the
+lifespan-owned client from `app.state`, and returns only stock code and current
+price. Known KIS-envelope failures map to a safe `502`; token or transport
+failures map to a safe `503`. Fake API tests verify authentication, safe output,
+input rejection before I/O, and error-detail concealment. There is no public
+route, background polling, account access, order operation, or live KIS call.
 
 ## Development tooling
 

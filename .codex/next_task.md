@@ -1,6 +1,6 @@
 # Next Task
 
-## Next executable unit: add an operator-token-protected KIS current-price route
+## Next executable unit: add an opt-in read-only KIS integration check
 
 The default standalone profile and generated HA runtime proofs for Redis
 Cluster, PostgreSQL Patroni/HAProxy, RabbitMQ, and the two-scheduler Airflow
@@ -33,11 +33,12 @@ token exclusively from `KisTokenCoordinator`. Its only endpoint is the official
 current-price `GET`, and its request/response behavior is verified entirely with
 fakes. The client is registered through the generated `USER_LIFESPANS` hook,
 which stores it in `app.state` and closes it at shutdown without a startup
-request.
+request. A user-owned internal route reuses the generated `operator` service
+token, validates the stock code before I/O, and exposes only the safe price
+projection.
 
-The next slice adds one user-owned internal current-price route. It must reuse
-the existing generated `operator` service-token guard, obtain the lifespan-owned
-client from `app.state`, validate its six-digit stock-code input, and map only
-known KIS client failures to a safe response. Its tests must use fakes only. Do
-not add a public route, background polling, account access, or any order
-operation.
+The next slice adds one integration test that is skipped unless an explicit
+read-only opt-in environment flag is set. When enabled, it may call only the
+existing domestic current-price `GET` with the configured KIS credentials and a
+six-digit stock code, then close all clients. It must not run by default and
+must not add account, order, hash-key, websocket, polling, or background work.
