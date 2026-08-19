@@ -1,12 +1,12 @@
 # Next Task
 
-## Next executable unit: isolated news-content migration and indexing drill
+## Next executable unit: optional generated-artifact ownership retention
 
-Start only a named, isolated KIS environment from the current generated source,
-apply the consumer-owned news-content migration, and complete one
-`news_collection` to `news_index` handoff. Confirm the selected search backend
-stores a document with normalized `content`.
+Reproduce the opt-in RAG lifecycle in a temporary workspace: generate it,
+disable the profile, then enable it again with a changed configuration. Confirm
+that previously generated RAG files retain manifest ownership and are safely
+replaceable rather than becoming conflicts.
 
-Do not change a running development composition or existing volumes. This is a
-consumer runtime verification of the already-generated contract, not a new
-AutoForge feature.
+Preserve scaffolded and user-owned files. Do not add a cleanup command or change
+consumer files until the smallest responsible AutoForge manifest lifecycle
+behavior is proven.

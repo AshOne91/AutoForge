@@ -325,7 +325,10 @@ AutoForge currently has working foundations for:
 - KIS news now normalizes provider text as `summary`, then `description`, then
   `title`; AutoForge generates the nullable canonical persistence field while a
   consumer-owned incremental migration protects existing production rows. The
-  focused normalization, hybrid-indexing, and durable-job tests pass.
+  focused normalization, hybrid-indexing, durable-job, and migration-graph
+  tests pass. An isolated runtime drill applied the baseline and incremental
+  migrations, collected and indexed ten AAPL articles, and confirmed a
+  non-empty `content` field with OpenSearch `text` mapping.
 
 ## Docker work
 
