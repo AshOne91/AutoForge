@@ -353,6 +353,11 @@ AutoForge currently has working foundations for:
   `news_index_retries_exhausted` signal with the job identity and bounded retry
   metadata. The focused test proves that it does not create a fourth Job.
 
+- Fresh KIS profile generation confirms the local proxy boundary: the base
+  integration Compose remains dependency-oriented, while the generated
+  `single_host` overlay adds Nginx and the configured application scale. The
+  default KIS overlay has one application replica; its HA overlay has three.
+
 ## Docker work
 
 - Local Environment Generator는 생성된 Compose에서 파생한
