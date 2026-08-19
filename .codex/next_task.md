@@ -1,6 +1,6 @@
 # Next Task
 
-## Next executable unit: persist one operator-requested market-price snapshot
+## Next executable unit: verify market-price migration and repository runtime
 
 The default standalone profile and generated HA runtime proofs for Redis
 Cluster, PostgreSQL Patroni/HAProxy, RabbitMQ, and the two-scheduler Airflow
@@ -40,9 +40,14 @@ projection. A real read-only check is present but skipped unless explicitly
 enabled with `KIS_READ_ONLY_INTEGRATION=1`.
 
 The global `automation`-store `market_price_snapshots` model, repository,
-Alembic baseline, and raw SQL are generated and verified. The next slice adds a
-consumer-owned persistence boundary that writes one snapshot from the existing
-operator-requested read-only price result through that generated repository and
-the existing automation session. Keep the endpoint internal and token-guarded;
-do not add polling, a durable job, a public route, portfolio data,
+Alembic baseline, and raw SQL are generated and verified. The consumer-owned
+writer uses the existing automation session, while a separate token-protected
+internal POST requests one price and writes one snapshot. The original internal
+GET remains read-only.
+
+The next slice is a disposable database verification: apply the generated
+automation migration history to an isolated PostgreSQL instance, save and read
+one generated `MarketPriceSnapshot` through the SQLAlchemy repository, then
+remove the temporary runtime. Do not run a migration against the persistent
+local KIS database, add polling, a durable job, a public route, portfolio data,
 order/execution, or a live KIS call.

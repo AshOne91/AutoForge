@@ -943,9 +943,13 @@ contract. Its `MarketPriceSnapshot` model, repository protocol/fake/SQLAlchemy
 adapter, raw SQL, and independent Alembic baseline are generated from one
 specification. `market_price_snapshots` is explicitly placed in the global
 `automation` store because external market data is shared across users and
-shards. The slice has no persistence writer, polling job, public route,
+shards. A consumer-owned writer now creates one UUID/timestamped snapshot in
+that generated repository through the existing automation session. The existing
+internal GET stays read-only; a separate operator-token-protected POST requests
+the price and writes the snapshot, returning a safe generated snapshot model.
+Storage failures return a detail-safe 503. There is no polling job, public route,
 portfolio data, order/execution behavior, or live KIS call. KIS verification is
-`75 passed, 1 skipped`; the one existing FastAPI/Starlette TestClient deprecation
+`77 passed, 1 skipped`; the one existing FastAPI/Starlette TestClient deprecation
 warning remains external to this change.
 
 ## Development tooling
