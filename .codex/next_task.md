@@ -1,6 +1,6 @@
 # Next Task
 
-## Next executable unit: add an opt-in read-only KIS integration check
+## Next executable unit: declare global market-price snapshot persistence
 
 The default standalone profile and generated HA runtime proofs for Redis
 Cluster, PostgreSQL Patroni/HAProxy, RabbitMQ, and the two-scheduler Airflow
@@ -35,10 +35,12 @@ fakes. The client is registered through the generated `USER_LIFESPANS` hook,
 which stores it in `app.state` and closes it at shutdown without a startup
 request. A user-owned internal route reuses the generated `operator` service
 token, validates the stock code before I/O, and exposes only the safe price
-projection.
+projection. A real read-only check is present but skipped unless explicitly
+enabled with `KIS_READ_ONLY_INTEGRATION=1`.
 
-The next slice adds one integration test that is skipped unless an explicit
-read-only opt-in environment flag is set. When enabled, it may call only the
-existing domestic current-price `GET` with the configured KIS credentials and a
-six-digit stock code, then close all clients. It must not run by default and
-must not add account, order, hash-key, websocket, polling, or background work.
+The next slice declares one global KIS market-price snapshot persistence model
+through the existing AutoForge specification and generation contract. Determine
+the correct Global database boundary from the current KIS stores, then generate
+the model, repository, migration, and SQL artifacts with tests. Do not add a
+fetch job, public route, portfolio data, order/execution, or live KIS call in
+the same unit.

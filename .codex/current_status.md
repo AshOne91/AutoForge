@@ -895,10 +895,9 @@ release after an invalid response, refresh-in-progress handling, and the
 official request shape. Regenerating KIS exposed generated Ruff defects in the
 three contracts; AutoForge corrected the Enum default and import rendering at
 the generator source. AutoForge regression is `613 passed, 17 skipped`; KIS is
-`74 passed` with one pre-existing FastAPI/Starlette `TestClient` deprecation
-warning. No live KIS credential, token request, trading route, or order was
-executed. The coordinator is not yet registered in a FastAPI lifespan or a
-container runtime path.
+`74 passed, 1 skipped` with one pre-existing FastAPI/Starlette `TestClient`
+deprecation warning. No live KIS credential, token request, trading route, or
+order was executed.
 
 `ApplicationSpec.runtime_environments` now supplies the generic generated
 runtime-environment contract that a consumer needs before it can register a
@@ -931,6 +930,12 @@ price. Known KIS-envelope failures map to a safe `502`; token or transport
 failures map to a safe `503`. Fake API tests verify authentication, safe output,
 input rejection before I/O, and error-detail concealment. There is no public
 route, background polling, account access, order operation, or live KIS call.
+
+The opt-in `tests/integration/test_kis_market_data_integration.py` remains
+skipped unless `KIS_READ_ONLY_INTEGRATION=1` is explicitly set. It can perform
+only the existing current-price GET with configured credentials and an optional
+six-digit `KIS_INTEGRATION_STOCK_CODE`, then closes its HTTP and Redis clients.
+No live invocation has been authorized or executed.
 
 ## Development tooling
 
