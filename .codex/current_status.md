@@ -57,8 +57,11 @@ AutoForge currently has working foundations for:
   CLI: it commits a `user` to `operator` change with one audit record, then
   revokes existing Redis sessions. A retry for an existing operator only repeats
   session revocation. It intentionally rejects administrator grants and access
-  downgrades until a session-version invalidation contract exists; no public
-  human operator endpoint exists yet.
+  downgrades until a session-version invalidation contract exists. KIS now also
+  exposes a read-only `/api/identity/operator/session` endpoint generated from
+  `EndpointSpec.access_level: operator`; its preserved handler returns the
+  authenticated user ID and operator level. Focused and full KIS tests verify
+  the generated HTTP authorization path.
 - generated FastAPI application composition now always has an outer lifespan and
   keeps `application/extensions.py` scaffolded. Consumers may add ordered
   `USER_LIFESPANS` contexts after generated database, session, and heartbeat
