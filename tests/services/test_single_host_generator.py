@@ -136,6 +136,10 @@ def test_render_adds_windows_bootstrap_only_when_selected() -> None:
     bootstrap = files[PurePosixPath("deploy", "single-host", "windows", "start-compose.ps1")]
 
     assert "docker compose" in bootstrap
+    assert r'"--env-file", "environment\.env"' in bootstrap
+    assert r'"--env-file", "deploy\single-host\runtime.env"' in bootstrap
+    assert r'"-f", "environment\compose.integration.yml"' in bootstrap
+    assert r'"-f", "deploy\single-host\compose.override.yml"' in bootstrap
     assert "Docker engine did not become ready" in bootstrap
     assert "config --format json" in bootstrap
     assert "External RAG network" in bootstrap
