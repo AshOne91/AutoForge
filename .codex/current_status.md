@@ -179,7 +179,10 @@ AutoForge currently has working foundations for:
   KIS-local hybrid backend transport; their document projections remain
   consumer-owned. Both the default and explicit HA KIS input specifications
   declare the history-index Durable Job; a disposable HA generation verified the
-  generated contract contains it.
+  generated contract contains it. A disposable HA runtime then verified the
+  generated internal API → Outbox → RabbitMQ → Durable Worker → Ollama/OpenSearch
+  path with three application replicas behind Nginx. A live hybrid query returned
+  the safe history projection without `payload` or internal `embedding` fields.
 - default-generated, profile-selected MinIO S3-compatible local storage with
   idempotent backup-bucket bootstrap; generated Compose and an actual MinIO
   backup round trip are runtime-verified
