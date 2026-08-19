@@ -66,6 +66,10 @@ token-protected /internal/jobs/{job_type} trigger/status API를 통해 Outbox와
 worker로 전달되는 생성 계약이다. (job_type, run_key)는 idempotency key이며
 동일한 요청은 같은 Job을 재사용한다.
 
+`GET /internal/jobs/{job_type}?limit=1..100`은 해당 job type과 선언된 store에
+한정된 최신 Job 이력을 반환한다. 정렬은 `updated_at` 내림차순, `job_id`
+내림차순이며, 기존 trigger/status API와 같은 token 인증 경계를 사용한다.
+
 DELETE /internal/jobs/{job_type}/{job_id}는 아직 worker가 claim하지 않은
 requested Job만 cancelled로 전이한다. 이미 전달된 Outbox message는 삭제하지
 않지만 worker의 원자적 requested → running claim이 실패하므로 handler를 실행하지

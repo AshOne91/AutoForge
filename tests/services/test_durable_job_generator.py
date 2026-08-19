@@ -97,6 +97,8 @@ def test_durable_job_generator_emits_atomic_request_contract() -> None:
     assert "DurableJobStatus.RUNNING" in worker
     assert "DurableJobStatus.SUCCEEDED" in worker
     assert "DurableJobStatus.FAILED" in worker
+    assert "async def list_recent(" in repository
+    assert "DurableJobRecord.updated_at.desc(), DurableJobRecord.job_id.desc()" in repository
     assert "CANCELLED = 'cancelled'" in contracts
     assert "raise TypeError('durable job payload must be an object')" in worker
     assert "raise" in worker
@@ -180,6 +182,9 @@ def test_fastapi_project_registers_durable_job_endpoints() -> None:
     assert "DurableJobStatus" in router
     assert "Header" in router
     assert "dependencies=[Depends(_require_durable_job_api_token)]" in router
+    assert "@router.get('/{job_type}', response_model=list[DurableJobStatusResponse])" in router
+    assert "Query(ge=1, le=100)" in router
+    assert "list_recent(" in router
     assert "@router.delete('/{job_type}/{job_id}'" in router
     assert "expected_status=DurableJobStatus.REQUESTED" in router
     assert "status=DurableJobStatus.CANCELLED" in router

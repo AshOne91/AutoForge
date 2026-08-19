@@ -360,7 +360,8 @@ AutoForge currently has working foundations for:
   metadata. The focused test proves that it does not create a fourth Job.
 
 - The generated Durable Job API has focused KIS contract coverage for idempotent
-  execution, status/result retrieval, requested-job cancellation, and
+  execution, job-type-scoped recent-history retrieval, status/result retrieval,
+  requested-job cancellation, and
   cancellation races. When Control Plane heartbeats are enabled, the generated
   Durable Worker reuses that push contract under its own service identity;
   Compose passes the same opt-in endpoint and token environment to it.
