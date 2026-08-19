@@ -1,22 +1,21 @@
 # Next Task
 
-## Next executable unit: KIS privileged-role provisioning and session revocation
+## Next executable unit: KIS operator-only human endpoint
 
 The named internal service-token slice is complete, the user-owned profile `PUT`
 suppresses sequential duplicate Outbox events, and AutoForge now generates a
 fail-closed `EndpointSpec.access_level` guard over Redis `current_session`.
-KIS still needs its first privileged-role provisioning path and an operator-only
-endpoint to prove the complete human authorization flow.
+KIS has its first local `user` to `operator` provisioning CLI, including an
+audit record and session revocation. It still needs one non-destructive,
+operator-only human endpoint to prove the complete authenticated request flow.
 
 The global identity store is the persistence boundary because login reads it
-before creating the Redis session. The reusable Identity Blueprint already
-generates the account-level and audit persistence contract; KIS now has its
-consumer-owned incremental migration for the existing database. The next
-user-owned provisioning action must set one account's access level, write one
-`AccessLevelAudit` record, and revoke that user's existing sessions before the
-new authority takes effect. It must not create a hardcoded initial administrator
-or expose a public self-service role-change API.
+before creating the Redis session. The reusable Identity Blueprint generates the
+account-level and audit persistence contract, and KIS uses an incremental
+migration for its existing database. The next endpoint must reuse the generated
+operator guard rather than create an independent role check. Keep it read-only,
+do not expose account-level mutation, and do not add a generic IP allowlist or
+request replay store solely from the historical references.
 
-Do not add a generic IP allowlist or replay store solely from the historical
-references. Keep read-only market-data work independent, and do not generate
-order execution or portfolio mutation before this policy boundary is proven.
+Keep read-only market-data work independent, and do not generate order execution
+or portfolio mutation before this policy boundary is proven.

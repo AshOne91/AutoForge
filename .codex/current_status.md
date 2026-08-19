@@ -53,8 +53,12 @@ AutoForge currently has working foundations for:
   contract with its consumer-owned incremental migration, copies the level into
   each login session, and declares generated account-profile routes as `user`.
   Its focused HTTP test proves an operator guard denies `user` and invalid claims
-  while allowing `operator`. KIS does not yet expose privileged-role provisioning
-  or a public human operator endpoint.
+  while allowing `operator`. KIS now has a user-owned local `provision_operator`
+  CLI: it commits a `user` to `operator` change with one audit record, then
+  revokes existing Redis sessions. A retry for an existing operator only repeats
+  session revocation. It intentionally rejects administrator grants and access
+  downgrades until a session-version invalidation contract exists; no public
+  human operator endpoint exists yet.
 - generated FastAPI application composition now always has an outer lifespan and
   keeps `application/extensions.py` scaffolded. Consumers may add ordered
   `USER_LIFESPANS` contexts after generated database, session, and heartbeat
