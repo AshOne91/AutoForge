@@ -69,6 +69,13 @@ process-global singleton pattern.
   generated ownership metadata. Only safe read methods retry by default;
   credentials, provider schemas, token policy, business idempotency, and KIS
   semantics remain consumer-owned.
+- [x] `base_server/service/lock` runtime contract:
+  `tooling.distributed_lock` generates a topology-selected Redis lease boundary
+  with atomic acquisition, owner-token release, deterministic expiry fake, and
+  explicit async lifecycle. It supports standalone, Sentinel, and Cluster
+  connection selection without exposing topology through its interface. Redlock,
+  fencing tokens, automatic renewal, critical-section policy, and KIS token
+  policy remain deliberately outside the generated contract.
 - [~] record-to-search boundary established by two KIS projections:
   `source_key`/`news_index` and `job_id`/`durable_job_history_index` carry only
   canonical identities or safe summaries, while the consumer owns document

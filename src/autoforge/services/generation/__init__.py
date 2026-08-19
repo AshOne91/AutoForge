@@ -3,6 +3,7 @@ from autoforge.services.generation.alembic import (
     AlembicEnvironmentGenerator,
 )
 from autoforge.services.generation.ci import CIGenerator
+from autoforge.services.generation.distributed_lock import DistributedLockGenerator
 from autoforge.services.generation.dockerfile import DockerfileGenerator
 from autoforge.services.generation.durable_jobs import DurableJobGenerator
 from autoforge.services.generation.elk import ElkStackGenerator
@@ -53,6 +54,7 @@ __all__ = [
     "AlembicBaselineGenerator",
     "AlembicEnvironmentGenerator",
     "CIGenerator",
+    "DistributedLockGenerator",
     "DockerfileGenerator",
     "DurableJobGenerator",
     "ElkStackGenerator",

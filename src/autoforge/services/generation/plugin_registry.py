@@ -19,6 +19,11 @@ from autoforge.services.generation.ci import (
     CI_GENERATOR_VERSION,
     CIGenerator,
 )
+from autoforge.services.generation.distributed_lock import (
+    DISTRIBUTED_LOCK_GENERATOR_ID,
+    DISTRIBUTED_LOCK_GENERATOR_VERSION,
+    DistributedLockGenerator,
+)
 from autoforge.services.generation.dockerfile import (
     DOCKERFILE_GENERATOR_ID,
     DOCKERFILE_GENERATOR_VERSION,
@@ -207,6 +212,18 @@ def create_fastapi_generator_plugins(
                 name=ELK_GENERATOR_ID,
                 version=ELK_GENERATOR_VERSION,
                 description="Development Elasticsearch, Kibana and Filebeat overlay Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
+    project_registry.register(
+        GeneratorPluginAdapter(
+            DistributedLockGenerator(),
+            PluginMetadata(
+                name=DISTRIBUTED_LOCK_GENERATOR_ID,
+                version=DISTRIBUTED_LOCK_GENERATOR_VERSION,
+                description="Async Redis distributed-lock Generator",
                 capabilities=(PluginCapability.GENERATOR,),
                 supported_specification_versions=("1",),
             ),

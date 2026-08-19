@@ -5,6 +5,7 @@ from autoforge.core.specification import (
     CiProvider,
     CiSpec,
     DatabaseStoreSpec,
+    DistributedLockSpec,
     DockerSpec,
     ExternalProviderSpec,
     KubernetesSpec,
@@ -25,6 +26,7 @@ from autoforge.services.generation.alembic import (
     ALEMBIC_PROJECT_GENERATOR_ID,
 )
 from autoforge.services.generation.ci import CI_GENERATOR_ID
+from autoforge.services.generation.distributed_lock import DISTRIBUTED_LOCK_GENERATOR_ID
 from autoforge.services.generation.dockerfile import DOCKERFILE_GENERATOR_ID
 from autoforge.services.generation.durable_jobs import DURABLE_JOB_GENERATOR_ID
 from autoforge.services.generation.elk import ELK_GENERATOR_ID
@@ -69,6 +71,7 @@ def test_fastapi_generator_plugins_register_real_generators() -> None:
         KUBERNETES_BASE_SERVER_GENERATOR_ID,
         LOCAL_ENVIRONMENT_GENERATOR_ID,
         RAG_INFRASTRUCTURE_GENERATOR_ID,
+        DISTRIBUTED_LOCK_GENERATOR_ID,
         DURABLE_JOB_GENERATOR_ID,
         EXTERNAL_PROVIDER_GENERATOR_ID,
         MESSAGING_GENERATOR_ID,
@@ -227,6 +230,34 @@ def test_external_provider_generator_plugin_is_empty_until_enabled() -> None:
 
     assert PurePosixPath(
         "src", "game_server", "infrastructure", "external_provider", "service.py"
+    ) in rendered
+
+
+def test_distributed_lock_generator_plugin_is_empty_until_enabled() -> None:
+    plugins = create_fastapi_generator_plugins("game_server")
+    specification = ProjectSpec(
+        spec_version="1",
+        project=ProjectInfo(
+            name="Game Server",
+            package_name="game_server",
+            version="0.1.0",
+        ),
+        application=ApplicationSpec(),
+    )
+
+    assert plugins.project.get(DISTRIBUTED_LOCK_GENERATOR_ID).render(specification) == {}
+
+    requested = specification.model_copy(
+        update={
+            "tooling": ToolingSpec(
+                distributed_lock=DistributedLockSpec(enabled=True)
+            )
+        }
+    )
+    rendered = plugins.project.get(DISTRIBUTED_LOCK_GENERATOR_ID).render(requested)
+
+    assert PurePosixPath(
+        "src", "game_server", "infrastructure", "distributed_lock", "service.py"
     ) in rendered
 
 

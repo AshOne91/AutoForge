@@ -126,6 +126,23 @@ business idempotency, and domain error handling remain consumer-owned. The
 contract does not generate KIS-specific behavior or a process-global client
 pool.
 
+### DistributedLock runtime boundary
+
+`tooling.distributed_lock` opt-in generates an application-facing asynchronous
+`DistributedLock` boundary. Its specification selects the Redis topology
+(`standalone`, `sentinel`, or `cluster`), required environment names, key prefix,
+and default lease TTL. The generated project adds `redis` only when this service
+or a Redis SessionStore is selected. The runtime interface remains the same for
+all three topology selections.
+
+The contract owns one-shot `SET ... NX EX` acquisition, cryptographically random
+owner tokens, owner-only Lua release, health checks, and explicit close. A Redis
+Cluster release script addresses one key only, so its routing stays on that key's
+slot. It is a lease lock backed by the selected Redis primary, not a Redlock
+quorum, fencing-token protocol, automatic lease renewal, or business
+idempotency mechanism. Consumers own lock-key design, critical-section duration,
+TTL selection, retry/wait policy, and the work protected by a lease.
+
 ### ObjectStorage runtime boundary
 
 `tooling.storage.runtime_enabled` opt-in extends the existing `StorageSpec` and

@@ -860,6 +860,19 @@ adoption remain consumer-owned. Generator plan, generated fake, and HTTP retry
 classification are verified through a deterministic `httpx.MockTransport`; no
 external provider or KIS endpoint was called for this slice.
 
+`tooling.distributed_lock` now generates an opt-in
+`infrastructure/distributed_lock` runtime contract for standalone Redis, Redis
+Sentinel, or Redis Cluster selection. It uses a TTL lease acquired with `SET NX
+EX` and an owner-token Lua release, with a deterministic fake covering expiry
+and stale-owner rejection. The generated standalone adapter passed a disposable
+Redis verification for acquire contention, wrong-owner rejection, and correct
+owner release; the temporary container and workspace were removed afterward.
+Cluster and Sentinel output is generated and parsed but has not yet had a
+dedicated runtime drill. This is not a Redlock, fencing-token, or auto-renewal
+implementation. Lock key design, critical-section duration, wait/retry policy,
+token-cache policy, FastAPI lifespan registration, and KIS adoption remain
+consumer-owned.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:

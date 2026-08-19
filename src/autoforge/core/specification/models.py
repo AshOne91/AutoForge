@@ -338,6 +338,9 @@ class ToolingSpec(StrictSpecModel):
     docker: DockerSpec = Field(default_factory=lambda: DockerSpec())
     elk: ElkSpec = Field(default_factory=lambda: ElkSpec())
     rag: RagSpec = Field(default_factory=lambda: RagSpec())
+    distributed_lock: DistributedLockSpec = Field(
+        default_factory=lambda: DistributedLockSpec()
+    )
     external_provider: ExternalProviderSpec = Field(
         default_factory=lambda: ExternalProviderSpec()
     )
@@ -447,6 +450,33 @@ class ExternalProviderSpec(StrictSpecModel):
     timeout_seconds: float = Field(default=5.0, gt=0, le=60)
     max_retries: int = Field(default=2, ge=0, le=5)
     retry_delay_seconds: float = Field(default=0.1, ge=0, le=5)
+
+
+class DistributedLockSpec(StrictSpecModel):
+    """Generate an opt-in Redis distributed-lock boundary."""
+
+    enabled: bool = False
+    mode: Literal["standalone", "sentinel", "cluster"] = "standalone"
+    url_environment: str = Field(default="REDIS_URL", pattern=r"^[A-Z][A-Z0-9_]*$")
+    cluster_url_environment: str = Field(
+        default="REDIS_CLUSTER_URL", pattern=r"^[A-Z][A-Z0-9_]*$"
+    )
+    cluster_startup_nodes_environment: str = Field(
+        default="REDIS_CLUSTER_STARTUP_NODES", pattern=r"^[A-Z][A-Z0-9_]*$"
+    )
+    sentinel_urls_environment: str = Field(
+        default="REDIS_SENTINEL_URLS", pattern=r"^[A-Z][A-Z0-9_]*$"
+    )
+    sentinel_master: str = "lock-primary"
+    key_prefix: str = Field(default="lock", pattern=r"^[a-z][a-z0-9:_-]*$")
+    ttl_seconds: int = Field(default=30, gt=0, le=86400)
+
+    @field_validator("sentinel_master")
+    @classmethod
+    def validate_sentinel_master(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("sentinel_master must not be empty")
+        return value
 
 
 class VectorStoreSpec(StrictSpecModel):

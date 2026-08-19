@@ -10,6 +10,9 @@ from autoforge.services.generation.alembic import (
     ALEMBIC_PROJECT_GENERATOR_ID,
 )
 from autoforge.services.generation.ci import CI_GENERATOR_ID
+from autoforge.services.generation.distributed_lock import (
+    DISTRIBUTED_LOCK_GENERATOR_ID,
+)
 from autoforge.services.generation.dockerfile import DOCKERFILE_GENERATOR_ID
 from autoforge.services.generation.durable_jobs import DURABLE_JOB_GENERATOR_ID
 from autoforge.services.generation.elk import ELK_GENERATOR_ID
@@ -83,6 +86,7 @@ def test_builtin_catalog_contains_expected_plugins() -> None:
         KUBERNETES_BASE_SERVER_GENERATOR_ID,
         LOCAL_ENVIRONMENT_GENERATOR_ID,
         RAG_INFRASTRUCTURE_GENERATOR_ID,
+        DISTRIBUTED_LOCK_GENERATOR_ID,
         DURABLE_JOB_GENERATOR_ID,
         EXTERNAL_PROVIDER_GENERATOR_ID,
         MESSAGING_GENERATOR_ID,
