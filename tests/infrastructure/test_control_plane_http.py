@@ -361,17 +361,40 @@ def test_generated_heartbeat_reporter_posts_to_control_plane(
         async with lifespan(FastAPI()):
             await asyncio.sleep(0)
 
+    async def run_worker_reporter() -> None:
+        task = asyncio.create_task(
+            reporter.run_service_heartbeat_reporter(
+                service_name="game_server-durable-job-worker",
+                dependencies={"database": "ok", "rabbitmq": "ok"},
+            )
+        )
+        await asyncio.sleep(0)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
     monkeypatch.setenv("CONTROL_PLANE_HEARTBEAT_URL", "http://control.local/v1/service-heartbeats")
     monkeypatch.setenv("CONTROL_PLANE_API_TOKEN", TOKEN)
     asyncio.run(run_reporter())
+    asyncio.run(run_worker_reporter())
 
     listed = client.get(
         "/v1/service-heartbeats",
         headers={"Authorization": f"Bearer {TOKEN}"},
     )
     assert listed.status_code == 200
-    heartbeat = listed.json()["heartbeats"][0]
-    assert heartbeat["instance_id"] == "pod-one"
-    assert heartbeat["service_name"] == "game_server"
-    assert heartbeat["deployed_version"] == "0.1.0"
-    assert heartbeat["dependencies"] == {"database": "ok", "session_store": "ok"}
+    heartbeats = {
+        heartbeat["service_name"]: heartbeat for heartbeat in listed.json()["heartbeats"]
+    }
+    assert heartbeats["game_server"]["instance_id"] == "pod-one"
+    assert heartbeats["game_server"]["deployed_version"] == "0.1.0"
+    assert heartbeats["game_server"]["dependencies"] == {
+        "database": "ok",
+        "session_store": "ok",
+    }
+    assert heartbeats["game_server-durable-job-worker"]["dependencies"] == {
+        "database": "ok",
+        "rabbitmq": "ok",
+    }

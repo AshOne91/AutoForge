@@ -4,6 +4,7 @@ from pathlib import PurePosixPath
 from autoforge.core.generation import FileOwnership
 from autoforge.core.specification import (
     ApplicationSpec,
+    ControlPlaneHeartbeatSpec,
     DatabaseStoreSpec,
     DurableJobSpec,
     ProjectInfo,
@@ -142,6 +143,23 @@ def test_durable_job_generator_omits_airflow_dag_without_schedule() -> None:
     )
 
     assert not any(path.parts[0] == "airflow" for path in files)
+
+
+def test_durable_job_worker_reuses_control_plane_heartbeat_when_enabled() -> None:
+    specification = durable_job_specification()
+    application = specification.application.model_copy(
+        update={"control_plane_heartbeat": ControlPlaneHeartbeatSpec(enabled=True)}
+    )
+    files = DurableJobGenerator().render(
+        specification.model_copy(update={"application": application})
+    )
+    runner = files[PurePosixPath("scripts/run_durable_job_worker.py")]
+
+    ast.parse(runner)
+    assert "run_service_heartbeat_reporter" in runner
+    assert "service_name='kis_auto_trading' + '-durable-job-worker'" in runner
+    assert "dependencies={'database': 'ok', 'rabbitmq': 'ok'}" in runner
+    assert "heartbeat_task.cancel()" in runner
 
 
 def test_fastapi_project_registers_durable_job_endpoints() -> None:

@@ -353,10 +353,11 @@ AutoForge currently has working foundations for:
   `news_index_retries_exhausted` signal with the job identity and bounded retry
   metadata. The focused test proves that it does not create a fourth Job.
 
-- The generated protected Durable Job API now has focused KIS contract coverage
-  for idempotent execution, status and result retrieval, requested-job
-  cancellation, and cancellation races. Application health remains the generated
-  `/health` endpoint; work completion never depends on the request lifetime.
+- The generated Durable Job API has focused KIS contract coverage for idempotent
+  execution, status/result retrieval, requested-job cancellation, and
+  cancellation races. When Control Plane heartbeats are enabled, the generated
+  Durable Worker reuses that push contract under its own service identity;
+  Compose passes the same opt-in endpoint and token environment to it.
 
 - Fresh KIS profile generation confirms the local proxy boundary: the base
   integration Compose remains dependency-oriented, while the generated

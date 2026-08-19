@@ -252,9 +252,11 @@ def test_control_plane_heartbeat_generates_opt_in_lifecycle_reporter() -> None:
     )
     assert "CONTROL_PLANE_HEARTBEAT_URL" in reporter
     assert "CONTROL_PLANE_API_TOKEN" in reporter
-    assert "asyncio.to_thread(_post_heartbeat, endpoint, token)" in reporter
+    assert "async def run_service_heartbeat_reporter(" in reporter
+    assert "run_service_heartbeat_reporter()" in reporter
+    assert "_post_heartbeat, endpoint, token, service_name, dependencies" in reporter
     assert "except (OSError, ValueError) as error" in reporter
-    assert "'dependencies': _DEPENDENCIES" in reporter
+    assert "'dependencies': dependencies" in reporter
 
 
 def test_cluster_session_service_generates_cluster_health_environment() -> None:

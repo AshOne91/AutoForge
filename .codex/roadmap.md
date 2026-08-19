@@ -25,8 +25,9 @@ sequencing.
   event-driven fan-out, in-app persistence, channel adapters, deduplication,
   rate limiting, and delivery/error observability
 - [x] operator-facing ingestion lifecycle endpoints: the generated Durable Job
-  API provides idempotent execution, status/result retrieval, application health,
-  and requested-job cancellation rather than request-bound work
+  API provides idempotent execution, status/result retrieval, and requested-job
+  cancellation; the separately generated Worker reports its health to the
+  Control Plane heartbeat endpoint rather than tying work to request lifetime
 - [ ] cloud S3/object-storage provider after raw-document persistence is selected
 - [ ] external-provider resiliency adapter after a provider is selected
 

@@ -613,6 +613,22 @@ def test_render_connects_docker_application_to_airflow() -> None:
     assert "migrations run before the generated application starts" in readme
 
 
+def test_durable_job_worker_receives_control_plane_heartbeat_environment() -> None:
+    files = LocalEnvironmentGenerator().render(
+        integration_specification(
+            enabled=True,
+            durable_jobs=True,
+            application=True,
+            heartbeat_reporter=True,
+        )
+    )
+    compose = files[PurePosixPath("environment", "compose.integration.yml")]
+
+    durable_worker = compose.split("  durable-job-worker:\n", maxsplit=1)[1]
+    assert "CONTROL_PLANE_HEARTBEAT_URL: ${CONTROL_PLANE_HEARTBEAT_URL:-}" in durable_worker
+    assert "CONTROL_PLANE_API_TOKEN: ${CONTROL_PLANE_API_TOKEN:-}" in durable_worker
+
+
 def test_render_marks_runtime_services_restartable() -> None:
     files = LocalEnvironmentGenerator().render(
         integration_specification(enabled=True, durable_jobs=True, application=True)

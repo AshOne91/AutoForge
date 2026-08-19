@@ -419,9 +419,33 @@ class DurableJobGenerator:
         }
         event_types = [job.event_type for job in specification.application.durable_jobs]
         package = specification.project.package_name
+        heartbeat_import = ""
+        heartbeat_start = ""
+        heartbeat_stop = ""
+        if specification.application.control_plane_heartbeat.enabled:
+            heartbeat_import = (
+                f"from {package}.application.generated.service_heartbeat import (\n"
+                "    run_service_heartbeat_reporter,\n"
+                ")\n"
+            )
+            heartbeat_start = (
+                "    heartbeat_task = asyncio.create_task(\n"
+                "        run_service_heartbeat_reporter(\n"
+                f"            service_name={package!r} + '-durable-job-worker',\n"
+                "            dependencies={'database': 'ok', 'rabbitmq': 'ok'},\n"
+                "        ),\n"
+                "        name='durable-job-worker-heartbeat',\n"
+                "    )\n"
+            )
+            heartbeat_stop = (
+                "        heartbeat_task.cancel()\n"
+                "        with suppress(asyncio.CancelledError):\n"
+                "            await heartbeat_task\n"
+            )
         return (
             "import asyncio\n"
             "import os\n"
+            "from contextlib import suppress\n"
             "\n"
             "import aio_pika\n"
             "from sqlalchemy.ext.asyncio import create_async_engine\n"
@@ -429,7 +453,8 @@ class DurableJobGenerator:
             f"from {package}.application.durable_job_handler import (\n"
             "    create_durable_job_handler,\n"
             ")\n"
-            f"from {package}.application.observability import LOGGER, configure_logging\n"
+            + heartbeat_import
+            + f"from {package}.application.observability import LOGGER, configure_logging\n"
             f"from {package}.infrastructure.database.session import AsyncSessionRegistry\n"
             f"from {package}.infrastructure.durable_jobs.worker import DurableJobMessageHandler\n"
             f"from {package}.infrastructure.messaging.rabbitmq import RabbitMQConsumer\n"
@@ -453,7 +478,8 @@ class DurableJobGenerator:
             "    handler = DurableJobMessageHandler(\n"
             "        registry, create_durable_job_handler(registry)\n"
             "    )\n"
-            "    try:\n"
+            + heartbeat_start
+            + "    try:\n"
             "        await consumer.consume(\n"
             "            handler,\n"
             "            queue_name=DURABLE_JOB_QUEUE,\n"
@@ -461,7 +487,8 @@ class DurableJobGenerator:
             "        )\n"
             "        await asyncio.Future()\n"
             "    finally:\n"
-            "        await connection.close()\n"
+            + heartbeat_stop
+            + "        await connection.close()\n"
             "        for engine in engines.values():\n"
             "            await engine.dispose()\n"
             "        LOGGER.info('durable job worker stopped')\n"

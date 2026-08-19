@@ -1260,6 +1260,13 @@ class LocalEnvironmentGenerator:
     ) -> str:
         image = self._application_image(specification)
         restart_policy = specification.application.durable_job_worker_restart_policy
+        heartbeat = specification.application.control_plane_heartbeat
+        heartbeat_environment = (
+            f"      {heartbeat.endpoint_env}: ${{{heartbeat.endpoint_env}:-}}\n"
+            f"      {heartbeat.token_env}: ${{{heartbeat.token_env}:-}}\n"
+            if heartbeat.enabled
+            else ""
+        )
         rag_network = "    networks:\n      - default\n      - rag\n" if has_rag else ""
         rag_environment = self._render_rag_environment(specification) if has_rag else ""
         rag_healthcheck = (
@@ -1285,6 +1292,7 @@ class LocalEnvironmentGenerator:
             "    environment:\n"
             + self._render_database_environment(specification)
             + "      RABBITMQ_URL: ${RABBITMQ_URL:?set RABBITMQ_URL}\n"
+            + heartbeat_environment
             + rag_environment
             + rag_network
             + "    depends_on:\n"
