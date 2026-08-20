@@ -1,13 +1,13 @@
 # Next Task
 
-## Next executable unit: materialize Signal intents as in-app notifications
+## Next executable unit: expose in-app notifications through a user-scoped read path
 
-In KIS, introduce an account-sharded generated `InAppNotification` persistence
-model and materialize each global SignalDeliveryIntent into it through a new
-global Outbox event and account-shard Inbox consumer. Use a deterministic
-notification identifier derived from the intent, so RabbitMQ redelivery cannot
-create a second in-app record. Keep the global intent immutable and do not
-perform an external side effect.
+Determine whether the existing AutoForge repository contract can express a
+user-scoped ordered read of generated `InAppNotification` records. If it can,
+use that generated contract for one authenticated KIS read endpoint. If it
+cannot, add only the smallest general repository operation and its focused
+AutoForge test before regenerating KIS. Keep notification records account-shard
+local and return only the caller's records.
 
 Do not add email, SMS, WebSocket, webhook, automatic order, provider selection,
 or default Redis changes in this unit. Do not run the explicitly opt-in KIS

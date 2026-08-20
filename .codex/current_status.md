@@ -47,8 +47,11 @@
   KIS hook declares the projection queue. The message worker claims the event
   ID in the global automation Inbox before upserting the generated
   `SignalSubscriptionProjection` read model in that same transaction and does
-  not overwrite a newer recorded revision. External delivery, orders, and
-  notifications remain outside this slice. KIS also exposes the
+  not overwrite a newer recorded revision. Each newly saved global delivery
+  intent records `signal.delivery-intent.created` in the same automation Outbox;
+  its account-shard Inbox consumer saves one deterministic generated
+  `InAppNotification` record without an external side effect. External delivery,
+  user notification queries, and orders remain outside this slice. KIS also exposes the
   enabled global projection through an operator-token-protected lookup by
   domestic stock code; its list query remains consumer-owned.
 
@@ -981,7 +984,8 @@ contract. Only one-message submission and the provider group ID are exposed;
 live credentials, recipient consent, retries, idempotency, status polling,
 rate limits, and cost policy remain consumer-owned.
 
-KIS now opts into a generated `signal` module as its first Signal domain slice.
+KIS now opts into generated `signal` and internal `notification` modules for its
+first Signal delivery slice.
 `SignalEvent` is placed in the global automation store and
 `SignalSubscription` in the sharded account store; AutoForge generated their
 models, repositories, SQL, migrations, and authenticated idempotent subscription
@@ -992,9 +996,11 @@ subscription, and record each enabled-state change as
 calls a consumer-owned topology hook before publishing; KIS declares its
 projection queue there. A generated global SignalSubscriptionProjection plus
 consumer-owned incremental migration and message-worker handler apply a newer
-revision once through the automation Inbox. Market-data monitoring, SignalEvent
-fan-out, and delivery through
-Messaging/Realtime/Notification remain consumer-owned.
+revision once through the automation Inbox. Each newly persisted global delivery
+intent emits a same-transaction Outbox event whose account-shard Inbox consumer
+saves one deterministic generated `InAppNotification` record. Market-data
+monitoring, user-facing notification queries, external delivery through
+Messaging/Realtime/Notification, and orders remain consumer-owned.
 
 KIS now selects the generated external-provider, distributed-lock, and
 key-value-store contracts in both its default standalone and HA Redis Cluster
