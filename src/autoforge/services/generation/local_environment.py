@@ -13,6 +13,8 @@ from autoforge.core.generation import (
 )
 from autoforge.core.specification import (
     DatabaseStoreSpec,
+    DistributedLockSpec,
+    KeyValueStoreSpec,
     ProjectSpec,
     RuntimeEnvironmentTarget,
     ServiceSpec,
@@ -36,7 +38,12 @@ class LocalEnvironmentGenerator:
     def render(self, specification: ProjectSpec) -> dict[PurePosixPath, str]:
         if not specification.tooling.local_environment.enabled:
             return {}
-        redis_mode = self._redis_mode(specification.application.services)
+        distributed_lock = specification.tooling.distributed_lock
+        key_value_store = specification.tooling.key_value_store
+        redis_mode = self._redis_mode(specification)
+        has_memcached = (
+            key_value_store.enabled and key_value_store.backend == "memcached"
+        )
         local_environment = specification.tooling.local_environment
         database_provider = local_environment.database_provider
         postgres_mode = local_environment.postgres_mode
@@ -58,7 +65,12 @@ class LocalEnvironmentGenerator:
         ]
         if len(rabbitmq_services) > 1:
             raise ValueError("local environment supports one RabbitMQ service")
-        if not specification.application.databases and redis_mode is None and not rabbitmq_services:
+        if (
+            not specification.application.databases
+            and redis_mode is None
+            and not rabbitmq_services
+            and not has_memcached
+        ):
             raise ValueError("local environment requires a declared database or service")
         has_durable_jobs = bool(specification.application.durable_jobs)
         has_application = specification.tooling.local_environment.application_enabled
@@ -77,6 +89,9 @@ class LocalEnvironmentGenerator:
             mysql_mode=mysql_mode,
             redis_mode=redis_mode,
             redis_service=redis_service,
+            distributed_lock=distributed_lock,
+            key_value_store=key_value_store,
+            has_memcached=has_memcached,
             has_rabbitmq=bool(rabbitmq_services),
             rabbitmq_mode=rabbitmq_mode,
             airflow_scheduler_replicas=airflow_scheduler_replicas,
@@ -97,6 +112,9 @@ class LocalEnvironmentGenerator:
                 mysql_mode=mysql_mode,
                 redis_mode=redis_mode,
                 redis_service=redis_service,
+                distributed_lock=distributed_lock,
+                key_value_store=key_value_store,
+                has_memcached=has_memcached,
                 has_rabbitmq=bool(rabbitmq_services),
                 rabbitmq_mode=rabbitmq_mode,
                 airflow_scheduler_replicas=airflow_scheduler_replicas,
@@ -107,7 +125,9 @@ class LocalEnvironmentGenerator:
             ),
             PurePosixPath("environment", "README.md"): self._render_readme(
                 database_provider=database_provider,
+                has_database=bool(specification.application.databases),
                 redis_mode=redis_mode,
+                has_memcached=has_memcached,
                 postgres_mode=postgres_mode,
                 mysql_mode=mysql_mode,
                 has_rabbitmq=bool(rabbitmq_services),
@@ -176,14 +196,20 @@ class LocalEnvironmentGenerator:
         ]
 
     @staticmethod
-    def _redis_mode(services: list[ServiceSpec]) -> str | None:
+    def _redis_mode(specification: ProjectSpec) -> str | None:
         modes = {
             service.mode
-            for service in services
+            for service in specification.application.services
             if service.kind == "redis_session"
         }
+        distributed_lock = specification.tooling.distributed_lock
+        if distributed_lock.enabled:
+            modes.add(distributed_lock.mode)
+        key_value_store = specification.tooling.key_value_store
+        if key_value_store.enabled and key_value_store.backend == "redis":
+            modes.add(key_value_store.mode)
         if len(modes) > 1:
-            raise ValueError("local environment requires one Redis mode")
+            raise ValueError("local environment requires one shared Redis mode")
         if modes == {"sentinel"}:
             raise ValueError("local environment does not yet support Redis Sentinel")
         return next(iter(modes), None)
@@ -300,6 +326,9 @@ class LocalEnvironmentGenerator:
         mysql_mode: str,
         redis_mode: str | None,
         redis_service: ServiceSpec | None,
+        distributed_lock: DistributedLockSpec,
+        key_value_store: KeyValueStoreSpec,
+        has_memcached: bool,
         has_rabbitmq: bool,
         rabbitmq_mode: str,
         airflow_scheduler_replicas: int,
@@ -328,6 +357,8 @@ class LocalEnvironmentGenerator:
             services.append(self._render_redis_standalone())
         elif redis_mode == "cluster":
             services.extend(self._render_redis_cluster())
+        if has_memcached:
+            services.append(self._render_memcached())
         if has_rabbitmq:
             services.extend(self._render_rabbitmq(rabbitmq_mode, host_port_base))
         if has_application:
@@ -344,6 +375,8 @@ class LocalEnvironmentGenerator:
                     specification,
                     redis_mode=redis_mode,
                     redis_service=redis_service,
+                    distributed_lock=distributed_lock,
+                    key_value_store=key_value_store,
                     has_migration=has_migration,
                     has_rag=has_rag,
                     host_port_base=host_port_base,
@@ -366,6 +399,8 @@ class LocalEnvironmentGenerator:
                         specification,
                         redis_mode=redis_mode,
                         redis_service=redis_service,
+                        distributed_lock=distributed_lock,
+                        key_value_store=key_value_store,
                         has_rag=has_rag,
                     )
                 )
@@ -843,6 +878,19 @@ class LocalEnvironmentGenerator:
         )
 
     @staticmethod
+    def _render_memcached() -> str:
+        return (
+            "  memcached:\n"
+            "    image: memcached:1.6-alpine\n"
+            "    restart: unless-stopped\n"
+            "    healthcheck:\n"
+            '      test: ["CMD-SHELL", "nc -z 127.0.0.1 11211"]\n'
+            "      interval: 3s\n"
+            "      timeout: 3s\n"
+            "      retries: 20\n"
+        )
+
+    @staticmethod
     def _render_redis_cluster() -> list[str]:
         nodes = [
             (
@@ -1030,28 +1078,103 @@ class LocalEnvironmentGenerator:
 
     @staticmethod
     def _render_redis_runtime(
-        redis_mode: str | None, redis_service: ServiceSpec | None
+        redis_mode: str | None,
+        redis_service: ServiceSpec | None,
+        distributed_lock: DistributedLockSpec,
+        key_value_store: KeyValueStoreSpec,
     ) -> tuple[str, str]:
-        if redis_mode == "standalone":
+        environment_values = LocalEnvironmentGenerator._redis_environment_values(
+            redis_mode,
+            redis_service,
+            distributed_lock,
+            key_value_store,
+        )
+        if redis_mode in {"standalone", "cluster"}:
             return (
-                "      REDIS_URL: ${REDIS_URL:-redis://redis:6379}\n",
-                "      redis:\n        condition: service_healthy\n",
-            )
-        if redis_mode == "cluster":
-            assert redis_service is not None
-            return (
-                (
-                    f"      {redis_service.cluster_url_env}: "
-                    f"${{{redis_service.cluster_url_env}:-redis://redis-7000:7000}}\n"
-                    f"      {redis_service.cluster_startup_nodes_env}: "
-                    f"${{{redis_service.cluster_startup_nodes_env}:-redis://redis-7000:7000,redis://redis-7001:7001,redis://redis-7002:7002,redis://redis-7003:7003,redis://redis-7004:7004,redis://redis-7005:7005}}\n"
+                "".join(
+                    f"      {name}: ${{{name}:-{default}}}\n"
+                    for name, default in environment_values
                 ),
                 (
                     "      redis-cluster-init:\n"
                     "        condition: service_completed_successfully\n"
+                    if redis_mode == "cluster"
+                    else "      redis:\n        condition: service_healthy\n"
                 ),
             )
         return "", ""
+
+    @staticmethod
+    def _redis_environment_values(
+        redis_mode: str | None,
+        redis_service: ServiceSpec | None,
+        distributed_lock: DistributedLockSpec,
+        key_value_store: KeyValueStoreSpec,
+    ) -> list[tuple[str, str]]:
+        connection_environments: list[tuple[str, str, str]] = []
+        if redis_service is not None:
+            connection_environments.append(
+                (
+                    redis_service.url_env,
+                    redis_service.cluster_url_env,
+                    redis_service.cluster_startup_nodes_env,
+                )
+            )
+        if distributed_lock.enabled:
+            connection_environments.append(
+                (
+                    distributed_lock.url_environment,
+                    distributed_lock.cluster_url_environment,
+                    distributed_lock.cluster_startup_nodes_environment,
+                )
+            )
+        if key_value_store.enabled and key_value_store.backend == "redis":
+            connection_environments.append(
+                (
+                    key_value_store.url_environment,
+                    key_value_store.cluster_url_environment,
+                    key_value_store.cluster_startup_nodes_environment,
+                )
+            )
+        if redis_mode == "standalone":
+            return list(
+                dict.fromkeys(
+                    (name, "redis://redis:6379")
+                    for name, _, _ in connection_environments
+                )
+            )
+        if redis_mode == "cluster":
+            values = [
+                item
+                for _, url_environment, startup_nodes_environment in connection_environments
+                for item in (
+                    (url_environment, "redis://redis-7000:7000"),
+                    (
+                        startup_nodes_environment,
+                        "redis://redis-7000:7000,redis://redis-7001:7001,redis://redis-7002:7002,redis://redis-7003:7003,redis://redis-7004:7004,redis://redis-7005:7005",
+                    ),
+                )
+            ]
+            return list(dict.fromkeys(values))
+        return []
+
+    @staticmethod
+    def _render_memcached_runtime(
+        key_value_store: KeyValueStoreSpec,
+    ) -> tuple[str, str]:
+        if not (
+            key_value_store.enabled and key_value_store.backend == "memcached"
+        ):
+            return "", ""
+        return (
+            (
+                f"      {key_value_store.memcached_host_environment}: "
+                f"${{{key_value_store.memcached_host_environment}:-memcached}}\n"
+                f"      {key_value_store.memcached_port_environment}: "
+                f"${{{key_value_store.memcached_port_environment}:-11211}}\n"
+            ),
+            "      memcached:\n        condition: service_healthy\n",
+        )
 
     @staticmethod
     def _render_database_environment(specification: ProjectSpec) -> str:
@@ -1138,6 +1261,8 @@ class LocalEnvironmentGenerator:
         *,
         redis_mode: str | None,
         redis_service: ServiceSpec | None,
+        distributed_lock: DistributedLockSpec,
+        key_value_store: KeyValueStoreSpec,
         has_migration: bool,
         has_rag: bool,
         host_port_base: int | None,
@@ -1151,10 +1276,18 @@ class LocalEnvironmentGenerator:
                 "        condition: service_completed_successfully\n"
             )
         redis_environment, redis_dependency = self._render_redis_runtime(
-            redis_mode, redis_service
+            redis_mode,
+            redis_service,
+            distributed_lock,
+            key_value_store,
         )
         if redis_dependency:
             dependencies.append(redis_dependency)
+        memcached_environment, memcached_dependency = self._render_memcached_runtime(
+            key_value_store
+        )
+        if memcached_dependency:
+            dependencies.append(memcached_dependency)
         service_token_environment = self._render_service_token_environment(
             specification
         )
@@ -1183,6 +1316,7 @@ class LocalEnvironmentGenerator:
             "    environment:\n"
             + self._render_database_environment(specification)
             + redis_environment
+            + memcached_environment
             + service_token_environment
             + runtime_environment
             + heartbeat_environment
@@ -1292,12 +1426,20 @@ class LocalEnvironmentGenerator:
         *,
         redis_mode: str | None,
         redis_service: ServiceSpec | None,
+        distributed_lock: DistributedLockSpec,
+        key_value_store: KeyValueStoreSpec,
         has_rag: bool,
     ) -> str:
         image = self._application_image(specification)
         restart_policy = specification.application.durable_job_worker_restart_policy
         redis_environment, redis_dependency = self._render_redis_runtime(
-            redis_mode, redis_service
+            redis_mode,
+            redis_service,
+            distributed_lock,
+            key_value_store,
+        )
+        memcached_environment, memcached_dependency = self._render_memcached_runtime(
+            key_value_store
         )
         heartbeat = specification.application.control_plane_heartbeat
         heartbeat_environment = (
@@ -1331,6 +1473,7 @@ class LocalEnvironmentGenerator:
             "    environment:\n"
             + self._render_database_environment(specification)
             + redis_environment
+            + memcached_environment
             + "      RABBITMQ_URL: ${RABBITMQ_URL:?set RABBITMQ_URL}\n"
             + self._render_runtime_environment(
                 specification, target=RuntimeEnvironmentTarget.DURABLE_JOB_WORKER
@@ -1344,6 +1487,7 @@ class LocalEnvironmentGenerator:
             "      rabbitmq:\n"
             "        condition: service_healthy\n"
             + redis_dependency
+            + memcached_dependency
         )
 
     @classmethod
@@ -1487,6 +1631,9 @@ class LocalEnvironmentGenerator:
         mysql_mode: str,
         redis_mode: str | None,
         redis_service: ServiceSpec | None,
+        distributed_lock: DistributedLockSpec,
+        key_value_store: KeyValueStoreSpec,
+        has_memcached: bool,
         has_rabbitmq: bool,
         rabbitmq_mode: str,
         airflow_scheduler_replicas: int,
@@ -1542,13 +1689,23 @@ class LocalEnvironmentGenerator:
                             "POSTGRES_HA_SCOPE=autoforge-postgres\n",
                         ]
                     )
-        if redis_mode == "standalone":
-            lines.append("REDIS_URL=redis://redis:6379\n")
-        elif redis_mode == "cluster":
+        redis_environment_values = self._redis_environment_values(
+            redis_mode,
+            redis_service,
+            distributed_lock,
+            key_value_store,
+        )
+        if redis_mode in {"standalone", "cluster"}:
+            lines.extend(
+                f"{name}={default}\n"
+                for name, default in redis_environment_values
+                if f"{name}={default}\n" not in lines
+            )
+        if has_memcached:
             lines.extend(
                 [
-                    f"{redis_service.cluster_url_env}=redis://redis-7000:7000\n",
-                    f"{redis_service.cluster_startup_nodes_env}=redis://redis-7000:7000,redis://redis-7001:7001,redis://redis-7002:7002,redis://redis-7003:7003,redis://redis-7004:7004,redis://redis-7005:7005\n",
+                    f"{key_value_store.memcached_host_environment}=memcached\n",
+                    f"{key_value_store.memcached_port_environment}=11211\n",
                 ]
             )
         if has_rabbitmq:
@@ -1622,7 +1779,9 @@ class LocalEnvironmentGenerator:
     def _render_readme(
         *,
         database_provider: str,
+        has_database: bool,
         redis_mode: str | None,
+        has_memcached: bool,
         postgres_mode: str,
         mysql_mode: str,
         has_rabbitmq: bool,
@@ -1632,21 +1791,25 @@ class LocalEnvironmentGenerator:
         has_application: bool,
         has_migration: bool,
     ) -> str:
-        services = [
-            "three-node MySQL InnoDB Cluster"
-            if database_provider == "mysql" and mysql_mode == "ha"
-            else "MySQL"
-            if database_provider == "mysql"
-            else (
-                "three-node PostgreSQL HA cluster"
-                if postgres_mode == "ha"
-                else "PostgreSQL"
+        services: list[str] = []
+        if has_database:
+            services.append(
+                "three-node MySQL InnoDB Cluster"
+                if database_provider == "mysql" and mysql_mode == "ha"
+                else "MySQL"
+                if database_provider == "mysql"
+                else (
+                    "three-node PostgreSQL HA cluster"
+                    if postgres_mode == "ha"
+                    else "PostgreSQL"
+                )
             )
-        ]
         if redis_mode == "cluster":
             services.append("three-node Redis Cluster")
         elif redis_mode == "standalone":
             services.append("Redis")
+        if has_memcached:
+            services.append("Memcached")
         if has_rabbitmq:
             services.append(
                 "three-node RabbitMQ cluster" if rabbitmq_mode == "cluster" else "RabbitMQ"
@@ -1691,8 +1854,18 @@ class LocalEnvironmentGenerator:
                 if has_rabbitmq and rabbitmq_mode == "cluster"
                 else ""
             )
-            + "Run application containers on the Compose network. The Redis Cluster URL uses\n"
-            "Docker service DNS and is intentionally not a host-process URL.\n"
+            + (
+                "Run application containers on the Compose network. The Redis Cluster URL uses\n"
+                "Docker service DNS and is intentionally not a host-process URL.\n"
+                if redis_mode == "cluster"
+                else ""
+            )
+            + (
+                "Memcached is reachable only through Compose service DNS and intentionally\n"
+                "has no published host port.\n"
+                if has_memcached
+                else ""
+            )
             + (
                 "The generated application is built from Dockerfile. "
                 + (

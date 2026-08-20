@@ -1,5 +1,7 @@
 import json
-from pathlib import PurePosixPath
+import os
+import uuid
+from pathlib import Path, PurePosixPath
 
 import pytest
 import yaml
@@ -10,7 +12,9 @@ from autoforge.core.specification import (
     ControlPlaneHeartbeatSpec,
     DatabaseShardSpec,
     DatabaseStoreSpec,
+    DistributedLockSpec,
     DurableJobSpec,
+    KeyValueStoreSpec,
     ProjectInfo,
     ProjectSpec,
     RuntimeEnvironmentSpec,
@@ -18,6 +22,7 @@ from autoforge.core.specification import (
     ServiceSpec,
     ServiceTokenSpec,
 )
+from autoforge.infrastructure.process import AsyncioProcessRunner
 from autoforge.services.generation.local_environment import LocalEnvironmentGenerator
 
 
@@ -38,7 +43,28 @@ def integration_specification(
     host_port_base: int | None = None,
     durable_job_worker_restart_policy: str = "unless-stopped",
     heartbeat_reporter: bool = False,
+    key_value_store_backend: str | None = None,
+    key_value_store_mode: str = "standalone",
 ) -> ProjectSpec:
+    tooling = {
+        "local_environment": {
+            "enabled": enabled,
+            "application_enabled": application,
+            "database_provider": database_provider,
+            "postgres_mode": postgres_mode,
+            "mysql_mode": mysql_mode,
+            "rabbitmq_mode": rabbitmq_mode,
+            "airflow_scheduler_replicas": airflow_scheduler_replicas,
+            "host_port_base": host_port_base,
+        },
+        "rag": {"enabled": rag, "search_backend": rag_search_backend},
+    }
+    if key_value_store_backend is not None:
+        tooling["key_value_store"] = {
+            "enabled": True,
+            "backend": key_value_store_backend,
+            "mode": key_value_store_mode,
+        }
     return ProjectSpec(
         spec_version="1",
         project=ProjectInfo(
@@ -103,19 +129,7 @@ def integration_specification(
                 enabled=heartbeat_reporter
             ),
         ),
-        tooling={
-            "local_environment": {
-                "enabled": enabled,
-                "application_enabled": application,
-                "database_provider": database_provider,
-                "postgres_mode": postgres_mode,
-                "mysql_mode": mysql_mode,
-                "rabbitmq_mode": rabbitmq_mode,
-                "airflow_scheduler_replicas": airflow_scheduler_replicas,
-                "host_port_base": host_port_base,
-            },
-            "rag": {"enabled": rag, "search_backend": rag_search_backend},
-        },
+        tooling=tooling,
     )
 
 
@@ -396,6 +410,168 @@ def test_render_creates_disposable_kis_integration_services() -> None:
     assert "RABBITMQ_URL=amqp://autoforge:change-me@rabbitmq:5672/" in environment
     assert "LOCAL_BIND_ADDRESS=127.0.0.1" in environment
     assert '"${LOCAL_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-25432}:5432"' in compose
+
+
+def test_render_connects_memcached_key_value_store_to_application() -> None:
+    files = LocalEnvironmentGenerator().render(
+        integration_specification(
+            enabled=True,
+            application=True,
+            durable_jobs=True,
+            key_value_store_backend="memcached",
+        )
+    )
+
+    compose = yaml.safe_load(
+        files[PurePosixPath("environment", "compose.integration.yml")]
+    )
+    environment = files[PurePosixPath("environment", ".env.example")]
+    readme = files[PurePosixPath("environment", "README.md")]
+    composition = json.loads(
+        files[PurePosixPath("environment", "service-composition.json")]
+    )
+
+    assert compose["services"]["memcached"] == {
+        "image": "memcached:1.6-alpine",
+        "restart": "unless-stopped",
+        "healthcheck": {
+            "test": ["CMD-SHELL", "nc -z 127.0.0.1 11211"],
+            "interval": "3s",
+            "timeout": "3s",
+            "retries": 20,
+        },
+    }
+    application = compose["services"]["application"]
+    assert application["environment"]["MEMCACHED_HOST"] == "${MEMCACHED_HOST:-memcached}"
+    assert application["environment"]["MEMCACHED_PORT"] == "${MEMCACHED_PORT:-11211}"
+    assert application["depends_on"]["memcached"] == {
+        "condition": "service_healthy"
+    }
+    worker = compose["services"]["durable-job-worker"]
+    assert worker["environment"]["MEMCACHED_HOST"] == "${MEMCACHED_HOST:-memcached}"
+    assert worker["depends_on"]["memcached"] == {"condition": "service_healthy"}
+    assert "MEMCACHED_HOST=memcached" in environment
+    assert "MEMCACHED_PORT=11211" in environment
+    assert "Memcached is reachable only through Compose service DNS" in readme
+    memcached = next(
+        service for service in composition["services"] if service["name"] == "memcached"
+    )
+    assert memcached["role"] == "infrastructure"
+    assert memcached["healthcheck"] is True
+    assert memcached["published_ports"] == []
+
+
+def test_render_injects_each_selected_redis_runtime_contract() -> None:
+    specification = integration_specification(
+        enabled=True,
+        application=True,
+        key_value_store_backend="redis",
+        key_value_store_mode="cluster",
+    )
+    key_value_store = KeyValueStoreSpec(
+        enabled=True,
+        backend="redis",
+        mode="cluster",
+        cluster_url_environment="CACHE_CLUSTER_URL",
+        cluster_startup_nodes_environment="CACHE_CLUSTER_NODES",
+    )
+    distributed_lock = DistributedLockSpec(
+        enabled=True,
+        mode="cluster",
+        cluster_url_environment="LOCK_CLUSTER_URL",
+        cluster_startup_nodes_environment="LOCK_CLUSTER_NODES",
+    )
+    tooling = specification.tooling.model_copy(
+        update={
+            "distributed_lock": distributed_lock,
+            "key_value_store": key_value_store,
+        }
+    )
+    files = LocalEnvironmentGenerator().render(
+        specification.model_copy(update={"tooling": tooling})
+    )
+
+    compose = yaml.safe_load(
+        files[PurePosixPath("environment", "compose.integration.yml")]
+    )
+    environment = files[PurePosixPath("environment", ".env.example")]
+
+    application_environment = compose["services"]["application"]["environment"]
+    assert application_environment["REDIS_CLUSTER_URL"] == (
+        "${REDIS_CLUSTER_URL:-redis://redis-7000:7000}"
+    )
+    assert application_environment["CACHE_CLUSTER_URL"] == (
+        "${CACHE_CLUSTER_URL:-redis://redis-7000:7000}"
+    )
+    assert application_environment["LOCK_CLUSTER_URL"] == (
+        "${LOCK_CLUSTER_URL:-redis://redis-7000:7000}"
+    )
+    assert "CACHE_CLUSTER_NODES=redis://redis-7000:7000" in environment
+    assert "LOCK_CLUSTER_NODES=redis://redis-7000:7000" in environment
+
+
+def test_render_rejects_conflicting_redis_runtime_modes() -> None:
+    with pytest.raises(ValueError, match="one shared Redis mode"):
+        LocalEnvironmentGenerator().render(
+            integration_specification(
+                enabled=True,
+                key_value_store_backend="redis",
+                key_value_store_mode="standalone",
+            )
+        )
+
+
+@pytest.mark.integration
+@pytest.mark.anyio
+async def test_generated_memcached_profile_starts_when_enabled(tmp_path: Path) -> None:
+    if os.environ.get("AUTOFORGE_DOCKER_MEMCACHED_INTEGRATION") != "1":
+        pytest.skip("set AUTOFORGE_DOCKER_MEMCACHED_INTEGRATION=1 to run Docker")
+
+    specification = ProjectSpec(
+        spec_version="1",
+        project=ProjectInfo(
+            name="Memcached Profile",
+            package_name=f"memcached_profile_{uuid.uuid4().hex}",
+            version="0.1.0",
+        ),
+        application=ApplicationSpec(),
+        tooling={
+            "local_environment": {"enabled": True},
+            "key_value_store": {"enabled": True, "backend": "memcached"},
+        },
+    )
+    files = LocalEnvironmentGenerator().render(specification)
+    for relative_path, content in files.items():
+        target = tmp_path / relative_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+    environment = tmp_path / "environment"
+    (environment / ".env").write_text(
+        files[PurePosixPath("environment", ".env.example")], encoding="utf-8"
+    )
+
+    compose = (
+        "docker",
+        "compose",
+        "--env-file",
+        "environment/.env",
+        "-f",
+        "environment/compose.integration.yml",
+    )
+    runner = AsyncioProcessRunner()
+    try:
+        result = await runner.run(
+            (*compose, "up", "--detach", "--wait"),
+            cwd=tmp_path,
+            timeout_seconds=120,
+        )
+        assert result.succeeded, result.stderr
+    finally:
+        await runner.run(
+            (*compose, "down", "--volumes", "--remove-orphans"),
+            cwd=tmp_path,
+            timeout_seconds=60,
+        )
 
 
 def test_render_creates_opt_in_rabbitmq_cluster_with_stable_endpoint() -> None:

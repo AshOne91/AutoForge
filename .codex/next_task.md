@@ -1,12 +1,13 @@
 # Next Task
 
-## Next executable unit: generate and verify a local Memcached KeyValueStore profile
+## Next executable unit: establish the generated Realtime/WebSocket boundary
 
-When `tooling.key_value_store.backend: memcached` is selected, generate a local
-Memcached Compose service with a health check and the matching application
-environment contract. Verify generation deterministically and add one opt-in
-container runtime drill.
+Trace the reusable WebSocket responsibilities in the reference base server and
+add one opt-in AutoForge runtime boundary with a generic asynchronous contract,
+deterministic fake, explicit lifecycle, and no broker or provider-specific
+workflow. Keep connection authorization, channel policy, persistence, message
+delivery, and notification adapters consumer-owned.
 
-Do not change the KIS default Redis specification, treat Memcached as a
-replacement for Redis SessionStore or DistributedLock, or run the explicitly
-opt-in KIS balance integration check automatically.
+Do not change the KIS default Redis specification, treat a Realtime boundary as
+an EventBus replacement, or run the explicitly opt-in KIS balance integration
+check automatically.

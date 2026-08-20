@@ -7,7 +7,9 @@ change container-internal ports or Kubernetes Service ports.
 
 1. Services use their standard container ports: PostgreSQL `5432`, MySQL `3306`, Redis
    `6379` (or cluster nodes `7000`–`7005`), RabbitMQ `5672` and `15672`, FastAPI
-   `8000`, and Airflow `8080`.
+   `8000`, and Airflow `8080`. Memcached uses internal port `11211`; the generated
+   Memcached profile does not publish it to the host and therefore does not consume
+   a project host-port allocation.
 2. Containers communicate through Compose service names and container ports,
    never host ports.
 3. Published host ports bind to `127.0.0.1` by default. Set

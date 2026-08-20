@@ -86,9 +86,11 @@ process-global singleton pattern.
   currently selects one endpoint. Value schema, cache-aside/invalidation policy,
   ranking, hashes, cache metrics, and KIS token-record policy remain
   consumer-owned.
-- [ ] generate and verify a local Memcached runtime profile for a selected
-  `tooling.key_value_store.backend: memcached`; KIS remains on its existing Redis
-  contract until a consumer deliberately changes its specification.
+- [x] local Memcached KeyValueStore profile: a selected
+  `tooling.key_value_store.backend: memcached` generates an internal-only
+  Compose service, healthcheck, application/worker environment contract, and
+  opt-in Docker runtime drill. KIS remains on its existing Redis contract until
+  a consumer deliberately changes its specification.
 - [~] record-to-search boundary established by two KIS projections:
   `source_key`/`news_index` and `job_id`/`durable_job_history_index` carry only
   canonical identities or safe summaries, while the consumer owns document

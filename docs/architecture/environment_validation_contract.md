@@ -36,6 +36,14 @@ sentinel을 standalone으로 대체하지 않는다. Durable Job이 있으면 Ai
 runtime을 포함하고, `application_enabled`가 참이면 migration, FastAPI application,
 Outbox relay와 worker를 같은 환경 계약에 연결한다.
 
+`tooling.key_value_store.backend: memcached`를 선택하면 local Compose는 Memcached
+컨테이너와 healthcheck를 생성하고 application 및 Durable Job worker에 선택된 host/port
+환경 변수를 주입한다. Memcached는 Compose 내부 DNS로만 연결하며 host port를 공개하지
+않는다. Redis Session, DistributedLock, Redis KeyValueStore를 함께 선택한 profile은 하나의
+Redis topology만 사용할 수 있고, generator는 선택된 모든 계약의 연결 환경 변수를 같은
+runtime에 주입한다. Sentinel을 조용히 standalone으로 바꾸거나 충돌한 mode를 임의로
+선택하지 않는다.
+
 이 계약은 로컬·통합 검증 환경만 소유하며 운영 HA 토폴로지를 정의하지 않는다.
 
 `tooling.single_host.enabled`는 별도 Single Host Operating Generator를 선택한다.

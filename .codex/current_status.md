@@ -882,11 +882,14 @@ explicit async lifecycle without adding a global cache singleton or application
 cache policy. The selected adapter and dependency are generated from the
 specification. The generated Redis standalone adapter passed a disposable Redis
 verification for set/get/delete; the Memcached adapter is deterministically
-verified through its provider client contract, and a local Memcached Compose
-runtime drill remains pending. Redis Cluster and Sentinel output is generated and
-parsed but has not yet had a dedicated runtime drill. Value serialization, cache
-invalidation, key design, FastAPI lifespan registration, and KIS adoption remain
-consumer-owned.
+verified through its provider client contract and an opt-in generated Memcached
+Compose runtime drill. Memcached is internal-only on the Compose network. When a
+local profile selects Redis Session, DistributedLock, or Redis KeyValueStore,
+their Redis modes must agree and their selected connection environments are
+injected into application and Durable Job worker containers. Redis Cluster and
+Sentinel output is generated and parsed but has not yet had a dedicated runtime
+drill. Value serialization, cache invalidation, key design, FastAPI lifespan
+registration, and KIS adoption remain consumer-owned.
 
 KIS now selects the generated external-provider, distributed-lock, and
 key-value-store contracts in both its default standalone and HA Redis Cluster
