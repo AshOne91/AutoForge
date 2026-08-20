@@ -1,15 +1,12 @@
 # Next Task
 
-## Next executable unit: implement one read-only KIS domestic balance client
+## Next executable unit: add an opt-in KIS domestic balance integration check
 
-Add user-owned `KisDomesticAccountClient` on the existing generated
-`ExternalProvider` and Redis-backed `KisTokenCoordinator` contracts. It calls
-only `GET /uapi/domestic-stock/v1/trading/inquire-balance`, selects the official
-real/demo TR ID, follows at most ten continuation pages, and returns only typed
-holding fields needed for later portfolio composition.
+Add one default-skipped KIS integration test for `KisDomesticAccountClient`. It
+must require an explicit opt-in flag plus the existing KIS application and new
+account runtime values, make exactly one read-only balance request, validate only
+the typed holding contract, and close its HTTP/Redis resources.
 
-Declare the KIS account-number, account-product-code, and real/demo environment
-as application-only runtime environments. Use deterministic fake transport tests
-for request shape, pagination, malformed/error responses, and pre-I/O input
-validation. Do not add an HTTP route, persistence, account-summary exposure,
-live KIS request, portfolio write, or order behavior.
+Do not run the test without explicit configuration. Do not add a route,
+persistence, account-summary output, Durable Job, polling, order behavior, or
+credentials to Git.

@@ -923,6 +923,16 @@ startup constructs and stores it in `app.state` without a KIS request, and
 shutdown closes its shared HTTP and Redis clients. It has no FastAPI route,
 makes no live request during startup, and exposes no account or order operation.
 
+KIS now also has a user-owned `KisDomesticAccountClient` for the official
+read-only domestic balance `GET /uapi/domestic-stock/v1/trading/inquire-balance`.
+It reuses the same generated external-provider and Redis-backed token
+coordination contracts, validates application-only account runtime values,
+selects the real/demo TR ID, and follows at most ten continuation pages. It
+returns typed holding fields only; it has no route, lifespan registration,
+persistence, account-summary exposure, or order behavior. Fake transport tests
+cover the request shape, pagination, provider envelope failure, and invalid
+account configuration. No KIS balance request has run.
+
 `RuntimeEnvironmentSpec.targets` now declares the generated runtime process
 that receives each value, defaulting to `application`. KIS targets its four KIS
 values at both `application` and `durable_job_worker`; regenerated Compose
