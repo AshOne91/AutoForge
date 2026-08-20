@@ -235,12 +235,29 @@ class ServiceTokenSpec(StrictSpecModel):
         return validate_python_name(value)
 
 
+class RuntimeEnvironmentTarget(StrEnum):
+    APPLICATION = "application"
+    DURABLE_JOB_WORKER = "durable_job_worker"
+
+
 class RuntimeEnvironmentSpec(StrictSpecModel):
-    """A user-owned application environment variable forwarded at runtime."""
+    """A user-owned runtime environment variable and its consumers."""
 
     name: str = Field(pattern=r"^[A-Z][A-Z0-9_]*$")
     required: bool = True
     health_test_value: str = Field(default="test-value", min_length=1)
+    targets: list[RuntimeEnvironmentTarget] = Field(
+        default_factory=lambda: [RuntimeEnvironmentTarget.APPLICATION], min_length=1
+    )
+
+    @field_validator("targets")
+    @classmethod
+    def validate_targets(
+        cls, values: list[RuntimeEnvironmentTarget]
+    ) -> list[RuntimeEnvironmentTarget]:
+        if len(values) != len(set(values)):
+            raise ValueError("Runtime environment targets must be unique")
+        return values
 
 
 class ApplicationSpec(StrictSpecModel):
@@ -305,6 +322,16 @@ class ApplicationSpec(StrictSpecModel):
             raise ValueError(
                 "Application runtime environments conflict with generated "
                 f"environments: {duplicate_environment_names}"
+            )
+        if (
+            any(
+                RuntimeEnvironmentTarget.DURABLE_JOB_WORKER in environment.targets
+                for environment in self.runtime_environments
+            )
+            and not self.durable_jobs
+        ):
+            raise ValueError(
+                "durable_job_worker runtime environments require durable jobs"
             )
         unknown_outbox_stores = sorted(
             {

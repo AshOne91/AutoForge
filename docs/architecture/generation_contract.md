@@ -86,23 +86,27 @@ secret environments; generated Airflow receives only the Durable Job token it
 uses. A user-owned internal router may reuse the generated guard, but must use
 its own declared caller name rather than sharing a Durable Job credential.
 
-### User-owned application runtime environments
+### User-owned runtime environments
 
-`ApplicationSpec.runtime_environments` declares user-owned application
-environment names without storing values. Generated local Compose forwards a
-required name as `${NAME:?set NAME}` and an optional name as `${NAME:-}`; the
-former fails before the application starts when absent, while the latter is an
-empty value when absent. Generated `environment/.env.example` lists each name
-with an empty value for the operator to supply outside Git.
+`ApplicationSpec.runtime_environments` declares user-owned runtime environment
+names without storing values. Each value has one or more explicit targets:
+`application` is the compatibility default and `durable_job_worker` opts the
+generated Durable Job worker into the value. Generated local Compose forwards a
+required name as `${NAME:?set NAME}` and an optional name as `${NAME:-}` only to
+its declared targets; the former fails before that process starts when absent,
+while the latter is an empty value when absent. Generated
+`environment/.env.example` lists each name with an empty value for the operator
+to supply outside Git.
 
-Generated Kubernetes application manifests reference every declared name from
-the configured application Secret, and generated `secret.env.example` lists the
-same keys. Kubernetes therefore requires each declared Secret key to exist;
-`required: false` changes only local Compose fail-fast behavior and does not
-make a missing Kubernetes Secret key valid. Specification values and Secrets
-remain operator-owned and are never emitted into a manifest.
+Generated Kubernetes application manifests reference only values targeted at
+`application`; generated `secret.env.example` still lists every declared key.
+The current Kubernetes topology does not yet generate a Durable Job worker
+Deployment. Kubernetes therefore requires every injected application Secret key
+to exist; `required: false` changes only local Compose fail-fast behavior and
+does not make a missing injected Kubernetes Secret key valid. Specification
+values and Secrets remain operator-owned and are never emitted into a manifest.
 
-Generated `tests/test_health.py` sets every declared name from its
+Generated `tests/test_health.py` sets application-targeted names from their
 `health_test_value` before application lifespan starts. That value is test-only
 and committed with the specification, so it MUST be non-secret; it is never
 forwarded to Compose, Kubernetes, or a runtime Secret.

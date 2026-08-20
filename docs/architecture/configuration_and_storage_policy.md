@@ -27,10 +27,12 @@ not select or contain credentials. A generated runtime should receive only the
 configuration for its chosen environment, while secrets remain outside Git and
 outside generated manifests.
 
-`ApplicationSpec.runtime_environments` may declare only an application
-environment name and its local requiredness. Its value remains operator-owned:
-local execution reads it from the ignored environment file or process, and
-Kubernetes reads it from the configured Secret.
+`ApplicationSpec.runtime_environments` declares a runtime environment name, its
+local requiredness, and explicit consuming targets. The default target is
+`application`; `durable_job_worker` is selected only when that worker needs the
+value. Its value remains operator-owned: local execution reads it from the
+ignored environment file or process, and Kubernetes reads it from the configured
+Secret.
 
 ## Generated boundary
 

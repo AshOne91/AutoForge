@@ -11,7 +11,12 @@ from autoforge.core.generation import (
     content_hash,
     specification_hash,
 )
-from autoforge.core.specification import DatabaseStoreSpec, ProjectSpec, ServiceSpec
+from autoforge.core.specification import (
+    DatabaseStoreSpec,
+    ProjectSpec,
+    RuntimeEnvironmentTarget,
+    ServiceSpec,
+)
 
 LOCAL_ENVIRONMENT_GENERATOR_ID = "autoforge.generator.local-environment"
 LOCAL_ENVIRONMENT_GENERATOR_VERSION = "0.1.0"
@@ -1135,7 +1140,9 @@ class LocalEnvironmentGenerator:
         service_token_environment = self._render_service_token_environment(
             specification
         )
-        runtime_environment = self._render_runtime_environment(specification)
+        runtime_environment = self._render_runtime_environment(
+            specification, target=RuntimeEnvironmentTarget.APPLICATION
+        )
         heartbeat_environment = ""
         heartbeat = specification.application.control_plane_heartbeat
         if heartbeat.enabled:
@@ -1187,7 +1194,9 @@ class LocalEnvironmentGenerator:
         )
 
     @staticmethod
-    def _render_runtime_environment(specification: ProjectSpec) -> str:
+    def _render_runtime_environment(
+        specification: ProjectSpec, *, target: RuntimeEnvironmentTarget
+    ) -> str:
         return "".join(
             (
                 f"      {environment.name}: "
@@ -1196,6 +1205,7 @@ class LocalEnvironmentGenerator:
                 else f"      {environment.name}: ${{{environment.name}:-}}\n"
             )
             for environment in specification.application.runtime_environments
+            if target in environment.targets
         )
 
     def _render_outbox_relay(
@@ -1295,6 +1305,9 @@ class LocalEnvironmentGenerator:
             "    environment:\n"
             + self._render_database_environment(specification)
             + "      RABBITMQ_URL: ${RABBITMQ_URL:?set RABBITMQ_URL}\n"
+            + self._render_runtime_environment(
+                specification, target=RuntimeEnvironmentTarget.DURABLE_JOB_WORKER
+            )
             + heartbeat_environment
             + rag_environment
             + rag_network

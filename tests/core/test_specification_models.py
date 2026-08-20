@@ -34,6 +34,7 @@ from autoforge.core.specification import (
     RepositorySpec,
     ResponseSpec,
     RuntimeEnvironmentSpec,
+    RuntimeEnvironmentTarget,
     SchemaSpec,
     ServiceSpec,
     ServiceTokenSpec,
@@ -485,6 +486,29 @@ def test_runtime_environments_require_unique_non_generated_names() -> None:
 def test_runtime_environment_requires_non_empty_health_test_value() -> None:
     with pytest.raises(ValidationError, match="String should have at least 1 character"):
         RuntimeEnvironmentSpec(name="KIS_API_URL", health_test_value="")
+
+
+def test_runtime_environment_targets_default_to_application_and_require_a_worker() -> None:
+    environment = RuntimeEnvironmentSpec(name="KIS_APP_KEY")
+
+    assert environment.targets == [RuntimeEnvironmentTarget.APPLICATION]
+    with pytest.raises(ValidationError, match="targets must be unique"):
+        RuntimeEnvironmentSpec(
+            name="KIS_APP_KEY",
+            targets=[
+                RuntimeEnvironmentTarget.APPLICATION,
+                RuntimeEnvironmentTarget.APPLICATION,
+            ],
+        )
+    with pytest.raises(ValidationError, match="require durable jobs"):
+        ApplicationSpec(
+            runtime_environments=[
+                RuntimeEnvironmentSpec(
+                    name="KIS_APP_KEY",
+                    targets=[RuntimeEnvironmentTarget.DURABLE_JOB_WORKER],
+                )
+            ]
+        )
 
 
 def test_endpoint_service_token_is_optional_and_typed() -> None:

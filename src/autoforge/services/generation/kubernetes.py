@@ -8,7 +8,11 @@ from autoforge.core.generation import (
     content_hash,
     specification_hash,
 )
-from autoforge.core.specification import ProjectSpec, ServiceSpec
+from autoforge.core.specification import (
+    ProjectSpec,
+    RuntimeEnvironmentTarget,
+    ServiceSpec,
+)
 
 KUBERNETES_BASE_SERVER_GENERATOR_ID = "autoforge.generator.kubernetes-base-server"
 KUBERNETES_BASE_SERVER_GENERATOR_VERSION = "0.2.0"
@@ -34,10 +38,13 @@ class KubernetesBaseServerGenerator:
         if not profile.enabled:
             return {}
         application_name = self._kubernetes_name(specification.project.package_name)
-        secret_environment_names = self._secret_environment_names(specification)
+        secret_environment_names = self._secret_environment_names(
+            specification, target=RuntimeEnvironmentTarget.APPLICATION
+        )
+        all_secret_environment_names = self._secret_environment_names(specification)
         collector_enabled = specification.tooling.elk.kubernetes_collector_enabled
         secret_template_names = sorted(
-            set(secret_environment_names)
+            set(all_secret_environment_names)
             | (set(_COLLECTOR_SECRET_ENVIRONMENT_NAMES) if collector_enabled else set())
         )
         files = {
@@ -149,7 +156,11 @@ class KubernetesBaseServerGenerator:
         return package_name.replace("_", "-")
 
     @staticmethod
-    def _secret_environment_names(specification: ProjectSpec) -> list[str]:
+    def _secret_environment_names(
+        specification: ProjectSpec,
+        *,
+        target: RuntimeEnvironmentTarget | None = None,
+    ) -> list[str]:
         environment_names = {
             environment_name
             for database in specification.application.databases
@@ -166,7 +177,11 @@ class KubernetesBaseServerGenerator:
         environment_names.update(
             specification.application.service_token_environments.values()
         )
-        environment_names.update(specification.application.runtime_environment_names)
+        environment_names.update(
+            environment.name
+            for environment in specification.application.runtime_environments
+            if target is None or target in environment.targets
+        )
         environment_names.update(
             specification.tooling.kubernetes.additional_secret_env_names
         )

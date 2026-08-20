@@ -14,6 +14,7 @@ from autoforge.core.specification import (
     ProjectInfo,
     ProjectSpec,
     RuntimeEnvironmentSpec,
+    RuntimeEnvironmentTarget,
     ServiceSpec,
     ServiceTokenSpec,
 )
@@ -146,6 +147,46 @@ def test_runtime_environments_flow_to_application_compose_and_example() -> None:
     assert application_environment["KIS_TOKEN_SCOPE"] == "${KIS_TOKEN_SCOPE:-}"
     assert "KIS_APP_KEY=\n" in environment
     assert "KIS_TOKEN_SCOPE=\n" in environment
+
+
+def test_runtime_environments_only_flow_to_declared_compose_targets() -> None:
+    specification = integration_specification(
+        enabled=True, application=True, durable_jobs=True
+    )
+    application = specification.application.model_copy(
+        update={
+            "runtime_environments": [
+                RuntimeEnvironmentSpec(name="API_ONLY"),
+                RuntimeEnvironmentSpec(
+                    name="WORKER_ONLY",
+                    targets=[RuntimeEnvironmentTarget.DURABLE_JOB_WORKER],
+                ),
+                RuntimeEnvironmentSpec(
+                    name="SHARED_RUNTIME",
+                    targets=[
+                        RuntimeEnvironmentTarget.APPLICATION,
+                        RuntimeEnvironmentTarget.DURABLE_JOB_WORKER,
+                    ],
+                ),
+            ]
+        }
+    )
+
+    files = LocalEnvironmentGenerator().render(
+        specification.model_copy(update={"application": application})
+    )
+    compose = yaml.safe_load(files[PurePosixPath("environment/compose.integration.yml")])
+
+    assert set(compose["services"]["application"]["environment"]) >= {
+        "API_ONLY",
+        "SHARED_RUNTIME",
+    }
+    assert "WORKER_ONLY" not in compose["services"]["application"]["environment"]
+    assert set(compose["services"]["durable-job-worker"]["environment"]) >= {
+        "WORKER_ONLY",
+        "SHARED_RUNTIME",
+    }
+    assert "API_ONLY" not in compose["services"]["durable-job-worker"]["environment"]
 
 
 def test_render_is_empty_until_enabled() -> None:

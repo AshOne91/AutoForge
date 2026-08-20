@@ -13,9 +13,11 @@ from autoforge.core.specification import (
     ControlPlaneHeartbeatSpec,
     DatabaseShardSpec,
     DatabaseStoreSpec,
+    DurableJobSpec,
     ProjectInfo,
     ProjectSpec,
     RuntimeEnvironmentSpec,
+    RuntimeEnvironmentTarget,
     ServiceSpec,
     ServiceTokenSpec,
     ToolingSpec,
@@ -36,6 +38,7 @@ def project_specification(
     dependencies: list[str] | None = None,
     database_provider: str = "postgresql",
     runtime_environments: list[RuntimeEnvironmentSpec] | None = None,
+    durable_jobs: list[DurableJobSpec] | None = None,
     service_tokens: list[ServiceTokenSpec] | None = None,
 ) -> ProjectSpec:
     return ProjectSpec(
@@ -51,6 +54,7 @@ def project_specification(
             modules=modules or [],
             services=services or [],
             databases=databases or [],
+            durable_jobs=durable_jobs or [],
             runtime_environments=runtime_environments or [],
             service_tokens=service_tokens or [],
             control_plane_heartbeat=control_plane_heartbeat
@@ -189,19 +193,45 @@ def test_render_module_registry_wraps_long_imports_for_ruff() -> None:
 def test_runtime_environments_flow_to_generated_health_test() -> None:
     files = FastAPIProjectGenerator().render(
         project_specification(
+            databases=[
+                DatabaseStoreSpec(
+                    name="automation",
+                    global_url_env="AUTOMATION_DATABASE_URL",
+                )
+            ],
+            services=[
+                ServiceSpec(
+                    name="events",
+                    kind="rabbitmq",
+                    outbox_stores=["automation"],
+                )
+            ],
             runtime_environments=[
                 RuntimeEnvironmentSpec(
                     name="PAYMENTS_API_URL",
                     health_test_value="https://example.invalid",
                 ),
                 RuntimeEnvironmentSpec(name="PAYMENTS_API_KEY"),
-            ]
+                RuntimeEnvironmentSpec(
+                    name="WORKER_ONLY_SECRET",
+                    targets=[RuntimeEnvironmentTarget.DURABLE_JOB_WORKER],
+                ),
+            ],
+            durable_jobs=[
+                DurableJobSpec(
+                    name="payments_poll",
+                    store="automation",
+                    event_type="payments.poll.requested",
+                    routing_key="payments.poll.requested",
+                )
+            ],
         )
     )
     health_test = files[PurePosixPath("tests/test_health.py")]
 
     assert 'monkeypatch.setenv("PAYMENTS_API_URL", "https://example.invalid")' in health_test
     assert 'monkeypatch.setenv("PAYMENTS_API_KEY", "test-value")' in health_test
+    assert "WORKER_ONLY_SECRET" not in health_test
 
 
 def test_app_factory_registers_module_routers() -> None:

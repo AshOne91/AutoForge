@@ -246,11 +246,13 @@ Runtime Database Store와 Outbox 기반 Durable Job을 선언한다. 이름과 �
 [Generation Contract](generation_contract.md#scoped-service-token-authentication)
 for generated runtime behavior and secret delivery.
 
-`runtime_environments` declares user-owned application environment variable
-names, whether local execution requires each value, and a non-secret
-`health_test_value` for generated health tests. It never stores an operational
-value or secret. Names must be unique and cannot overlap generated service-token
-or enabled heartbeat environment names. See [Generation Contract](generation_contract.md#user-owned-application-runtime-environments)
+`runtime_environments` declares user-owned runtime environment variable names,
+whether local execution requires each value, consuming targets, and a non-secret
+`health_test_value` for generated application health tests. `application` is the
+compatibility default; `durable_job_worker` is valid only when Durable Jobs are
+declared. It never stores an operational value or secret. Names must be unique
+and cannot overlap generated service-token or enabled heartbeat environment
+names. See [Generation Contract](generation_contract.md#user-owned-runtime-environments)
 for generated delivery behavior.
 
 `durable_job_worker_restart_policy`는 Durable Job worker 컨테이너의 재시작

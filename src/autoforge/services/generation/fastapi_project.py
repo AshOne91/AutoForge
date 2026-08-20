@@ -10,7 +10,11 @@ from autoforge.core.generation import (
     content_hash,
     specification_hash,
 )
-from autoforge.core.specification import ProjectSpec, ServiceSpec
+from autoforge.core.specification import (
+    ProjectSpec,
+    RuntimeEnvironmentTarget,
+    ServiceSpec,
+)
 
 GENERATOR_ID: Final = "autoforge.generator.fastapi.project"
 GENERATOR_VERSION: Final = "0.1.0"
@@ -125,6 +129,7 @@ class FastAPIProjectGenerator:
                 runtime_env_values=[
                     (environment.name, environment.health_test_value)
                     for environment in specification.application.runtime_environments
+                    if RuntimeEnvironmentTarget.APPLICATION in environment.targets
                 ],
                 database_env_names=database_env_names,
                 database_provider=database_provider,

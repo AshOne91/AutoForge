@@ -16,6 +16,7 @@ from autoforge.core.specification import (
     ProjectInfo,
     ProjectSpec,
     RuntimeEnvironmentSpec,
+    RuntimeEnvironmentTarget,
     ServiceSpec,
     ServiceTokenSpec,
     ToolingSpec,
@@ -177,6 +178,31 @@ def test_runtime_environments_flow_to_kubernetes_secret_references() -> None:
     assert "key: PAYMENTS_API_SECRET" in manifest
     assert "PAYMENTS_API_KEY=\n" in secret_environment
     assert "PAYMENTS_API_SECRET=\n" in secret_environment
+
+
+def test_worker_only_runtime_environment_stays_out_of_kubernetes_application_pod() -> None:
+    specification = base_server_specification(enabled=True)
+    application = specification.application.model_copy(
+        update={
+            "runtime_environments": [
+                RuntimeEnvironmentSpec(
+                    name="WORKER_ONLY_SECRET",
+                    targets=[RuntimeEnvironmentTarget.DURABLE_JOB_WORKER],
+                )
+            ]
+        }
+    )
+
+    files = KubernetesBaseServerGenerator().render(
+        specification.model_copy(update={"application": application})
+    )
+    manifest = files[PurePosixPath("deploy", "kubernetes", "base-server.yaml")]
+    secret_environment = files[
+        PurePosixPath("deploy", "kubernetes", "secret.env.example")
+    ]
+
+    assert "WORKER_ONLY_SECRET" not in manifest
+    assert "WORKER_ONLY_SECRET=\n" in secret_environment
 
 
 def test_render_creates_zero_secret_proxy_and_application_topology() -> None:
