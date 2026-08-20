@@ -10,7 +10,9 @@
   suite pass. KIS adopts the contract for SignalEvent: its original `0001`
   baseline remains unchanged, while generated `0002` adds optional producer
   expiry and the global per-subscription `SignalDeliveryIntent` persistence
-  boundary. KIS does not yet materialize or deliver those intents.
+  boundary. KIS materializes one deterministic pending intent per enabled
+  subscription through the existing Outbox/Inbox transport before expiry; it
+  still has no external delivery channel.
 - State-changing endpoints can opt into a separate Redis-backed request replay
   contract with `EndpointSpec.idempotency`. Generated routes require an
   `Idempotency-Key`, fingerprint the method/path/body, atomically claim the
@@ -31,8 +33,10 @@
   optional RAG infrastructure and environment contract; it does not yet
   generate a domain projection or a second search API.
 - KIS now persists generated `SignalEvent` records in the global `automation`
-  store; without a selected delivery consumer, these records intentionally do
-  not emit an unrouteable `signal.created` Outbox event. Authenticated users
+  store; signals carrying a producer-owned expiry emit `signal.created` through
+  a dedicated queue. Its Inbox consumer reads the enabled global subscription
+  projection and saves one deterministic pending intent per eligible
+  subscription before expiry, without calling an external channel. Authenticated users
   manage their own domestic-stock `SignalSubscription` in the account shard
   through generated idempotent endpoints. A deterministic `user_id +
   stock_code` identifier suppresses duplicate state changes, while each actual
@@ -41,8 +45,8 @@
   KIS hook declares the projection queue. The message worker claims the event
   ID in the global automation Inbox before upserting the generated
   `SignalSubscriptionProjection` read model in that same transaction and does
-  not overwrite a newer recorded revision. Signal fan-out, delivery intent,
-  orders, and notifications remain outside this slice. KIS also exposes the
+  not overwrite a newer recorded revision. External delivery, orders, and
+  notifications remain outside this slice. KIS also exposes the
   enabled global projection through an operator-token-protected lookup by
   domestic stock code; its list query remains consumer-owned.
 

@@ -1,12 +1,11 @@
 # Next Task
 
-## Next executable unit: materialize eligible SignalDeliveryIntent records
+## Next executable unit: expose pending SignalDeliveryIntent records safely
 
-In KIS, add the smallest Inbox-backed `signal.created` consumer that reads the
-global enabled subscription projection and persists one deterministic pending
-delivery intent per eligible subscription before the producer-owned expiry. Use
-the generated `SignalDeliveryIntent` repository and existing Outbox/Inbox
-transport; keep the initial worker free of external delivery channels.
+In KIS, add one operator-token-protected, read-only lookup for pending global
+SignalDeliveryIntent records by domestic stock code. Reuse the generated model,
+global session, and existing operator service-token boundary; do not expose
+user-private subscription data or change the materialization workflow.
 
 Do not add SMS, email, WebSocket, webhook, automatic order, or default Redis
 changes in this unit. Do not run the explicitly opt-in KIS balance integration
