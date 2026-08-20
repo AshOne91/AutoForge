@@ -1001,6 +1001,9 @@ It also restarts the volume-backed single PostgreSQL service, waits for all
 application replicas to become ready, and proves a new Outbox notification
 through the same path. This is a single-database restart recovery check, not
 PostgreSQL HA or failover evidence.
+The same isolated profile restarts standalone Redis, then proves a newly created
+session plus a new Outbox notification through the Redis Pub/Sub hint path. This
+is reconnect evidence for the default local profile, not Redis HA or failover.
 No acknowledgement, replay, rate limit, or delivery observability is generated.
 This is not an EventBus replacement and does not make a live hint the
 notification source of truth.
