@@ -103,8 +103,10 @@ process-global singleton pattern.
   in-process channel hub with a deterministic fake and explicit lifecycle.
   Future work needs a consumer-owned FastAPI adapter plus a separately selected
   broker-backed delivery design for multi-replica fan-out; authentication,
-  persistence, deduplication, rate limiting, notifications, and delivery/error
-  observability remain separate concerns.
+  persistence, deduplication, rate limiting, and delivery/error observability
+  remain separate concerns. `tooling.notification` now provides a separate
+  one-POST Webhook delivery boundary; email/SMS/push providers and notification
+  policy remain future consumer decisions.
 - [x] operator-facing ingestion lifecycle endpoints: the generated Durable Job
   API provides idempotent execution, status/result retrieval, and requested-job
   cancellation; the separately generated Worker reports its health to the

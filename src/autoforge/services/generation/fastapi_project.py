@@ -86,6 +86,7 @@ class FastAPIProjectGenerator:
                     for service in specification.application.services
                 ),
                 include_external_provider=specification.tooling.external_provider.enabled,
+                include_notification=specification.tooling.notification.enabled,
                 include_search=specification.tooling.search.enabled,
                 include_vector_store=specification.tooling.vector_store.enabled,
                 include_object_storage=specification.tooling.storage.runtime_enabled,
@@ -250,6 +251,7 @@ class FastAPIProjectGenerator:
         include_key_value_store_memcached: bool,
         include_rabbitmq: bool,
         include_external_provider: bool,
+        include_notification: bool,
         include_search: bool,
         include_vector_store: bool,
         include_object_storage: bool,
@@ -269,7 +271,12 @@ class FastAPIProjectGenerator:
         )
         httpx_dependency = (
             '    "httpx>=0.28,<1",\n'
-            if include_external_provider or include_search or include_vector_store
+            if (
+                include_external_provider
+                or include_notification
+                or include_search
+                or include_vector_store
+            )
             else ""
         )
         object_storage_dependency = (

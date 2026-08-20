@@ -79,6 +79,11 @@ from autoforge.services.generation.mysql_ddl import (
     MYSQL_DDL_GENERATOR_VERSION,
     MySQLDDLGenerator,
 )
+from autoforge.services.generation.notification import (
+    NOTIFICATION_GENERATOR_ID,
+    NOTIFICATION_GENERATOR_VERSION,
+    NotificationGenerator,
+)
 from autoforge.services.generation.postgresql_ddl import (
     POSTGRESQL_DDL_GENERATOR_ID,
     POSTGRESQL_DDL_GENERATOR_VERSION,
@@ -318,6 +323,18 @@ def create_fastapi_generator_plugins(
                 name=REALTIME_GENERATOR_ID,
                 version=REALTIME_GENERATOR_VERSION,
                 description="Async in-process realtime hub Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
+    project_registry.register(
+        GeneratorPluginAdapter(
+            NotificationGenerator(),
+            PluginMetadata(
+                name=NOTIFICATION_GENERATOR_ID,
+                version=NOTIFICATION_GENERATOR_VERSION,
+                description="Async outbound webhook notification Generator",
                 capabilities=(PluginCapability.GENERATOR,),
                 supported_specification_versions=("1",),
             ),

@@ -176,20 +176,20 @@ fan-out, retries, rate limits, notifications, or delivery observability. It is
 not an EventBus replacement; consumers own the transport adapter and all
 application workflow decisions.
 
-### Realtime runtime boundary
+### Notification runtime boundary
 
-`tooling.realtime` opt-in generates an asynchronous in-process `RealtimeHub`
-with channel subscribe, unsubscribe, publish, explicit close, and a deterministic
-subscriber fake. Delivery takes a consumer-provided `send(message: str)`
-subscriber, so a FastAPI WebSocket adapter can compose the boundary without
-making FastAPI a generated runtime dependency.
+`tooling.notification` opt-in generates an asynchronous outbound webhook
+`NotificationDispatcher`. Its specification selects a required webhook URL
+environment variable and timeout. The generated project adds `httpx` only when
+this boundary, ExternalProvider, SearchService, or VectorStore is selected.
 
-The contract owns local channel fan-out and its lifecycle only. It does not
-generate a WebSocket route, authentication or authorization, channel policy,
-message schema or serialization, persistence, broker-backed multi-replica
-fan-out, retries, rate limits, notifications, or delivery observability. It is
-not an EventBus replacement; consumers own the transport adapter and all
-application workflow decisions.
+The contract owns the generic subject/body/attributes payload, one HTTP POST,
+non-2xx failure reporting, explicit close, and a deterministic delivery fake.
+It deliberately does not retry because notification delivery is side-effecting.
+It does not generate email, SMS, mobile push, templates, credentials, recipient
+or channel policy, persistence, outbox routing, deduplication, rate limiting,
+broker dispatch, or delivery observability. Consumers select delivery topology
+and may route a notification event through the existing generated outbox.
 
 ### ObjectStorage runtime boundary
 

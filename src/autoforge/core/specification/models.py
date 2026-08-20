@@ -410,6 +410,9 @@ class ToolingSpec(StrictSpecModel):
     external_provider: ExternalProviderSpec = Field(
         default_factory=lambda: ExternalProviderSpec()
     )
+    notification: NotificationSpec = Field(
+        default_factory=lambda: NotificationSpec()
+    )
     realtime: RealtimeSpec = Field(default_factory=lambda: RealtimeSpec())
     search: SearchSpec = Field(default_factory=lambda: SearchSpec())
     storage: StorageSpec = Field(default_factory=lambda: StorageSpec())
@@ -523,6 +526,16 @@ class RealtimeSpec(StrictSpecModel):
     """Generate an opt-in in-process realtime delivery boundary."""
 
     enabled: bool = False
+
+
+class NotificationSpec(StrictSpecModel):
+    """Generate an opt-in outbound webhook notification boundary."""
+
+    enabled: bool = False
+    webhook_url_environment: str = Field(
+        default="NOTIFICATION_WEBHOOK_URL", pattern=r"^[A-Z][A-Z0-9_]*$"
+    )
+    timeout_seconds: float = Field(default=5.0, gt=0, le=60)
 
 
 class DistributedLockSpec(StrictSpecModel):

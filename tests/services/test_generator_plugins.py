@@ -13,6 +13,7 @@ from autoforge.core.specification import (
     LocalEnvironmentSpec,
     ModuleInfo,
     ModuleSpec,
+    NotificationSpec,
     ProjectInfo,
     ProjectSpec,
     RagSpec,
@@ -46,6 +47,7 @@ from autoforge.services.generation.local_environment import (
 )
 from autoforge.services.generation.messaging import MESSAGING_GENERATOR_ID
 from autoforge.services.generation.mysql_ddl import MYSQL_DDL_GENERATOR_ID
+from autoforge.services.generation.notification import NOTIFICATION_GENERATOR_ID
 from autoforge.services.generation.postgresql_ddl import (
     POSTGRESQL_DDL_GENERATOR_ID,
 )
@@ -80,6 +82,7 @@ def test_fastapi_generator_plugins_register_real_generators() -> None:
         EXTERNAL_PROVIDER_GENERATOR_ID,
         KEY_VALUE_STORE_GENERATOR_ID,
         MESSAGING_GENERATOR_ID,
+        NOTIFICATION_GENERATOR_ID,
         REALTIME_GENERATOR_ID,
         SEARCH_SERVICE_GENERATOR_ID,
         SESSION_STORE_GENERATOR_ID,
@@ -316,6 +319,30 @@ def test_realtime_generator_plugin_is_empty_until_enabled() -> None:
 
     assert PurePosixPath(
         "src", "game_server", "infrastructure", "realtime", "service.py"
+    ) in rendered
+
+
+def test_notification_generator_plugin_is_empty_until_enabled() -> None:
+    plugins = create_fastapi_generator_plugins("game_server")
+    specification = ProjectSpec(
+        spec_version="1",
+        project=ProjectInfo(
+            name="Game Server",
+            package_name="game_server",
+            version="0.1.0",
+        ),
+        application=ApplicationSpec(),
+    )
+
+    assert plugins.project.get(NOTIFICATION_GENERATOR_ID).render(specification) == {}
+
+    requested = specification.model_copy(
+        update={"tooling": ToolingSpec(notification=NotificationSpec(enabled=True))}
+    )
+    rendered = plugins.project.get(NOTIFICATION_GENERATOR_ID).render(requested)
+
+    assert PurePosixPath(
+        "src", "game_server", "infrastructure", "notification", "service.py"
     ) in rendered
 
 

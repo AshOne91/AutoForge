@@ -23,6 +23,7 @@ from autoforge.services.generation.manifest_store import (
 )
 from autoforge.services.generation.messaging import MessagingGenerator
 from autoforge.services.generation.mysql_ddl import MySQLDDLGenerator
+from autoforge.services.generation.notification import NotificationGenerator
 from autoforge.services.generation.plan_applier import (
     GenerationPlanApplier,
     GenerationPlanApplyError,
@@ -76,6 +77,7 @@ __all__ = [
     "ManifestStoreError",
     "MessagingGenerator",
     "MySQLDDLGenerator",
+    "NotificationGenerator",
     "ObjectStorageGenerator",
     "PostgreSQLDDLGenerator",
     "PydanticTypeRenderer",

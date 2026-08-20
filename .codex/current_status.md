@@ -901,6 +901,17 @@ fan-out, retry/rate-limit policy, notifications, or delivery observability.
 This local hub is not an EventBus replacement and does not claim multi-replica
 delivery.
 
+`tooling.notification` now generates an opt-in
+`infrastructure/notification` runtime contract with an asynchronous generic
+Webhook `NotificationDispatcher`, required URL environment contract, timeout,
+explicit close, non-2xx delivery failure, and deterministic fake. It performs
+one POST without automatic retry, because delivery is side-effecting. Email,
+SMS, mobile push, templates, credentials, recipient/channel policy,
+persistence, outbox routing, deduplication, rate limiting, broker dispatch,
+and delivery observability remain consumer-owned. A consumer can compose it
+with the existing generated RabbitMQ/Outbox contract instead of coupling those
+responsibilities inside the notifier.
+
 KIS now selects the generated external-provider, distributed-lock, and
 key-value-store contracts in both its default standalone and HA Redis Cluster
 specifications. Its user-owned `KisTokenCoordinator` composes those contracts
