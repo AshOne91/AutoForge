@@ -72,6 +72,9 @@ push each affected repository separately. Pause and report instead when
 verification fails or is incomplete, ownership is unclear, unrelated changes are
 present, the action is destructive, or push is rejected.
 
+If an authorized write to a consumer repository outside this workspace is denied,
+request scoped escalation and retry before diagnosing a file lock or blocking.
+
 Do not stash, reset, restore, or rewrite history unless explicitly requested.
 
 After changes, report changed files, verification performed, and remaining issues.

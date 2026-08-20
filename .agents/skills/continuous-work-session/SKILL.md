@@ -58,6 +58,11 @@ Stop and report instead of starting another unit when any of these occurs:
 Do not stop merely because a normal command needs an allowed tool approval.
 Request the approval and continue if it is granted.
 
+If an authorized write to a consumer repository outside the workspace fails with
+`Permission denied`, treat sandbox scope as the first hypothesis. Retry the
+same bounded command with scoped escalation before diagnosing a file lock or
+product failure. Stop only if that retry fails or escalation is denied.
+
 ## Memory Guard
 
 Use the commit history plus the existing status/next-task documents as durable
