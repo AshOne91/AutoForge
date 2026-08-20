@@ -958,10 +958,19 @@ runtime drill. A disposable six-node Redis Cluster verification confirmed global
 Pub/Sub delivery through ordinary Redis seed connections before and after primary
 failover. KIS now selects the contract in both standalone and HA specifications;
 its default generated output and an isolated HA generated workspace both passed
-validation and import checks. No route, authentication, user-channel policy,
-notification publisher, persistence, acknowledgement, replay, or delivery
-observability is generated. This is not an EventBus replacement and does not
-make a live hint the notification source of truth.
+validation and import checks. KIS now owns the route, authentication,
+user-channel policy, and notification publisher: its application lifespan owns
+the generated backplane listener; a Bearer-session USER WebSocket subscribes
+only to `notification:{user_id}`; and the account-shard message worker sends a
+minimal `notification_id` hint only after the durable transaction exits. A
+backplane failure is logged without requeueing or changing the durable
+notification; the existing notification read API is recovery. The local Compose
+message worker now receives the selected Redis runtime environment and readiness
+dependency when this backplane is selected, rather than requiring a hand edit.
+Focused KIS worker, lifespan, WebSocket, and generated Compose checks pass.
+No acknowledgement, replay, rate limit, or delivery observability is generated.
+This is not an EventBus replacement and does not make a live hint the
+notification source of truth.
 
 `tooling.notification` now generates an opt-in
 `infrastructure/notification` runtime contract with an asynchronous generic

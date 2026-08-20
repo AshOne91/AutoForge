@@ -1,14 +1,12 @@
 # Next Task
 
-## Next executable unit: deliver KIS in-app notification hints through realtime
+## Next executable unit: run a local Compose realtime-notification smoke drill
 
-Implement one user-owned KIS vertical slice under ADR-0004: application
-lifespan owns the generated backplane listener; an authenticated WebSocket may
-subscribe only to the caller's notification channel; the account-shard message
-worker publishes only a minimal notification ID/user ID hint after its durable
-transaction commits. Verify with generated fakes and focused HTTP/WebSocket or
-worker tests. The existing notification read API remains the recovery path, and
-no durable Outbox/Inbox or notification persistence contract changes.
+With non-production runtime values explicitly supplied, start the existing KIS
+single-host Compose profile and prove one authenticated notification WebSocket
+receives one minimal hint after an account-shard notification transaction.
+Record only a focused local result; do not call the KIS API, add an external
+delivery provider, or weaken the existing fail-closed environment validation.
 
-Do not add email, SMS, webhooks, automatic orders, or default Redis changes in
-this unit. Do not run the explicitly opt-in KIS balance integration check.
+This drill requires a deliberate local Docker action and runtime configuration,
+so it must not begin silently.

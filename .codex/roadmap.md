@@ -111,13 +111,11 @@ process-global singleton pattern.
   project or an explicit ProjectSpec requirement demonstrates that its shape is
   stable.
 - [ ] embedding and reranking provider contracts after the selected consumer establishes an evaluation dataset and relevance target
-- [~] Realtime/WebSocket baseline: `tooling.realtime` now generates an
-  in-process channel hub with a deterministic fake and explicit lifecycle.
-  A generated FastAPI socket adapter is available, while future work needs a
-  consumer-owned route plus a separately selected broker-backed delivery design
-  for multi-replica fan-out; authentication,
-  persistence, deduplication, rate limiting, and delivery/error observability
-  remain separate concerns. `tooling.notification` now provides a separate
+- [ ] Realtime/WebSocket hardening: preserve the current ADR-0004 boundary and
+  add consumer-selected rate limiting, delivery/error observability, and a
+  live multi-replica smoke drill only when a real consumer needs each policy.
+  Do not turn best-effort live hints into durable notification authority or
+  generate a universal user-channel policy. `tooling.notification` provides a separate
   one-POST Webhook delivery boundary; `tooling.email` provides SMTP delivery,
   and `tooling.llm` provides an OpenAI Responses API boundary. `tooling.sms`
   now provides a SOLAPI delivery boundary; push providers and notification
