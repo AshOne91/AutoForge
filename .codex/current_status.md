@@ -928,10 +928,13 @@ read-only domestic balance `GET /uapi/domestic-stock/v1/trading/inquire-balance`
 It reuses the same generated external-provider and Redis-backed token
 coordination contracts, validates application-only account runtime values,
 selects the real/demo TR ID, and follows at most ten continuation pages. It
-returns typed holding fields only; it has no route, lifespan registration,
-persistence, account-summary exposure, or order behavior. Fake transport tests
-cover the request shape, pagination, provider envelope failure, and invalid
-account configuration. No KIS balance request has run.
+returns typed holding fields only. A user-owned application lifespan owns its
+close boundary, and the internal operator-token-protected
+`GET /internal/operator/portfolio/domestic-stock-holdings` route returns that
+list with safe 502/503 failures. It has no persistence, account-summary
+exposure, or order behavior. Fake transport and FastAPI tests cover the request
+shape, pagination, provider failure, invalid account configuration, token guard,
+safe projection, and safe failure mapping. No KIS balance request has run.
 
 KIS also has a default-skipped integration check for that balance client. It
 requires an explicit opt-in flag and the KIS application/account environment

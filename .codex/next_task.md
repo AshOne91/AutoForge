@@ -1,12 +1,13 @@
 # Next Task
 
-## Next executable unit: expose operator-only domestic holdings
+## Next executable unit: bound persisted portfolio ownership
 
-Register the user-owned `KisDomesticAccountClient` through the existing
-application lifespan and add one internal operator-token-protected GET that
-returns its typed domestic holding list. Reuse the existing `operator` service
-token, safe failure mapping, and fake FastAPI test pattern.
+Analyze the current KIS account model, generated Global/Shard database contract,
+and reference lineage to determine whether a persisted portfolio projection is
+needed after the live read-only holdings boundary. Record one smallest safe
+follow-up slice and its storage ownership; preserve the existing read-only
+operator route while doing so.
 
-Do not create a public route, persist portfolio data, return `output2` account
-summaries, add polling/Durable Jobs, expose an order action, or run a live KIS
-request. Keep the application-owned client closed during lifespan shutdown.
+Do not add a portfolio table, cache, polling/Durable Job, order action, or live
+KIS request during this analysis. Do not infer that an external brokerage account
+identifier belongs in a user shard without evidence from current contracts.
