@@ -997,6 +997,10 @@ The profile now writes its test events through the existing automation-store
 Transactional Outbox rather than publishing directly to RabbitMQ. It restarts
 the outbox relay and then the message worker, proving a separate durable
 notification after each recovery through the same Nginx-routed client path.
+It also restarts the volume-backed single PostgreSQL service, waits for all
+application replicas to become ready, and proves a new Outbox notification
+through the same path. This is a single-database restart recovery check, not
+PostgreSQL HA or failover evidence.
 No acknowledgement, replay, rate limit, or delivery observability is generated.
 This is not an EventBus replacement and does not make a live hint the
 notification source of truth.
