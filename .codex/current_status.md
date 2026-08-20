@@ -968,6 +968,17 @@ notification; the existing notification read API is recovery. The local Compose
 message worker now receives the selected Redis runtime environment and readiness
 dependency when this backplane is selected, rather than requiring a hand edit.
 Focused KIS worker, lifespan, WebSocket, and generated Compose checks pass.
+An actual non-production Windows Compose drill also verified the complete path:
+the generated migrate service applied the account notification schema, a RabbitMQ
+delivery-intent event was committed by the worker, the Nginx-routed authenticated
+WebSocket received its minimal `notification_id` hint through Redis Pub/Sub, and
+the same caller retrieved the durable record from `GET /api/notifications`.
+That drill exposed and fixed an AutoForge Alembic generator defect: when a
+generated revision exceeds PostgreSQL's default 32-character version column, the
+generator now emits a deterministic compact ID while retaining existing short
+IDs. Existing migration files are scaffolded by design, so an unapplied affected
+consumer migration was deliberately aligned with the new generated ID rather
+than overwritten by regeneration.
 No acknowledgement, replay, rate limit, or delivery observability is generated.
 This is not an EventBus replacement and does not make a live hint the
 notification source of truth.

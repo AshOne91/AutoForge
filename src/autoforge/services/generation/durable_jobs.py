@@ -11,9 +11,10 @@ from autoforge.core.generation import (
     specification_hash,
 )
 from autoforge.core.specification import DurableJobSpec, ProjectSpec, ServiceSpec
+from autoforge.services.generation.alembic import alembic_revision_id
 
 DURABLE_JOB_GENERATOR_ID: Final = "autoforge.generator.service.durable_jobs"
-DURABLE_JOB_GENERATOR_VERSION: Final = "0.1.0"
+DURABLE_JOB_GENERATOR_VERSION: Final = "0.1.1"
 
 
 class DurableJobGenerator:
@@ -644,8 +645,8 @@ class DurableJobGenerator:
 
     @staticmethod
     def _render_revision(store: str) -> str:
-        revision = f"af_{store}_durable_jobs_0001"
-        down_revision = f"af_{store}_outbox_0001"
+        revision = alembic_revision_id(f"af_{store}_durable_jobs_0001")
+        down_revision = alembic_revision_id(f"af_{store}_outbox_0001")
         return (
             f'"""AutoForge durable jobs for {store}."""\n'
             "\n"

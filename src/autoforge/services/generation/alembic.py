@@ -1,4 +1,5 @@
 import json
+from hashlib import sha256
 from pathlib import PurePosixPath
 from typing import Final
 
@@ -16,7 +17,15 @@ from autoforge.services.generation.postgresql_ddl import PostgreSQLDDLGenerator
 
 ALEMBIC_PROJECT_GENERATOR_ID: Final = "autoforge.generator.alembic.project"
 ALEMBIC_BASELINE_GENERATOR_ID: Final = "autoforge.generator.alembic.baseline"
-ALEMBIC_GENERATOR_VERSION: Final = "0.1.0"
+ALEMBIC_GENERATOR_VERSION: Final = "0.1.1"
+MAX_ALEMBIC_REVISION_ID_LENGTH: Final = 32
+
+
+def alembic_revision_id(value: str) -> str:
+    """Return a PostgreSQL-compatible, deterministic Alembic revision ID."""
+    if len(value) <= MAX_ALEMBIC_REVISION_ID_LENGTH:
+        return value
+    return f"af_{sha256(value.encode('utf-8')).hexdigest()[:24]}"
 
 
 class AlembicEnvironmentGenerator:
@@ -273,13 +282,15 @@ class AlembicBaselineGenerator:
             )
         tables_by_name = {table.name: table for table in database.tables}
         for store in stores:
-            previous_revision = f"af_{store}_{specification.module.name}_0001"
+            previous_revision = alembic_revision_id(
+                f"af_{store}_{specification.module.name}_0001"
+            )
             migrations = sorted(
                 (migration for migration in database.migrations if migration.store == store),
                 key=lambda migration: migration.revision,
             )
             for migration in migrations:
-                revision = (
+                revision = alembic_revision_id(
                     f"af_{store}_{specification.module.name}_"
                     f"{migration.revision:04d}_{migration.name}"
                 )
@@ -391,7 +402,7 @@ class AlembicBaselineGenerator:
         tables: list[str],
         supports_cascade: bool,
     ) -> str:
-        revision = f"af_{store}_{module}_0001"
+        revision = alembic_revision_id(f"af_{store}_{module}_0001")
         execute_lines = "\n".join(
             f"    op.execute({statement!r})" for statement in statements
         )

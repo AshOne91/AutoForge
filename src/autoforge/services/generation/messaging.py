@@ -11,9 +11,10 @@ from autoforge.core.generation import (
     specification_hash,
 )
 from autoforge.core.specification import ProjectSpec, ServiceSpec
+from autoforge.services.generation.alembic import alembic_revision_id
 
 MESSAGING_GENERATOR_ID: Final = "autoforge.generator.service.messaging"
-MESSAGING_GENERATOR_VERSION: Final = "0.1.0"
+MESSAGING_GENERATOR_VERSION: Final = "0.1.1"
 
 
 class MessagingGenerator:
@@ -627,7 +628,7 @@ class MessagingGenerator:
 
     @staticmethod
     def _render_revision(store: str) -> str:
-        revision = f"af_{store}_outbox_0001"
+        revision = alembic_revision_id(f"af_{store}_outbox_0001")
         return (
             f'"""AutoForge transactional outbox for {store}."""\n'
             "\n"

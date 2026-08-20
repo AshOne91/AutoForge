@@ -211,3 +211,56 @@ def test_baseline_generator_renders_explicit_additive_revision() -> None:
     assert "audit_entries" not in raw_baseline
     assert "ALTER TABLE login_accounts ADD COLUMN expires_at" in raw_revision
     assert "CREATE TABLE audit_entries" in raw_revision
+
+
+def test_baseline_generator_compacts_long_revision_ids() -> None:
+    specification = module_specification()
+    assert specification.database is not None
+    login_table = specification.database.tables[0].model_copy(
+        update={
+            "columns": [
+                *specification.database.tables[0].columns,
+                ColumnSpec(
+                    name="expires_at",
+                    type=FieldType(kind=FieldTypeKind.DATETIME),
+                    nullable=True,
+                ),
+            ]
+        }
+    )
+    database = specification.database.model_copy(
+        update={
+            "tables": [login_table],
+            "migrations": [
+                DatabaseMigrationSpec(
+                    revision=2,
+                    name="signal_delivery_intent",
+                    store="identity",
+                    add_columns=[
+                        AddColumnMigrationSpec(
+                            table="login_accounts",
+                            column=login_table.columns[-1],
+                        )
+                    ],
+                )
+            ]
+        }
+    )
+
+    files = AlembicBaselineGenerator().render(
+        specification.model_copy(update={"database": database})
+    )
+    revision = files[
+        PurePosixPath(
+            "migrations/identity/versions/0002_identity_signal_delivery_intent.py"
+        )
+    ]
+    rendered_id = next(
+        line.removeprefix("revision = ").strip("'")
+        for line in revision.splitlines()
+        if line.startswith("revision = ")
+    )
+
+    assert len(rendered_id) <= 32
+    assert rendered_id.startswith("af_")
+    assert rendered_id != "af_identity_identity_0002_signal_delivery_intent"

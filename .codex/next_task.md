@@ -1,12 +1,12 @@
 # Next Task
 
-## Next executable unit: run a local Compose realtime-notification smoke drill
+## Next executable unit: make the local realtime-notification smoke drill reproducible
 
-With non-production runtime values explicitly supplied, start the existing KIS
-single-host Compose profile and prove one authenticated notification WebSocket
-receives one minimal hint after an account-shard notification transaction.
-Record only a focused local result; do not call the KIS API, add an external
-delivery provider, or weaken the existing fail-closed environment validation.
+Add one KIS-local, non-production verification command that reuses the existing
+session, RabbitMQ, notification, and WebSocket contracts to prove a durable
+notification and its minimal live hint together. Keep runtime values ephemeral,
+avoid KIS API calls and external delivery providers, and do not change the
+best-effort realtime or fail-closed environment contracts.
 
-This drill requires a deliberate local Docker action and runtime configuration,
-so it must not begin silently.
+The command should be optional and operator-invoked; it must not run on normal
+application startup.
