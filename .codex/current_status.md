@@ -935,6 +935,12 @@ list with safe 502/503 failures. It has no persistence, account-summary
 exposure, or order behavior. Fake transport and FastAPI tests cover the request
 shape, pagination, provider failure, invalid account configuration, token guard,
 safe projection, and safe failure mapping. No KIS balance request has run.
+The configured brokerage account is deployment-scoped runtime configuration,
+whereas KIS user profiles are partitioned by `user_id`; the current contracts do
+not establish a mapping between them. Live KIS holdings therefore remain the
+source of truth. No portfolio table, cache, or Durable Job is generated or
+implemented until a stale-data policy, snapshot purpose, and explicit account
+ownership mapping exist.
 
 KIS also has a default-skipped integration check for that balance client. It
 requires an explicit opt-in flag and the KIS application/account environment

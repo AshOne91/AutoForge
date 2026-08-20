@@ -1,13 +1,13 @@
 # Next Task
 
-## Next executable unit: bound persisted portfolio ownership
+## Next executable unit: run the explicit KIS balance integration check
 
-Analyze the current KIS account model, generated Global/Shard database contract,
-and reference lineage to determine whether a persisted portfolio projection is
-needed after the live read-only holdings boundary. Record one smallest safe
-follow-up slice and its storage ownership; preserve the existing read-only
-operator route while doing so.
+Only after the operator explicitly enables `KIS_READ_ONLY_BALANCE_INTEGRATION=1`
+and provides the required KIS application/account environment values, run the
+default-skipped domestic balance integration test once. Report only pass/fail
+and test metadata; do not print account identifiers, holdings, account summaries,
+or credential values.
 
-Do not add a portfolio table, cache, polling/Durable Job, order action, or live
-KIS request during this analysis. Do not infer that an external brokerage account
-identifier belongs in a user shard without evidence from current contracts.
+Do not run this live request automatically. Do not add persistence, cache,
+polling/Durable Jobs, portfolio ownership mapping, or any order behavior before
+a separately approved product and data-ownership contract exists.
