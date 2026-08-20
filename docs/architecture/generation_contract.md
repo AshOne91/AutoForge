@@ -107,12 +107,15 @@ while the latter is an empty value when absent. Generated
 to supply outside Git.
 
 Generated Kubernetes application manifests reference only values targeted at
-`application`; generated `secret.env.example` still lists every declared key.
-The current Kubernetes topology does not yet generate a Durable Job worker
-Deployment. Kubernetes therefore requires every injected application Secret key
-to exist; `required: false` changes only local Compose fail-fast behavior and
-does not make a missing injected Kubernetes Secret key valid. Specification
-values and Secrets remain operator-owned and are never emitted into a manifest.
+`application`, while an internal Durable Job worker Deployment receives only
+values targeted at `durable_job_worker`. Generated `secret.env.example` still
+lists every declared key. When Durable Jobs are declared, the Kubernetes topology
+generates that worker Deployment without a public Service; it consumes RabbitMQ
+events and uses the declared worker-targeted database and runtime environments.
+Kubernetes requires every Secret key referenced by either workload to exist;
+`required: false` changes only local Compose fail-fast behavior and does not
+make a missing injected Kubernetes Secret key valid. Specification values and
+Secrets remain operator-owned and are never emitted into a manifest.
 
 Generated `tests/test_health.py` sets application-targeted names from their
 `health_test_value` before application lifespan starts. That value is test-only
