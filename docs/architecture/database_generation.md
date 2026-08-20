@@ -52,12 +52,24 @@ repositories:
     queries:
       - name: find_by_email
         column: email
+      - name: list_by_user_id
+        column: user_id
+        cardinality: many
+        order_by: created_at
+        descending: true
+        limit: 100
 ```
 
 `queries`는 로그인처럼 Primary Key가 아닌 고유 식별자로 Aggregate 하나를 찾을 때
 사용한다. 조회 대상은 실제 Table에 존재하며 `unique` 또는 Primary Key인 Column만
 허용한다. 이를 통해 임의 문자열 operation을 해석하지 않고 명세 검증 단계에서
 오타와 다건 조회 위험을 차단한다. 목록·검색·페이지네이션은 별도 계약으로 다룬다.
+
+`cardinality: one` is the default and keeps the unique-column single-result
+contract above. `cardinality: many` is the bounded list-query contract: its
+filter and order columns must be indexed, its order and limit are declared in
+the specification, and it generates an ordered `list[Aggregate]` method. It is
+not search, pagination, cursoring, or an arbitrary query language.
 
 ### Data Placement Specification
 

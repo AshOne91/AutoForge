@@ -475,6 +475,33 @@ class SQLAlchemyModelGenerator:
         for query in repository.queries:
             column = columns[query.column]
             query_type = _PYTHON_TYPES[column.type.kind]
+            if query.cardinality == "many":
+                assert query.order_by is not None
+                assert query.limit is not None
+                order_method = "desc" if query.descending else "asc"
+                lines.extend(
+                    (
+                        "",
+                        f"    async def {query.name}(",
+                        f"        self, {column.name}: {query_type},",
+                        f"    ) -> list[{aggregate}]:",
+                        "        result = await self._session.execute(",
+                        f"            select({record_name}).where(",
+                        f"                {record_name}.{column.name} == {column.name}",
+                        "            ).order_by(",
+                        f"                {record_name}.{query.order_by}.{order_method}()",
+                        f"            ).limit({query.limit})",
+                        "        )",
+                        "        records = result.scalars().all()",
+                        "        return [",
+                        f"            {aggregate}(",
+                        domain_assignments,
+                        "            )",
+                        "            for record in records",
+                        "        ]",
+                    )
+                )
+                continue
             lines.extend(
                 (
                     "",

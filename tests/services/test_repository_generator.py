@@ -185,11 +185,22 @@ def test_render_unique_query_in_protocol_and_fake() -> None:
     assert specification.database is not None
     table = specification.database.tables[0]
     table.columns[1].unique = True
+    table.columns[1].index = True
     repository = specification.database.repositories[0]
     repository.queries.append(
         RepositoryQuerySpec(
             name="find_by_risk_tolerance",
             column="risk_tolerance",
+        )
+    )
+    repository.queries.append(
+        RepositoryQuerySpec(
+            name="list_by_risk_tolerance",
+            column="risk_tolerance",
+            cardinality="many",
+            order_by="user_id",
+            descending=True,
+            limit=100,
         )
     )
 
@@ -204,6 +215,11 @@ def test_render_unique_query_in_protocol_and_fake() -> None:
     assert "async def find_by_risk_tolerance(" in protocol
     assert "risk_tolerance: str" in protocol
     assert "if item.risk_tolerance == risk_tolerance" in fake
+    assert "async def list_by_risk_tolerance(" in protocol
+    assert "-> list[UserProfile]" in protocol
+    assert "key=lambda item: item.user_id" in fake
+    assert "reverse=True" in fake
+    assert ")[:100]" in fake
 
 
 def test_wraps_long_generated_model_imports() -> None:

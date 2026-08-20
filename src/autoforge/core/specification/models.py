@@ -1215,11 +1215,25 @@ class DatabaseMigrationSpec(StrictSpecModel):
 class RepositoryQuerySpec(StrictSpecModel):
     name: str
     column: str
+    cardinality: Literal["one", "many"] = "one"
+    order_by: str | None = None
+    descending: bool = False
+    limit: int | None = Field(default=None, ge=1, le=1000)
 
     @field_validator("name", "column")
     @classmethod
     def validate_names(cls, value: str) -> str:
         return validate_python_name(value)
+
+    @model_validator(mode="after")
+    def validate_cardinality(self) -> RepositoryQuerySpec:
+        if self.cardinality == "one":
+            if self.order_by is not None or self.descending or self.limit is not None:
+                raise ValueError("Single-result repository queries cannot define ordering")
+            return self
+        if self.order_by is None or self.limit is None:
+            raise ValueError("Many-result repository queries require ordering and a limit")
+        return self
 
 
 class RepositorySpec(StrictSpecModel):
@@ -1376,7 +1390,25 @@ class DatabaseSpec(StrictSpecModel):
                         f"Repository '{repository.name}' Query '{query.name}'이 "
                         f"참조하는 Column이 없습니다: {query.column}"
                     )
-                if not (column.unique or column.primary_key):
+                if query.cardinality == "many":
+                    if not column.index:
+                        raise ValueError(
+                            f"Repository '{repository.name}' Query '{query.name}' "
+                            "must use an indexed filter column"
+                        )
+                    assert query.order_by is not None
+                    order_column = columns.get(query.order_by)
+                    if order_column is None:
+                        raise ValueError(
+                            f"Repository '{repository.name}' Query '{query.name}' "
+                            f"references unknown order column: {query.order_by}"
+                        )
+                    if not order_column.index:
+                        raise ValueError(
+                            f"Repository '{repository.name}' Query '{query.name}' "
+                            "must use an indexed order column"
+                        )
+                elif not (column.unique or column.primary_key):
                     raise ValueError(
                         f"Repository '{repository.name}' Query '{query.name}'은 "
                         f"unique Column을 참조해야 합니다: {query.column}"

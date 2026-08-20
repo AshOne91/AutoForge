@@ -194,11 +194,16 @@ class RepositoryGenerator:
         for query in repository.queries:
             column = columns[query.column]
             query_type = self._type_renderer.render(column.type)
+            return_type = (
+                f"list[{repository.aggregate}]"
+                if query.cardinality == "many"
+                else f"{repository.aggregate} | None"
+            )
             lines.extend(
                 [
                     f"    async def {query.name}(",
                     f"        self, {column.name}: {query_type},",
-                    f"    ) -> {repository.aggregate} | None: ...",
+                    f"    ) -> {return_type}: ...",
                 ]
             )
         return "\n".join(lines)
@@ -281,6 +286,27 @@ class RepositoryGenerator:
         for query in repository.queries:
             column = columns[query.column]
             query_type = self._type_renderer.render(column.type)
+            if query.cardinality == "many":
+                assert query.order_by is not None
+                assert query.limit is not None
+                lines.extend(
+                    [
+                        "",
+                        f"    async def {query.name}(",
+                        f"        self, {column.name}: {query_type},",
+                        f"    ) -> list[{repository.aggregate}]:",
+                        "        items = [",
+                        "            item for item in self._items.values()",
+                        f"            if item.{column.name} == {column.name}",
+                        "        ]",
+                        "        return sorted(",
+                        "            items,",
+                        f"            key=lambda item: item.{query.order_by},",
+                        f"            reverse={query.descending},",
+                        f"        )[:{query.limit}]",
+                    ]
+                )
+                continue
             lines.extend(
                 [
                     "",

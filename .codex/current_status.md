@@ -51,7 +51,7 @@
   intent records `signal.delivery-intent.created` in the same automation Outbox;
   its account-shard Inbox consumer saves one deterministic generated
   `InAppNotification` record without an external side effect. External delivery,
-  user notification queries, and orders remain outside this slice. KIS also exposes the
+  user notification endpoint, and orders remain outside this slice. KIS also exposes the
   enabled global projection through an operator-token-protected lookup by
   domestic stock code; its list query remains consumer-owned.
 

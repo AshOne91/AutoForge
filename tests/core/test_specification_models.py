@@ -1080,3 +1080,79 @@ def test_repository_query_requires_unique_existing_column() -> None:
                 RepositoryQuerySpec(name="find_by_email", column="email"),
             ],
         )
+
+
+def test_repository_many_query_requires_indexed_bounded_ordering() -> None:
+    table = TableSpec(
+        name="login_accounts",
+        columns=[
+            ColumnSpec(
+                name="user_id",
+                type=FieldType(kind=FieldTypeKind.UUID),
+                primary_key=True,
+            ),
+            ColumnSpec(
+                name="account_state",
+                type=FieldType(kind=FieldTypeKind.STRING),
+                index=True,
+            ),
+            ColumnSpec(
+                name="created_at",
+                type=FieldType(kind=FieldTypeKind.DATETIME),
+                index=True,
+            ),
+        ],
+    )
+
+    database = DatabaseSpec(
+        tables=[table],
+        repositories=[
+            RepositorySpec(
+                name="LoginAccountRepository",
+                aggregate="LoginAccount",
+                table="login_accounts",
+                operations=["save"],
+                queries=[
+                    RepositoryQuerySpec(
+                        name="list_by_account_state",
+                        column="account_state",
+                        cardinality="many",
+                        order_by="created_at",
+                        descending=True,
+                        limit=100,
+                    )
+                ],
+            )
+        ],
+    )
+
+    assert database.repositories[0].queries[0].cardinality == "many"
+
+    with pytest.raises(ValidationError, match="Many-result repository queries"):
+        RepositoryQuerySpec(
+            name="list_by_account_state",
+            column="account_state",
+            cardinality="many",
+        )
+
+    with pytest.raises(ValidationError, match="indexed filter column"):
+        DatabaseSpec(
+            tables=[table],
+            repositories=[
+                RepositorySpec(
+                    name="LoginAccountRepository",
+                    aggregate="LoginAccount",
+                    table="login_accounts",
+                    operations=["save"],
+                    queries=[
+                        RepositoryQuerySpec(
+                            name="list_by_user_id",
+                            column="user_id",
+                            cardinality="many",
+                            order_by="created_at",
+                            limit=100,
+                        )
+                    ],
+                )
+            ],
+        )

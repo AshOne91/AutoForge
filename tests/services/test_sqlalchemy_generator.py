@@ -210,8 +210,18 @@ def test_model_generator_renders_sqlalchemy_2_record() -> None:
 def test_model_generator_renders_unique_query() -> None:
     specification = module_specification()
     assert specification.database is not None
+    specification.database.tables[0].columns[2].index = True
     specification.database.repositories[0].queries.append(
         RepositoryQuerySpec(name="find_by_email", column="email")
+    )
+    specification.database.repositories[0].queries.append(
+        RepositoryQuerySpec(
+            name="list_by_is_active",
+            column="is_active",
+            cardinality="many",
+            order_by="user_id",
+            limit=50,
+        )
     )
 
     files = SQLAlchemyModelGenerator("kis_auto_trading").render(specification)
@@ -226,6 +236,11 @@ def test_model_generator_renders_unique_query() -> None:
     assert "select(LoginAccountRecord).where(" in repository
     assert "LoginAccountRecord.email == email" in repository
     assert "result.scalar_one_or_none()" in repository
+    assert "async def list_by_is_active(" in repository
+    assert "-> list[LoginAccount]" in repository
+    assert "LoginAccountRecord.is_active == is_active" in repository
+    assert "LoginAccountRecord.user_id.asc()" in repository
+    assert ").limit(50)" in repository
 
 
 def test_sqlalchemy_plans_mark_files_generated() -> None:
