@@ -63,6 +63,7 @@ def test_render_generates_transport_outbox_relay_and_migration() -> None:
     files = MessagingGenerator().render(messaging_specification())
 
     expected = {
+        PurePosixPath("src/kis_auto_trading/application/message_topology.py"),
         PurePosixPath("src/kis_auto_trading/infrastructure/messaging/__init__.py"),
         PurePosixPath("src/kis_auto_trading/infrastructure/messaging/protocol.py"),
         PurePosixPath("src/kis_auto_trading/infrastructure/messaging/rabbitmq.py"),
@@ -109,6 +110,7 @@ def test_render_generates_transport_outbox_relay_and_migration() -> None:
     assert "configure_logging()" in worker_runner
     assert "LOGGER.info('outbox relay starting')" in relay_runner
     assert "LOGGER.info('message worker starting')" in worker_runner
+    assert "declare_user_message_topology(connection)" in relay_runner
     assert ".with_for_update(skip_locked=True)" in relay
     assert "except MessagePublishError as error" in relay
     assert "except Exception" not in relay
@@ -130,6 +132,9 @@ def test_worker_runner_is_scaffolded_and_other_files_are_generated() -> None:
         FileOwnership.SCAFFOLDED
     )
     assert ownership[
+        PurePosixPath("src/kis_auto_trading/application/message_topology.py")
+    ] is FileOwnership.SCAFFOLDED
+    assert ownership[
         PurePosixPath("migrations/account/versions/0002_outbox.py")
     ] is FileOwnership.SCAFFOLDED
     assert all(
@@ -137,6 +142,7 @@ def test_worker_runner_is_scaffolded_and_other_files_are_generated() -> None:
         for path, value in ownership.items()
         if path
         not in {
+            PurePosixPath("src/kis_auto_trading/application/message_topology.py"),
             PurePosixPath("scripts/run_message_worker.py"),
             PurePosixPath("migrations/account/versions/0002_outbox.py"),
         }

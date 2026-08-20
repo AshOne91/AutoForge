@@ -39,6 +39,9 @@ class MessagingGenerator:
         package = specification.project.package_name
         root = PurePosixPath("src", package, "infrastructure")
         files = {
+            PurePosixPath(
+                "src", package, "application", "message_topology.py"
+            ): self._render_message_topology_scaffold(),
             root / "messaging" / "__init__.py": self._render_messaging_init(),
             root / "messaging" / "protocol.py": self._render_protocol(),
             root / "messaging" / "rabbitmq.py": self._render_rabbitmq(service),
@@ -83,7 +86,8 @@ class MessagingGenerator:
                     generator_version=self.generator_version,
                     ownership=(
                         FileOwnership.SCAFFOLDED
-                        if path.name == "run_message_worker.py"
+                        if path.name
+                        in {"message_topology.py", "run_message_worker.py"}
                         or (
                             len(path.parts) >= 3
                             and path.parts[0] == "migrations"
@@ -524,6 +528,9 @@ class MessagingGenerator:
             "    LOGGER,\n"
             "    configure_logging,\n"
             ")\n"
+            f"from {package}.application.message_topology import (\n"
+            "    declare_user_message_topology,\n"
+            ")\n"
             f"from {package}.infrastructure.messaging.rabbitmq import RabbitMQPublisher\n"
             f"from {package}.infrastructure.outbox.relay import OutboxRelay\n"
             "\n"
@@ -538,6 +545,7 @@ class MessagingGenerator:
             "    connection = await aio_pika.connect_robust(rabbitmq_url)\n"
             "    publisher = RabbitMQPublisher(connection)\n"
             "    await publisher.start()\n"
+            "    await declare_user_message_topology(connection)\n"
             "    engines = [\n"
             "        create_async_engine(os.environ[name], pool_pre_ping=True)\n"
             "        for name in DATABASE_URL_ENVS\n"
@@ -561,6 +569,18 @@ class MessagingGenerator:
             "\n"
             "if __name__ == '__main__':\n"
             "    asyncio.run(main())\n"
+        )
+
+    @staticmethod
+    def _render_message_topology_scaffold() -> str:
+        return (
+            "from aio_pika.abc import AbstractRobustConnection\n"
+            "\n"
+            "\n"
+            "async def declare_user_message_topology(\n"
+            "    connection: AbstractRobustConnection,\n"
+            ") -> None:\n"
+            "    del connection\n"
         )
 
     @staticmethod
