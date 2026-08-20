@@ -98,8 +98,13 @@ def test_durable_job_generator_emits_atomic_request_contract() -> None:
     assert "DurableJobStatus.RUNNING" in worker
     assert "DurableJobStatus.SUCCEEDED" in worker
     assert "DurableJobStatus.FAILED" in worker
+    contracts = files[PurePosixPath("src/kis_auto_trading/infrastructure/durable_jobs/contracts.py")]
+    assert "JOB_STATUS_EVENT_TYPE = 'durable-job.status.changed'" in contracts
+    assert "JOB_STATUS_ROUTING_KEY = 'durable-job.status.changed'" in contracts
     assert "async def list_recent(" in repository
     assert "DurableJobRecord.updated_at.desc(), DurableJobRecord.job_id.desc()" in repository
+    assert "JOB_STATUS_EVENT_TYPE" in repository
+    assert "OutboxWriter(self._session).add(" in repository
     assert "CANCELLED = 'cancelled'" in contracts
     assert "raise TypeError('durable job payload must be an object')" in worker
     assert "raise" in worker
