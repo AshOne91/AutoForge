@@ -106,6 +106,10 @@ def test_render_adds_public_proxy_and_application_replicas() -> None:
     assert "PUBLIC_BIND_ADDRESS=0.0.0.0" in runtime_environment
     assert "LOG_ROOT=../logs" in runtime_environment
     assert "resolver 127.0.0.11" in nginx
+    assert "map $http_upgrade $connection_upgrade" in nginx
+    assert "proxy_http_version 1.1;" in nginx
+    assert "proxy_set_header Upgrade $http_upgrade;" in nginx
+    assert "proxy_set_header Connection $connection_upgrade;" in nginx
     assert "set $upstream ${UPSTREAM_HOST}:8000;" in nginx
     assert "--env-file environment/.env" in readme
     assert "port-collision" in readme
