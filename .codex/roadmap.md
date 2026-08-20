@@ -110,6 +110,12 @@ process-global singleton pattern.
   and `tooling.llm` provides an OpenAI Responses API boundary. `tooling.sms`
   now provides a SOLAPI delivery boundary; push providers and notification
   policy remain future consumer decisions.
+- [ ] consumer-owned trading Signal slice after its payload, symbol-subscription
+  authority, master/worker ownership, duplicate-suppression key, and delivery
+  guarantee are explicit. The base_server reference combines market-data
+  monitoring, technical/AI signal calculation, and notification enqueueing;
+  AutoForge must not turn that domain workflow into a generic subscription
+  transport or duplicate the existing Realtime/Messaging contracts.
 - [x] operator-facing ingestion lifecycle endpoints: the generated Durable Job
   API provides idempotent execution, status/result retrieval, and requested-job
   cancellation; the separately generated Worker reports its health to the
