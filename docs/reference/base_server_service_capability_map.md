@@ -53,7 +53,7 @@ Template를 조합한다”는 런타임 의미를 보존한다.
 | `search` | keyword/full-text search | Elasticsearch profile 생성 완료 | index schema와 query policy는 소비자 도메인 |
 | `vectordb` | embedding/vector retrieval | Qdrant profile 생성 완료 | collection schema와 embedding policy는 소비자 도메인 |
 | `storage` | 원본 파일·객체 저장 | local MinIO profile 생성 완료 | bucket policy와 cloud S3 adapter는 소비자 선택 뒤 구현 |
-| `signal` | 실시간 시장 신호 | 미구현 | KIS 도메인 구현; 공통 transport만 AutoForge가 제공 |
+| `signal` | 실시간 시장 신호 | KIS 초기 도메인 slice 완료 | SignalEvent 저장·Outbox, 사용자 shard 구독 제어까지; 전역 구독 projection·fan-out·알림은 소비자 후속 작업 |
 
 `base_server`의 빈 `event` 패키지처럼, 이름만 만든 서비스는 구현 완료로
 간주하지 않는다. 표의 “완료”는 명세, 생성 결과, ownership, focused test,

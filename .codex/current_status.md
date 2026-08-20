@@ -25,8 +25,13 @@
   `SignalEvent`, persists it in the global `automation` store, and records a
   `signal.created` event through the existing Outbox in the same transaction.
   Repeated `signal_id` values return the existing event without a second
-  Outbox record. Market-data collection, subscription authority, delivery
-  policy, orders, and notifications remain outside this slice.
+  Outbox record. Authenticated users now manage their own domestic-stock
+  `SignalSubscription` in the account shard through generated idempotent
+  endpoints. A deterministic `user_id + stock_code` identifier suppresses
+  duplicate state changes, while each actual change records
+  `signal.subscription.updated` in that shard's Outbox. A global subscription
+  projection, signal fan-out, orders, and notifications remain outside this
+  slice.
 
 AutoForge currently has working foundations for:
 
@@ -942,10 +947,13 @@ rate limits, and cost policy remain consumer-owned.
 KIS now opts into a generated `signal` module as its first Signal domain slice.
 `SignalEvent` is placed in the global automation store and
 `SignalSubscription` in the sharded account store; AutoForge generated their
-models, repositories, SQL, migrations, and router registration successfully.
-The generated router is intentionally an empty extension shell: market-data
-monitoring, signal calculation, subscriber authorization, duplicate suppression,
-and delivery through Messaging/Realtime/Notification remain consumer-owned.
+models, repositories, SQL, migrations, and authenticated idempotent subscription
+routes successfully. Consumer-owned handlers persist one SignalEvent with
+`signal.created`, manage a deterministic per-user domestic-stock subscription,
+and record each enabled-state change as `signal.subscription.updated` through
+the existing Outbox. Market-data monitoring, global subscription projection,
+signal fan-out, and delivery through Messaging/Realtime/Notification remain
+consumer-owned.
 
 KIS now selects the generated external-provider, distributed-lock, and
 key-value-store contracts in both its default standalone and HA Redis Cluster

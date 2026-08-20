@@ -113,9 +113,11 @@ process-global singleton pattern.
 - [~] consumer-owned trading Signal slice: KIS now owns a generated persistence
   contract for SignalEvent and SignalSubscription plus a producer path that
   persists SignalEvent and records `signal.created` through the existing Outbox
-  in one automation transaction. The remaining delivery workflow still
-  requires symbol-subscription authority, duplicate-suppression policy, and
-  delivery guarantees.
+  in one automation transaction. Authenticated users manage an idempotent,
+  deterministic domestic-stock subscription in their account shard, and actual
+  state changes record `signal.subscription.updated` in that shard's Outbox.
+  The remaining delivery workflow requires a global subscription projection,
+  consumer idempotency, and delivery guarantees.
   The base_server reference combines market-data
   monitoring, technical/AI signal calculation, and notification enqueueing;
   AutoForge must not turn that domain workflow into a generic subscription

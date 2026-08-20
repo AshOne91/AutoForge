@@ -1,12 +1,12 @@
 # Next Task
 
-## Next executable unit: select Signal delivery policy
+## Next executable unit: design the global Signal subscription projection
 
-Choose the consumer-owned symbol-subscription authority, duplicate-suppression
-key, and delivery guarantee before wiring a Signal consumer to the existing
-Messaging/Realtime/Notification boundaries. Keep Realtime, Notification, LLM,
-and SMS as optional consumers; do not add a generic Signal transport,
-market-data master election, or trading-order execution yet.
+Define the consumer-owned projection that consumes
+`signal.subscription.updated` from account shards and supports lookup by
+domestic stock code without treating cross-shard reads as one transaction.
+Specify the projection's identity, replay/idempotency behavior, and recovery
+path before wiring a Signal consumer to Messaging, Realtime, or Notification.
 
 Do not change the KIS default Redis specification or run the explicitly opt-in
 KIS balance integration check.
