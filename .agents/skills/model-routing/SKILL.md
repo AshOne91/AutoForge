@@ -441,6 +441,8 @@ RECOMMENDED SETTING:
 
 ## Approval behavior
 
+Outside an explicitly enabled continuous-work session:
+
 If SETTING CHANGE is DOWNGRADE or UPGRADE:
 
 - stop before source exploration, tests, edits, external actions, or further
@@ -455,6 +457,21 @@ If the current setting is unknown, do not report KEEP. Ask the user to confirm
 the current setting before continuing.
 
 Do not silently change the user's selected model or reasoning level.
+
+### Continuous-work session integration
+
+When `continuous-work-session` is explicitly ON:
+
+- KEEP: continue the current bounded unit.
+- DOWNGRADE: report the recommendation at the next compact checkpoint and
+  continue with the user-selected setting. The agent cannot apply a downgrade.
+- UPGRADE: stop before beginning the next bounded unit and wait for the user to
+  select or explicitly retain a setting.
+- current model unavailable: stop and report the external blocker.
+
+The agent must not silently change the user's selected model or reasoning
+level. `model-routing` owns these routing decisions; the continuous-work Skill
+must not redefine them.
 
 ## High-cost warning
 

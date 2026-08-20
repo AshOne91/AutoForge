@@ -72,7 +72,6 @@ repeat a completed fix, or infer a broader goal from stale conversation context.
 
 ## Model Routing
 
-In ON mode, do not pause merely to recommend a KEEP, DOWNGRADE, or UPGRADE.
-Continue with the model currently selected by the user. The agent cannot change
-the product's selected model itself. Stop only when the platform makes the
-current model unavailable; report that external blocker plainly.
+When routing is required, use the `model-routing` Skill. Its
+`Continuous-work session integration` section is authoritative for whether
+KEEP, DOWNGRADE, UPGRADE, or model unavailability pauses ON-mode work.
