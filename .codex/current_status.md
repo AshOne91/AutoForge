@@ -933,7 +933,10 @@ code before I/O, reads one price through `KisMarketDataClient`, writes one
 global `automation` snapshot, and closes its per-job client. The handler and
 worker tests use fakes only; no scheduled collection, live KIS request, or
 order behavior exists. Kubernetes has no generated durable-worker Deployment
-yet.
+yet. The local durable worker now also receives the declared Redis standalone
+or Cluster environment and readiness dependency, so the generated token cache
+and distributed lock use the same topology as the application. Default and HA
+KIS regeneration both verified that delivery.
 
 KIS now exposes one user-owned internal current-price route at
 `/internal/operator/market-data/domestic-stock-price`. It reuses the generated

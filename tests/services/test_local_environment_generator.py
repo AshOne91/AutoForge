@@ -684,6 +684,24 @@ def test_render_connects_docker_application_to_airflow() -> None:
     assert "migrations run before the generated application starts" in readme
 
 
+def test_durable_job_worker_receives_the_declared_redis_cluster_environment() -> None:
+    compose = yaml.safe_load(
+        LocalEnvironmentGenerator().render(
+            integration_specification(enabled=True, durable_jobs=True, application=True)
+        )[PurePosixPath("environment", "compose.integration.yml")]
+    )
+
+    worker = compose["services"]["durable-job-worker"]
+
+    assert worker["environment"]["REDIS_CLUSTER_URL"] == (
+        "${REDIS_CLUSTER_URL:-redis://redis-7000:7000}"
+    )
+    assert "REDIS_CLUSTER_STARTUP_NODES" in worker["environment"]
+    assert worker["depends_on"]["redis-cluster-init"] == {
+        "condition": "service_completed_successfully"
+    }
+
+
 def test_application_receives_all_service_tokens_but_airflow_receives_only_its_scope() -> None:
     specification = integration_specification(
         enabled=True,

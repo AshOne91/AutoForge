@@ -363,7 +363,10 @@ class LocalEnvironmentGenerator:
             if has_durable_jobs:
                 services.append(
                     self._render_durable_job_worker(
-                        specification, has_rag=has_rag
+                        specification,
+                        redis_mode=redis_mode,
+                        redis_service=redis_service,
+                        has_rag=has_rag,
                     )
                 )
         if has_durable_jobs:
@@ -1026,6 +1029,31 @@ class LocalEnvironmentGenerator:
         )
 
     @staticmethod
+    def _render_redis_runtime(
+        redis_mode: str | None, redis_service: ServiceSpec | None
+    ) -> tuple[str, str]:
+        if redis_mode == "standalone":
+            return (
+                "      REDIS_URL: ${REDIS_URL:-redis://redis:6379}\n",
+                "      redis:\n        condition: service_healthy\n",
+            )
+        if redis_mode == "cluster":
+            assert redis_service is not None
+            return (
+                (
+                    f"      {redis_service.cluster_url_env}: "
+                    f"${{{redis_service.cluster_url_env}:-redis://redis-7000:7000}}\n"
+                    f"      {redis_service.cluster_startup_nodes_env}: "
+                    f"${{{redis_service.cluster_startup_nodes_env}:-redis://redis-7000:7000,redis://redis-7001:7001,redis://redis-7002:7002,redis://redis-7003:7003,redis://redis-7004:7004,redis://redis-7005:7005}}\n"
+                ),
+                (
+                    "      redis-cluster-init:\n"
+                    "        condition: service_completed_successfully\n"
+                ),
+            )
+        return "", ""
+
+    @staticmethod
     def _render_database_environment(specification: ProjectSpec) -> str:
         database_provider = specification.tooling.local_environment.database_provider
         if database_provider == "mysql":
@@ -1116,27 +1144,17 @@ class LocalEnvironmentGenerator:
     ) -> str:
         image = self._application_image(specification)
         application_port = self._host_port(host_port_base, default=28000, offset=0)
-        redis_environment = ""
         dependencies: list[str] = []
         if has_migration:
             dependencies.append(
                 "      migrate:\n"
                 "        condition: service_completed_successfully\n"
             )
-        if redis_mode == "standalone":
-            redis_environment = "      REDIS_URL: ${REDIS_URL:-redis://redis:6379}\n"
-            dependencies.append("      redis:\n        condition: service_healthy\n")
-        elif redis_mode == "cluster":
-            redis_environment = (
-                f"      {redis_service.cluster_url_env}: "
-                f"${{{redis_service.cluster_url_env}:-redis://redis-7000:7000}}\n"
-                f"      {redis_service.cluster_startup_nodes_env}: "
-                f"${{{redis_service.cluster_startup_nodes_env}:-redis://redis-7000:7000,redis://redis-7001:7001,redis://redis-7002:7002,redis://redis-7003:7003,redis://redis-7004:7004,redis://redis-7005:7005}}\n"
-            )
-            dependencies.append(
-                "      redis-cluster-init:\n"
-                "        condition: service_completed_successfully\n"
-            )
+        redis_environment, redis_dependency = self._render_redis_runtime(
+            redis_mode, redis_service
+        )
+        if redis_dependency:
+            dependencies.append(redis_dependency)
         service_token_environment = self._render_service_token_environment(
             specification
         )
@@ -1269,10 +1287,18 @@ class LocalEnvironmentGenerator:
         )
 
     def _render_durable_job_worker(
-        self, specification: ProjectSpec, *, has_rag: bool
+        self,
+        specification: ProjectSpec,
+        *,
+        redis_mode: str | None,
+        redis_service: ServiceSpec | None,
+        has_rag: bool,
     ) -> str:
         image = self._application_image(specification)
         restart_policy = specification.application.durable_job_worker_restart_policy
+        redis_environment, redis_dependency = self._render_redis_runtime(
+            redis_mode, redis_service
+        )
         heartbeat = specification.application.control_plane_heartbeat
         heartbeat_environment = (
             f"      {heartbeat.endpoint_env}: ${{{heartbeat.endpoint_env}:-}}\n"
@@ -1304,6 +1330,7 @@ class LocalEnvironmentGenerator:
             "      retries: 3\n"
             "    environment:\n"
             + self._render_database_environment(specification)
+            + redis_environment
             + "      RABBITMQ_URL: ${RABBITMQ_URL:?set RABBITMQ_URL}\n"
             + self._render_runtime_environment(
                 specification, target=RuntimeEnvironmentTarget.DURABLE_JOB_WORKER
@@ -1316,6 +1343,7 @@ class LocalEnvironmentGenerator:
             "        condition: service_completed_successfully\n"
             "      rabbitmq:\n"
             "        condition: service_healthy\n"
+            + redis_dependency
         )
 
     @classmethod
