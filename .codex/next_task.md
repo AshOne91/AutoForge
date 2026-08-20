@@ -1,12 +1,13 @@
 # Next Task
 
-## Next executable unit: apply SignalEvent expiry and delivery-intent schema
+## Next executable unit: materialize eligible SignalDeliveryIntent records
 
-Use the generated additive schema-evolution contract in KIS to declare the
-producer-owned SignalEvent expiry and global per-subscription delivery intent.
-Regenerate the models, raw SQL, and Alembic revision; preserve the immutable
-existing `0001_signal` baseline and do not hand-write its replacement.
+In KIS, add the smallest Inbox-backed `signal.created` consumer that reads the
+global enabled subscription projection and persists one deterministic pending
+delivery intent per eligible subscription before the producer-owned expiry. Use
+the generated `SignalDeliveryIntent` repository and existing Outbox/Inbox
+transport; keep the initial worker free of external delivery channels.
 
-Do not add the fan-out worker, external channel delivery, automatic order, or
-default Redis changes in this unit. Do not run the explicitly opt-in KIS balance
-integration check.
+Do not add SMS, email, WebSocket, webhook, automatic order, or default Redis
+changes in this unit. Do not run the explicitly opt-in KIS balance integration
+check.

@@ -7,7 +7,10 @@
   declared nullable/defaulted column or create declared tables in one store;
   generated Alembic and raw SQL keep those changes in `0002+` files. AutoForge
   does not infer live-database diffs. Focused DDL/Alembic tests and the full
-  suite pass; KIS has not yet adopted the contract for SignalEvent delivery.
+  suite pass. KIS adopts the contract for SignalEvent: its original `0001`
+  baseline remains unchanged, while generated `0002` adds optional producer
+  expiry and the global per-subscription `SignalDeliveryIntent` persistence
+  boundary. KIS does not yet materialize or deliver those intents.
 - State-changing endpoints can opt into a separate Redis-backed request replay
   contract with `EndpointSpec.idempotency`. Generated routes require an
   `Idempotency-Key`, fingerprint the method/path/body, atomically claim the
