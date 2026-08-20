@@ -1,12 +1,12 @@
 # Next Task
 
-## Next executable unit: run the realtime smoke through the isolated three-replica profile
+## Next executable unit: verify message-worker restart recovery in the isolated profile
 
-Reuse the existing isolated `verify_generated_single_host.py` environment and
-the KIS-local realtime smoke contract to prove that one Nginx-routed client
-receives a durable notification hint while all three generated application
-replicas are healthy. Keep application code replica-agnostic, use a disposable
-non-production stack, and retain its existing cleanup guarantee.
+Extend the existing isolated single-host verifier after its healthy
+three-application-replica realtime proof: restart the generated message worker,
+wait for its health check, then repeat the same local notification smoke once.
+This proves recovery of the existing RabbitMQ consumer and Redis backplane path
+without changing its delivery or persistence guarantees.
 
-Do not add acknowledgement, replay, rate-limit, or external-delivery policy;
-this is only a scale-out validation of the existing best-effort hint contract.
+Keep the stack disposable and do not add acknowledgement, replay, rate-limit,
+or external-delivery policy.
