@@ -175,6 +175,11 @@ Database 생성은 다음 명세 모델을 입력으로 사용한다.
 - `RepositorySpec`: Aggregate, Table과 Application operation
 - `DataPlacementSpec`: 논리 store, global/sharded mode와 partition key
 - `DatabaseSpec`: Table, Repository와 Placement 간 참조 무결성
+  `migrations` declares explicit additive revisions after the immutable
+  baseline. A revision may create declared tables or add a declared nullable or
+  defaulted column in one store; AutoForge never infers a schema diff from a
+  live database. New projects reproduce `0001` followed by those revisions,
+  while existing scaffolded baselines remain untouched.
 
 `ModuleSpec.database`는 선택 항목이다. 기존 Module 명세의 public API는 유지하며
 Database가 필요한 Module만 계약을 선언한다.

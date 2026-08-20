@@ -1156,6 +1156,62 @@ class TableSpec(StrictSpecModel):
         return self
 
 
+class AddColumnMigrationSpec(StrictSpecModel):
+    """One additive column change for a declared existing table."""
+
+    table: str
+    column: ColumnSpec
+
+    @field_validator("table")
+    @classmethod
+    def validate_table_name(cls, value: str) -> str:
+        return validate_python_name(value)
+
+    @model_validator(mode="after")
+    def validate_safe_addition(self) -> AddColumnMigrationSpec:
+        if self.column.primary_key:
+            raise ValueError("Additive migration columns cannot be primary keys")
+        if not self.column.nullable and self.column.default is None:
+            raise ValueError(
+                "Additive migration columns require nullable=true or a default"
+            )
+        return self
+
+
+class DatabaseMigrationSpec(StrictSpecModel):
+    """One explicit immutable revision after a module's generated baseline."""
+
+    revision: int = Field(ge=2)
+    name: str
+    store: str
+    create_tables: list[str] = Field(default_factory=list)
+    add_columns: list[AddColumnMigrationSpec] = Field(default_factory=list)
+
+    @field_validator("name", "store")
+    @classmethod
+    def validate_names(cls, value: str) -> str:
+        return validate_python_name(value)
+
+    @field_validator("create_tables")
+    @classmethod
+    def validate_create_tables(cls, values: list[str]) -> list[str]:
+        validated = [validate_python_name(value) for value in values]
+        if len(validated) != len(set(validated)):
+            raise ValueError("Migration create-table names must be unique")
+        return validated
+
+    @model_validator(mode="after")
+    def validate_operations(self) -> DatabaseMigrationSpec:
+        if not self.create_tables and not self.add_columns:
+            raise ValueError("Database migration requires an additive operation")
+        additions = [
+            (addition.table, addition.column.name) for addition in self.add_columns
+        ]
+        if len(additions) != len(set(additions)):
+            raise ValueError("Migration add-column targets must be unique")
+        return self
+
+
 class RepositoryQuerySpec(StrictSpecModel):
     name: str
     column: str
@@ -1233,6 +1289,7 @@ class DataPlacementSpec(StrictSpecModel):
 class DatabaseSpec(StrictSpecModel):
     provider: Literal["agnostic", "postgresql", "mysql"] = "agnostic"
     tables: list[TableSpec] = Field(default_factory=list)
+    migrations: list[DatabaseMigrationSpec] = Field(default_factory=list)
     repositories: list[RepositorySpec] = Field(default_factory=list)
     placements: list[DataPlacementSpec] = Field(default_factory=list)
 
@@ -1252,6 +1309,58 @@ class DatabaseSpec(StrictSpecModel):
         )
 
         tables = {table.name: table for table in self.tables}
+        placements = {placement.table: placement for placement in self.placements}
+        migration_keys = [
+            (migration.store, migration.revision) for migration in self.migrations
+        ]
+        if len(migration_keys) != len(set(migration_keys)):
+            raise ValueError("Database migration store and revision pairs must be unique")
+        created_tables: set[str] = set()
+        added_columns: set[tuple[str, str]] = set()
+        for migration in self.migrations:
+            placement_modes: set[DataPlacementMode] = set()
+            for table_name in migration.create_tables:
+                table = tables.get(table_name)
+                placement = placements.get(table_name)
+                if table is None or placement is None or placement.store != migration.store:
+                    raise ValueError(
+                        "Migration create table must be declared in its target store: "
+                        f"{table_name}"
+                    )
+                if table_name in created_tables:
+                    raise ValueError(f"Migration table is created more than once: {table_name}")
+                created_tables.add(table_name)
+                placement_modes.add(placement.mode)
+            for addition in migration.add_columns:
+                table = tables.get(addition.table)
+                placement = placements.get(addition.table)
+                if table is None or placement is None or placement.store != migration.store:
+                    raise ValueError(
+                        "Migration add column must target a declared table in its "
+                        f"store: {addition.table}"
+                    )
+                if addition.table in migration.create_tables:
+                    raise ValueError(
+                        "Migration add column cannot target a table created by the "
+                        "same revision"
+                    )
+                if addition.column.name not in {column.name for column in table.columns}:
+                    raise ValueError(
+                        "Migration add column is not declared on its table: "
+                        f"{addition.table}.{addition.column.name}"
+                    )
+                target = (addition.table, addition.column.name)
+                if target in added_columns:
+                    raise ValueError(
+                        "Migration column is added more than once: "
+                        f"{addition.table}.{addition.column.name}"
+                    )
+                added_columns.add(target)
+                placement_modes.add(placement.mode)
+            if len(placement_modes) != 1:
+                raise ValueError(
+                    "Database migration operations must share one placement mode"
+                )
         for repository in self.repositories:
             if repository.table not in tables:
                 raise ValueError(

@@ -1,4 +1,5 @@
 from autoforge.core.specification.models import (
+    AddColumnMigrationSpec,
     ApplicationCompositionSpec,
     ApplicationSpec,
     CiProvider,
@@ -6,6 +7,7 @@ from autoforge.core.specification.models import (
     CiWorkflow,
     ColumnSpec,
     ControlPlaneHeartbeatSpec,
+    DatabaseMigrationSpec,
     DatabaseShardSpec,
     DatabaseSpec,
     DatabaseStoreSpec,
@@ -56,6 +58,7 @@ from autoforge.core.specification.models import (
 from autoforge.core.specification.types import FieldType, FieldTypeKind
 
 __all__ = [
+    "AddColumnMigrationSpec",
     "ApplicationCompositionSpec",
     "ApplicationSpec",
     "CiProvider",
@@ -65,6 +68,7 @@ __all__ = [
     "ControlPlaneHeartbeatSpec",
     "DataPlacementMode",
     "DataPlacementSpec",
+    "DatabaseMigrationSpec",
     "DatabaseShardSpec",
     "DatabaseSpec",
     "DatabaseStoreSpec",

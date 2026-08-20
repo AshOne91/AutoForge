@@ -1,14 +1,12 @@
 # Next Task
 
-## Next executable unit: define generated additive schema evolution
+## Next executable unit: apply SignalEvent expiry and delivery-intent schema
 
-The KIS domain policy now selects a durable, per-subscription SignalEvent
-delivery intent in the global `automation` store, with producer-owned immutable
-expiry and no direct channel delivery. Before implementing that intent, define
-the smallest AutoForge additive schema-evolution contract that preserves
-scaffolded immutable `0001` baselines and produces a new reproducible revision.
+Use the generated additive schema-evolution contract in KIS to declare the
+producer-owned SignalEvent expiry and global per-subscription delivery intent.
+Regenerate the models, raw SQL, and Alembic revision; preserve the immutable
+existing `0001_signal` baseline and do not hand-write its replacement.
 
-Do not hand-write a generated model, raw SQL, or Alembic revision in KIS before
-the existing generator boundary is extended or explicitly shown insufficient.
-Do not change the KIS default Redis specification or run the explicitly opt-in
-KIS balance integration check.
+Do not add the fan-out worker, external channel delivery, automatic order, or
+default Redis changes in this unit. Do not run the explicitly opt-in KIS balance
+integration check.

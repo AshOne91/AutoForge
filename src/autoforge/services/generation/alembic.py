@@ -251,9 +251,10 @@ class AlembicBaselineGenerator:
         ddl = self._mysql_ddl if database.provider == "mysql" else self._postgresql_ddl
         stores = sorted({placement.store for placement in database.placements})
         rendered: dict[PurePosixPath, str] = {}
+        baseline_specification = self._baseline_specification(specification)
         for store in stores:
             statements, tables = ddl.statements_for_store(
-                specification, store
+                baseline_specification, store
             )
             if not statements:
                 continue
@@ -270,7 +271,93 @@ class AlembicBaselineGenerator:
                 tables=tables,
                 supports_cascade=database.provider != "mysql",
             )
+        tables_by_name = {table.name: table for table in database.tables}
+        for store in stores:
+            previous_revision = f"af_{store}_{specification.module.name}_0001"
+            migrations = sorted(
+                (migration for migration in database.migrations if migration.store == store),
+                key=lambda migration: migration.revision,
+            )
+            for migration in migrations:
+                revision = (
+                    f"af_{store}_{specification.module.name}_"
+                    f"{migration.revision:04d}_{migration.name}"
+                )
+                statements: list[str] = []
+                downgrades: list[str] = []
+                for table_name in migration.create_tables:
+                    table = tables_by_name[table_name]
+                    statements.append(ddl._render_table(table).strip())
+                    statements.extend(
+                        statement.strip() for statement in ddl._render_indexes(table)
+                    )
+                    downgrades.append(
+                        f"DROP TABLE IF EXISTS {table_name}"
+                        + (" CASCADE" if database.provider != "mysql" else "")
+                    )
+                for addition in migration.add_columns:
+                    column_sql = ddl._render_column(addition.column)
+                    statements.append(
+                        f"ALTER TABLE {addition.table} ADD COLUMN {column_sql}"
+                    )
+                    if addition.column.index:
+                        statements.append(
+                            f"CREATE INDEX ix_{addition.table}_{addition.column.name} "
+                            f"ON {addition.table} ({addition.column.name})"
+                        )
+                    downgrades.append(
+                        f"ALTER TABLE {addition.table} DROP COLUMN {addition.column.name}"
+                    )
+                path = PurePosixPath(
+                    "migrations",
+                    store,
+                    "versions",
+                    f"{migration.revision:04d}_{specification.module.name}_{migration.name}.py",
+                )
+                rendered[path] = self._render_additive_revision(
+                    name=migration.name,
+                    revision=revision,
+                    down_revision=previous_revision,
+                    statements=statements,
+                    downgrades=list(reversed(downgrades)),
+                )
+                previous_revision = revision
         return rendered
+
+    @staticmethod
+    def _baseline_specification(specification: ModuleSpec) -> ModuleSpec:
+        database = specification.database
+        assert database is not None
+        created_tables = {
+            table_name
+            for migration in database.migrations
+            for table_name in migration.create_tables
+        }
+        added_columns = {
+            (addition.table, addition.column.name)
+            for migration in database.migrations
+            for addition in migration.add_columns
+        }
+        baseline_tables = [
+            table.model_copy(
+                update={
+                    "columns": [
+                        column
+                        for column in table.columns
+                        if (table.name, column.name) not in added_columns
+                    ]
+                }
+            )
+            for table in database.tables
+            if table.name not in created_tables
+        ]
+        return specification.model_copy(
+            update={
+                "database": database.model_copy(
+                    update={"tables": baseline_tables, "migrations": []}
+                )
+            }
+        )
 
     def plan(self, specification: ModuleSpec) -> GenerationPlan:
         rendered = self.render(specification)
@@ -320,6 +407,40 @@ class AlembicBaselineGenerator:
             "\n"
             f"revision = {revision!r}\n"
             "down_revision = None\n"
+            "branch_labels = None\n"
+            "depends_on = None\n"
+            "\n"
+            "\n"
+            "def upgrade() -> None:\n"
+            f"{execute_lines}\n"
+            "\n"
+            "\n"
+            "def downgrade() -> None:\n"
+            f"{downgrade_lines}\n"
+        )
+
+    @staticmethod
+    def _render_additive_revision(
+        *,
+        name: str,
+        revision: str,
+        down_revision: str,
+        statements: list[str],
+        downgrades: list[str],
+    ) -> str:
+        execute_lines = "\n".join(
+            f"    op.execute({statement!r})" for statement in statements
+        )
+        downgrade_lines = "\n".join(
+            f"    op.execute({statement!r})" for statement in downgrades
+        )
+        return (
+            f'"""AutoForge additive migration: {name}."""\n'
+            "\n"
+            "from alembic import op\n"
+            "\n"
+            f"revision = {revision!r}\n"
+            f"down_revision = {down_revision!r}\n"
             "branch_labels = None\n"
             "depends_on = None\n"
             "\n"

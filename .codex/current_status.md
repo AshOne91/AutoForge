@@ -2,6 +2,12 @@
 
 ## Stable foundation
 
+- generated database schema evolution now supports explicit additive module
+  revisions after an immutable scaffolded `0001` baseline. A revision may add a
+  declared nullable/defaulted column or create declared tables in one store;
+  generated Alembic and raw SQL keep those changes in `0002+` files. AutoForge
+  does not infer live-database diffs. Focused DDL/Alembic tests and the full
+  suite pass; KIS has not yet adopted the contract for SignalEvent delivery.
 - State-changing endpoints can opt into a separate Redis-backed request replay
   contract with `EndpointSpec.idempotency`. Generated routes require an
   `Idempotency-Key`, fingerprint the method/path/body, atomically claim the
