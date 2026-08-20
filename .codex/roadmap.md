@@ -99,9 +99,12 @@ process-global singleton pattern.
   project or an explicit ProjectSpec requirement demonstrates that its shape is
   stable.
 - [ ] embedding and reranking provider contracts after the selected consumer establishes an evaluation dataset and relevance target
-- [ ] Realtime/WebSocket and notification Blueprint after a consumer path exists:
-  event-driven fan-out, in-app persistence, channel adapters, deduplication,
-  rate limiting, and delivery/error observability
+- [~] Realtime/WebSocket baseline: `tooling.realtime` now generates an
+  in-process channel hub with a deterministic fake and explicit lifecycle.
+  Future work needs a consumer-owned FastAPI adapter plus a separately selected
+  broker-backed delivery design for multi-replica fan-out; authentication,
+  persistence, deduplication, rate limiting, notifications, and delivery/error
+  observability remain separate concerns.
 - [x] operator-facing ingestion lifecycle endpoints: the generated Durable Job
   API provides idempotent execution, status/result retrieval, and requested-job
   cancellation; the separately generated Worker reports its health to the

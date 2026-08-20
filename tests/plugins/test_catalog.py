@@ -34,6 +34,7 @@ from autoforge.services.generation.postgresql_ddl import (
     POSTGRESQL_DDL_GENERATOR_ID,
 )
 from autoforge.services.generation.rag import RAG_INFRASTRUCTURE_GENERATOR_ID
+from autoforge.services.generation.realtime import REALTIME_GENERATOR_ID
 from autoforge.services.generation.repository import REPOSITORY_GENERATOR_ID
 from autoforge.services.generation.search import SEARCH_SERVICE_GENERATOR_ID
 from autoforge.services.generation.session_store import SESSION_STORE_GENERATOR_ID
@@ -92,6 +93,7 @@ def test_builtin_catalog_contains_expected_plugins() -> None:
         EXTERNAL_PROVIDER_GENERATOR_ID,
         KEY_VALUE_STORE_GENERATOR_ID,
         MESSAGING_GENERATOR_ID,
+        REALTIME_GENERATOR_ID,
         SEARCH_SERVICE_GENERATOR_ID,
         SESSION_STORE_GENERATOR_ID,
         VECTOR_STORE_GENERATOR_ID,

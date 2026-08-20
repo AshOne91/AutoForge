@@ -89,6 +89,11 @@ from autoforge.services.generation.rag import (
     RAG_INFRASTRUCTURE_GENERATOR_VERSION,
     RagInfrastructureGenerator,
 )
+from autoforge.services.generation.realtime import (
+    REALTIME_GENERATOR_ID,
+    REALTIME_GENERATOR_VERSION,
+    RealtimeGenerator,
+)
 from autoforge.services.generation.repository import (
     REPOSITORY_GENERATOR_ID,
     REPOSITORY_GENERATOR_VERSION,
@@ -301,6 +306,18 @@ def create_fastapi_generator_plugins(
                 name=KEY_VALUE_STORE_GENERATOR_ID,
                 version=KEY_VALUE_STORE_GENERATOR_VERSION,
                 description="Async Redis key-value store Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
+    project_registry.register(
+        GeneratorPluginAdapter(
+            RealtimeGenerator(),
+            PluginMetadata(
+                name=REALTIME_GENERATOR_ID,
+                version=REALTIME_GENERATOR_VERSION,
+                description="Async in-process realtime hub Generator",
                 capabilities=(PluginCapability.GENERATOR,),
                 supported_specification_versions=("1",),
             ),

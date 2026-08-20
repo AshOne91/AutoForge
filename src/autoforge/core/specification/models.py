@@ -410,6 +410,7 @@ class ToolingSpec(StrictSpecModel):
     external_provider: ExternalProviderSpec = Field(
         default_factory=lambda: ExternalProviderSpec()
     )
+    realtime: RealtimeSpec = Field(default_factory=lambda: RealtimeSpec())
     search: SearchSpec = Field(default_factory=lambda: SearchSpec())
     storage: StorageSpec = Field(default_factory=lambda: StorageSpec())
     vector_store: VectorStoreSpec = Field(default_factory=lambda: VectorStoreSpec())
@@ -516,6 +517,12 @@ class ExternalProviderSpec(StrictSpecModel):
     timeout_seconds: float = Field(default=5.0, gt=0, le=60)
     max_retries: int = Field(default=2, ge=0, le=5)
     retry_delay_seconds: float = Field(default=0.1, ge=0, le=5)
+
+
+class RealtimeSpec(StrictSpecModel):
+    """Generate an opt-in in-process realtime delivery boundary."""
+
+    enabled: bool = False
 
 
 class DistributedLockSpec(StrictSpecModel):

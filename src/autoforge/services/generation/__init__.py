@@ -35,6 +35,7 @@ from autoforge.services.generation.plugin_registry import (
 from autoforge.services.generation.postgresql_ddl import PostgreSQLDDLGenerator
 from autoforge.services.generation.pydantic_types import PydanticTypeRenderer
 from autoforge.services.generation.rag import RagInfrastructureGenerator
+from autoforge.services.generation.realtime import RealtimeGenerator
 from autoforge.services.generation.repository import RepositoryGenerator
 from autoforge.services.generation.runner import (
     GenerationRunner,
@@ -79,6 +80,7 @@ __all__ = [
     "PostgreSQLDDLGenerator",
     "PydanticTypeRenderer",
     "RagInfrastructureGenerator",
+    "RealtimeGenerator",
     "RepositoryGenerator",
     "SQLAlchemyInfrastructureGenerator",
     "SQLAlchemyModelGenerator",

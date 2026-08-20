@@ -891,6 +891,16 @@ Sentinel output is generated and parsed but has not yet had a dedicated runtime
 drill. Value serialization, cache invalidation, key design, FastAPI lifespan
 registration, and KIS adoption remain consumer-owned.
 
+`tooling.realtime` now generates an opt-in `infrastructure/realtime` runtime
+contract with an asynchronous in-process `RealtimeHub`, channel
+subscribe/unsubscribe/publish, explicit close, and a deterministic subscriber
+fake. It is intentionally transport-neutral: a consumer may compose a FastAPI
+WebSocket adapter, but the generator does not create routes, authentication,
+authorization, channel policy, message serialization, persistence, broker
+fan-out, retry/rate-limit policy, notifications, or delivery observability.
+This local hub is not an EventBus replacement and does not claim multi-replica
+delivery.
+
 KIS now selects the generated external-provider, distributed-lock, and
 key-value-store contracts in both its default standalone and HA Redis Cluster
 specifications. Its user-owned `KisTokenCoordinator` composes those contracts

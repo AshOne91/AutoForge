@@ -161,6 +161,36 @@ cache-aside policy, distributed coordination, ranking, hashes, eviction policy,
 or cache metrics. Consumers own key design, value serialization, TTL selection,
 cache invalidation, and the business meaning of missing data.
 
+### Realtime runtime boundary
+
+`tooling.realtime` opt-in generates an asynchronous in-process `RealtimeHub`
+with channel subscribe, unsubscribe, publish, explicit close, and a deterministic
+subscriber fake. Delivery takes a consumer-provided `send(message: str)`
+subscriber, so a FastAPI WebSocket adapter can compose the boundary without
+making FastAPI a generated runtime dependency.
+
+The contract owns local channel fan-out and its lifecycle only. It does not
+generate a WebSocket route, authentication or authorization, channel policy,
+message schema or serialization, persistence, broker-backed multi-replica
+fan-out, retries, rate limits, notifications, or delivery observability. It is
+not an EventBus replacement; consumers own the transport adapter and all
+application workflow decisions.
+
+### Realtime runtime boundary
+
+`tooling.realtime` opt-in generates an asynchronous in-process `RealtimeHub`
+with channel subscribe, unsubscribe, publish, explicit close, and a deterministic
+subscriber fake. Delivery takes a consumer-provided `send(message: str)`
+subscriber, so a FastAPI WebSocket adapter can compose the boundary without
+making FastAPI a generated runtime dependency.
+
+The contract owns local channel fan-out and its lifecycle only. It does not
+generate a WebSocket route, authentication or authorization, channel policy,
+message schema or serialization, persistence, broker-backed multi-replica
+fan-out, retries, rate limits, notifications, or delivery observability. It is
+not an EventBus replacement; consumers own the transport adapter and all
+application workflow decisions.
+
 ### ObjectStorage runtime boundary
 
 `tooling.storage.runtime_enabled` opt-in extends the existing `StorageSpec` and
