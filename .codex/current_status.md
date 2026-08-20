@@ -41,6 +41,10 @@ AutoForge currently has working foundations for:
 
 - specification and generation contracts
 - manifest and file ownership
+- one generated FastAPI composition that wires every selected
+  `application.modules` entry into the same application; selecting different
+  module sets for independent generated application deployment units is not
+  implemented yet
 - isolated workspaces
 - validation/build pipeline
 - generator and validator plugins

@@ -1,11 +1,16 @@
 # Next Task
 
-## Next executable unit: define SignalEvent delivery intent
+## Next executable unit: prove two generated application compositions
 
-Choose and document one consumer-owned delivery target and expiry policy for
-`SignalEvent` before adding fan-out. Keep the policy outside AutoForge's generic
-subscription transport and do not invoke Realtime, Notification, LLM, or SMS
-until the delivery contract and guarantee are explicit.
+Add the smallest specification and generation proof that one KIS project can
+produce two named FastAPI application compositions from reusable domain modules:
+a default combined API composition and one independently deployable selected
+composition. Preserve module ownership, Global/Shard placement, and existing
+transport contracts. Do not move domain policy, introduce cross-service calls,
+or couple composition to replica count.
+
+After that proof, resume the consumer-owned SignalEvent delivery intent and
+expiry-policy decision before adding fan-out.
 
 Do not change the KIS default Redis specification or run the explicitly opt-in
 KIS balance integration check.

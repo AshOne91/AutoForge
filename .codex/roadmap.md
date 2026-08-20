@@ -25,13 +25,23 @@ process-global singleton pattern.
   `environment/service-composition.json`이 서비스별 configuration, lifecycle,
   health, dependency 및 Redis/RabbitMQ/Durable Job 경계를 기록한다. 향후 배포
   provider는 이 파생 산출물을 새 정본으로 바꾸지 않고 필요할 때 소비한다.
-- [~] role-specific application composition: generated
-  `environment/service-composition.json` already derives API, relay, worker,
-  scheduler, initializer, and infrastructure runtime roles from the generated
-  Compose topology. It does not select separate application module sets for
-  those roles. Add that specification and generation contract only when a KIS
-  workload proves an independently deployable module boundary; do not create a
-  name-only application-role abstraction or couple it to replica count.
+- [~] reusable-domain application composition: every domain module must remain
+  reusable outside its first consumer. An application is a composition root
+  that selects domain modules, shared services, lifecycle, persistence, and
+  transport contracts. The same reusable modules must support one combined
+  FastAPI application for a small deployment or selected independent
+  application/worker deployment units for scale, fault isolation, or distinct
+  runtime responsibilities. This follows the Base Server reference's separate
+  Web Server and Model Server deployment units without copying its global
+  ServiceContainer pattern.
+  `environment/service-composition.json` currently derives API, relay, worker,
+  scheduler, initializer, and infrastructure runtime roles from generated
+  Compose topology, but does not select separate application module sets for
+  those roles. The next proof is two generated application compositions from
+  one KIS project; only then add the smallest specification and generation
+  contract. Do not use Git branches as a deployment-topology model, create a
+  name-only application-role abstraction, or couple module placement to replica
+  count.
 - [ ] KIS trading Blueprint validation: 시장 데이터 수집, KIS 인증·공유 token
   조정, portfolio, order/execution, risk limit와 감사 이력을 하나의 소비자 수직
   흐름으로 검증한다. 거래 전략과 투자 판단은 KIS 소비자 소유이며 AutoForge는
