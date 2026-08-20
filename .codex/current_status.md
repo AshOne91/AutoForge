@@ -1014,6 +1014,14 @@ No acknowledgement, replay, rate limit, or delivery observability is generated.
 This is not an EventBus replacement and does not make a live hint the
 notification source of truth.
 
+The dated Base Server capability-map reconciliation found no remaining generic
+service to create merely to mirror a legacy folder. Its old `websocket`,
+`notification`, `email`, and `sms` entries are now covered by the generated
+`realtime`, `notification`, `email`, and `sms` contracts. Its `data` and `chat`
+entries remain consumer-owned product models, not reusable infrastructure
+generators. The snapshot stays reference-only; this status document remains the
+current implementation source of truth.
+
 `tooling.notification` now generates an opt-in
 `infrastructure/notification` runtime contract with an asynchronous generic
 Webhook `NotificationDispatcher`, required URL environment contract, timeout,

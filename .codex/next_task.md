@@ -1,11 +1,11 @@
 # Next Task
 
-## Next executable unit: reconcile the Base Server service capability map
+## Next executable unit: validate the consumer-owned KIS market-data boundary
 
-Compare the dated Base Server service capability map against the implemented
-AutoForge tooling and current status, then select exactly one still-unmet
-reusable service responsibility for the next vertical slice. Do not treat the
-reference map as authoritative or add a generic service merely to match a legacy
-folder name.
+After the current user-owned KIS market-data changes are handed off cleanly,
+validate one domestic-market read path using the existing generated external
+provider, token-cache, distributed-lock, configuration, and health contracts.
+Keep KIS request/response semantics and trading policy consumer-owned; fix
+AutoForge only if this consumer proof reveals a generated-contract defect.
 
-Preserve existing generated contracts and consumer ownership boundaries.
+Do not modify the existing uncommitted KIS market-data or account changes.
