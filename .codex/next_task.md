@@ -1,13 +1,11 @@
 # Next Task
 
-## Next executable unit: establish the generated scheduler boundary
+## Next executable unit: assess remaining reference services by ownership
 
-Trace reusable scheduler responsibilities in the reference base server and add
-one opt-in AutoForge runtime boundary with a generic asynchronous contract,
-deterministic fake, and explicit lifecycle. Keep schedule definitions,
-distributed leader election, durable execution, retries, observability, and
-application workflow triggers consumer-owned or composed from existing services.
+Compare base_server and game-server services against the existing AutoForge
+contracts. Record whether each responsibility is already covered by generated
+Durable Jobs/Airflow, Messaging/Outbox, Realtime, Notification, Email, storage,
+search, cache, or database boundaries before adding another generator.
 
-Do not change the KIS default Redis specification, create a background loop at
-import time, duplicate Durable Jobs or EventBus, or run the explicitly opt-in
-KIS balance integration check automatically.
+Do not create duplicate service abstractions, change the KIS default Redis
+specification, or run the explicitly opt-in KIS balance integration check.

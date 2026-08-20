@@ -16,6 +16,7 @@ from autoforge.services.generation.distributed_lock import (
 from autoforge.services.generation.dockerfile import DOCKERFILE_GENERATOR_ID
 from autoforge.services.generation.durable_jobs import DURABLE_JOB_GENERATOR_ID
 from autoforge.services.generation.elk import ELK_GENERATOR_ID
+from autoforge.services.generation.email import EMAIL_GENERATOR_ID
 from autoforge.services.generation.external_provider import (
     EXTERNAL_PROVIDER_GENERATOR_ID,
 )
@@ -91,6 +92,7 @@ def test_builtin_catalog_contains_expected_plugins() -> None:
         RAG_INFRASTRUCTURE_GENERATOR_ID,
         DISTRIBUTED_LOCK_GENERATOR_ID,
         DURABLE_JOB_GENERATOR_ID,
+        EMAIL_GENERATOR_ID,
         EXTERNAL_PROVIDER_GENERATOR_ID,
         KEY_VALUE_STORE_GENERATOR_ID,
         MESSAGING_GENERATOR_ID,

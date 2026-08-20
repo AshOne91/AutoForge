@@ -410,6 +410,7 @@ class ToolingSpec(StrictSpecModel):
     external_provider: ExternalProviderSpec = Field(
         default_factory=lambda: ExternalProviderSpec()
     )
+    email: EmailSpec = Field(default_factory=lambda: EmailSpec())
     notification: NotificationSpec = Field(
         default_factory=lambda: NotificationSpec()
     )
@@ -536,6 +537,25 @@ class NotificationSpec(StrictSpecModel):
         default="NOTIFICATION_WEBHOOK_URL", pattern=r"^[A-Z][A-Z0-9_]*$"
     )
     timeout_seconds: float = Field(default=5.0, gt=0, le=60)
+
+
+class EmailSpec(StrictSpecModel):
+    """Generate an opt-in SMTP email delivery boundary."""
+
+    enabled: bool = False
+    host_environment: str = Field(default="SMTP_HOST", pattern=r"^[A-Z][A-Z0-9_]*$")
+    port_environment: str = Field(default="SMTP_PORT", pattern=r"^[A-Z][A-Z0-9_]*$")
+    sender_environment: str = Field(
+        default="SMTP_SENDER", pattern=r"^[A-Z][A-Z0-9_]*$"
+    )
+    username_environment: str = Field(
+        default="SMTP_USERNAME", pattern=r"^[A-Z][A-Z0-9_]*$"
+    )
+    password_environment: str = Field(
+        default="SMTP_PASSWORD", pattern=r"^[A-Z][A-Z0-9_]*$"
+    )
+    use_starttls: bool = True
+    timeout_seconds: float = Field(default=10.0, gt=0, le=60)
 
 
 class DistributedLockSpec(StrictSpecModel):

@@ -7,6 +7,7 @@ from autoforge.services.generation.distributed_lock import DistributedLockGenera
 from autoforge.services.generation.dockerfile import DockerfileGenerator
 from autoforge.services.generation.durable_jobs import DurableJobGenerator
 from autoforge.services.generation.elk import ElkStackGenerator
+from autoforge.services.generation.email import EmailGenerator
 from autoforge.services.generation.external_provider import ExternalProviderGenerator
 from autoforge.services.generation.fastapi_module import FastAPIModuleGenerator
 from autoforge.services.generation.fastapi_project import (
@@ -61,6 +62,7 @@ __all__ = [
     "DockerfileGenerator",
     "DurableJobGenerator",
     "ElkStackGenerator",
+    "EmailGenerator",
     "ExternalProviderGenerator",
     "FastAPIGeneratorPlugins",
     "FastAPIModuleGenerator",

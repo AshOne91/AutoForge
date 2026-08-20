@@ -39,6 +39,11 @@ from autoforge.services.generation.elk import (
     ELK_GENERATOR_VERSION,
     ElkStackGenerator,
 )
+from autoforge.services.generation.email import (
+    EMAIL_GENERATOR_ID,
+    EMAIL_GENERATOR_VERSION,
+    EmailGenerator,
+)
 from autoforge.services.generation.external_provider import (
     EXTERNAL_PROVIDER_GENERATOR_ID,
     EXTERNAL_PROVIDER_GENERATOR_VERSION,
@@ -335,6 +340,18 @@ def create_fastapi_generator_plugins(
                 name=NOTIFICATION_GENERATOR_ID,
                 version=NOTIFICATION_GENERATOR_VERSION,
                 description="Async outbound webhook notification Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
+    project_registry.register(
+        GeneratorPluginAdapter(
+            EmailGenerator(),
+            PluginMetadata(
+                name=EMAIL_GENERATOR_ID,
+                version=EMAIL_GENERATOR_VERSION,
+                description="Async SMTP email delivery Generator",
                 capabilities=(PluginCapability.GENERATOR,),
                 supported_specification_versions=("1",),
             ),

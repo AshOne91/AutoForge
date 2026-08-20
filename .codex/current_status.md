@@ -912,6 +912,13 @@ and delivery observability remain consumer-owned. A consumer can compose it
 with the existing generated RabbitMQ/Outbox contract instead of coupling those
 responsibilities inside the notifier.
 
+`tooling.email` now generates an opt-in `infrastructure/email` runtime contract
+with SMTP configuration, explicit STARTTLS selection, paired optional SMTP
+credentials, async standard-library delivery, and a deterministic fake. It can
+target local SMTP or AWS SES SMTP without a provider SDK. Templates, recipient
+policy, bulk delivery, retries, deduplication, outbox routing, and delivery
+observability remain consumer-owned.
+
 KIS now selects the generated external-provider, distributed-lock, and
 key-value-store contracts in both its default standalone and HA Redis Cluster
 specifications. Its user-owned `KisTokenCoordinator` composes those contracts

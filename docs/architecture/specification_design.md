@@ -191,6 +191,26 @@ or channel policy, persistence, outbox routing, deduplication, rate limiting,
 broker dispatch, or delivery observability. Consumers select delivery topology
 and may route a notification event through the existing generated outbox.
 
+### Email runtime boundary
+
+`tooling.email` opt-in generates an asynchronous SMTP `EmailSender` with
+explicit configuration, a deterministic fake, and a standard-library SMTP
+adapter. It supports local SMTP and AWS SES SMTP without adding a provider SDK.
+
+The contract owns single-message delivery only. Templates, recipient policy,
+provider credentials, bulk delivery, retries, deduplication, outbox routing,
+and delivery observability remain consumer-owned.
+
+### Email runtime boundary
+
+`tooling.email` opt-in generates an asynchronous SMTP `EmailSender` with
+explicit configuration, a deterministic fake, and a standard-library SMTP
+adapter. It supports local SMTP and AWS SES SMTP without adding a provider SDK.
+
+The contract owns single-message delivery only. Templates, recipient policy,
+provider credentials, bulk delivery, retries, deduplication, outbox routing,
+and delivery observability remain consumer-owned.
+
 ### ObjectStorage runtime boundary
 
 `tooling.storage.runtime_enabled` opt-in extends the existing `StorageSpec` and
