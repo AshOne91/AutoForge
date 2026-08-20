@@ -9,6 +9,7 @@ from autoforge.core.generation import (
     content_hash,
 )
 from autoforge.core.specification import (
+    ApplicationCompositionSpec,
     ApplicationSpec,
     ControlPlaneHeartbeatSpec,
     DatabaseShardSpec,
@@ -40,6 +41,7 @@ def project_specification(
     runtime_environments: list[RuntimeEnvironmentSpec] | None = None,
     durable_jobs: list[DurableJobSpec] | None = None,
     service_tokens: list[ServiceTokenSpec] | None = None,
+    compositions: list[ApplicationCompositionSpec] | None = None,
 ) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
@@ -52,6 +54,7 @@ def project_specification(
         ),
         application=ApplicationSpec(
             modules=modules or [],
+            compositions=compositions or [],
             services=services or [],
             databases=databases or [],
             durable_jobs=durable_jobs or [],
@@ -242,12 +245,38 @@ def test_app_factory_registers_module_routers() -> None:
     assert "import USER_ROUTERS" in app_factory
     assert "for router in USER_ROUTERS:" in app_factory
     assert "import MODULE_ROUTERS" in app_factory
-    assert "for router in MODULE_ROUTERS:" in app_factory
+    assert "module_routers: tuple[APIRouter, ...] = MODULE_ROUTERS" in app_factory
+    assert "if include_user_routers:" in app_factory
+    assert "for router in module_routers:" in app_factory
     assert "app.include_router(router)" in app_factory
     assert "configure_logging()" in app_factory
     assert "install_request_logging(app)" in app_factory
     assert "USER_ROUTERS: tuple[APIRouter, ...] = ()" in extensions
     assert "USER_LIFESPANS: tuple[UserLifespanFactory, ...] = ()" in extensions
+
+
+def test_render_application_composition_selects_generated_module_routers() -> None:
+    files = FastAPIProjectGenerator().render(
+        project_specification(
+            modules=["identity", "signal"],
+            compositions=[
+                ApplicationCompositionSpec(name="signal_api", modules=["signal"])
+            ],
+        )
+    )
+
+    composition = files[
+        PurePosixPath("src/game_server/application/compositions/signal_api.py")
+    ]
+
+    assert (
+        PurePosixPath("src/game_server/application/compositions/__init__.py")
+        in files
+    )
+    assert "game_server.modules.signal.generated.router" in composition
+    assert "signal_router," in composition
+    assert "identity_router" not in composition
+    assert "include_user_routers=False" in composition
 
 
 def test_lifespan_supports_user_contexts_and_legacy_extensions(

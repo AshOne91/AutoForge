@@ -1,16 +1,13 @@
 # Next Task
 
-## Next executable unit: prove two generated application compositions
+## Next executable unit: decide SignalEvent delivery intent and expiry policy
 
-Add the smallest specification and generation proof that one KIS project can
-produce two named FastAPI application compositions from reusable domain modules:
-a default combined API composition and one independently deployable selected
-composition. Preserve module ownership, Global/Shard placement, and existing
-transport contracts. Do not move domain policy, introduce cross-service calls,
-or couple composition to replica count.
+In the KIS consumer, choose and record the first delivery intent for persisted
+`SignalEvent` records and its expiry policy before adding any fan-out. Reuse the
+existing Outbox, Inbox, Realtime, and notification contracts where applicable;
+do not create a generic subscription transport or move KIS domain policy into
+AutoForge.
 
-After that proof, resume the consumer-owned SignalEvent delivery intent and
-expiry-policy decision before adding fan-out.
-
-Do not change the KIS default Redis specification or run the explicitly opt-in
-KIS balance integration check.
+Keep `SignalEvent` records unrouteable until a selected consumer and bounded
+delivery contract exist. Do not change the KIS default Redis specification or
+run the explicitly opt-in KIS balance integration check.

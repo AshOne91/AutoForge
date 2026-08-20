@@ -178,6 +178,17 @@ class FastAPIProjectGenerator:
             rendered[package_root / "routers" / "durable_jobs.py"] = (
                 self._render_durable_jobs_router(package_name)
             )
+        for composition in specification.application.compositions:
+            rendered[package_root / "application" / "compositions" / "__init__.py"] = ""
+            rendered[
+                package_root
+                / "application"
+                / "compositions"
+                / f"{composition.name}.py"
+            ] = self._render_application_composition(
+                package_name=package_name,
+                module_names=composition.modules,
+            )
         return rendered
 
     @staticmethod
@@ -406,7 +417,7 @@ class FastAPIProjectGenerator:
             )
             durable_jobs_line = "    app.include_router(durable_jobs_router)\n"
         return (
-            "from fastapi import FastAPI\n"
+            "from fastapi import APIRouter, FastAPI\n"
             "\n"
             f"from {package_name}.application.extensions import USER_ROUTERS\n"
             f"{lifespan_import}"
@@ -420,7 +431,11 @@ class FastAPIProjectGenerator:
             f"from {package_name}.routers.health import router as health_router\n"
             "\n"
             "\n"
-            "def create_app() -> FastAPI:\n"
+            "def create_app(\n"
+            "    *,\n"
+            "    module_routers: tuple[APIRouter, ...] = MODULE_ROUTERS,\n"
+            "    include_user_routers: bool = True,\n"
+            ") -> FastAPI:\n"
             "    configure_logging()\n"
             f"    app = FastAPI(\n"
             f"        title={title_literal},\n"
@@ -430,11 +445,41 @@ class FastAPIProjectGenerator:
             "    install_request_logging(app)\n"
             "    app.include_router(health_router)\n"
             f"{durable_jobs_line}"
-            "    for router in USER_ROUTERS:\n"
-            "        app.include_router(router)\n"
-            "    for router in MODULE_ROUTERS:\n"
+            "    if include_user_routers:\n"
+            "        for router in USER_ROUTERS:\n"
+            "            app.include_router(router)\n"
+            "    for router in module_routers:\n"
             "        app.include_router(router)\n"
             "    return app\n"
+        )
+
+    @staticmethod
+    def _render_application_composition(
+        *,
+        package_name: str,
+        module_names: list[str],
+    ) -> str:
+        router_imports = "\n".join(
+            (
+                f"from {package_name}.modules.{module_name}.generated.router import (\n"
+                f"    router as {module_name}_router,\n"
+                ")"
+            )
+            for module_name in module_names
+        )
+        router_items = "".join(
+            f"        {module_name}_router,\n" for module_name in module_names
+        )
+        return (
+            f"from {package_name}.application.app_factory import create_app\n"
+            f"{router_imports}\n"
+            "\n"
+            "app = create_app(\n"
+            "    module_routers=(\n"
+            f"{router_items}"
+            "    ),\n"
+            "    include_user_routers=False,\n"
+            ")\n"
         )
 
     @staticmethod

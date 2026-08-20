@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from autoforge.core.generation import FileOwnership, Generator, content_hash
 from autoforge.core.specification import (
+    ApplicationCompositionSpec,
     ApplicationSpec,
     ControlPlaneHeartbeatSpec,
     DatabaseShardSpec,
@@ -262,8 +263,57 @@ def test_render_creates_zero_secret_proxy_and_application_topology() -> None:
         and document["metadata"]["name"] == "kis-auto-trading"
     )
     container = application["spec"]["template"]["spec"]["containers"][0]
+    assert "command" not in container
     assert container["readinessProbe"]["httpGet"]["path"] == "/readiness"
     assert container["livenessProbe"]["httpGet"]["path"] == "/health"
+
+
+def test_render_selects_named_application_composition_for_kubernetes() -> None:
+    specification = base_server_specification(enabled=True)
+    application = specification.application.model_copy(
+        update={
+            "modules": ["identity", "signal"],
+            "compositions": [
+                ApplicationCompositionSpec(name="signal_api", modules=["signal"])
+            ],
+        }
+    )
+    kubernetes = specification.tooling.kubernetes.model_copy(
+        update={"application_composition": "signal_api"}
+    )
+    files = KubernetesBaseServerGenerator().render(
+        specification.model_copy(
+            update={
+                "application": application,
+                "tooling": specification.tooling.model_copy(
+                    update={"kubernetes": kubernetes}
+                ),
+            }
+        )
+    )
+
+    manifest = files[PurePosixPath("deploy", "kubernetes", "base-server.yaml")]
+    readme = files[PurePosixPath("deploy", "kubernetes", "README.md")]
+    application_deployment = next(
+        document
+        for document in yaml.safe_load_all(manifest)
+        if document.get("kind") == "Deployment"
+        and document["metadata"]["name"] == "kis-auto-trading"
+    )
+    container = application_deployment["spec"]["template"]["spec"]["containers"][0]
+
+    assert container["command"] == [
+        "python",
+        "-m",
+        "uvicorn",
+        "kis_auto_trading.application.compositions.signal_api:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+    ]
+    assert "selected `signal_api` ASGI" in readme
+    assert "does not select a separate database, broker, worker, or relay" in readme
 
 
 def test_render_creates_opt_in_control_plane_profile_separately() -> None:

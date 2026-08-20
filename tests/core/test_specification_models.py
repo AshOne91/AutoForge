@@ -2,6 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from autoforge.core.specification import (
+    ApplicationCompositionSpec,
     ApplicationSpec,
     CiProvider,
     CiSpec,
@@ -24,6 +25,7 @@ from autoforge.core.specification import (
     HttpMethod,
     KubernetesMySQLOperatorSpec,
     KubernetesSpec,
+    LocalApplicationCompositionSpec,
     LocalEnvironmentSpec,
     ModelSpec,
     ModuleInfo,
@@ -480,6 +482,82 @@ def test_runtime_environments_require_unique_non_generated_names() -> None:
                 ServiceTokenSpec(name="kis", token_env="KIS_APP_KEY")
             ],
             runtime_environments=[environment],
+        )
+
+
+def test_application_compositions_select_declared_modules() -> None:
+    signal_api = ApplicationCompositionSpec(name="signal_api", modules=["signal"])
+
+    application = ApplicationSpec(
+        modules=["identity", "signal"],
+        compositions=[signal_api],
+    )
+
+    assert application.compositions == [signal_api]
+    with pytest.raises(ValidationError, match="composition names must be unique"):
+        ApplicationSpec(
+            modules=["signal"],
+            compositions=[signal_api, signal_api],
+        )
+    with pytest.raises(ValidationError, match="not declared application modules"):
+        ApplicationSpec(
+            modules=["identity"],
+            compositions=[signal_api],
+        )
+
+
+def test_local_application_compositions_reference_declared_compositions() -> None:
+    signal_api = ApplicationCompositionSpec(name="signal_api", modules=["signal"])
+    local = LocalEnvironmentSpec(
+        enabled=True,
+        application_enabled=True,
+        application_compositions=[
+            LocalApplicationCompositionSpec(name="signal_api", host_port_offset=1)
+        ],
+    )
+
+    project = ProjectSpec(
+        spec_version="1",
+        project=ProjectInfo(name="Signal Server", package_name="signal_server", version="0.1.0"),
+        application=ApplicationSpec(modules=["signal"], compositions=[signal_api]),
+        tooling=ToolingSpec(local_environment=local),
+    )
+
+    assert project.tooling.local_environment.application_compositions[0].name == "signal_api"
+    with pytest.raises(ValidationError, match="not declared application compositions"):
+        ProjectSpec(
+            spec_version="1",
+            project=ProjectInfo(
+                name="Signal Server", package_name="signal_server", version="0.1.0"
+            ),
+            application=ApplicationSpec(modules=["signal"]),
+            tooling=ToolingSpec(local_environment=local),
+        )
+
+
+def test_kubernetes_application_composition_references_declared_composition() -> None:
+    signal_api = ApplicationCompositionSpec(name="signal_api", modules=["signal"])
+    kubernetes = KubernetesSpec(
+        enabled=True,
+        image="signal-server:latest",
+        secret_name="signal-runtime",
+        application_composition="signal_api",
+    )
+
+    project = ProjectSpec(
+        spec_version="1",
+        project=ProjectInfo(name="Signal Server", package_name="signal_server", version="0.1.0"),
+        application=ApplicationSpec(modules=["signal"], compositions=[signal_api]),
+        tooling=ToolingSpec(kubernetes=kubernetes),
+    )
+
+    assert project.tooling.kubernetes.application_composition == "signal_api"
+    with pytest.raises(ValidationError, match="is not declared application composition"):
+        ProjectSpec(
+            spec_version="1",
+            project=project.project,
+            application=ApplicationSpec(modules=["signal"]),
+            tooling=ToolingSpec(kubernetes=kubernetes),
         )
 
 

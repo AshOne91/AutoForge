@@ -34,14 +34,16 @@ process-global singleton pattern.
   runtime responsibilities. This follows the Base Server reference's separate
   Web Server and Model Server deployment units without copying its global
   ServiceContainer pattern.
-  `environment/service-composition.json` currently derives API, relay, worker,
-  scheduler, initializer, and infrastructure runtime roles from generated
-  Compose topology, but does not select separate application module sets for
-  those roles. The next proof is two generated application compositions from
-  one KIS project; only then add the smallest specification and generation
-  contract. Do not use Git branches as a deployment-topology model, create a
-  name-only application-role abstraction, or couple module placement to replica
-  count.
+  `ApplicationSpec.compositions` now proves a default combined FastAPI app and a
+  named generated selected-module ASGI entrypoint from one project.
+  `tooling.local_environment.application_compositions` can run that entrypoint
+  as one additional generated Compose API service with an explicit local port.
+  `tooling.kubernetes.application_composition` can select that entrypoint for
+  the generated application Deployment while preserving its shared runtime
+  contract. The remaining boundary is, only when a real consumer needs it,
+  dependency isolation. Do not use Git branches as a
+  deployment-topology model, create a name-only application-role abstraction,
+  or couple module placement to replica count.
 - [ ] KIS trading Blueprint validation: 시장 데이터 수집, KIS 인증·공유 token
   조정, portfolio, order/execution, risk limit와 감사 이력을 하나의 소비자 수직
   흐름으로 검증한다. 거래 전략과 투자 판단은 KIS 소비자 소유이며 AutoForge는

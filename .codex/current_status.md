@@ -121,6 +121,20 @@ AutoForge currently has working foundations for:
   contexts are ready; `AsyncExitStack` closes them first. Older preserved
   extensions without that new optional tuple remain compatible. Focused generator
   tests, the full AutoForge suite, and a disposable KIS regeneration all passed.
+- generated named application compositions: `ApplicationSpec.compositions`
+  now emits a selected-module ASGI entrypoint under
+  `application/compositions/<name>.py`, while the default `main:app` remains the
+  combined application. The entrypoint reuses the generated health, lifespan,
+  and selected generated domain routers but intentionally excludes the global
+  `USER_ROUTERS` scaffold. KIS validates `signal_api` as a signal-only generated
+  composition. `tooling.local_environment.application_compositions` now creates
+  its own local Compose API service with explicit `+01..+09` port selection,
+  separate log subdirectory, and the existing default application's dependency
+  gates. `tooling.kubernetes.application_composition` can also select one
+  declared composition for the application Deployment, running its ASGI
+  entrypoint while preserving the default environment, probes, Service, and
+  replica contract. KIS validates its `signal_api` selection through generated
+  Kubernetes output. Dependency-isolated runtimes remain unimplemented.
 - local Control Plane heartbeat deployment profile: an independently built server
   image, private PostgreSQL volume, versioned SQL initialization, loopback-only
   `49700` HTTP binding, required local secret environment file, and process

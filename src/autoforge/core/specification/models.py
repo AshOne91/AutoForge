@@ -260,9 +260,30 @@ class RuntimeEnvironmentSpec(StrictSpecModel):
         return values
 
 
+class ApplicationCompositionSpec(StrictSpecModel):
+    """A named, independently runnable selection of generated domain modules."""
+
+    name: str
+    modules: list[str] = Field(min_length=1)
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        return validate_python_name(value)
+
+    @field_validator("modules")
+    @classmethod
+    def validate_modules(cls, values: list[str]) -> list[str]:
+        validated = [validate_python_name(value) for value in values]
+        if len(validated) != len(set(validated)):
+            raise ValueError("Application composition module names must be unique")
+        return validated
+
+
 class ApplicationSpec(StrictSpecModel):
     framework: Literal["fastapi"] = "fastapi"
     modules: list[str] = Field(default_factory=list)
+    compositions: list[ApplicationCompositionSpec] = Field(default_factory=list)
     services: list[ServiceSpec] = Field(default_factory=list)
     databases: list[DatabaseStoreSpec] = Field(default_factory=list)
     durable_jobs: list[DurableJobSpec] = Field(default_factory=list)
@@ -287,6 +308,23 @@ class ApplicationSpec(StrictSpecModel):
 
     @model_validator(mode="after")
     def validate_services(self) -> ApplicationSpec:
+        composition_names = [composition.name for composition in self.compositions]
+        if len(composition_names) != len(set(composition_names)):
+            raise ValueError("Application composition names must be unique")
+        declared_modules = set(self.modules)
+        unknown_composition_modules = sorted(
+            {
+                module
+                for composition in self.compositions
+                for module in composition.modules
+                if module not in declared_modules
+            }
+        )
+        if unknown_composition_modules:
+            raise ValueError(
+                "Application composition modules are not declared application "
+                f"modules: {unknown_composition_modules}"
+            )
         names = [service.name for service in self.services]
         if len(names) != len(set(names)):
             raise ValueError("Application Service 이름은 중복될 수 없습니다.")
@@ -749,6 +787,7 @@ class KubernetesSpec(StrictSpecModel):
     application_replicas: int = Field(default=3, ge=1)
     proxy_replicas: int = Field(default=2, ge=1)
     durable_job_worker_replicas: int = Field(default=1, ge=1)
+    application_composition: str | None = None
     log_host_path: str | None = None
     additional_secret_env_names: list[str] = Field(default_factory=list)
     control_plane: KubernetesControlPlaneSpec = Field(
@@ -775,6 +814,11 @@ class KubernetesSpec(StrictSpecModel):
             raise ValueError("Kubernetes secret environment names must be unique")
         return values
 
+    @field_validator("application_composition")
+    @classmethod
+    def validate_application_composition(cls, value: str | None) -> str | None:
+        return validate_python_name(value) if value is not None else None
+
     @model_validator(mode="after")
     def validate_enabled_profile(self) -> KubernetesSpec:
         if self.enabled and not self.image:
@@ -799,6 +843,18 @@ class KubernetesSpec(StrictSpecModel):
         return self
 
 
+class LocalApplicationCompositionSpec(StrictSpecModel):
+    """Expose one named application composition in the local Compose profile."""
+
+    name: str
+    host_port_offset: int = Field(ge=1, le=9)
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        return validate_python_name(value)
+
+
 class LocalEnvironmentSpec(StrictSpecModel):
     """Generate a disposable Docker integration environment for declared services."""
 
@@ -809,6 +865,9 @@ class LocalEnvironmentSpec(StrictSpecModel):
     mysql_mode: Literal["standalone", "ha"] = "standalone"
     rabbitmq_mode: Literal["standalone", "cluster"] = "standalone"
     airflow_scheduler_replicas: int = Field(default=1, ge=1)
+    application_compositions: list[LocalApplicationCompositionSpec] = Field(
+        default_factory=list
+    )
     host_port_base: int | None = Field(
         default=None,
         ge=49152,
@@ -823,6 +882,15 @@ class LocalEnvironmentSpec(StrictSpecModel):
             raise ValueError("MySQL local environment supports postgres_mode=standalone only")
         if self.database_provider != "mysql" and self.mysql_mode != "standalone":
             raise ValueError("MySQL HA mode requires database_provider=mysql")
+        names = [composition.name for composition in self.application_compositions]
+        if len(names) != len(set(names)):
+            raise ValueError("Local application composition names must be unique")
+        port_offsets = [
+            composition.host_port_offset
+            for composition in self.application_compositions
+        ]
+        if len(port_offsets) != len(set(port_offsets)):
+            raise ValueError("Local application composition port offsets must be unique")
         return self
 
 
@@ -885,6 +953,40 @@ class ProjectSpec(StrictSpecModel):
                 published.setdefault(base + offset, []).append(label)
 
         local = self.tooling.local_environment
+        local_composition_names = {
+            composition.name for composition in local.application_compositions
+        }
+        declared_composition_names = {
+            composition.name for composition in self.application.compositions
+        }
+        kubernetes_composition = self.tooling.kubernetes.application_composition
+        if kubernetes_composition and not self.tooling.kubernetes.enabled:
+            raise ValueError(
+                "Kubernetes application composition requires kubernetes.enabled"
+            )
+        if (
+            kubernetes_composition
+            and kubernetes_composition not in declared_composition_names
+        ):
+            raise ValueError(
+                "Kubernetes application composition is not declared application "
+                f"composition: {kubernetes_composition}"
+            )
+        if local_composition_names and (
+            not local.enabled or not local.application_enabled
+        ):
+            raise ValueError(
+                "Local application compositions require local_environment.enabled "
+                "and application_enabled"
+            )
+        unknown_local_compositions = sorted(
+            local_composition_names - declared_composition_names
+        )
+        if unknown_local_compositions:
+            raise ValueError(
+                "Local application compositions are not declared application "
+                f"compositions: {unknown_local_compositions}"
+            )
         rabbitmq_services = [
             service
             for service in self.application.services
@@ -923,6 +1025,12 @@ class ProjectSpec(StrictSpecModel):
         if local.enabled:
             if local.application_enabled:
                 reserve("local application", local.host_port_base, (0,))
+            for composition in local.application_compositions:
+                reserve(
+                    f"local application composition {composition.name}",
+                    local.host_port_base,
+                    (composition.host_port_offset,),
+                )
             if self.application.databases:
                 reserve(f"local {local.database_provider}", local.host_port_base, (10,))
             if rabbitmq_services:

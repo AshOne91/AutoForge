@@ -56,10 +56,12 @@ class KubernetesBaseServerGenerator:
             PurePosixPath("deploy", "kubernetes", "base-server.yaml"): (
                 self._render_manifest(
                     application_name=application_name,
+                    package_name=specification.project.package_name,
                     image=profile.image,
                     namespace=profile.namespace,
                     secret_name=profile.secret_name,
                     application_replicas=profile.application_replicas,
+                    application_composition=profile.application_composition,
                     proxy_replicas=profile.proxy_replicas,
                     durable_job_worker_replicas=profile.durable_job_worker_replicas,
                     log_host_path=profile.log_host_path,
@@ -71,10 +73,12 @@ class KubernetesBaseServerGenerator:
             ),
             PurePosixPath("deploy", "kubernetes", "README.md"): self._render_readme(
                 application_name=application_name,
+                package_name=specification.project.package_name,
                 image=profile.image,
                 namespace=profile.namespace,
                 secret_name=profile.secret_name,
                 secret_environment_names=secret_environment_names,
+                application_composition=profile.application_composition,
                 durable_job_worker_enabled=bool(specification.application.durable_jobs),
                 durable_job_worker_replicas=profile.durable_job_worker_replicas,
                 collector_enabled=collector_enabled,
@@ -415,10 +419,12 @@ spec:
     def _render_manifest(
         *,
         application_name: str,
+        package_name: str,
         image: str,
         namespace: str,
         secret_name: str,
         application_replicas: int,
+        application_composition: str | None,
         proxy_replicas: int,
         durable_job_worker_replicas: int,
         log_host_path: str | None,
@@ -445,6 +451,16 @@ spec:
                 f"          path: {log_host_path}\n"
                 "          type: DirectoryOrCreate\n"
             )
+        application_command = (
+            ""
+            if application_composition is None
+            else (
+                "        command: [\"python\", \"-m\", \"uvicorn\", "
+                f"\"{package_name}.application.compositions."
+                f"{application_composition}:app\", \"--host\", \"0.0.0.0\", "
+                "\"--port\", \"8000\"]\n"
+            )
+        )
         durable_job_worker_manifest = ""
         if durable_job_worker_secret_environment_names:
             durable_job_worker_manifest = (
@@ -502,7 +518,7 @@ spec:
       - name: application
         image: {image}
         imagePullPolicy: IfNotPresent
-        ports:
+{application_command}        ports:
         - name: http
           containerPort: 8000
         env:
@@ -717,10 +733,12 @@ spec:
     def _render_readme(
         *,
         application_name: str,
+        package_name: str,
         image: str,
         namespace: str,
         secret_name: str,
         secret_environment_names: list[str],
+        application_composition: str | None,
         durable_job_worker_enabled: bool,
         durable_job_worker_replicas: int,
         collector_enabled: bool,
@@ -734,6 +752,23 @@ spec:
         control_plane_replicas: int,
     ) -> str:
         required_keys = "".join(f"- `{name}`\n" for name in secret_environment_names)
+        application_composition_section = (
+            f"""
+## Application composition
+
+The application Deployment runs the selected `{application_composition}` ASGI
+entrypoint: `{package_name}.application.compositions.{application_composition}:app`.
+It keeps the generated application environment, readiness/liveness probes, and
+replica count; it does not select a separate database, broker, worker, or relay.
+"""
+            if application_composition is not None
+            else f"""
+## Application composition
+
+The application Deployment runs the default combined ASGI entrypoint:
+`{package_name}.main:app`.
+"""
+        )
         durable_job_worker_section = (
             f"""
 ## Durable Job worker
@@ -848,7 +883,7 @@ and keep the completed file out of Git:
 Database topology is provider-owned. Database URL keys are bound from this
 Secret.
 
-{mysql_operator_section}{control_plane_section}```powershell
+{application_composition_section}{mysql_operator_section}{control_plane_section}```powershell
 Copy-Item secret.env.example kis_secret.env
 ```
 

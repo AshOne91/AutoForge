@@ -1,4 +1,5 @@
 from autoforge.core.specification.models import (
+    ApplicationCompositionSpec,
     ApplicationSpec,
     CiProvider,
     CiSpec,
@@ -26,6 +27,7 @@ from autoforge.core.specification.models import (
     KubernetesMySQLOperatorSpec,
     KubernetesSpec,
     LlmSpec,
+    LocalApplicationCompositionSpec,
     LocalEnvironmentSpec,
     ModelSpec,
     ModuleInfo,
@@ -54,6 +56,7 @@ from autoforge.core.specification.models import (
 from autoforge.core.specification.types import FieldType, FieldTypeKind
 
 __all__ = [
+    "ApplicationCompositionSpec",
     "ApplicationSpec",
     "CiProvider",
     "CiSpec",
@@ -83,6 +86,7 @@ __all__ = [
     "KubernetesMySQLOperatorSpec",
     "KubernetesSpec",
     "LlmSpec",
+    "LocalApplicationCompositionSpec",
     "LocalEnvironmentSpec",
     "ModelSpec",
     "ModuleInfo",

@@ -23,6 +23,9 @@ change container-internal ports or Kubernetes Service ports.
    environments.
 5. Within that block: application `+00`, selected database provider `+10`, RabbitMQ AMQP
    `+30`, RabbitMQ management `+31`, and Airflow `+40`.
+   A named local application composition explicitly reserves one unique offset
+   from `+01` through `+09`; it may not reuse `+00` or infer a port from list
+   order.
 6. Central profiles reserve explicit host ports outside generated project blocks:
    ELK uses `49600`/`49601` for Elasticsearch/Kibana, and the AutoForge Control
    Plane uses `49700` for its HTTP API. Filebeat and the Control Plane PostgreSQL

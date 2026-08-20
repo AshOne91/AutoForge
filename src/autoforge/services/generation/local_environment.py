@@ -275,7 +275,7 @@ class LocalEnvironmentGenerator:
     def _service_role(name: str) -> str:
         """Expose the generated runtime role without changing service names."""
 
-        if name == "application":
+        if name == "application" or name.startswith("application-"):
             return "api"
         if name == "outbox-relay":
             return "relay"
@@ -382,6 +382,26 @@ class LocalEnvironmentGenerator:
                     host_port_base=host_port_base,
                 )
             )
+            for composition in (
+                specification.tooling.local_environment.application_compositions
+            ):
+                services.append(
+                    self._render_application(
+                        specification,
+                        redis_mode=redis_mode,
+                        redis_service=redis_service,
+                        distributed_lock=distributed_lock,
+                        key_value_store=key_value_store,
+                        has_migration=has_migration,
+                        has_rag=has_rag,
+                        host_port_base=host_port_base,
+                        service_name=(
+                            "application-" + composition.name.replace("_", "-")
+                        ),
+                        composition_name=composition.name,
+                        host_port_offset=composition.host_port_offset,
+                    )
+                )
             if has_rabbitmq:
                 services.append(
                     self._render_outbox_relay(
@@ -1266,9 +1286,36 @@ class LocalEnvironmentGenerator:
         has_migration: bool,
         has_rag: bool,
         host_port_base: int | None,
+        service_name: str = "application",
+        composition_name: str | None = None,
+        host_port_offset: int = 0,
     ) -> str:
         image = self._application_image(specification)
-        application_port = self._host_port(host_port_base, default=28000, offset=0)
+        application_port = self._host_port(
+            host_port_base,
+            default=28000 + host_port_offset,
+            offset=host_port_offset,
+        )
+        port_environment = (
+            "APPLICATION_PORT"
+            if composition_name is None
+            else composition_name.upper() + "_PORT"
+        )
+        command = (
+            ""
+            if composition_name is None
+            else (
+                "    command: [\"python\", \"-m\", \"uvicorn\", "
+                f"\"{specification.project.package_name}.application.compositions."
+                f"{composition_name}:app\", \"--host\", \"0.0.0.0\", "
+                "\"--port\", \"8000\"]\n"
+            )
+        )
+        log_directory = (
+            "/app/logs"
+            if composition_name is None
+            else f"/app/logs/{service_name}"
+        )
         dependencies: list[str] = []
         if has_migration:
             dependencies.append(
@@ -1309,11 +1356,12 @@ class LocalEnvironmentGenerator:
         )
         rag_network = "    networks:\n      - default\n      - rag\n" if has_rag else ""
         return (
-            "  application:\n"
+            f"  {service_name}:\n"
             f"    image: ${{APPLICATION_IMAGE:-{image}}}\n"
             "    pull_policy: never\n"
             "    restart: unless-stopped\n"
-            "    environment:\n"
+            + command
+            + "    environment:\n"
             + self._render_database_environment(specification)
             + redis_environment
             + memcached_environment
@@ -1321,9 +1369,9 @@ class LocalEnvironmentGenerator:
             + runtime_environment
             + heartbeat_environment
             + rag_environment
-            + "      LOG_DIRECTORY: /app/logs\n"
+            + f"      LOG_DIRECTORY: {log_directory}\n"
             "    ports:\n"
-            f"      - \"${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{APPLICATION_PORT:-{application_port}}}:8000\"\n"
+            f"      - \"${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{{port_environment}:-{application_port}}}:8000\"\n"
             "    volumes:\n"
             "      - ../logs:/app/logs\n"
             + rag_network
@@ -1750,6 +1798,10 @@ class LocalEnvironmentGenerator:
         )
         if has_application:
             lines.append(f"APPLICATION_PORT={application_port}\n")
+            lines.extend(
+                f"{composition.name.upper()}_PORT={self._host_port(host_port_base, default=28000 + composition.host_port_offset, offset=composition.host_port_offset)}\n"
+                for composition in specification.tooling.local_environment.application_compositions
+            )
             lines.extend(
                 f"{environment.name}=\n"
                 for environment in specification.application.runtime_environments

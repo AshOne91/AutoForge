@@ -8,6 +8,7 @@ import yaml
 
 from autoforge.core.generation import FileOwnership, Generator, content_hash
 from autoforge.core.specification import (
+    ApplicationCompositionSpec,
     ApplicationSpec,
     ControlPlaneHeartbeatSpec,
     DatabaseShardSpec,
@@ -15,6 +16,7 @@ from autoforge.core.specification import (
     DistributedLockSpec,
     DurableJobSpec,
     KeyValueStoreSpec,
+    LocalApplicationCompositionSpec,
     ProjectInfo,
     ProjectSpec,
     RuntimeEnvironmentSpec,
@@ -45,6 +47,9 @@ def integration_specification(
     heartbeat_reporter: bool = False,
     key_value_store_backend: str | None = None,
     key_value_store_mode: str = "standalone",
+    modules: list[str] | None = None,
+    compositions: list[ApplicationCompositionSpec] | None = None,
+    local_application_compositions: list[LocalApplicationCompositionSpec] | None = None,
 ) -> ProjectSpec:
     tooling = {
         "local_environment": {
@@ -56,6 +61,10 @@ def integration_specification(
             "rabbitmq_mode": rabbitmq_mode,
             "airflow_scheduler_replicas": airflow_scheduler_replicas,
             "host_port_base": host_port_base,
+            "application_compositions": [
+                composition.model_dump()
+                for composition in local_application_compositions or []
+            ],
         },
         "rag": {"enabled": rag, "search_backend": rag_search_backend},
     }
@@ -73,6 +82,8 @@ def integration_specification(
             version="0.1.0",
         ),
         application=ApplicationSpec(
+            modules=modules or [],
+            compositions=compositions or [],
             databases=[
                 DatabaseStoreSpec(
                     name="identity", global_url_env="IDENTITY_DATABASE_URL"
@@ -161,6 +172,53 @@ def test_runtime_environments_flow_to_application_compose_and_example() -> None:
     assert application_environment["KIS_TOKEN_SCOPE"] == "${KIS_TOKEN_SCOPE:-}"
     assert "KIS_APP_KEY=\n" in environment
     assert "KIS_TOKEN_SCOPE=\n" in environment
+
+
+def test_named_application_composition_generates_local_compose_service() -> None:
+    files = LocalEnvironmentGenerator().render(
+        integration_specification(
+            enabled=True,
+            application=True,
+            host_port_base=49400,
+            modules=["identity", "signal"],
+            compositions=[
+                ApplicationCompositionSpec(name="signal_api", modules=["signal"])
+            ],
+            local_application_compositions=[
+                LocalApplicationCompositionSpec(
+                    name="signal_api",
+                    host_port_offset=1,
+                )
+            ],
+        )
+    )
+
+    compose = yaml.safe_load(files[PurePosixPath("environment/compose.integration.yml")])
+    service = compose["services"]["application-signal-api"]
+    composition = json.loads(
+        files[PurePosixPath("environment/service-composition.json")]
+    )
+
+    assert service["command"] == [
+        "python",
+        "-m",
+        "uvicorn",
+        "kis_auto_trading.application.compositions.signal_api:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+    ]
+    assert service["ports"] == [
+        "${LOCAL_BIND_ADDRESS:-127.0.0.1}:${SIGNAL_API_PORT:-49401}:8000"
+    ]
+    assert service["environment"]["LOG_DIRECTORY"] == "/app/logs/application-signal-api"
+    assert "SIGNAL_API_PORT=49401\n" in files[PurePosixPath("environment/.env.example")]
+    assert next(
+        entry
+        for entry in composition["services"]
+        if entry["name"] == "application-signal-api"
+    )["role"] == "api"
 
 
 def test_runtime_environments_only_flow_to_declared_compose_targets() -> None:

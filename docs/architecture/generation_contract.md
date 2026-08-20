@@ -214,6 +214,38 @@ application/message_topology.py
 consumer edits. Application-specific internal endpoints register here instead of
 patching a generated router.
 
+### Named application compositions
+
+`ApplicationSpec.compositions` produces one generated module at
+`application/compositions/<name>.py` for each named subset of declared
+application modules. It exposes an `app` ASGI entrypoint, so an operator can run
+`uvicorn <package>.application.compositions.<name>:app`. The default
+`<package>.main:app` remains the combined application and continues to include
+all declared module routers plus scaffolded `USER_ROUTERS`.
+
+A named composition reuses the generated app factory, health router, lifespan,
+and Durable Job router when selected by the project. It passes only its selected
+generated module routers and deliberately excludes `USER_ROUTERS`: that
+scaffold has no composition-name routing contract yet, so including it would
+silently leak consumer endpoints into every selected application. This feature
+does not split databases, services, lifecycle ownership, transports, or
+replicas.
+
+`tooling.local_environment.application_compositions` may opt one of these
+entrypoints into local Compose. The generated service is named
+`application-<name-with-hyphens>`, runs the named ASGI module, reuses the
+default application's generated environment, readiness dependency gates, and
+image, and writes to its own subdirectory below `/app/logs`. It publishes the
+explicitly configured `host_port_offset` in the project's local port block.
+It does not add a duplicate relay, worker, migration owner, database, or broker.
+`tooling.kubernetes.application_composition` may select one declared composition
+for the generated application Deployment. The selected Deployment runs
+`<package>.application.compositions.<name>:app`; when omitted, it retains the
+default combined `<package>.main:app` image command. Selection reuses the same
+application environment, readiness/liveness probes, Service, and replica count.
+It does not select a separate database, service dependency, relay, worker, or
+per-composition replica policy. Those isolation contracts remain future work.
+
 The same scaffold may declare ordered `USER_LIFESPANS` FastAPI lifespan
 factories. The generated application always owns the outer lifespan: generated
 database, session, and heartbeat contexts enter first; user contexts enter next

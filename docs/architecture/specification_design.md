@@ -293,6 +293,26 @@ and independent scheduler health checks. It changes scheduler-process
 multiplicity only: webserver replicas, triggerer replicas, remote executors,
 and multi-host deployment are not selected by this field.
 
+### Kubernetes application composition
+
+`tooling.kubernetes.application_composition` optionally names one declared
+`ApplicationSpec.composition` for the generated Kubernetes application
+Deployment. It is valid only when Kubernetes generation is enabled and its name
+must reference a declared composition. When omitted, Kubernetes retains the
+default combined application entrypoint. Like local selection, it chooses only
+the ASGI entrypoint; modules, databases, service dependencies, Global/Shard
+placement, workers, and replica policy remain unchanged.
+
+### Local application compositions
+
+`tooling.local_environment.application_compositions` opts named
+`ApplicationSpec.compositions` into the generated local Compose runtime. Each
+entry names one declared composition and assigns a unique `host_port_offset`
+from `1` through `9`; the default combined application retains offset `0`. The
+local profile must have both `enabled` and `application_enabled` set. This is a
+deployment selection only: it does not redefine modules, databases, service
+dependencies, Global/Shard placement, or replica policy.
+
 ## ApplicationSpec
 
 어떤 Module과 Service를 Application에 연결할지 정의한다.
@@ -302,6 +322,10 @@ name: api
 framework: fastapi
 modules:
   - tutorial
+compositions:
+  - name: tutorial_api
+    modules:
+      - tutorial
 services: []
 databases: []
 durable_jobs: []
@@ -311,6 +335,15 @@ runtime_environments: []
 ApplicationSpec은 FastAPI Framework, Module 참조, Redis/RabbitMQ Service,
 Runtime Database Store와 Outbox 기반 Durable Job을 선언한다. 이름과 참조의
 중복·누락은 명세 검증 단계에서 거부한다.
+
+`compositions` optionally declares named, independently runnable subsets of
+`application.modules`. A composition name and its module names are Python
+identifiers, names are unique, each composition is non-empty, and every selected
+module must already be declared by `application.modules`. It selects generated
+domain routers only; it does not change a module's Global/Shard placement,
+database, service, lifecycle, transport, or replica contract. See
+[Generation Contract](generation_contract.md#named-application-compositions)
+for the generated entrypoint boundary.
 
 `service_tokens` declares named service-to-service callers with a unique
 `token_env`. It does not define human roles. See
