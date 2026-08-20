@@ -932,11 +932,15 @@ leaking them to unrelated roles. The generated worker subscribes to the manual
 code before I/O, reads one price through `KisMarketDataClient`, writes one
 global `automation` snapshot, and closes its per-job client. The handler and
 worker tests use fakes only; no scheduled collection, live KIS request, or
-order behavior exists. Kubernetes has no generated durable-worker Deployment
-yet. The local durable worker now also receives the declared Redis standalone
-or Cluster environment and readiness dependency, so the generated token cache
-and distributed lock use the same topology as the application. Default and HA
-KIS regeneration both verified that delivery.
+order behavior exists. Kubernetes now generates an internal Durable Job worker
+Deployment when Durable Jobs are declared: it has no public Service, uses the
+generated worker command, receives database/service and worker-targeted Secret
+bindings without service tokens, and probes RabbitMQ. Its replica count is a
+separate Kubernetes setting (one by default; KIS HA selects two). The local
+durable worker also receives the declared Redis standalone or Cluster environment
+and readiness dependency, so the generated token cache and distributed lock use
+the same topology as the application. Default and HA KIS regeneration both
+verified this output; no live Kubernetes workload or KIS request was run.
 
 KIS now exposes one user-owned internal current-price route at
 `/internal/operator/market-data/domestic-stock-price`. It reuses the generated

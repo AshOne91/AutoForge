@@ -34,6 +34,24 @@ value. Its value remains operator-owned: local execution reads it from the
 ignored environment file or process, and Kubernetes reads it from the configured
 Secret.
 
+When Durable Jobs are selected, the Kubernetes base-server output also creates
+an internal Durable Job worker Deployment. It has no Service or public port and
+uses the existing image, generated worker entrypoint, database/service Secret
+bindings, and only `durable_job_worker`-targeted runtime values. Its independent
+`durable_job_worker_replicas` setting defaults to one; operator-selected HA
+profiles may raise it after confirming the provider-owned RabbitMQ, Redis, and
+database dependencies are available. Its probes check the RabbitMQ connection;
+they do not provision or own that infrastructure.
+
+When Durable Jobs are selected, the Kubernetes base-server output also creates
+an internal Durable Job worker Deployment. It has no Service or public port and
+uses the existing image, generated worker entrypoint, database/service Secret
+bindings, and only `durable_job_worker`-targeted runtime values. Its independent
+`durable_job_worker_replicas` setting defaults to one; operator-selected HA
+profiles may raise it after confirming the provider-owned RabbitMQ, Redis, and
+database dependencies are available. Its probes check the RabbitMQ connection;
+they do not provision or own that infrastructure.
+
 ## Generated boundary
 
 Generated local environments mount `/app/logs` as writable runtime data. No

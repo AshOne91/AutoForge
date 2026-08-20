@@ -15,7 +15,7 @@ from autoforge.core.specification import (
 )
 
 KUBERNETES_BASE_SERVER_GENERATOR_ID = "autoforge.generator.kubernetes-base-server"
-KUBERNETES_BASE_SERVER_GENERATOR_VERSION = "0.2.0"
+KUBERNETES_BASE_SERVER_GENERATOR_VERSION = "0.3.0"
 _COLLECTOR_SECRET_ENVIRONMENT_NAMES = (
     "ELASTICSEARCH_HOST",
     "ELASTICSEARCH_API_KEY",
@@ -41,6 +41,11 @@ class KubernetesBaseServerGenerator:
         secret_environment_names = self._secret_environment_names(
             specification, target=RuntimeEnvironmentTarget.APPLICATION
         )
+        durable_job_worker_secret_environment_names = (
+            self._durable_job_worker_secret_environment_names(specification)
+            if specification.application.durable_jobs
+            else []
+        )
         all_secret_environment_names = self._secret_environment_names(specification)
         collector_enabled = specification.tooling.elk.kubernetes_collector_enabled
         secret_template_names = sorted(
@@ -56,8 +61,12 @@ class KubernetesBaseServerGenerator:
                     secret_name=profile.secret_name,
                     application_replicas=profile.application_replicas,
                     proxy_replicas=profile.proxy_replicas,
+                    durable_job_worker_replicas=profile.durable_job_worker_replicas,
                     log_host_path=profile.log_host_path,
                     secret_environment_names=secret_environment_names,
+                    durable_job_worker_secret_environment_names=(
+                        durable_job_worker_secret_environment_names
+                    ),
                 )
             ),
             PurePosixPath("deploy", "kubernetes", "README.md"): self._render_readme(
@@ -66,6 +75,8 @@ class KubernetesBaseServerGenerator:
                 namespace=profile.namespace,
                 secret_name=profile.secret_name,
                 secret_environment_names=secret_environment_names,
+                durable_job_worker_enabled=bool(specification.application.durable_jobs),
+                durable_job_worker_replicas=profile.durable_job_worker_replicas,
                 collector_enabled=collector_enabled,
                 mysql_operator_enabled=profile.mysql_operator.enabled,
                 mysql_operator_bootstrap_secret_name=(
@@ -182,7 +193,27 @@ class KubernetesBaseServerGenerator:
             for environment in specification.application.runtime_environments
             if target is None or target in environment.targets
         )
+        heartbeat = specification.application.control_plane_heartbeat
+        if heartbeat.enabled:
+            environment_names.update({heartbeat.endpoint_env, heartbeat.token_env})
         environment_names.update(
+            specification.tooling.kubernetes.additional_secret_env_names
+        )
+        return sorted(environment_names)
+
+    @classmethod
+    def _durable_job_worker_secret_environment_names(
+        cls, specification: ProjectSpec
+    ) -> list[str]:
+        environment_names = set(
+            cls._secret_environment_names(
+                specification, target=RuntimeEnvironmentTarget.DURABLE_JOB_WORKER
+            )
+        )
+        environment_names.difference_update(
+            specification.application.service_token_environments.values()
+        )
+        environment_names.difference_update(
             specification.tooling.kubernetes.additional_secret_env_names
         )
         return sorted(environment_names)
@@ -389,8 +420,10 @@ spec:
         secret_name: str,
         application_replicas: int,
         proxy_replicas: int,
+        durable_job_worker_replicas: int,
         log_host_path: str | None,
         secret_environment_names: list[str],
+        durable_job_worker_secret_environment_names: list[str],
     ) -> str:
         application_environment = "".join(
             "        - name: " + environment_name + "\n"
@@ -411,6 +444,20 @@ spec:
                 "        hostPath:\n"
                 f"          path: {log_host_path}\n"
                 "          type: DirectoryOrCreate\n"
+            )
+        durable_job_worker_manifest = ""
+        if durable_job_worker_secret_environment_names:
+            durable_job_worker_manifest = (
+                KubernetesBaseServerGenerator._render_durable_job_worker_manifest(
+                    application_name=application_name,
+                    image=image,
+                    namespace=namespace,
+                    secret_name=secret_name,
+                    replicas=durable_job_worker_replicas,
+                    secret_environment_names=(
+                        durable_job_worker_secret_environment_names
+                    ),
+                )
             )
         return f"""apiVersion: v1
 kind: ConfigMap
@@ -493,7 +540,7 @@ spec:
     port: 8000
     targetPort: http
 ---
-apiVersion: apps/v1
+{durable_job_worker_manifest}apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {application_name}-nginx
@@ -562,6 +609,72 @@ spec:
 """
 
     @staticmethod
+    def _render_durable_job_worker_manifest(
+        *,
+        application_name: str,
+        image: str,
+        namespace: str,
+        secret_name: str,
+        replicas: int,
+        secret_environment_names: list[str],
+    ) -> str:
+        environment = "".join(
+            "        - name: " + environment_name + "\n"
+            "          valueFrom:\n"
+            "            secretKeyRef:\n"
+            f"              name: {secret_name}\n"
+            f"              key: {environment_name}\n"
+            for environment_name in secret_environment_names
+        )
+        rabbitmq_probe = (
+            "import asyncio, os, aio_pika; connection = asyncio.run("
+            "aio_pika.connect(os.environ['RABBITMQ_URL'], timeout=2)); "
+            "asyncio.run(connection.close())"
+        )
+        return f"""apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {application_name}-durable-job-worker
+  namespace: {namespace}
+  labels:
+    app.kubernetes.io/name: {application_name}
+    app.kubernetes.io/component: durable-job-worker
+spec:
+  replicas: {replicas}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {application_name}
+      app.kubernetes.io/component: durable-job-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {application_name}
+        app.kubernetes.io/component: durable-job-worker
+    spec:
+      containers:
+      - name: durable-job-worker
+        image: {image}
+        imagePullPolicy: IfNotPresent
+        command: ["python", "scripts/run_durable_job_worker.py"]
+        env:
+        - name: INSTANCE_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+{environment}        readinessProbe:
+          exec:
+            command: ["python", "-c", "{rabbitmq_probe}"]
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        livenessProbe:
+          exec:
+            command: ["python", "-c", "{rabbitmq_probe}"]
+          initialDelaySeconds: 10
+          periodSeconds: 10
+---
+"""
+
+    @staticmethod
     def _render_mysql_operator_manifest(
         *,
         application_name: str,
@@ -608,6 +721,8 @@ spec:
         namespace: str,
         secret_name: str,
         secret_environment_names: list[str],
+        durable_job_worker_enabled: bool,
+        durable_job_worker_replicas: int,
         collector_enabled: bool,
         mysql_operator_enabled: bool,
         mysql_operator_bootstrap_secret_name: str,
@@ -619,6 +734,23 @@ spec:
         control_plane_replicas: int,
     ) -> str:
         required_keys = "".join(f"- `{name}`\n" for name in secret_environment_names)
+        durable_job_worker_section = (
+            f"""
+## Durable Job worker
+
+`base-server.yaml` also creates a {durable_job_worker_replicas}-replica internal
+Durable Job worker Deployment. It has no Service or public port; it consumes
+RabbitMQ events and uses the declared database and worker-targeted environment
+keys. Its readiness and liveness probes verify the RabbitMQ connection.
+"""
+            if durable_job_worker_enabled
+            else ""
+        )
+        durable_job_worker_rollout = (
+            f"kubectl rollout status --namespace {namespace} deployment/{application_name}-durable-job-worker\n"
+            if durable_job_worker_enabled
+            else ""
+        )
         collector_section = ""
         if collector_enabled:
             collector_section = f"""
@@ -732,7 +864,7 @@ Apply and verify only after the image and Secret are ready:
 kubectl apply --namespace {namespace} -f base-server.yaml
 kubectl rollout status --namespace {namespace} deployment/{application_name}
 kubectl rollout status --namespace {namespace} deployment/{application_name}-nginx
-```
+{durable_job_worker_rollout}```
 
 `base-server.yaml` uses a local hostPath for `/app/logs` only when the
 specification requests one. It is suitable only for single-node local
@@ -740,4 +872,5 @@ development (such as Docker Desktop): a hostPath is node-local and cannot
 preserve one replica's files when another node runs it. Production deployments
 must centralize stdout through a log collector. If a file-retention policy is
 also required, use a PVC/PV with an access mode appropriate for the replicas.
-{collector_section}"""
+{durable_job_worker_section}
+{collector_section}""".rstrip() + "\n"

@@ -660,6 +660,7 @@ class KubernetesSpec(StrictSpecModel):
     secret_name: str = ""
     application_replicas: int = Field(default=3, ge=1)
     proxy_replicas: int = Field(default=2, ge=1)
+    durable_job_worker_replicas: int = Field(default=1, ge=1)
     log_host_path: str | None = None
     additional_secret_env_names: list[str] = Field(default_factory=list)
     control_plane: KubernetesControlPlaneSpec = Field(

@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from autoforge.core.generation import FileOwnership, Generator, content_hash
 from autoforge.core.specification import (
     ApplicationSpec,
+    ControlPlaneHeartbeatSpec,
     DatabaseShardSpec,
     DatabaseStoreSpec,
     DurableJobSpec,
@@ -31,6 +32,7 @@ def base_server_specification(
     durable_jobs: bool = False,
     application_replicas: int = 3,
     proxy_replicas: int = 2,
+    durable_job_worker_replicas: int = 1,
     mysql_ha: bool = False,
     mysql_operator: bool = False,
     control_plane: bool = False,
@@ -98,6 +100,7 @@ def base_server_specification(
                 "secret_name": "kis-runtime",
                 "application_replicas": application_replicas,
                 "proxy_replicas": proxy_replicas,
+                "durable_job_worker_replicas": durable_job_worker_replicas,
                 "log_host_path": "/run/desktop/mnt/host/c/kis-auto-trading/logs",
                 "additional_secret_env_names": ["KIS_APP_KEY"],
                 **(
@@ -189,7 +192,7 @@ def test_worker_only_runtime_environment_stays_out_of_kubernetes_application_pod
                     name="WORKER_ONLY_SECRET",
                     targets=[RuntimeEnvironmentTarget.DURABLE_JOB_WORKER],
                 )
-            ]
+            ],
         }
     )
 
@@ -354,6 +357,8 @@ def test_render_uses_independent_replica_values() -> None:
             enabled=True,
             application_replicas=5,
             proxy_replicas=4,
+            durable_job_worker_replicas=3,
+            durable_jobs=True,
         )
     )
 
@@ -366,6 +371,52 @@ def test_render_uses_independent_replica_values() -> None:
 
     assert deployments["application"]["spec"]["replicas"] == 5
     assert deployments["proxy"]["spec"]["replicas"] == 4
+    assert deployments["durable-job-worker"]["spec"]["replicas"] == 3
+
+
+def test_render_creates_an_internal_durable_job_worker_deployment() -> None:
+    specification = base_server_specification(
+        enabled=True,
+        durable_jobs=True,
+        durable_job_worker_replicas=4,
+    )
+    application = specification.application.model_copy(
+        update={
+            "runtime_environments": [
+                RuntimeEnvironmentSpec(
+                    name="WORKER_ONLY_SECRET",
+                    targets=[RuntimeEnvironmentTarget.DURABLE_JOB_WORKER],
+                )
+            ],
+            "control_plane_heartbeat": ControlPlaneHeartbeatSpec(enabled=True),
+        }
+    )
+
+    files = KubernetesBaseServerGenerator().render(
+        specification.model_copy(update={"application": application})
+    )
+    manifest = files[PurePosixPath("deploy", "kubernetes", "base-server.yaml")]
+    readme = files[PurePosixPath("deploy", "kubernetes", "README.md")]
+    deployments = {
+        document["metadata"]["labels"]["app.kubernetes.io/component"]: document
+        for document in yaml.safe_load_all(manifest)
+        if document.get("kind") == "Deployment"
+    }
+
+    worker = deployments["durable-job-worker"]
+    container = worker["spec"]["template"]["spec"]["containers"][0]
+    environment = {entry["name"]: entry for entry in container["env"]}
+
+    assert worker["spec"]["replicas"] == 4
+    assert container["command"] == ["python", "scripts/run_durable_job_worker.py"]
+    assert environment["RABBITMQ_URL"]["valueFrom"]["secretKeyRef"]["key"] == "RABBITMQ_URL"
+    assert environment["REDIS_CLUSTER_URL"]["valueFrom"]["secretKeyRef"]["key"] == "REDIS_CLUSTER_URL"
+    assert environment["WORKER_ONLY_SECRET"]["valueFrom"]["secretKeyRef"]["key"] == "WORKER_ONLY_SECRET"
+    assert "CONTROL_PLANE_HEARTBEAT_URL" in environment
+    assert "DURABLE_JOB_API_TOKEN" not in environment
+    assert container["readinessProbe"]["exec"]["command"][0] == "python"
+    assert "Durable Job worker" in readme
+    assert "deployment/kis-auto-trading-durable-job-worker" in readme
 
 
 def test_render_adds_durable_job_api_token_only_for_durable_jobs() -> None:
