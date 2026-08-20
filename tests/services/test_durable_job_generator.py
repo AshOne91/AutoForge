@@ -104,6 +104,8 @@ def test_durable_job_generator_emits_atomic_request_contract() -> None:
     assert "raise TypeError('durable job payload must be an object')" in worker
     assert "raise" in worker
     assert "class ApplicationDurableJobHandler" in handler
+    assert "def validate_durable_job_payload(" in handler
+    assert "del job_type, payload" in handler
     assert "def create_durable_job_handler(" in handler
     assert "session_registry: AsyncSessionRegistry" in handler
     assert "DURABLE_JOB_QUEUE =" in runner
@@ -200,6 +202,13 @@ def test_fastapi_project_registers_durable_job_endpoints() -> None:
     assert "@router.post(" in router
     assert "status.HTTP_202_ACCEPTED" in router
     assert "ShardTarget(store=definition.store)" in router
+    assert "from kis_auto_trading.application.durable_job_handler import (" in router
+    assert "validate_durable_job_payload(job_type, request.payload)" in router
+    assert "except (TypeError, ValueError) as error:" in router
+    assert "raise HTTPException(status_code=422, detail=str(error)) from error" in router
+    assert router.index("from kis_auto_trading.application") < router.index(
+        "from kis_auto_trading.infrastructure"
+    )
     assert "'durable_jobs': 'DURABLE_JOB_API_TOKEN'" in service_tokens
     assert "DurableJobStatus" in router
     assert "from kis_auto_trading.infrastructure.service_tokens import require_service_token" in router

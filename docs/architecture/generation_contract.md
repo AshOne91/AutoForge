@@ -70,6 +70,14 @@ worker로 전달되는 생성 계약이다. (job_type, run_key)는 idempotency k
 한정된 최신 Job 이력을 반환한다. 정렬은 `updated_at` 내림차순, `job_id`
 내림차순이며, 기존 trigger/status API와 같은 token 인증 경계를 사용한다.
 
+Before the generated trigger opens a session or creates an outbox record, it
+calls the scaffolded
+`application.durable_job_handler.validate_durable_job_payload(job_type, payload)`
+hook. The generated default accepts generic objects. A consumer validates only
+its own job payloads; `TypeError` and `ValueError` become HTTP 422 responses.
+The hook validates request input only: it does not execute work or change the
+Durable Job idempotency and outbox contracts.
+
 ### Scoped service-token authentication
 
 `ApplicationSpec.service_tokens` declares one named service caller and one

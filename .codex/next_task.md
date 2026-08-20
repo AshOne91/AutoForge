@@ -1,15 +1,13 @@
 # Next Task
 
-## Next executable unit: verify the manual market-price snapshot job request
+## Next executable unit: bound the next KIS Trading Blueprint slice
 
-KIS now has a generated `market_price_snapshot` Durable Job contract and a
-user-owned worker handler, but the operator-facing trigger must be proved before
-any scheduling is considered. Add one focused KIS test through the existing
-generated Durable Job request route: an authorized internal caller requests one
-six-digit stock-code snapshot, which creates the durable record and its outbox
-message without calling KIS. Reject an invalid payload before any job request.
+Inspect the current KIS market-data, token-coordination, Durable Job, and
+operator API contracts against the single remaining `KIS trading Blueprint
+validation` roadmap item. Record one smallest non-trading vertical slice that
+reuses existing AutoForge generation contracts and can be tested without KIS
+credentials or an order request.
 
-Do not add a schedule, automatic polling, public endpoint, order behavior, or a
-second request API. Reuse the generated route, service-token guard, repository,
-and outbox contract; the consumer owns only the market-price payload validation
-if the generic request route cannot express it.
+Do not implement an order, portfolio action, schedule, live KIS call, or new
+infrastructure in this analysis unit. Do not turn the broad roadmap item into a
+new architecture decision without concrete evidence from the current code.

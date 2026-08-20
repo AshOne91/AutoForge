@@ -942,6 +942,13 @@ and readiness dependency, so the generated token cache and distributed lock use
 the same topology as the application. Default and HA KIS regeneration both
 verified this output; no live Kubernetes workload or KIS request was run.
 
+The generated Durable Job trigger now calls a scaffolded, consumer-owned payload
+validation hook before it opens a database session or requests an outbox record.
+KIS validates only `market_price_snapshot` there, reusing its six-digit stock
+code rule. Its focused internal API test proves one valid request reaches the
+repository and an invalid request returns 422 without creating a job; no KIS
+request runs in either case.
+
 KIS now exposes one user-owned internal current-price route at
 `/internal/operator/market-data/domestic-stock-price`. It reuses the generated
 `operator` service-token guard, accepts only a six-digit stock code, obtains the
