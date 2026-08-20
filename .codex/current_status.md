@@ -1004,6 +1004,12 @@ PostgreSQL HA or failover evidence.
 The same isolated profile restarts standalone Redis, then proves a newly created
 session plus a new Outbox notification through the Redis Pub/Sub hint path. This
 is reconnect evidence for the default local profile, not Redis HA or failover.
+It now also restarts the standalone RabbitMQ broker, waits for the generated
+Outbox relay and message worker to become healthy again, then proves a new
+Outbox notification through the same Nginx-routed durable/read/WebSocket path.
+Its disposable host ports are allocated per run so this drill does not collide
+with an already-running local profile. This is reconnection evidence for the
+default single-broker profile, not RabbitMQ cluster HA or delivery replay proof.
 No acknowledgement, replay, rate limit, or delivery observability is generated.
 This is not an EventBus replacement and does not make a live hint the
 notification source of truth.

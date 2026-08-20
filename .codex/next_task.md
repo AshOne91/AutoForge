@@ -1,11 +1,11 @@
 # Next Task
 
-## Next executable unit: verify RabbitMQ restart recovery in the isolated profile
+## Next executable unit: reconcile the Base Server service capability map
 
-Extend the existing isolated single-host verifier after its Redis recovery proof:
-restart RabbitMQ, wait for the generated Outbox relay and message worker health,
-then repeat one Transactional Outbox notification smoke. This checks their
-existing broker reconnection path without claiming clustered broker HA.
+Compare the dated Base Server service capability map against the implemented
+AutoForge tooling and current status, then select exactly one still-unmet
+reusable service responsibility for the next vertical slice. Do not treat the
+reference map as authoritative or add a generic service merely to match a legacy
+folder name.
 
-Keep the stack disposable and do not add acknowledgement, replay, rate-limit,
-or external-delivery policy.
+Preserve existing generated contracts and consumer ownership boundaries.
