@@ -990,7 +990,9 @@ The existing disposable `verify_generated_single_host.py` profile now reuses
 that command with three explicitly scaled, healthy application replicas and a
 running message worker. It verified the same Nginx-routed realtime/durable/read
 path, restarted one application container, and confirmed proxy recovery before
-its normal volume and network cleanup.
+its normal volume and network cleanup. The same profile now also restarts the
+message worker, waits for its health, and proves a second new notification reaches
+the durable/read/WebSocket path before the application restart check.
 No acknowledgement, replay, rate limit, or delivery observability is generated.
 This is not an EventBus replacement and does not make a live hint the
 notification source of truth.
