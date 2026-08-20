@@ -1,11 +1,11 @@
 # Next Task
 
-## Next executable unit: assess remaining reference services by ownership
+## Next executable unit: select the SMS delivery contract
 
-Compare base_server and game-server services against the existing AutoForge
-contracts. Record whether each responsibility is already covered by generated
-Durable Jobs/Airflow, Messaging/Outbox, Realtime, Notification, Email, storage,
-search, cache, or database boundaries before adding another generator.
+Select one Korean production SMS provider using its current official API,
+pricing, sender-registration, and test-mode documentation. Then add only a
+provider-neutral `SmsDelivery` contract plus a deterministic fake and that one
+adapter; a paid or credentialed live delivery is not part of the first slice.
 
-Do not create duplicate service abstractions, change the KIS default Redis
+Do not create a generic signal transport, change the KIS default Redis
 specification, or run the explicitly opt-in KIS balance integration check.

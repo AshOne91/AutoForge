@@ -15,6 +15,7 @@ from autoforge.services.generation.fastapi_project import (
 )
 from autoforge.services.generation.key_value_store import KeyValueStoreGenerator
 from autoforge.services.generation.kubernetes import KubernetesBaseServerGenerator
+from autoforge.services.generation.llm import LlmGenerator
 from autoforge.services.generation.local_environment import LocalEnvironmentGenerator
 from autoforge.services.generation.manifest_store import (
     MANIFEST_RELATIVE_PATH,
@@ -74,6 +75,7 @@ __all__ = [
     "GenerationRunnerError",
     "KeyValueStoreGenerator",
     "KubernetesBaseServerGenerator",
+    "LlmGenerator",
     "LocalEnvironmentGenerator",
     "ManifestStore",
     "ManifestStoreError",

@@ -69,6 +69,11 @@ from autoforge.services.generation.kubernetes import (
     KUBERNETES_BASE_SERVER_GENERATOR_VERSION,
     KubernetesBaseServerGenerator,
 )
+from autoforge.services.generation.llm import (
+    LLM_GENERATOR_ID,
+    LLM_GENERATOR_VERSION,
+    LlmGenerator,
+)
 from autoforge.services.generation.local_environment import (
     LOCAL_ENVIRONMENT_GENERATOR_ID,
     LOCAL_ENVIRONMENT_GENERATOR_VERSION,
@@ -352,6 +357,18 @@ def create_fastapi_generator_plugins(
                 name=EMAIL_GENERATOR_ID,
                 version=EMAIL_GENERATOR_VERSION,
                 description="Async SMTP email delivery Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
+    project_registry.register(
+        GeneratorPluginAdapter(
+            LlmGenerator(),
+            PluginMetadata(
+                name=LLM_GENERATOR_ID,
+                version=LLM_GENERATOR_VERSION,
+                description="Async OpenAI Responses API LLM Generator",
                 capabilities=(PluginCapability.GENERATOR,),
                 supported_specification_versions=("1",),
             ),

@@ -201,15 +201,19 @@ The contract owns single-message delivery only. Templates, recipient policy,
 provider credentials, bulk delivery, retries, deduplication, outbox routing,
 and delivery observability remain consumer-owned.
 
-### Email runtime boundary
+### LLM runtime boundary
 
-`tooling.email` opt-in generates an asynchronous SMTP `EmailSender` with
-explicit configuration, a deterministic fake, and a standard-library SMTP
-adapter. It supports local SMTP and AWS SES SMTP without adding a provider SDK.
+`tooling.llm` opt-in generates an asynchronous `LlmService` backed by the
+OpenAI Responses API. The specification requires an explicit model name when
+enabled, plus an API-key environment-variable name and timeout; the generated
+project adds the official `openai` SDK only when selected. Requests use
+`store=False` by default and return only text plus the provider response ID.
 
-The contract owns single-message delivery only. Templates, recipient policy,
-provider credentials, bulk delivery, retries, deduplication, outbox routing,
-and delivery observability remain consumer-owned.
+The contract owns one non-streaming text request, explicit close, and a
+deterministic fake. Conversation persistence, prompt templates, tool calling,
+streaming, rate limits, model fallback, RAG orchestration, authorization, and
+cost policy remain consumer-owned. A Chat domain composes this boundary with
+RAG and Realtime; it is not a generated generic chat application.
 
 ### ObjectStorage runtime boundary
 

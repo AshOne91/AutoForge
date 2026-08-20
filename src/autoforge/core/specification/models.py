@@ -411,6 +411,7 @@ class ToolingSpec(StrictSpecModel):
         default_factory=lambda: ExternalProviderSpec()
     )
     email: EmailSpec = Field(default_factory=lambda: EmailSpec())
+    llm: LlmSpec = Field(default_factory=lambda: LlmSpec())
     notification: NotificationSpec = Field(
         default_factory=lambda: NotificationSpec()
     )
@@ -556,6 +557,23 @@ class EmailSpec(StrictSpecModel):
     )
     use_starttls: bool = True
     timeout_seconds: float = Field(default=10.0, gt=0, le=60)
+
+
+class LlmSpec(StrictSpecModel):
+    """Generate an opt-in OpenAI Responses API boundary."""
+
+    enabled: bool = False
+    model: str = ""
+    api_key_environment: str = Field(
+        default="OPENAI_API_KEY", pattern=r"^[A-Z][A-Z0-9_]*$"
+    )
+    timeout_seconds: float = Field(default=30.0, gt=0, le=120)
+
+    @model_validator(mode="after")
+    def validate_enabled_model(self) -> LlmSpec:
+        if self.enabled and not self.model:
+            raise ValueError("tooling.llm.model must be set when LLM is enabled")
+        return self
 
 
 class DistributedLockSpec(StrictSpecModel):

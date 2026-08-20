@@ -26,6 +26,7 @@ from autoforge.services.generation.key_value_store import KEY_VALUE_STORE_GENERA
 from autoforge.services.generation.kubernetes import (
     KUBERNETES_BASE_SERVER_GENERATOR_ID,
 )
+from autoforge.services.generation.llm import LLM_GENERATOR_ID
 from autoforge.services.generation.local_environment import (
     LOCAL_ENVIRONMENT_GENERATOR_ID,
 )
@@ -95,6 +96,7 @@ def test_builtin_catalog_contains_expected_plugins() -> None:
         EMAIL_GENERATOR_ID,
         EXTERNAL_PROVIDER_GENERATOR_ID,
         KEY_VALUE_STORE_GENERATOR_ID,
+        LLM_GENERATOR_ID,
         MESSAGING_GENERATOR_ID,
         NOTIFICATION_GENERATOR_ID,
         REALTIME_GENERATOR_ID,

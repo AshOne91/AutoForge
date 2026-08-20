@@ -11,6 +11,7 @@ from autoforge.core.specification import (
     ExternalProviderSpec,
     KeyValueStoreSpec,
     KubernetesSpec,
+    LlmSpec,
     LocalEnvironmentSpec,
     ModuleInfo,
     ModuleSpec,
@@ -44,6 +45,7 @@ from autoforge.services.generation.key_value_store import KEY_VALUE_STORE_GENERA
 from autoforge.services.generation.kubernetes import (
     KUBERNETES_BASE_SERVER_GENERATOR_ID,
 )
+from autoforge.services.generation.llm import LLM_GENERATOR_ID
 from autoforge.services.generation.local_environment import (
     LOCAL_ENVIRONMENT_GENERATOR_ID,
 )
@@ -84,6 +86,7 @@ def test_fastapi_generator_plugins_register_real_generators() -> None:
         EMAIL_GENERATOR_ID,
         EXTERNAL_PROVIDER_GENERATOR_ID,
         KEY_VALUE_STORE_GENERATOR_ID,
+        LLM_GENERATOR_ID,
         MESSAGING_GENERATOR_ID,
         NOTIFICATION_GENERATOR_ID,
         REALTIME_GENERATOR_ID,
@@ -355,6 +358,14 @@ def test_email_generator_plugin_is_empty_until_enabled() -> None:
     assert plugins.project.get(EMAIL_GENERATOR_ID).render(specification) == {}
     requested = specification.model_copy(update={"tooling": ToolingSpec(email=EmailSpec(enabled=True))})
     assert PurePosixPath("src", "game_server", "infrastructure", "email", "service.py") in plugins.project.get(EMAIL_GENERATOR_ID).render(requested)
+
+
+def test_llm_generator_plugin_is_empty_until_enabled() -> None:
+    plugins = create_fastapi_generator_plugins("game_server")
+    specification = ProjectSpec(spec_version="1", project=ProjectInfo(name="Game Server", package_name="game_server", version="0.1.0"), application=ApplicationSpec())
+    assert plugins.project.get(LLM_GENERATOR_ID).render(specification) == {}
+    requested = specification.model_copy(update={"tooling": ToolingSpec(llm=LlmSpec(enabled=True, model="gpt-test"))})
+    assert PurePosixPath("src", "game_server", "infrastructure", "llm", "service.py") in plugins.project.get(LLM_GENERATOR_ID).render(requested)
 
 
 def test_vector_store_generator_plugin_is_empty_until_enabled() -> None:

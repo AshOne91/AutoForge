@@ -919,6 +919,13 @@ target local SMTP or AWS SES SMTP without a provider SDK. Templates, recipient
 policy, bulk delivery, retries, deduplication, outbox routing, and delivery
 observability remain consumer-owned.
 
+`tooling.llm` now generates an opt-in `infrastructure/llm` runtime contract:
+an async `LlmService`, deterministic fake, explicit OpenAI Responses adapter,
+and environment-backed API key/model configuration. The selected specification
+must name a model; generated calls use `store=False`. Chat composition,
+streaming, tool calls, prompt and conversation persistence, RAG orchestration,
+authorization, and cost policy remain consumer-owned.
+
 KIS now selects the generated external-provider, distributed-lock, and
 key-value-store contracts in both its default standalone and HA Redis Cluster
 specifications. Its user-owned `KisTokenCoordinator` composes those contracts
