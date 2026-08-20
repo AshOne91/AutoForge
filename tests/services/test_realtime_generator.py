@@ -162,7 +162,6 @@ async def test_generated_realtime_hub_fans_out_without_transport_policy(
 
     assert result.succeeded, result.stderr
 
-
 @pytest.mark.anyio
 async def test_generated_realtime_backplane_fake_delivers_hints(
     tmp_path: Path,
@@ -209,3 +208,11 @@ async def test_generated_realtime_backplane_fake_delivers_hints(
     )
 
     assert result.succeeded, result.stderr
+
+    ruff_result = await AsyncioProcessRunner().run(
+        (sys.executable, "-m", "ruff", "check", "--no-cache", "src"),
+        cwd=workspace.root,
+        timeout_seconds=10,
+    )
+
+    assert ruff_result.succeeded, ruff_result.stderr

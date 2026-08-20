@@ -83,12 +83,6 @@ class RealtimeGenerator:
 
     @staticmethod
     def _render_init(has_redis_backplane: bool) -> str:
-        imports = (
-            "from .fake import FakeRealtimeSubscriber\n"
-            "from .protocol import RealtimeSubscriber\n"
-            "from .service import RealtimeHub\n"
-            "from .websocket import FastAPIWebSocketSubscriber\n"
-        )
         exports = [
             "FakeRealtimeSubscriber",
             "FastAPIWebSocketSubscriber",
@@ -96,13 +90,15 @@ class RealtimeGenerator:
             "RealtimeSubscriber",
         ]
         if has_redis_backplane:
-            imports += (
+            imports = (
                 "from .backplane import (\n"
-                "    RedisPubSubRealtimeBackplane,\n"
                 "    RealtimeBackplaneError,\n"
+                "    RedisPubSubRealtimeBackplane,\n"
                 ")\n"
-                "from .fake import FakeRealtimeBackplane\n"
-                "from .protocol import RealtimeBackplane\n"
+                "from .fake import FakeRealtimeBackplane, FakeRealtimeSubscriber\n"
+                "from .protocol import RealtimeBackplane, RealtimeSubscriber\n"
+                "from .service import RealtimeHub\n"
+                "from .websocket import FastAPIWebSocketSubscriber\n"
             )
             exports.extend(
                 [
@@ -111,6 +107,13 @@ class RealtimeGenerator:
                     "RealtimeBackplaneError",
                     "RedisPubSubRealtimeBackplane",
                 ]
+            )
+        else:
+            imports = (
+                "from .fake import FakeRealtimeSubscriber\n"
+                "from .protocol import RealtimeSubscriber\n"
+                "from .service import RealtimeHub\n"
+                "from .websocket import FastAPIWebSocketSubscriber\n"
             )
         return imports + "\n__all__ = [\n" + "".join(
             f'    "{export}",\n' for export in sorted(exports)
@@ -130,7 +133,6 @@ class RealtimeGenerator:
         return (
             "from collections.abc import Awaitable, Callable\n"
             "from typing import Protocol\n"
-            "\n"
             "\n"
             "RealtimeDeliveryHandler = Callable[[str, str], Awaitable[None]]\n"
             "\n"
@@ -305,7 +307,7 @@ def _redis_urls_from_environment() -> tuple[str, ...]:
                         raise RealtimeBackplaneError(\"realtime backplane is closed\")
                     if not channel:
                         raise ValueError(\"realtime channel must not be empty\")
-                    payload = json.dumps(dict(channel=channel, message=message))
+                    payload = json.dumps({"channel": channel, "message": message})
                     for _ in range(2):
                         client = await self._publisher_client()
                         try:
