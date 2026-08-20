@@ -933,6 +933,12 @@ persistence, account-summary exposure, or order behavior. Fake transport tests
 cover the request shape, pagination, provider envelope failure, and invalid
 account configuration. No KIS balance request has run.
 
+KIS also has a default-skipped integration check for that balance client. It
+requires an explicit opt-in flag and the KIS application/account environment
+values, makes one read-only balance request, validates only the typed holding
+result, and closes its HTTP/Redis resources. It has not been run with live
+credentials.
+
 `RuntimeEnvironmentSpec.targets` now declares the generated runtime process
 that receives each value, defaulting to `application`. KIS targets its four KIS
 values at both `application` and `durable_job_worker`; regenerated Compose
