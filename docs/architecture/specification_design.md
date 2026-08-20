@@ -176,6 +176,13 @@ fan-out, retries, rate limits, notifications, or delivery observability. It is
 not an EventBus replacement; consumers own the transport adapter and all
 application workflow decisions.
 
+Multiple-replica realtime delivery is therefore not an implicit property of
+`tooling.realtime`. A future opt-in backplane must be a separate contract; until
+then a consumer must not treat `RealtimeHub.publish()` as a durable or
+cross-replica notification path. [ADR-0004](../adr/0004-realtime-notification-delivery.md)
+records the durable-notification and best-effort-live-hint boundary selected for
+the first KIS use case.
+
 ### Notification runtime boundary
 
 `tooling.notification` opt-in generates an asynchronous outbound webhook
