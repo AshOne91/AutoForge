@@ -1,12 +1,11 @@
 # Next Task
 
-## Next executable unit: define the Signal domain boundary
+## Next executable unit: connect the Signal producer to existing delivery
 
-Specify one consumer-owned trading Signal use case from the reference flow:
-symbol subscription, market-data ownership, signal payload (`symbol`, direction,
-price, confidence), subscriber identity, duplicate-suppression key, and
-delivery guarantee. Map its output to existing Messaging/Outbox, Realtime, and
-(when needed) LLM or SMS delivery. Add no generic Signal transport.
+Implement one KIS-owned producer path that accepts a validated SignalEvent and
+publishes an existing domain event through Messaging/Outbox. Keep Realtime,
+Notification, LLM, and SMS as optional consumers; do not add a generic Signal
+transport, market-data master election, or trading-order execution yet.
 
 Do not create a generic signal transport, change the KIS default Redis
 specification, or run the explicitly opt-in KIS balance integration check.

@@ -110,9 +110,12 @@ process-global singleton pattern.
   and `tooling.llm` provides an OpenAI Responses API boundary. `tooling.sms`
   now provides a SOLAPI delivery boundary; push providers and notification
   policy remain future consumer decisions.
-- [ ] consumer-owned trading Signal slice after its payload, symbol-subscription
-  authority, master/worker ownership, duplicate-suppression key, and delivery
-  guarantee are explicit. The base_server reference combines market-data
+- [~] consumer-owned trading Signal slice: KIS now owns a generated persistence
+  contract for SignalEvent and SignalSubscription after its payload and
+  Global/Shard placement were made explicit. The remaining slice is the
+  consumer-owned producer and delivery workflow after symbol-subscription
+  authority, duplicate-suppression key, and delivery guarantee are selected.
+  The base_server reference combines market-data
   monitoring, technical/AI signal calculation, and notification enqueueing;
   AutoForge must not turn that domain workflow into a generic subscription
   transport or duplicate the existing Realtime/Messaging contracts.

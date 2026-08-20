@@ -933,6 +933,14 @@ contract. Only one-message submission and the provider group ID are exposed;
 live credentials, recipient consent, retries, idempotency, status polling,
 rate limits, and cost policy remain consumer-owned.
 
+KIS now opts into a generated `signal` module as its first Signal domain slice.
+`SignalEvent` is placed in the global automation store and
+`SignalSubscription` in the sharded account store; AutoForge generated their
+models, repositories, SQL, migrations, and router registration successfully.
+The generated router is intentionally an empty extension shell: market-data
+monitoring, signal calculation, subscriber authorization, duplicate suppression,
+and delivery through Messaging/Realtime/Notification remain consumer-owned.
+
 KIS now selects the generated external-provider, distributed-lock, and
 key-value-store contracts in both its default standalone and HA Redis Cluster
 specifications. Its user-owned `KisTokenCoordinator` composes those contracts
