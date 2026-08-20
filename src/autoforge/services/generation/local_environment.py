@@ -410,7 +410,12 @@ class LocalEnvironmentGenerator:
                 )
                 services.append(
                     self._render_message_worker(
-                        specification, has_migration=has_migration
+                        specification,
+                        redis_mode=redis_mode,
+                        redis_service=redis_service,
+                        distributed_lock=distributed_lock,
+                        key_value_store=key_value_store,
+                        has_migration=has_migration,
                     )
                 )
             if has_durable_jobs:
@@ -1439,7 +1444,14 @@ class LocalEnvironmentGenerator:
         )
 
     def _render_message_worker(
-        self, specification: ProjectSpec, *, has_migration: bool
+        self,
+        specification: ProjectSpec,
+        *,
+        redis_mode: str | None,
+        redis_service: ServiceSpec | None,
+        distributed_lock: DistributedLockSpec,
+        key_value_store: KeyValueStoreSpec,
+        has_migration: bool,
     ) -> str:
         image = self._application_image(specification)
         migration_dependency = (
@@ -1447,6 +1459,16 @@ class LocalEnvironmentGenerator:
             "        condition: service_completed_successfully\n"
             if has_migration
             else ""
+        )
+        redis_environment, redis_dependency = (
+            self._render_redis_runtime(
+                redis_mode,
+                redis_service,
+                distributed_lock,
+                key_value_store,
+            )
+            if specification.tooling.realtime.backplane == "redis_pubsub"
+            else ("", "")
         )
         return (
             "  message-worker:\n"
@@ -1461,9 +1483,11 @@ class LocalEnvironmentGenerator:
             "      retries: 3\n"
             "    environment:\n"
             + self._render_database_environment(specification)
+            + redis_environment
             + "      RABBITMQ_URL: ${RABBITMQ_URL:?set RABBITMQ_URL}\n"
             "    depends_on:\n"
             + migration_dependency
+            + redis_dependency
             + "      rabbitmq:\n"
             + "        condition: service_healthy\n"
         )

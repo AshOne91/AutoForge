@@ -47,6 +47,7 @@ def integration_specification(
     heartbeat_reporter: bool = False,
     key_value_store_backend: str | None = None,
     key_value_store_mode: str = "standalone",
+    realtime_backplane: str = "none",
     modules: list[str] | None = None,
     compositions: list[ApplicationCompositionSpec] | None = None,
     local_application_compositions: list[LocalApplicationCompositionSpec] | None = None,
@@ -67,6 +68,10 @@ def integration_specification(
             ],
         },
         "rag": {"enabled": rag, "search_backend": rag_search_backend},
+        "realtime": {
+            "enabled": realtime_backplane != "none",
+            "backplane": realtime_backplane,
+        },
     }
     if key_value_store_backend is not None:
         tooling["key_value_store"] = {
@@ -926,6 +931,28 @@ def test_durable_job_worker_receives_the_declared_redis_cluster_environment() ->
     )
 
     worker = compose["services"]["durable-job-worker"]
+
+    assert worker["environment"]["REDIS_CLUSTER_URL"] == (
+        "${REDIS_CLUSTER_URL:-redis://redis-7000:7000}"
+    )
+    assert "REDIS_CLUSTER_STARTUP_NODES" in worker["environment"]
+    assert worker["depends_on"]["redis-cluster-init"] == {
+        "condition": "service_completed_successfully"
+    }
+
+
+def test_message_worker_receives_realtime_redis_runtime() -> None:
+    compose = yaml.safe_load(
+        LocalEnvironmentGenerator().render(
+            integration_specification(
+                enabled=True,
+                application=True,
+                realtime_backplane="redis_pubsub",
+            )
+        )[PurePosixPath("environment", "compose.integration.yml")]
+    )
+
+    worker = compose["services"]["message-worker"]
 
     assert worker["environment"]["REDIS_CLUSTER_URL"] == (
         "${REDIS_CLUSTER_URL:-redis://redis-7000:7000}"
