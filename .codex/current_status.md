@@ -979,6 +979,12 @@ generator now emits a deterministic compact ID while retaining existing short
 IDs. Existing migration files are scaffolded by design, so an unapplied affected
 consumer migration was deliberately aligned with the new generated ID rather
 than overwritten by regeneration.
+KIS now provides the user-owned optional
+`scripts/verify_realtime_notification.py` command to repeat that local proof
+against an already-running non-production Compose project. It creates and
+revokes an ephemeral USER session, emits one local delivery-intent event through
+the existing worker, then requires the WebSocket hint and matching durable REST
+record; it neither starts Compose nor calls KIS or an external delivery provider.
 No acknowledgement, replay, rate limit, or delivery observability is generated.
 This is not an EventBus replacement and does not make a live hint the
 notification source of truth.

@@ -1,12 +1,11 @@
 # Next Task
 
-## Next executable unit: make the local realtime-notification smoke drill reproducible
+## Next executable unit: assert notification read state in the local smoke drill
 
-Add one KIS-local, non-production verification command that reuses the existing
-session, RabbitMQ, notification, and WebSocket contracts to prove a durable
-notification and its minimal live hint together. Keep runtime values ephemeral,
-avoid KIS API calls and external delivery providers, and do not change the
-best-effort realtime or fail-closed environment contracts.
+Extend the existing KIS-local realtime smoke command after its durable-record
+assertion: use the same ephemeral USER session to mark that exact notification
+read and confirm the stored `read_at` state. Reuse the existing notification API;
+do not add a new API, change delivery guarantees, or call KIS/external providers.
 
-The command should be optional and operator-invoked; it must not run on normal
+Keep the command optional and operator-invoked; it must not run on normal
 application startup.
