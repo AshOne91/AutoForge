@@ -52,8 +52,8 @@
   its account-shard Inbox consumer saves one deterministic generated
   `InAppNotification` record without an external side effect. An authenticated
   user endpoint reads the caller's newest 100 records from that same account
-  shard. External delivery, mark-as-read, and orders remain outside this slice.
-  KIS also exposes the
+  shard and marks only a caller-owned record read. External delivery and orders
+  remain outside this slice. KIS also exposes the
   enabled global projection through an operator-token-protected lookup by
   domestic stock code; its list query remains consumer-owned.
 
@@ -1001,8 +1001,8 @@ consumer-owned incremental migration and message-worker handler apply a newer
 revision once through the automation Inbox. Each newly persisted global delivery
 intent emits a same-transaction Outbox event whose account-shard Inbox consumer
 saves one deterministic generated `InAppNotification` record. Market-data
-monitoring, user-facing notification policy and state changes, external delivery
-through Messaging/Realtime/Notification, and orders remain consumer-owned.
+monitoring, user-facing notification policy, external delivery through
+Messaging/Realtime/Notification, and orders remain consumer-owned.
 
 KIS now selects the generated external-provider, distributed-lock, and
 key-value-store contracts in both its default standalone and HA Redis Cluster
