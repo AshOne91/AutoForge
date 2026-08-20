@@ -1,13 +1,12 @@
 # Next Task
 
-## Next executable unit: bound the next KIS Trading Blueprint slice
+## Next executable unit: establish one read-only KIS portfolio contract
 
-Inspect the current KIS market-data, token-coordination, Durable Job, and
-operator API contracts against the single remaining `KIS trading Blueprint
-validation` roadmap item. Record one smallest non-trading vertical slice that
-reuses existing AutoForge generation contracts and can be tested without KIS
-credentials or an order request.
+Use official KIS Open API documentation to select one domestic-stock portfolio
+or balance inquiry endpoint. Record the exact request fields, safe response
+fields, and failure cases needed for a user-owned read-only client that reuses
+the existing generated external-provider and Redis token-coordination contracts.
 
-Do not implement an order, portfolio action, schedule, live KIS call, or new
-infrastructure in this analysis unit. Do not turn the broad roadmap item into a
-new architecture decision without concrete evidence from the current code.
+Do not use credentials, call KIS, add an HTTP route, expose account values, or
+implement an order. Reject the slice if the official contract cannot be
+established precisely from primary documentation.
