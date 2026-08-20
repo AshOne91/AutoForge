@@ -111,10 +111,11 @@ process-global singleton pattern.
   now provides a SOLAPI delivery boundary; push providers and notification
   policy remain future consumer decisions.
 - [~] consumer-owned trading Signal slice: KIS now owns a generated persistence
-  contract for SignalEvent and SignalSubscription after its payload and
-  Global/Shard placement were made explicit. The remaining slice is the
-  consumer-owned producer and delivery workflow after symbol-subscription
-  authority, duplicate-suppression key, and delivery guarantee are selected.
+  contract for SignalEvent and SignalSubscription plus a producer path that
+  persists SignalEvent and records `signal.created` through the existing Outbox
+  in one automation transaction. The remaining delivery workflow still
+  requires symbol-subscription authority, duplicate-suppression policy, and
+  delivery guarantees.
   The base_server reference combines market-data
   monitoring, technical/AI signal calculation, and notification enqueueing;
   AutoForge must not turn that domain workflow into a generic subscription

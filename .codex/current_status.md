@@ -21,6 +21,12 @@
   domain-specific fields and relevance policy. AutoForge owns only the
   optional RAG infrastructure and environment contract; it does not yet
   generate a domain projection or a second search API.
+- KIS now has a consumer-owned Signal producer path. It validates the generated
+  `SignalEvent`, persists it in the global `automation` store, and records a
+  `signal.created` event through the existing Outbox in the same transaction.
+  Repeated `signal_id` values return the existing event without a second
+  Outbox record. Market-data collection, subscription authority, delivery
+  policy, orders, and notifications remain outside this slice.
 
 AutoForge currently has working foundations for:
 
