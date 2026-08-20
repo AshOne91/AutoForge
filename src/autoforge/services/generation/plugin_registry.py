@@ -129,6 +129,11 @@ from autoforge.services.generation.single_host import (
     SINGLE_HOST_GENERATOR_VERSION,
     SingleHostOperatingGenerator,
 )
+from autoforge.services.generation.sms import (
+    SMS_GENERATOR_ID,
+    SMS_GENERATOR_VERSION,
+    SmsGenerator,
+)
 from autoforge.services.generation.sqlalchemy import (
     SQLALCHEMY_GENERATOR_VERSION,
     SQLALCHEMY_MODEL_GENERATOR_ID,
@@ -369,6 +374,18 @@ def create_fastapi_generator_plugins(
                 name=LLM_GENERATOR_ID,
                 version=LLM_GENERATOR_VERSION,
                 description="Async OpenAI Responses API LLM Generator",
+                capabilities=(PluginCapability.GENERATOR,),
+                supported_specification_versions=("1",),
+            ),
+        )
+    )
+    project_registry.register(
+        GeneratorPluginAdapter(
+            SmsGenerator(),
+            PluginMetadata(
+                name=SMS_GENERATOR_ID,
+                version=SMS_GENERATOR_VERSION,
+                description="Async SOLAPI SMS delivery Generator",
                 capabilities=(PluginCapability.GENERATOR,),
                 supported_specification_versions=("1",),
             ),

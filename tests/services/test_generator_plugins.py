@@ -61,6 +61,7 @@ from autoforge.services.generation.repository import REPOSITORY_GENERATOR_ID
 from autoforge.services.generation.search import SEARCH_SERVICE_GENERATOR_ID
 from autoforge.services.generation.session_store import SESSION_STORE_GENERATOR_ID
 from autoforge.services.generation.single_host import SINGLE_HOST_GENERATOR_ID
+from autoforge.services.generation.sms import SMS_GENERATOR_ID
 from autoforge.services.generation.sqlalchemy import (
     SQLALCHEMY_MODEL_GENERATOR_ID,
     SQLALCHEMY_PROJECT_GENERATOR_ID,
@@ -92,6 +93,7 @@ def test_fastapi_generator_plugins_register_real_generators() -> None:
         REALTIME_GENERATOR_ID,
         SEARCH_SERVICE_GENERATOR_ID,
         SESSION_STORE_GENERATOR_ID,
+        SMS_GENERATOR_ID,
         VECTOR_STORE_GENERATOR_ID,
         SINGLE_HOST_GENERATOR_ID,
         SQLALCHEMY_PROJECT_GENERATOR_ID,

@@ -47,6 +47,7 @@ from autoforge.services.generation.runner import (
 from autoforge.services.generation.search import SearchServiceGenerator
 from autoforge.services.generation.session_store import SessionStoreGenerator
 from autoforge.services.generation.single_host import SingleHostOperatingGenerator
+from autoforge.services.generation.sms import SmsGenerator
 from autoforge.services.generation.sqlalchemy import (
     SQLAlchemyInfrastructureGenerator,
     SQLAlchemyModelGenerator,
@@ -93,6 +94,7 @@ __all__ = [
     "SearchServiceGenerator",
     "SessionStoreGenerator",
     "SingleHostOperatingGenerator",
+    "SmsGenerator",
     "StoredManifest",
     "VectorStoreGenerator",
     "create_fastapi_generator_plugins",

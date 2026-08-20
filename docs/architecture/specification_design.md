@@ -215,6 +215,20 @@ streaming, rate limits, model fallback, RAG orchestration, authorization, and
 cost policy remain consumer-owned. A Chat domain composes this boundary with
 RAG and Realtime; it is not a generated generic chat application.
 
+### SMS runtime boundary
+
+`tooling.sms` opt-in generates an asynchronous `SmsSender` with a deterministic
+fake and a SOLAPI Python SDK adapter. It requires explicit API key, API secret,
+and registered sender environment variables; the generated project adds the
+`solapi` SDK only when selected. The provider SDK is imported lazily so local
+Fake-based development does not require SMS credentials or network access.
+
+The contract owns one-message submission and its provider group ID. Free trial
+usage is provider-account dependent; production SMS is not a free transport and
+sender registration is required. Templates, recipient consent, bulk policy,
+retries, idempotency, outbox routing, delivery status polling, rate limits, and
+cost controls remain consumer-owned.
+
 ### ObjectStorage runtime boundary
 
 `tooling.storage.runtime_enabled` opt-in extends the existing `StorageSpec` and

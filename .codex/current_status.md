@@ -926,6 +926,13 @@ must name a model; generated calls use `store=False`. Chat composition,
 streaming, tool calls, prompt and conversation persistence, RAG orchestration,
 authorization, and cost policy remain consumer-owned.
 
+`tooling.sms` now generates an opt-in `infrastructure/sms` runtime contract
+with `SmsSender`, deterministic Fake, and a lazy-imported SOLAPI Python SDK
+adapter. It requires API key, API secret, and a registered sender environment
+contract. Only one-message submission and the provider group ID are exposed;
+live credentials, recipient consent, retries, idempotency, status polling,
+rate limits, and cost policy remain consumer-owned.
+
 KIS now selects the generated external-provider, distributed-lock, and
 key-value-store contracts in both its default standalone and HA Redis Cluster
 specifications. Its user-owned `KisTokenCoordinator` composes those contracts

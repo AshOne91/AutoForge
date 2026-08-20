@@ -107,8 +107,9 @@ process-global singleton pattern.
   persistence, deduplication, rate limiting, and delivery/error observability
   remain separate concerns. `tooling.notification` now provides a separate
   one-POST Webhook delivery boundary; `tooling.email` provides SMTP delivery,
-  and `tooling.llm` provides an OpenAI Responses API boundary. SMS/push
-  providers and notification policy remain future consumer decisions.
+  and `tooling.llm` provides an OpenAI Responses API boundary. `tooling.sms`
+  now provides a SOLAPI delivery boundary; push providers and notification
+  policy remain future consumer decisions.
 - [x] operator-facing ingestion lifecycle endpoints: the generated Durable Job
   API provides idempotent execution, status/result retrieval, and requested-job
   cancellation; the separately generated Worker reports its health to the

@@ -88,6 +88,7 @@ class FastAPIProjectGenerator:
                 include_external_provider=specification.tooling.external_provider.enabled,
                 include_llm=specification.tooling.llm.enabled,
                 include_notification=specification.tooling.notification.enabled,
+                include_sms=specification.tooling.sms.enabled,
                 include_search=specification.tooling.search.enabled,
                 include_vector_store=specification.tooling.vector_store.enabled,
                 include_object_storage=specification.tooling.storage.runtime_enabled,
@@ -254,6 +255,7 @@ class FastAPIProjectGenerator:
         include_external_provider: bool,
         include_llm: bool,
         include_notification: bool,
+        include_sms: bool,
         include_search: bool,
         include_vector_store: bool,
         include_object_storage: bool,
@@ -285,6 +287,7 @@ class FastAPIProjectGenerator:
             '    "aioboto3>=15.5,<16",\n' if include_object_storage else ""
         )
         llm_dependency = '    "openai>=1,<3",\n' if include_llm else ""
+        sms_dependency = '    "solapi>=5,<6",\n' if include_sms else ""
         database_dependency = (
             '    "asyncmy>=0.2,<1",\n'
             '    "cryptography>=44,<47",\n'
@@ -318,6 +321,7 @@ class FastAPIProjectGenerator:
             '    "alembic>=1.18,<2",\n'
             f"{object_storage_dependency}"
             f"{llm_dependency}"
+            f"{sms_dependency}"
             f"{database_dependency}"
             '    "fastapi",\n'
             f"{httpx_dependency}"

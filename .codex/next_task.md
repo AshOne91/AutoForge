@@ -1,11 +1,11 @@
 # Next Task
 
-## Next executable unit: select the SMS delivery contract
+## Next executable unit: define the Signal domain boundary
 
-Select one Korean production SMS provider using its current official API,
-pricing, sender-registration, and test-mode documentation. Then add only a
-provider-neutral `SmsDelivery` contract plus a deterministic fake and that one
-adapter; a paid or credentialed live delivery is not part of the first slice.
+Specify one consumer-owned Signal use case that composes existing
+Messaging/Outbox, Realtime, and (when needed) LLM or SMS delivery. Add no new
+generic transport until the signal payload, subscriber identity, and delivery
+guarantee are explicit.
 
 Do not create a generic signal transport, change the KIS default Redis
 specification, or run the explicitly opt-in KIS balance integration check.

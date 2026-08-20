@@ -412,6 +412,7 @@ class ToolingSpec(StrictSpecModel):
     )
     email: EmailSpec = Field(default_factory=lambda: EmailSpec())
     llm: LlmSpec = Field(default_factory=lambda: LlmSpec())
+    sms: SmsSpec = Field(default_factory=lambda: SmsSpec())
     notification: NotificationSpec = Field(
         default_factory=lambda: NotificationSpec()
     )
@@ -574,6 +575,22 @@ class LlmSpec(StrictSpecModel):
         if self.enabled and not self.model:
             raise ValueError("tooling.llm.model must be set when LLM is enabled")
         return self
+
+
+class SmsSpec(StrictSpecModel):
+    """Generate an opt-in SOLAPI SMS delivery boundary."""
+
+    enabled: bool = False
+    api_key_environment: str = Field(
+        default="SOLAPI_API_KEY", pattern=r"^[A-Z][A-Z0-9_]*$"
+    )
+    api_secret_environment: str = Field(
+        default="SOLAPI_API_SECRET", pattern=r"^[A-Z][A-Z0-9_]*$"
+    )
+    sender_environment: str = Field(
+        default="SOLAPI_SENDER", pattern=r"^[A-Z][A-Z0-9_]*$"
+    )
+    timeout_seconds: float = Field(default=15.0, gt=0, le=120)
 
 
 class DistributedLockSpec(StrictSpecModel):
