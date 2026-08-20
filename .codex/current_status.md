@@ -33,7 +33,9 @@
   ID in the global automation Inbox before upserting the generated
   `SignalSubscriptionProjection` read model in that same transaction and does
   not overwrite a newer recorded revision. Signal fan-out, delivery intent,
-  orders, and notifications remain outside this slice.
+  orders, and notifications remain outside this slice. KIS also exposes the
+  enabled global projection through an operator-token-protected lookup by
+  domestic stock code; its list query remains consumer-owned.
 
 AutoForge currently has working foundations for:
 

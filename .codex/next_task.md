@@ -1,12 +1,11 @@
 # Next Task
 
-## Next executable unit: expose the global Signal subscription projection
+## Next executable unit: define SignalEvent delivery intent
 
-Implement one KIS operator-only read boundary that looks up enabled global
-SignalSubscriptionProjection records by domestic stock code. Keep the query
-consumer-owned until a second project proves a reusable list-query generator.
-Do not route `signal.created` or invoke Realtime, Notification, LLM, or SMS
-until a delivery-intent and expiry policy is selected.
+Choose and document one consumer-owned delivery target and expiry policy for
+`SignalEvent` before adding fan-out. Keep the policy outside AutoForge's generic
+subscription transport and do not invoke Realtime, Notification, LLM, or SMS
+until the delivery contract and guarantee are explicit.
 
 Do not change the KIS default Redis specification or run the explicitly opt-in
 KIS balance integration check.

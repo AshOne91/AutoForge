@@ -117,7 +117,8 @@ process-global singleton pattern.
   deterministic domestic-stock subscription in their account shard, and actual
   state changes record `signal.subscription.updated` in that shard's Outbox.
   The message worker projects it once into generated global storage through the
-  automation Inbox. The remaining delivery workflow requires projection lookup,
+  automation Inbox, and KIS exposes an operator-only lookup of enabled
+  projections by domestic stock code. The remaining delivery workflow requires
   a SignalEvent routing target, delivery intent, and delivery guarantees.
   The base_server reference combines market-data
   monitoring, technical/AI signal calculation, and notification enqueueing;
