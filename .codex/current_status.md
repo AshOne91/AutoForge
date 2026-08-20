@@ -993,6 +993,10 @@ path, restarted one application container, and confirmed proxy recovery before
 its normal volume and network cleanup. The same profile now also restarts the
 message worker, waits for its health, and proves a second new notification reaches
 the durable/read/WebSocket path before the application restart check.
+The profile now writes its test events through the existing automation-store
+Transactional Outbox rather than publishing directly to RabbitMQ. It restarts
+the outbox relay and then the message worker, proving a separate durable
+notification after each recovery through the same Nginx-routed client path.
 No acknowledgement, replay, rate limit, or delivery observability is generated.
 This is not an EventBus replacement and does not make a live hint the
 notification source of truth.
