@@ -1,12 +1,13 @@
 # Next Task
 
-## Next executable unit: expose pending SignalDeliveryIntent records safely
+## Next executable unit: define the Signal delivery execution boundary
 
-In KIS, add one operator-token-protected, read-only lookup for pending global
-SignalDeliveryIntent records by domestic stock code. Reuse the generated model,
-global session, and existing operator service-token boundary; do not expose
-user-private subscription data or change the materialization workflow.
+Before delivering a pending global SignalDeliveryIntent, determine the one
+consumer-owned KIS execution boundary that can call an existing generated
+notification, email, or SMS contract without duplicating the current
+Outbox/Inbox transport. Define the required claim, expiry, retry, idempotency,
+and operator-observability guarantees before adding an external side effect.
 
-Do not add SMS, email, WebSocket, webhook, automatic order, or default Redis
-changes in this unit. Do not run the explicitly opt-in KIS balance integration
-check.
+Do not select a live provider, send a notification, place an order, or change
+default Redis topology in this unit. Do not run the explicitly opt-in KIS
+balance integration check.

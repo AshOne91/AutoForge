@@ -11,7 +11,9 @@
   baseline remains unchanged, while generated `0002` adds optional producer
   expiry and the global per-subscription `SignalDeliveryIntent` persistence
   boundary. KIS materializes one deterministic pending intent per enabled
-  subscription through the existing Outbox/Inbox transport before expiry; it
+  subscription through the existing Outbox/Inbox transport before expiry. An
+  operator-token-protected, read-only KIS endpoint lists pending global intents
+  by domestic stock code without exposing subscription-management data. KIS
   still has no external delivery channel.
 - State-changing endpoints can opt into a separate Redis-backed request replay
   contract with `EndpointSpec.idempotency`. Generated routes require an

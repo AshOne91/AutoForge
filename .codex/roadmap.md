@@ -129,9 +129,10 @@ process-global singleton pattern.
   deterministic domestic-stock subscription in their account shard, and actual
   state changes record `signal.subscription.updated` in that shard's Outbox.
   The message worker projects it once into generated global storage through the
-  automation Inbox, and KIS exposes an operator-only lookup of enabled
-  projections by domestic stock code. The remaining delivery workflow requires
-  a SignalEvent routing target, delivery intent, and delivery guarantees.
+  automation Inbox, materializes one pending global delivery intent per enabled
+  subscription, and exposes operator-only lookups of enabled projections and
+  pending delivery intents by domestic stock code. The remaining delivery
+  workflow requires an explicit external executor and delivery guarantees.
   The base_server reference combines market-data
   monitoring, technical/AI signal calculation, and notification enqueueing;
   AutoForge must not turn that domain workflow into a generic subscription
