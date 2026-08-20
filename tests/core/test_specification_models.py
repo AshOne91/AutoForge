@@ -32,6 +32,7 @@ from autoforge.core.specification import (
     ModuleSpec,
     ProjectInfo,
     ProjectSpec,
+    RealtimeSpec,
     RepositoryQuerySpec,
     RepositorySpec,
     ResponseSpec,
@@ -127,6 +128,55 @@ def test_create_minimal_project_spec() -> None:
     assert spec.tooling.ruff_exclude == []
     assert spec.tooling.ci.providers == []
     assert spec.tooling.docker.enabled is False
+
+
+def test_realtime_redis_backplane_requires_one_supported_redis_service() -> None:
+    with pytest.raises(ValidationError, match="requires realtime.enabled"):
+        RealtimeSpec(backplane="redis_pubsub")
+
+    realtime = ToolingSpec(
+        realtime=RealtimeSpec(enabled=True, backplane="redis_pubsub")
+    )
+    project = ProjectInfo(name="Example", package_name="example", version="0.1.0")
+
+    with pytest.raises(ValidationError, match="requires exactly one redis_session"):
+        ProjectSpec(
+            spec_version="1",
+            project=project,
+            application=ApplicationSpec(),
+            tooling=realtime,
+        )
+
+    sentinel = ServiceSpec(
+        name="session",
+        kind="redis_session",
+        namespace="example",
+        ttl_seconds=3600,
+        mode="sentinel",
+    )
+    with pytest.raises(ValidationError, match="does not support sentinel"):
+        ProjectSpec(
+            spec_version="1",
+            project=project,
+            application=ApplicationSpec(services=[sentinel]),
+            tooling=realtime,
+        )
+
+    cluster = ServiceSpec(
+        name="session",
+        kind="redis_session",
+        namespace="example",
+        ttl_seconds=3600,
+        mode="cluster",
+    )
+    specification = ProjectSpec(
+        spec_version="1",
+        project=project,
+        application=ApplicationSpec(services=[cluster]),
+        tooling=realtime,
+    )
+
+    assert specification.tooling.realtime.backplane == "redis_pubsub"
 
 
 def test_control_plane_heartbeat_is_opt_in_and_rejects_duplicate_environment_names() -> None:

@@ -1,14 +1,13 @@
 # Next Task
 
-## Next executable unit: generate an opt-in Redis realtime backplane boundary
+## Next executable unit: adopt the generated realtime backplane in KIS
 
-Implement the smallest AutoForge contract implied by ADR-0004. Preserve the
-default in-process `RealtimeHub`; an explicit opt-in must generate a Redis
-Pub/Sub adapter with lifecycle, bounded reconnection, and a deterministic fake.
-It must reuse an already-selected Redis topology rather than create a second
-Redis service. Verify the specification, generation plan, and generated
-contract only; KIS WebSocket routing, user-channel policy, notification
-publisher, and KIS adoption are separate later units.
+Select `tooling.realtime.backplane: redis_pubsub` in both KIS standalone and HA
+specifications, regenerate only the expected AutoForge-owned files, and prove
+the generated standalone/Cluster configuration is importable. Do not add a
+WebSocket route, user-channel policy, notification publisher, or durable-path
+change in this unit: adoption first proves the ownership and topology boundary;
+live notification delivery is a separate vertical slice.
 
 Do not add email, SMS, webhooks, automatic orders, or default Redis changes in
 this unit. Do not run the explicitly opt-in KIS balance integration check.

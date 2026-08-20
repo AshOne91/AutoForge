@@ -564,9 +564,21 @@ class ExternalProviderSpec(StrictSpecModel):
 
 
 class RealtimeSpec(StrictSpecModel):
-    """Generate an opt-in in-process realtime delivery boundary."""
+    """Generate an opt-in local realtime hub and optional Redis backplane."""
 
     enabled: bool = False
+    backplane: Literal["none", "redis_pubsub"] = "none"
+    channel: str = Field(
+        default="realtime.notifications.v1",
+        pattern=r"^[a-z][a-z0-9._-]*$",
+    )
+    reconnect_delay_seconds: float = Field(default=1.0, ge=0.1, le=60)
+
+    @model_validator(mode="after")
+    def validate_backplane(self) -> RealtimeSpec:
+        if self.backplane != "none" and not self.enabled:
+            raise ValueError("Realtime backplane requires realtime.enabled")
+        return self
 
 
 class NotificationSpec(StrictSpecModel):
@@ -935,6 +947,21 @@ class ProjectSpec(StrictSpecModel):
 
     @model_validator(mode="after")
     def validate_host_port_collisions(self) -> ProjectSpec:
+        realtime = self.tooling.realtime
+        if realtime.backplane == "redis_pubsub":
+            redis_services = [
+                service
+                for service in self.application.services
+                if service.kind == "redis_session"
+            ]
+            if len(redis_services) != 1:
+                raise ValueError(
+                    "Redis realtime backplane requires exactly one redis_session service"
+                )
+            if redis_services[0].mode == "sentinel":
+                raise ValueError(
+                    "Redis realtime backplane does not support sentinel mode yet"
+                )
         heartbeat = self.application.control_plane_heartbeat
         if heartbeat.enabled and len(self.project.package_name) > 128:
             raise ValueError(

@@ -163,25 +163,33 @@ cache invalidation, and the business meaning of missing data.
 
 ### Realtime runtime boundary
 
-`tooling.realtime` opt-in generates an asynchronous in-process `RealtimeHub`
-with channel subscribe, unsubscribe, publish, explicit close, and a deterministic
-subscriber fake. Delivery takes a consumer-provided `send(message: str)`
-subscriber, and a generated `FastAPIWebSocketSubscriber` adapts one accepted
-FastAPI WebSocket without defining an application route.
+`tooling.realtime` opt-in always generates an asynchronous in-process
+`RealtimeHub` with channel subscribe, unsubscribe, publish, explicit close, and
+a deterministic subscriber fake. Delivery takes a consumer-provided
+`send(message: str)` subscriber, and a generated `FastAPIWebSocketSubscriber`
+adapts one accepted FastAPI WebSocket without defining an application route.
 
-The contract owns local channel fan-out, one FastAPI socket adapter, and their
-lifecycle only. It does not generate a WebSocket route, authentication or authorization, channel policy,
-message schema or serialization, persistence, broker-backed multi-replica
-fan-out, retries, rate limits, notifications, or delivery observability. It is
-not an EventBus replacement; consumers own the transport adapter and all
-application workflow decisions.
+`backplane: redis_pubsub` is a separate explicit opt-in. It requires exactly
+one selected `redis_session` service and generates `RedisPubSubRealtimeBackplane`
+plus a deterministic fake. The adapter supports that service's `standalone` or
+`cluster` mode. Cluster mode uses the declared startup-node environment values
+as reconnect seeds with ordinary Redis Pub/Sub connections; it does not use the
+unsupported `RedisCluster.pubsub()` API. Sentinel mode is rejected until it has
+a verified lifecycle implementation.
 
-Multiple-replica realtime delivery is therefore not an implicit property of
-`tooling.realtime`. A future opt-in backplane must be a separate contract; until
-then a consumer must not treat `RealtimeHub.publish()` as a durable or
-cross-replica notification path. [ADR-0004](../adr/0004-realtime-notification-delivery.md)
+The backplane owns one environment-scoped topic, a generic string
+`channel`/`message` envelope, an explicit start/close lifecycle, and fixed-delay
+reconnection across its configured seeds. It is an at-most-once live hint only:
+it has no acknowledgement, replay, durable retry, persistence, or delivery
+observability. [ADR-0004](../adr/0004-realtime-notification-delivery.md)
 records the durable-notification and best-effort-live-hint boundary selected for
 the first KIS use case.
+
+The contract does not generate a WebSocket route, authentication or
+authorization, user-channel policy, domain message schema, notification
+persistence, rate limits, or a notification publisher. `RealtimeHub` is not an
+EventBus replacement; consumers own the transport composition and application
+workflow decisions.
 
 ### Notification runtime boundary
 

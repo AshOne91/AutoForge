@@ -947,15 +947,19 @@ Sentinel output is generated and parsed but has not yet had a dedicated runtime
 drill. Value serialization, cache invalidation, key design, FastAPI lifespan
 registration, and KIS adoption remain consumer-owned.
 
-`tooling.realtime` now generates an opt-in `infrastructure/realtime` runtime
+`tooling.realtime` generates an opt-in `infrastructure/realtime` runtime
 contract with an asynchronous in-process `RealtimeHub`, channel
 subscribe/unsubscribe/publish, explicit close, and a deterministic subscriber
-fake. It includes a `FastAPIWebSocketSubscriber` for one accepted socket, but
-the generator does not create routes, authentication,
-authorization, channel policy, message serialization, persistence, broker
-fan-out, retry/rate-limit policy, notifications, or delivery observability.
-This local hub is not an EventBus replacement and does not claim multi-replica
-delivery.
+fake. Its explicit `backplane: redis_pubsub` option requires the existing
+single `redis_session` service and adds a best-effort
+`RedisPubSubRealtimeBackplane` plus deterministic fake. Standalone and Cluster
+startup-node modes are generated; Sentinel is explicitly rejected pending a
+runtime drill. A disposable six-node Redis Cluster verification confirmed global
+Pub/Sub delivery through ordinary Redis seed connections before and after primary
+failover. No route, authentication, user-channel policy, notification publisher,
+persistence, acknowledgement, replay, or delivery observability is generated.
+This is not an EventBus replacement and does not make a live hint the
+notification source of truth.
 
 `tooling.notification` now generates an opt-in
 `infrastructure/notification` runtime contract with an asynchronous generic
