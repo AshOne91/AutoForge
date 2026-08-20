@@ -52,8 +52,11 @@
   its account-shard Inbox consumer saves one deterministic generated
   `InAppNotification` record without an external side effect. An authenticated
   user endpoint reads the caller's newest 100 records from that same account
-  shard and marks only a caller-owned record read. External delivery and orders
-  remain outside this slice. KIS also exposes the
+  shard and marks only a caller-owned record read. An isolated PostgreSQL
+  verification applied the complete account `upgrade heads` graph, then saved,
+  retrieved, and newest-first listed generated notification records through its
+  account-shard repository; its temporary container was removed afterward.
+  External delivery and orders remain outside this slice. KIS also exposes the
   enabled global projection through an operator-token-protected lookup by
   domestic stock code; its list query remains consumer-owned.
 
