@@ -923,6 +923,18 @@ startup constructs and stores it in `app.state` without a KIS request, and
 shutdown closes its shared HTTP and Redis clients. It has no FastAPI route,
 makes no live request during startup, and exposes no account or order operation.
 
+`RuntimeEnvironmentSpec.targets` now declares the generated runtime process
+that receives each value, defaulting to `application`. KIS targets its four KIS
+values at both `application` and `durable_job_worker`; regenerated Compose
+therefore gives the durable worker the same credential references without
+leaking them to unrelated roles. The generated worker subscribes to the manual
+`market_price_snapshot` job. Its user-owned handler validates a six-digit stock
+code before I/O, reads one price through `KisMarketDataClient`, writes one
+global `automation` snapshot, and closes its per-job client. The handler and
+worker tests use fakes only; no scheduled collection, live KIS request, or
+order behavior exists. Kubernetes has no generated durable-worker Deployment
+yet.
+
 KIS now exposes one user-owned internal current-price route at
 `/internal/operator/market-data/domestic-stock-price`. It reuses the generated
 `operator` service-token guard, accepts only a six-digit stock code, obtains the
@@ -951,7 +963,7 @@ Storage failures return a detail-safe 503. A separate operator-token-protected
 GET reads one snapshot by UUID through the same global session and generated
 `find_by_id` contract, returning 404 when absent and the same safe 503 boundary
 when storage is unavailable. There is no polling job, public route, portfolio
-data, order/execution behavior, or live KIS call. KIS verification is `80
+data, order/execution behavior, or live KIS call. KIS verification is `82
 passed, 2 skipped`; the one existing FastAPI/Starlette TestClient deprecation
 warning remains external to this change.
 
