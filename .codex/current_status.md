@@ -21,17 +21,19 @@
   domain-specific fields and relevance policy. AutoForge owns only the
   optional RAG infrastructure and environment contract; it does not yet
   generate a domain projection or a second search API.
-- KIS now has a consumer-owned Signal producer path. It validates the generated
-  `SignalEvent`, persists it in the global `automation` store, and records a
-  `signal.created` event through the existing Outbox in the same transaction.
-  Repeated `signal_id` values return the existing event without a second
-  Outbox record. Authenticated users now manage their own domestic-stock
-  `SignalSubscription` in the account shard through generated idempotent
-  endpoints. A deterministic `user_id + stock_code` identifier suppresses
-  duplicate state changes, while each actual change records
-  `signal.subscription.updated` in that shard's Outbox. A global subscription
-  projection, signal fan-out, orders, and notifications remain outside this
-  slice.
+- KIS now persists generated `SignalEvent` records in the global `automation`
+  store; without a selected delivery consumer, these records intentionally do
+  not emit an unrouteable `signal.created` Outbox event. Authenticated users
+  manage their own domestic-stock `SignalSubscription` in the account shard
+  through generated idempotent endpoints. A deterministic `user_id +
+  stock_code` identifier suppresses duplicate state changes, while each actual
+  change records `signal.subscription.updated` in that shard's Outbox. The
+  generated relay invokes a consumer-owned topology hook before publishing; the
+  KIS hook declares the projection queue. The message worker claims the event
+  ID in the global automation Inbox before upserting the generated
+  `SignalSubscriptionProjection` read model in that same transaction and does
+  not overwrite a newer recorded revision. Signal fan-out, delivery intent,
+  orders, and notifications remain outside this slice.
 
 AutoForge currently has working foundations for:
 
@@ -948,12 +950,16 @@ KIS now opts into a generated `signal` module as its first Signal domain slice.
 `SignalEvent` is placed in the global automation store and
 `SignalSubscription` in the sharded account store; AutoForge generated their
 models, repositories, SQL, migrations, and authenticated idempotent subscription
-routes successfully. Consumer-owned handlers persist one SignalEvent with
-`signal.created`, manage a deterministic per-user domestic-stock subscription,
-and record each enabled-state change as `signal.subscription.updated` through
-the existing Outbox. Market-data monitoring, global subscription projection,
-signal fan-out, and delivery through Messaging/Realtime/Notification remain
-consumer-owned.
+routes successfully. Consumer-owned handlers persist one SignalEvent without an
+unroutable Outbox event, manage a deterministic per-user domestic-stock
+subscription, and record each enabled-state change as
+`signal.subscription.updated` through the existing Outbox. The generated relay
+calls a consumer-owned topology hook before publishing; KIS declares its
+projection queue there. A generated global SignalSubscriptionProjection plus
+consumer-owned incremental migration and message-worker handler apply a newer
+revision once through the automation Inbox. Market-data monitoring, SignalEvent
+fan-out, and delivery through
+Messaging/Realtime/Notification remain consumer-owned.
 
 KIS now selects the generated external-provider, distributed-lock, and
 key-value-store contracts in both its default standalone and HA Redis Cluster

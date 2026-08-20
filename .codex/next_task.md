@@ -1,12 +1,12 @@
 # Next Task
 
-## Next executable unit: design the global Signal subscription projection
+## Next executable unit: expose the global Signal subscription projection
 
-Define the consumer-owned projection that consumes
-`signal.subscription.updated` from account shards and supports lookup by
-domestic stock code without treating cross-shard reads as one transaction.
-Specify the projection's identity, replay/idempotency behavior, and recovery
-path before wiring a Signal consumer to Messaging, Realtime, or Notification.
+Implement one KIS operator-only read boundary that looks up enabled global
+SignalSubscriptionProjection records by domestic stock code. Keep the query
+consumer-owned until a second project proves a reusable list-query generator.
+Do not route `signal.created` or invoke Realtime, Notification, LLM, or SMS
+until a delivery-intent and expiry policy is selected.
 
 Do not change the KIS default Redis specification or run the explicitly opt-in
 KIS balance integration check.

@@ -201,6 +201,7 @@ services into process-global singletons or overwrite consumer code.
 modules/item/handlers.py
 modules/item/service.py
 application/extensions.py
+application/message_topology.py
 ```
 
 - 파일이 없을 때만 생성한다.
@@ -220,6 +221,12 @@ and therefore exit first through `AsyncExitStack`. A preserved older extension
 without `USER_LIFESPANS` is treated as an empty tuple, so regeneration does not
 require a consumer-owned compatibility edit. This is application composition,
 not a `ModuleSpec` lifecycle field or a global service container.
+
+When RabbitMQ is selected, `application/message_topology.py` is also scaffolded.
+The generated Outbox relay invokes `declare_user_message_topology(connection)`
+after its publisher starts and before it scans Outbox records. The default hook
+is a no-op; a consumer declares only its domain queue bindings there, without
+patching the generated relay or placing message handling business logic in it.
 
 ### USER_OWNED
 
