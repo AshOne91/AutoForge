@@ -73,7 +73,14 @@ class FastAPIProjectGenerator:
                     for service in specification.application.services
                 ),
                 include_distributed_lock=specification.tooling.distributed_lock.enabled,
-                include_key_value_store=specification.tooling.key_value_store.enabled,
+                include_key_value_store_redis=(
+                    specification.tooling.key_value_store.enabled
+                    and specification.tooling.key_value_store.backend == "redis"
+                ),
+                include_key_value_store_memcached=(
+                    specification.tooling.key_value_store.enabled
+                    and specification.tooling.key_value_store.backend == "memcached"
+                ),
                 include_rabbitmq=any(
                     service.kind == "rabbitmq"
                     for service in specification.application.services
@@ -239,7 +246,8 @@ class FastAPIProjectGenerator:
         dependencies: list[str],
         include_redis: bool,
         include_distributed_lock: bool,
-        include_key_value_store: bool,
+        include_key_value_store_redis: bool,
+        include_key_value_store_memcached: bool,
         include_rabbitmq: bool,
         include_external_provider: bool,
         include_search: bool,
@@ -250,8 +258,11 @@ class FastAPIProjectGenerator:
     ) -> str:
         redis_dependency = (
             '    "redis>=5,<7",\n'
-            if include_redis or include_distributed_lock or include_key_value_store
+            if include_redis or include_distributed_lock or include_key_value_store_redis
             else ""
+        )
+        memcached_dependency = (
+            '    "aiomcache>=0.8,<1",\n' if include_key_value_store_memcached else ""
         )
         rabbitmq_dependency = (
             '    "aio-pika>=9.5,<10",\n' if include_rabbitmq else ""
@@ -292,6 +303,7 @@ class FastAPIProjectGenerator:
             f"description = {json.dumps(description, ensure_ascii=False)}\n"
             'requires-python = ">=3.12"\n'
             'dependencies = [\n'
+            f"{memcached_dependency}"
             f"{rabbitmq_dependency}"
             '    "alembic>=1.18,<2",\n'
             f"{object_storage_dependency}"

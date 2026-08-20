@@ -1,13 +1,12 @@
 # Next Task
 
-## Next executable unit: run the explicit KIS balance integration check
+## Next executable unit: generate and verify a local Memcached KeyValueStore profile
 
-Only after the operator explicitly enables `KIS_READ_ONLY_BALANCE_INTEGRATION=1`
-and provides the required KIS application/account environment values, run the
-default-skipped domestic balance integration test once. Report only pass/fail
-and test metadata; do not print account identifiers, holdings, account summaries,
-or credential values.
+When `tooling.key_value_store.backend: memcached` is selected, generate a local
+Memcached Compose service with a health check and the matching application
+environment contract. Verify generation deterministically and add one opt-in
+container runtime drill.
 
-Do not run this live request automatically. Do not add persistence, cache,
-polling/Durable Jobs, portfolio ownership mapping, or any order behavior before
-a separately approved product and data-ownership contract exists.
+Do not change the KIS default Redis specification, treat Memcached as a
+replacement for Redis SessionStore or DistributedLock, or run the explicitly
+opt-in KIS balance integration check automatically.

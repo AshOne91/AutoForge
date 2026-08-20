@@ -546,9 +546,10 @@ class DistributedLockSpec(StrictSpecModel):
 
 
 class KeyValueStoreSpec(StrictSpecModel):
-    """Generate an opt-in Redis key-value store boundary."""
+    """Generate an opt-in provider-neutral key-value store boundary."""
 
     enabled: bool = False
+    backend: Literal["redis", "memcached"] = "redis"
     mode: Literal["standalone", "sentinel", "cluster"] = "standalone"
     url_environment: str = Field(default="REDIS_URL", pattern=r"^[A-Z][A-Z0-9_]*$")
     cluster_url_environment: str = Field(
@@ -561,6 +562,12 @@ class KeyValueStoreSpec(StrictSpecModel):
         default="REDIS_SENTINEL_URLS", pattern=r"^[A-Z][A-Z0-9_]*$"
     )
     sentinel_master: str = "cache-primary"
+    memcached_host_environment: str = Field(
+        default="MEMCACHED_HOST", pattern=r"^[A-Z][A-Z0-9_]*$"
+    )
+    memcached_port_environment: str = Field(
+        default="MEMCACHED_PORT", pattern=r"^[A-Z][A-Z0-9_]*$"
+    )
     key_prefix: str = Field(default="cache", pattern=r"^[a-z][a-z0-9:_-]*$")
     ttl_seconds: int = Field(default=300, gt=0, le=86400)
 
@@ -570,6 +577,12 @@ class KeyValueStoreSpec(StrictSpecModel):
         if not value.strip():
             raise ValueError("sentinel_master must not be empty")
         return value
+
+    @model_validator(mode="after")
+    def validate_backend_topology(self) -> KeyValueStoreSpec:
+        if self.backend == "memcached" and self.mode != "standalone":
+            raise ValueError("memcached key_value_store supports only standalone mode")
+        return self
 
 
 class VectorStoreSpec(StrictSpecModel):

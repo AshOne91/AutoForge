@@ -17,7 +17,7 @@ KEY_VALUE_STORE_GENERATOR_VERSION: Final = "0.1.0"
 
 
 class KeyValueStoreGenerator:
-    """Generate an async Redis key-value store boundary."""
+    """Generate an async provider-neutral key-value store boundary."""
 
     @property
     def generator_id(self) -> str:
@@ -38,12 +38,21 @@ class KeyValueStoreGenerator:
             "infrastructure",
             "key_value_store",
         )
+        adapter_path = (
+            root / "redis.py"
+            if key_value_store.backend == "redis"
+            else root / "memcached.py"
+        )
         return {
-            root / "__init__.py": self._render_init(),
+            root / "__init__.py": self._render_init(key_value_store.backend),
             root / "config.py": self._render_config(key_value_store),
             root / "protocol.py": self._render_protocol(),
             root / "fake.py": self._render_fake(),
-            root / "redis.py": self._render_redis(),
+            adapter_path: (
+                self._render_redis()
+                if key_value_store.backend == "redis"
+                else self._render_memcached()
+            ),
             root / "service.py": self._render_service(),
         }
 
@@ -73,20 +82,31 @@ class KeyValueStoreGenerator:
         )
 
     @staticmethod
-    def _render_init() -> str:
+    def _render_init(backend: str) -> str:
+        adapter_import = (
+            "from .redis import RedisKeyValueStoreClient\n"
+            if backend == "redis"
+            else "from .memcached import MemcachedKeyValueStoreClient\n"
+        )
+        adapter_export = (
+            '    "RedisKeyValueStoreClient",\n'
+            if backend == "redis"
+            else '    "MemcachedKeyValueStoreClient",\n'
+        )
         return (
-            "from .config import KeyValueStoreConfig, RedisMode\n"
+            "from .config import KeyValueStoreBackend, KeyValueStoreConfig, RedisMode\n"
             "from .fake import FakeKeyValueStoreClient\n"
             "from .protocol import KeyValueStoreClient\n"
-            "from .redis import RedisKeyValueStoreClient\n"
+            f"{adapter_import}"
             "from .service import KeyValueStore\n"
             "\n"
             "__all__ = [\n"
             '    "FakeKeyValueStoreClient",\n'
             '    "KeyValueStore",\n'
+            '    "KeyValueStoreBackend",\n'
             '    "KeyValueStoreClient",\n'
             '    "KeyValueStoreConfig",\n'
-            '    "RedisKeyValueStoreClient",\n'
+            f"{adapter_export}"
             '    "RedisMode",\n'
             "]\n"
         )
@@ -101,14 +121,22 @@ class KeyValueStoreGenerator:
             "from enum import StrEnum\n"
             "from typing import Final\n"
             "\n"
+            f"DEFAULT_BACKEND: Final = {json.dumps(key_value_store.backend)}\n"
             f"REDIS_URL_ENV: Final = {json.dumps(key_value_store.url_environment)}\n"
             f"REDIS_CLUSTER_URL_ENV: Final = {json.dumps(key_value_store.cluster_url_environment)}\n"
             f"REDIS_CLUSTER_STARTUP_NODES_ENV: Final = {json.dumps(key_value_store.cluster_startup_nodes_environment)}\n"
             f"REDIS_SENTINEL_URLS_ENV: Final = {json.dumps(key_value_store.sentinel_urls_environment)}\n"
+            f"MEMCACHED_HOST_ENV: Final = {json.dumps(key_value_store.memcached_host_environment)}\n"
+            f"MEMCACHED_PORT_ENV: Final = {json.dumps(key_value_store.memcached_port_environment)}\n"
             f"DEFAULT_MODE: Final = {json.dumps(key_value_store.mode)}\n"
             f"DEFAULT_SENTINEL_MASTER: Final = {json.dumps(key_value_store.sentinel_master)}\n"
             f"DEFAULT_KEY_PREFIX: Final = {json.dumps(key_value_store.key_prefix)}\n"
             f"DEFAULT_TTL_SECONDS: Final = {key_value_store.ttl_seconds!r}\n"
+            "\n"
+            "\n"
+            "class KeyValueStoreBackend(StrEnum):\n"
+            "    REDIS = 'redis'\n"
+            "    MEMCACHED = 'memcached'\n"
             "\n"
             "\n"
             "class RedisMode(StrEnum):\n"
@@ -119,16 +147,26 @@ class KeyValueStoreGenerator:
             "\n"
             "@dataclass(frozen=True, slots=True)\n"
             "class KeyValueStoreConfig:\n"
+            f"    backend: KeyValueStoreBackend = KeyValueStoreBackend.{key_value_store.backend.upper()}\n"
             f"    mode: RedisMode = RedisMode.{key_value_store.mode.upper()}\n"
             "    redis_url: str = ''\n"
             "    cluster_startup_nodes: tuple[str, ...] = ()\n"
             "    sentinel_urls: str = ''\n"
             "    sentinel_master: str = DEFAULT_SENTINEL_MASTER\n"
+            "    memcached_host: str = ''\n"
+            "    memcached_port: int = 11211\n"
             "    key_prefix: str = DEFAULT_KEY_PREFIX\n"
             "    ttl_seconds: int = DEFAULT_TTL_SECONDS\n"
             "\n"
             "    @classmethod\n"
             "    def from_environment(cls) -> KeyValueStoreConfig:\n"
+            "        backend = KeyValueStoreBackend(DEFAULT_BACKEND)\n"
+            "        if backend is KeyValueStoreBackend.MEMCACHED:\n"
+            "            return cls(\n"
+            "                backend=backend,\n"
+            "                memcached_host=_required_environment(MEMCACHED_HOST_ENV),\n"
+            "                memcached_port=_port_from_environment(MEMCACHED_PORT_ENV),\n"
+            "            )\n"
             "        mode = RedisMode(DEFAULT_MODE)\n"
             "        if mode is RedisMode.CLUSTER:\n"
             "            redis_url = _required_environment(REDIS_CLUSTER_URL_ENV)\n"
@@ -138,14 +176,14 @@ class KeyValueStoreGenerator:
             "                if value.strip()\n"
             "            )\n"
             "            return cls(\n"
-            "                mode=mode, redis_url=redis_url, cluster_startup_nodes=startup_nodes\n"
+            "                backend=backend, mode=mode, redis_url=redis_url, cluster_startup_nodes=startup_nodes\n"
             "            )\n"
             "        if mode is RedisMode.SENTINEL:\n"
             "            return cls(\n"
-            "                mode=mode,\n"
+            "                backend=backend, mode=mode,\n"
             "                sentinel_urls=_required_environment(REDIS_SENTINEL_URLS_ENV),\n"
             "            )\n"
-            "        return cls(mode=mode, redis_url=_required_environment(REDIS_URL_ENV))\n"
+            "        return cls(backend=backend, mode=mode, redis_url=_required_environment(REDIS_URL_ENV))\n"
             "\n"
             "\n"
             "def _required_environment(name: str) -> str:\n"
@@ -153,6 +191,17 @@ class KeyValueStoreGenerator:
             "    if not value:\n"
             "        raise RuntimeError(f'{name} must be set')\n"
             "    return value\n"
+            "\n"
+            "\n"
+            "def _port_from_environment(name: str) -> int:\n"
+            "    value = _required_environment(name)\n"
+            "    try:\n"
+            "        port = int(value)\n"
+            "    except ValueError as error:\n"
+            "        raise RuntimeError(f'{name} must be an integer') from error\n"
+            "    if not 1 <= port <= 65535:\n"
+            "        raise RuntimeError(f'{name} must be between 1 and 65535')\n"
+            "    return port\n"
         )
 
     @staticmethod
@@ -345,11 +394,66 @@ class KeyValueStoreGenerator:
         )
 
     @staticmethod
+    def _render_memcached() -> str:
+        return (
+            "from __future__ import annotations\n"
+            "\n"
+            "import aiomcache\n"
+            "\n"
+            "from .config import KeyValueStoreConfig\n"
+            "\n"
+            "\n"
+            "class MemcachedKeyValueStoreClient:\n"
+            "    def __init__(\n"
+            "        self, config: KeyValueStoreConfig, *, client: aiomcache.Client | None = None\n"
+            "    ) -> None:\n"
+            "        self._config = config\n"
+            "        self._client = client or aiomcache.Client(\n"
+            "            config.memcached_host, config.memcached_port\n"
+            "        )\n"
+            "        self._owns_client = client is None\n"
+            "\n"
+            "    async def health_check(self) -> None:\n"
+            "        await self._client.version()\n"
+            "\n"
+            "    async def get(self, key: str) -> str | None:\n"
+            "        value = await self._client.get(self._key(key))\n"
+            "        return None if value is None else value.decode('utf-8')\n"
+            "\n"
+            "    async def set(\n"
+            "        self, key: str, value: str, *, ttl_seconds: int | None = None\n"
+            "    ) -> None:\n"
+            "        stored = await self._client.set(\n"
+            "            self._key(key), value.encode('utf-8'), exptime=self._ttl(ttl_seconds)\n"
+            "        )\n"
+            "        if not stored:\n"
+            "            raise RuntimeError('Memcached key-value store rejected the value')\n"
+            "\n"
+            "    async def delete(self, key: str) -> bool:\n"
+            "        return await self._client.delete(self._key(key))\n"
+            "\n"
+            "    async def aclose(self) -> None:\n"
+            "        if self._owns_client:\n"
+            "            await self._client.close()\n"
+            "\n"
+            "    def _key(self, key: str) -> bytes:\n"
+            "        if not key:\n"
+            "            raise ValueError('cache key must not be empty')\n"
+            "        return f'{self._config.key_prefix}:{key}'.encode('utf-8')\n"
+            "\n"
+            "    def _ttl(self, ttl_seconds: int | None) -> int:\n"
+            "        ttl = ttl_seconds if ttl_seconds is not None else self._config.ttl_seconds\n"
+            "        if ttl <= 0:\n"
+            "            raise ValueError('ttl_seconds must be positive')\n"
+            "        return ttl\n"
+        )
+
+    @staticmethod
     def _render_service() -> str:
         return (
             "from __future__ import annotations\n"
             "\n"
-            "from .config import KeyValueStoreConfig\n"
+            "from .config import KeyValueStoreBackend, KeyValueStoreConfig\n"
             "from .protocol import KeyValueStoreClient\n"
             "\n"
             "\n"
@@ -362,9 +466,13 @@ class KeyValueStoreGenerator:
             "\n"
             "    @classmethod\n"
             "    def from_environment(cls) -> KeyValueStore:\n"
+            "        config = KeyValueStoreConfig.from_environment()\n"
+            "        if config.backend is KeyValueStoreBackend.MEMCACHED:\n"
+            "            from .memcached import MemcachedKeyValueStoreClient\n"
+            "\n"
+            "            return cls(MemcachedKeyValueStoreClient(config), config.ttl_seconds)\n"
             "        from .redis import RedisKeyValueStoreClient\n"
             "\n"
-            "        config = KeyValueStoreConfig.from_environment()\n"
             "        return cls(RedisKeyValueStoreClient(config), config.ttl_seconds)\n"
             "\n"
             "    async def health_check(self) -> None:\n"

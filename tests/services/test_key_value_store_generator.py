@@ -20,7 +20,7 @@ from autoforge.services.generation.key_value_store import KeyValueStoreGenerator
 
 
 def specification(
-    *, enabled: bool = False, mode: str = "standalone"
+    *, enabled: bool = False, backend: str = "redis", mode: str = "standalone"
 ) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
@@ -33,6 +33,7 @@ def specification(
         tooling=ToolingSpec(
             key_value_store=KeyValueStoreSpec(
                 enabled=enabled,
+                backend=backend,
                 mode=mode,
                 url_environment="KIS_CACHE_REDIS_URL",
                 key_prefix="kis-cache",
@@ -44,6 +45,13 @@ def specification(
 
 def test_key_value_store_generator_is_empty_until_enabled() -> None:
     assert KeyValueStoreGenerator().render(specification()) == {}
+
+
+def test_key_value_store_rejects_memcached_redis_topology() -> None:
+    with pytest.raises(
+        ValueError, match="memcached key_value_store supports only standalone mode"
+    ):
+        KeyValueStoreSpec(enabled=True, backend="memcached", mode="cluster")
 
 
 def test_key_value_store_generator_renders_generated_runtime_contract() -> None:
@@ -61,6 +69,7 @@ def test_key_value_store_generator_renders_generated_runtime_contract() -> None:
         root / "service.py",
     }
     assert "KIS_CACHE_REDIS_URL" in files[root / "config.py"]
+    assert 'DEFAULT_BACKEND: Final = "redis"' in files[root / "config.py"]
     assert 'DEFAULT_KEY_PREFIX: Final = "kis-cache"' in files[root / "config.py"]
     assert "mode: RedisMode = RedisMode.STANDALONE" in files[root / "config.py"]
     assert "class KeyValueStore:" in files[root / "service.py"]
@@ -83,6 +92,23 @@ def test_key_value_store_generator_preserves_redis_cluster_selection() -> None:
     assert "RedisCluster.from_url" in files[root / "redis.py"]
 
 
+def test_key_value_store_generator_selects_memcached_adapter() -> None:
+    files = KeyValueStoreGenerator().render(
+        specification(enabled=True, backend="memcached")
+    )
+    root = PurePosixPath(
+        "src", "kis_auto_trading", "infrastructure", "key_value_store"
+    )
+
+    assert root / "redis.py" not in files
+    assert root / "memcached.py" in files
+    assert 'DEFAULT_BACKEND: Final = "memcached"' in files[root / "config.py"]
+    assert "MEMCACHED_HOST_ENV" in files[root / "config.py"]
+    assert "class MemcachedKeyValueStoreClient:" in files[root / "memcached.py"]
+    for path, source in files.items():
+        ast.parse(source, filename=path.as_posix())
+
+
 def test_key_value_store_plan_marks_runtime_contract_generated() -> None:
     plan = KeyValueStoreGenerator().plan(specification(enabled=True))
 
@@ -100,6 +126,18 @@ def test_key_value_store_makes_redis_a_runtime_dependency() -> None:
     )
 
     assert '    "redis>=5,<7",' in runtime_dependencies
+
+
+def test_key_value_store_makes_memcached_a_runtime_dependency() -> None:
+    files = FastAPIProjectGenerator().render(
+        specification(enabled=True, backend="memcached")
+    )
+    runtime_dependencies, _ = files[PurePosixPath("pyproject.toml")].split(
+        "[project.optional-dependencies]"
+    )
+
+    assert '    "aiomcache>=0.8,<1",' in runtime_dependencies
+    assert '    "redis>=5,<7",' not in runtime_dependencies
 
 
 @pytest.mark.anyio
@@ -144,6 +182,74 @@ async def test_generated_key_value_store_fake_honors_ttl(tmp_path: Path) -> None
         "    assert await store.delete('kis-token')\n"
         "    assert not await store.delete('kis-token')\n"
         "    await store.aclose()\n"
+        "\n"
+        "asyncio.run(verify())\n"
+    )
+    result = await AsyncioProcessRunner().run(
+        (sys.executable, "-c", code), cwd=workspace.root, timeout_seconds=10
+    )
+
+    assert result.succeeded, result.stderr
+
+
+@pytest.mark.anyio
+async def test_generated_memcached_adapter_uses_common_contract(tmp_path: Path) -> None:
+    specification_value = specification(enabled=True, backend="memcached")
+    workspace = Workspace(tmp_path)
+    project_generator = FastAPIProjectGenerator()
+    service_generator = KeyValueStoreGenerator()
+
+    for job_id, generator in [
+        ("project-job", project_generator),
+        ("key-value-store-job", service_generator),
+    ]:
+        rendered = generator.render(specification_value)
+        plan = GenerationPlanResolver().resolve(
+            generator.plan(specification_value), workspace
+        )
+        GenerationPlanApplier().apply(
+            job_id=job_id,
+            plan=plan,
+            rendered_files=rendered,
+            workspace=workspace,
+        )
+
+    code = (
+        "import asyncio\n"
+        "import sys\n"
+        "import types\n"
+        "\n"
+        "class Client:\n"
+        "    def __init__(self, *args, **kwargs):\n"
+        "        self.values = {}\n"
+        "    async def version(self):\n"
+        "        return b'1.0.0'\n"
+        "    async def get(self, key):\n"
+        "        return self.values.get(key)\n"
+        "    async def set(self, key, value, *, exptime):\n"
+        "        self.values[key] = value\n"
+        "        return True\n"
+        "    async def delete(self, key):\n"
+        "        return self.values.pop(key, None) is not None\n"
+        "    async def close(self):\n"
+        "        return None\n"
+        "\n"
+        "sys.modules['aiomcache'] = types.SimpleNamespace(Client=Client)\n"
+        "sys.path.insert(0, 'src')\n"
+        "from kis_auto_trading.infrastructure.key_value_store import (\n"
+        "    KeyValueStore, KeyValueStoreConfig, MemcachedKeyValueStoreClient,\n"
+        ")\n"
+        "\n"
+        "async def verify():\n"
+        "    client = Client()\n"
+        "    store = KeyValueStore(\n"
+        "        MemcachedKeyValueStoreClient(KeyValueStoreConfig(), client=client), 10\n"
+        "    )\n"
+        "    await store.health_check()\n"
+        "    await store.set('token', 'cached-token')\n"
+        "    assert await store.get('token') == 'cached-token'\n"
+        "    assert await store.delete('token')\n"
+        "    assert await store.get('token') is None\n"
         "\n"
         "asyncio.run(verify())\n"
     )

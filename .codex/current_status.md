@@ -874,15 +874,19 @@ token-cache policy, FastAPI lifespan registration, and KIS adoption remain
 consumer-owned.
 
 `tooling.key_value_store` now generates an opt-in
-`infrastructure/key_value_store` runtime contract for standalone Redis, Redis
-Sentinel, or Redis Cluster selection. It provides TTL `get`/`set`/`delete`, a
-deterministic expiry fake, health check, and explicit async lifecycle without
-adding a global cache singleton or application cache policy. The generated
-standalone adapter passed a disposable Redis verification for set/get/delete;
-the temporary container and workspace were removed afterward. Cluster and
-Sentinel output is generated and parsed but has not yet had a dedicated runtime
-drill. Value serialization, cache invalidation, key design, FastAPI lifespan
-registration, and KIS adoption remain consumer-owned.
+`infrastructure/key_value_store` runtime contract for Redis or Memcached
+selection. Redis supports standalone, Sentinel, or Cluster selection; Memcached
+uses one configured endpoint and rejects Redis topology modes. Both adapters
+provide TTL `get`/`set`/`delete`, a deterministic expiry fake, health check, and
+explicit async lifecycle without adding a global cache singleton or application
+cache policy. The selected adapter and dependency are generated from the
+specification. The generated Redis standalone adapter passed a disposable Redis
+verification for set/get/delete; the Memcached adapter is deterministically
+verified through its provider client contract, and a local Memcached Compose
+runtime drill remains pending. Redis Cluster and Sentinel output is generated and
+parsed but has not yet had a dedicated runtime drill. Value serialization, cache
+invalidation, key design, FastAPI lifespan registration, and KIS adoption remain
+consumer-owned.
 
 KIS now selects the generated external-provider, distributed-lock, and
 key-value-store contracts in both its default standalone and HA Redis Cluster

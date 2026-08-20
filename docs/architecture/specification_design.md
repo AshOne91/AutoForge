@@ -146,17 +146,20 @@ TTL selection, retry/wait policy, and the work protected by a lease.
 ### KeyValueStore runtime boundary
 
 `tooling.key_value_store` opt-in generates an application-facing asynchronous
-`KeyValueStore` boundary. Like DistributedLock, its specification selects a
-standalone, Sentinel, or Cluster Redis connection, environment names, key prefix,
-and default TTL while preserving one `get`/`set`/`delete` interface. The generated
-project adds `redis` only when this service, DistributedLock, or a Redis
-SessionStore is selected.
+`KeyValueStore` boundary. Its specification selects either Redis or Memcached
+while preserving one `get`/`set`/`delete` interface, key prefix, and default TTL.
+Redis supports standalone, Sentinel, or Cluster connection selection; Memcached
+uses one configured host and port and accepts only standalone mode. The generated
+project adds `redis` only for selected Redis capabilities and `aiomcache` only for
+a selected Memcached KeyValueStore.
 
 The contract owns string values, TTL-based expiry, health checks, and explicit
-close. It does not define serialization schemas, cache-aside policy, distributed
-coordination, ranking, hashes, eviction policy, or cache metrics. Consumers own
-key design, value serialization, TTL selection, cache invalidation, and the
-business meaning of missing data.
+close. Memcached is not a substitute for Redis-backed sessions, distributed
+locks, pub/sub, Sentinel, or Redis Cluster; its endpoint topology remains an
+infrastructure concern. The contract does not define serialization schemas,
+cache-aside policy, distributed coordination, ranking, hashes, eviction policy,
+or cache metrics. Consumers own key design, value serialization, TTL selection,
+cache invalidation, and the business meaning of missing data.
 
 ### ObjectStorage runtime boundary
 

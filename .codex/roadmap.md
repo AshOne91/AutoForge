@@ -80,10 +80,15 @@ process-global singleton pattern.
   fencing tokens, automatic renewal, critical-section policy, and KIS token
   policy remain deliberately outside the generated contract.
 - [x] `base_server/service/cache` runtime contract:
-  `tooling.key_value_store` generates a topology-selected Redis string
+  `tooling.key_value_store` selects Redis or Memcached behind one string
   key-value boundary with TTL, deterministic expiry fake, and explicit async
-  lifecycle. Value schema, cache-aside/invalidation policy, ranking, hashes,
-  cache metrics, and KIS token-record policy remain consumer-owned.
+  lifecycle. Redis supports standalone, Sentinel, and Cluster topology; Memcached
+  currently selects one endpoint. Value schema, cache-aside/invalidation policy,
+  ranking, hashes, cache metrics, and KIS token-record policy remain
+  consumer-owned.
+- [ ] generate and verify a local Memcached runtime profile for a selected
+  `tooling.key_value_store.backend: memcached`; KIS remains on its existing Redis
+  contract until a consumer deliberately changes its specification.
 - [~] record-to-search boundary established by two KIS projections:
   `source_key`/`news_index` and `job_id`/`durable_job_history_index` carry only
   canonical identities or safe summaries, while the consumer owns document
