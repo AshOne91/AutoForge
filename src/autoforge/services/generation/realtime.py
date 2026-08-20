@@ -38,6 +38,7 @@ class RealtimeGenerator:
             root / "fake.py": self._render_fake(),
             root / "protocol.py": self._render_protocol(),
             root / "service.py": self._render_service(),
+            root / "websocket.py": self._render_websocket(),
         }
 
     def plan(self, specification: ProjectSpec) -> GenerationPlan:
@@ -69,9 +70,11 @@ class RealtimeGenerator:
             "from .fake import FakeRealtimeSubscriber\n"
             "from .protocol import RealtimeSubscriber\n"
             "from .service import RealtimeHub\n"
+            "from .websocket import FastAPIWebSocketSubscriber\n"
             "\n"
             "__all__ = [\n"
             '    "FakeRealtimeSubscriber",\n'
+            '    "FastAPIWebSocketSubscriber",\n'
             '    "RealtimeHub",\n'
             '    "RealtimeSubscriber",\n'
             "]\n"
@@ -162,4 +165,20 @@ class RealtimeGenerator:
             "def _require_channel(channel: str) -> None:\n"
             "    if not channel.strip():\n"
             "        raise ValueError('realtime channel must not be empty')\n"
+        )
+
+    @staticmethod
+    def _render_websocket() -> str:
+        return (
+            "from fastapi import WebSocket\n"
+            "\n"
+            "\n"
+            "class FastAPIWebSocketSubscriber:\n"
+            "    \"\"\"Adapt one accepted FastAPI WebSocket for RealtimeHub delivery.\"\"\"\n"
+            "\n"
+            "    def __init__(self, websocket: WebSocket) -> None:\n"
+            "        self._websocket = websocket\n"
+            "\n"
+            "    async def send(self, message: str) -> None:\n"
+            "        await self._websocket.send_text(message)\n"
         )

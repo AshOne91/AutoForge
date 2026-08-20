@@ -894,8 +894,8 @@ registration, and KIS adoption remain consumer-owned.
 `tooling.realtime` now generates an opt-in `infrastructure/realtime` runtime
 contract with an asynchronous in-process `RealtimeHub`, channel
 subscribe/unsubscribe/publish, explicit close, and a deterministic subscriber
-fake. It is intentionally transport-neutral: a consumer may compose a FastAPI
-WebSocket adapter, but the generator does not create routes, authentication,
+fake. It includes a `FastAPIWebSocketSubscriber` for one accepted socket, but
+the generator does not create routes, authentication,
 authorization, channel policy, message serialization, persistence, broker
 fan-out, retry/rate-limit policy, notifications, or delivery observability.
 This local hub is not an EventBus replacement and does not claim multi-replica

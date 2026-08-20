@@ -101,8 +101,9 @@ process-global singleton pattern.
 - [ ] embedding and reranking provider contracts after the selected consumer establishes an evaluation dataset and relevance target
 - [~] Realtime/WebSocket baseline: `tooling.realtime` now generates an
   in-process channel hub with a deterministic fake and explicit lifecycle.
-  Future work needs a consumer-owned FastAPI adapter plus a separately selected
-  broker-backed delivery design for multi-replica fan-out; authentication,
+  A generated FastAPI socket adapter is available, while future work needs a
+  consumer-owned route plus a separately selected broker-backed delivery design
+  for multi-replica fan-out; authentication,
   persistence, deduplication, rate limiting, and delivery/error observability
   remain separate concerns. `tooling.notification` now provides a separate
   one-POST Webhook delivery boundary; email/SMS/push providers and notification

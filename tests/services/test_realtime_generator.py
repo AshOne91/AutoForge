@@ -44,10 +44,12 @@ def test_realtime_generator_renders_generated_runtime_contract() -> None:
         root / "fake.py",
         root / "protocol.py",
         root / "service.py",
+        root / "websocket.py",
     }
     assert "class RealtimeSubscriber(Protocol):" in files[root / "protocol.py"]
     assert "class FakeRealtimeSubscriber:" in files[root / "fake.py"]
     assert "class RealtimeHub:" in files[root / "service.py"]
+    assert "class FastAPIWebSocketSubscriber:" in files[root / "websocket.py"]
     for path, source in files.items():
         ast.parse(source, filename=path.as_posix())
 
@@ -55,7 +57,7 @@ def test_realtime_generator_renders_generated_runtime_contract() -> None:
 def test_realtime_plan_marks_runtime_contract_generated() -> None:
     plan = RealtimeGenerator().plan(specification(enabled=True))
 
-    assert len(plan.files) == 4
+    assert len(plan.files) == 5
     assert {file.ownership.value for file in plan.files} == {"generated"}
     assert {file.source for file in plan.files} == {"project:kis_auto_trading:realtime"}
 
@@ -87,7 +89,7 @@ async def test_generated_realtime_hub_fans_out_without_transport_policy(
         "import sys\n"
         "sys.path.insert(0, 'src')\n"
         "from kis_auto_trading.infrastructure.realtime import (\n"
-        "    FakeRealtimeSubscriber, RealtimeHub,\n"
+        "    FakeRealtimeSubscriber, FastAPIWebSocketSubscriber, RealtimeHub,\n"
         ")\n"
         "\n"
         "async def verify():\n"
@@ -102,6 +104,14 @@ async def test_generated_realtime_hub_fans_out_without_transport_policy(
         "    assert second.messages == ['{\"symbol\": \"005930\"}']\n"
         "    await hub.unsubscribe('prices', second)\n"
         "    assert await hub.publish('prices', 'closed') == 1\n"
+        "    class Socket:\n"
+        "        def __init__(self): self.messages = []\n"
+        "        async def send_text(self, message): self.messages.append(message)\n"
+        "    socket = Socket()\n"
+        "    websocket_subscriber = FastAPIWebSocketSubscriber(socket)\n"
+        "    await hub.subscribe('prices', websocket_subscriber)\n"
+        "    assert await hub.publish('prices', 'websocket') == 2\n"
+        "    assert socket.messages == ['websocket']\n"
         "    await hub.aclose()\n"
         "    try:\n"
         "        await hub.publish('prices', 'ignored')\n"

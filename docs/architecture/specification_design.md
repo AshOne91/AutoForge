@@ -166,11 +166,11 @@ cache invalidation, and the business meaning of missing data.
 `tooling.realtime` opt-in generates an asynchronous in-process `RealtimeHub`
 with channel subscribe, unsubscribe, publish, explicit close, and a deterministic
 subscriber fake. Delivery takes a consumer-provided `send(message: str)`
-subscriber, so a FastAPI WebSocket adapter can compose the boundary without
-making FastAPI a generated runtime dependency.
+subscriber, and a generated `FastAPIWebSocketSubscriber` adapts one accepted
+FastAPI WebSocket without defining an application route.
 
-The contract owns local channel fan-out and its lifecycle only. It does not
-generate a WebSocket route, authentication or authorization, channel policy,
+The contract owns local channel fan-out, one FastAPI socket adapter, and their
+lifecycle only. It does not generate a WebSocket route, authentication or authorization, channel policy,
 message schema or serialization, persistence, broker-backed multi-replica
 fan-out, retries, rate limits, notifications, or delivery observability. It is
 not an EventBus replacement; consumers own the transport adapter and all
