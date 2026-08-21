@@ -1418,6 +1418,13 @@ application health. The required external RAG network was created according to
 the generated prerequisite, then removed after the isolated containers and
 volumes were cleaned up.
 
+The same fresh KIS HA generation passed its dedicated Redis Cluster failover
+drill. After all six nodes formed three primary/replica pairs with complete slot
+coverage, stopping `redis-7000` promoted `redis-7004`; session data written before
+the outage remained readable and the original application container stayed
+healthy. The stopped node rejoined as a healthy replica. All isolated resources,
+including the temporary prerequisite network, were removed afterward.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:
