@@ -1,0 +1,783 @@
+# AutoForge 도메인·공통 서비스 실습
+
+> 문서 역할: GUIDE
+>
+> 이 문서는 [처음부터 만드는 로그인 서버](login_server_from_zero.md)를 끝낸 뒤 읽는다.
+> 현재 AutoForge가 생성할 수 있는 공통 서비스를 **왜 선택하는지**, **어떻게 도메인에
+> 연결하는지**, **무엇을 확인해야 하는지** 실습 순서로 설명한다. 이 문서는 서비스의
+> API 계약을 새로 정의하지 않는다. 정확한 명세 필드는 [명세 설계](../architecture/specification_design.md),
+> 생성·수정 경계는 [생성 계약](../architecture/generation_contract.md)이 정본이다.
+
+## 0. 이 문서의 목표
+
+첫 가이드에서 만든 회원가입·로그인 서버 다음에, `내 프로필` 도메인을 만든다.
+
+```text
+브라우저
+  └─ Bearer access token
+       └─ FastAPI Router (GENERATED)
+            ├─ Redis SessionStore: "누가 요청했는가?"
+            ├─ RequestReplayStore: "같은 수정 요청인가?"
+            └─ SCAFFOLDED handler
+                 └─ PostgreSQL Repository: "프로필을 저장/조회"
+```
+
+완료 후 다음을 직접 확인한다.
+
+- 로그인하지 않은 요청은 `401`이다.
+- 로그인한 사용자는 자기 프로필만 읽고 수정한다.
+- 같은 `Idempotency-Key`와 같은 본문을 두 번 보내도 첫 결과가 재사용된다.
+- 같은 키에 다른 본문을 보내면 `409`로 거부된다.
+
+여기서 중요한 점은 **서비스를 전부 켜는 것이 목표가 아니라**, 도메인에 필요한
+서비스만 명세에 선언하는 것이다. 프로필 문구 한 줄을 저장하는 데 RabbitMQ, LLM,
+검색 엔진을 설치하면 오히려 운영할 것이 늘어난다.
+
+## 1. 시작 전 체크
+
+다음을 먼저 완료한다.
+
+1. [로그인 서버 가이드](login_server_from_zero.md)의 1~13절을 한 번 실행했다.
+2. `python -m autoforge.main version`이 동작한다.
+3. Docker Desktop이 실행 중이다.
+4. 기존 `login-server`를 유지하고 싶다면 이 실습은 별도 폴더·별도 포트에서 실행한다.
+
+이 문서에서 사용할 경로는 다음과 같다.
+
+```text
+C:\workspace\login-server-spec       # 첫 가이드에서 만든 명세
+C:\workspace\profile-server-spec     # 이번 실습의 복사본 명세
+C:\workspace\profile-server          # 이번 실습의 별도 생성 결과
+```
+
+별도 `package_name`과 `49700` 포트 블록을 쓰므로, 첫 로그인 서버를 끄거나 기존
+PostgreSQL volume을 지울 필요가 없다.
+
+## 2. 서비스 선택 지도
+
+아래 표는 현재 생성 가능한 공통 서비스 전체를 사용 시점별로 정리한 것이다. `선택`은
+명세의 위치이고, `첫 도메인 예시`는 그 서비스가 실제로 필요한 순간이다.
+
+| 범주 | 선택 | 왜 존재하는가 | 첫 도메인 예시 | 지금 필요한가 |
+| --- | --- | --- | --- | --- |
+| 관계형 DB | `application.databases` + module `database` | 원장 데이터·unique 제약·transaction | 계정, 프로필, 주문 | 예 |
+| Redis 세션 | `application.services.kind: redis_session` | 로그인 상태를 빠르게 조회·폐기 | 로그인, 로그아웃, 권한 | 예 |
+| 요청 재실행 방지 | endpoint `idempotency: true` | 재시도/더블 클릭이 같은 쓰기를 두 번 만들지 않게 함 | 프로필 수정, 결제 요청 | 예 |
+| RabbitMQ + Outbox/Inbox | `application.services.kind: rabbitmq` | DB 변경 뒤 비동기 후속 작업을 신뢰성 있게 전달 | 가입 환영 메일, 주문 후 알림 | 아직 아님 |
+| Durable Job + Airflow | `application.durable_jobs`의 `schedule` | 요청과 분리된 예약·장기 작업 | 뉴스 수집, 일 배치 | 아직 아님 |
+| Key-Value Store | `tooling.key_value_store` | Redis/Memcached를 기술 중립 TTL cache로 사용 | 시세·프로필 조회 cache | 읽기 병목 뒤 |
+| Distributed Lock | `tooling.distributed_lock` | 여러 replica가 같은 작업을 동시에 수행하지 않게 함 | 한 사용자당 한 번만 실행할 정산 | 동시 실행이 실제로 생긴 뒤 |
+| Object Storage | `tooling.storage` | 파일을 DB 행에 넣지 않고 S3 호환 저장소에 보관 | 프로필 사진, 원본 문서 | 사진 기능 뒤 |
+| External Provider | `tooling.external_provider` | 외부 HTTP API를 async 경계와 fake로 감쌈 | 결제·증권·환율 API | 외부 API 연결 직전 |
+| Search | `tooling.search` | Elasticsearch/OpenSearch의 keyword 검색 경계 | 공지·뉴스 검색 | 검색 화면 뒤 |
+| Vector Store | `tooling.vector_store` | Qdrant의 embedding/vector 조회 경계 | 유사 문서 검색 | embedding 목표가 생긴 뒤 |
+| RAG overlay | `tooling.rag` | local Search + Qdrant + Ollama 인프라 묶음 | 문서 질의응답 | 검색·AI 둘 다 필요할 때 |
+| Realtime | `tooling.realtime` | WebSocket hub와 선택적 Redis Pub/Sub backplane | 알림 badge, 채팅 힌트 | HTTP 흐름 안정 뒤 |
+| Webhook 알림 | `tooling.notification` | 외부 webhook으로 한 건 전달 | Discord/Slack 운영 알림 | 수신 endpoint가 정해진 뒤 |
+| Email | `tooling.email` | SMTP 전송 경계와 fake | 비밀번호 재설정 메일 | 메일 provider 선정 뒤 |
+| SMS | `tooling.sms` | SOLAPI SMS 전송 경계와 fake | 2차 인증 문자 | SMS 발신 번호 준비 뒤 |
+| LLM | `tooling.llm` | OpenAI Responses API 경계와 fake | 문서 요약, AI 보조 | 모델·비용 정책 뒤 |
+| Control Plane heartbeat | `application.control_plane_heartbeat` | 생성 실행 단위의 상태 보고 경계 | worker/API 운영 상태 보고 | Control Plane을 실제로 쓸 때 |
+| 내부 서비스 인증 | `application.service_tokens` + endpoint `service_token` | 내부 호출자를 fail-closed로 구분 | worker → internal API | 별도 실행 단위를 연결할 때 |
+| ELK | `tooling.elk` | JSON 로그 파일 수집·검색 | 장애 원인 추적 | HTTP 도메인 안정 뒤 |
+| Docker/Local Environment | `tooling.docker`, `tooling.local_environment` | 재현 가능한 이미지·Compose·healthcheck | 모든 로컬 실습 | 예 |
+| 단일 호스트 HA | `tooling.single_host` | 한 물리 PC에서 replica·복구를 검증 | 로그인 API scale-out | 단일 모드 통과 뒤 |
+| Kubernetes | `tooling.kubernetes` | provider가 정해진 뒤 배포 명세 생성 | 실제 다중 노드 배포 | 로컬 검증 뒤 |
+
+`Storage`는 기본적으로 MinIO overlay 파일을 생성하지만, 애플리케이션에서 S3
+경계를 쓸 때만 `runtime_enabled: true`를 추가한다. 반대로 Search/Vector/LLM처럼
+외부 주소나 credential이 필요한 서비스는 명세만 켠다고 진짜 provider에 연결되지
+않는다. `.env` 또는 Secret에 실제 주소와 비밀값을 주입한 뒤에만 연결한다.
+
+## 3. 도메인을 만들 때의 고정 순서
+
+새 도메인은 항상 이 순서로 만든다.
+
+```text
+업무 문장 한 줄
+  → 필요한 영속 데이터 결정
+  → 필요한 공통 서비스만 선택
+  → YAML 명세 작성
+  → AutoForge generate
+  → SCAFFOLDED handler 작성
+  → 작은 테스트
+  → Docker HTTP 확인
+  → 실패·재시작 확인
+```
+
+예를 들어 “로그인한 사용자가 자기 표시 이름을 바꾼다”는 다음처럼 해석한다.
+
+| 질문 | 답 | 선택 결과 |
+| --- | --- | --- |
+| 누가 변경하는가? | 로그인한 사용자 | `current_session` dependency |
+| 무엇을 오래 저장하는가? | `user_id`, `display_name`, `updated_at` | PostgreSQL table/repository |
+| 재시도하면 어떻게 되는가? | 같은 수정은 한 번의 결과 | `idempotency: true` |
+| 요청 밖에서 할 일이 있는가? | 없다 | RabbitMQ를 선택하지 않음 |
+| 파일·검색·AI가 필요한가? | 없다 | Storage/Search/RAG를 선택하지 않음 |
+
+이 판단이 “서비스를 조합한다”는 말의 실제 뜻이다. Handler는 `SessionStore`나
+Repository 같은 작은 계약만 받고, Redis host·PostgreSQL DSN·replica 수를 직접
+알지 않는다.
+
+## 4. 따라 하며 만드는 `profile` 도메인
+
+### 4.1 안전한 별도 명세 만들기
+
+첫 가이드의 YAML을 복사한다. 생성된 서버 폴더가 아니라 **명세 폴더**를 복사하는
+이유는, 재생성 가능한 입력과 생성 결과를 섞지 않기 위해서다.
+
+```powershell
+Copy-Item -Recurse `
+  C:\workspace\login-server-spec `
+  C:\workspace\profile-server-spec
+```
+
+`C:\workspace\profile-server-spec\autoforge.yaml` 전체를 다음으로 바꾼다.
+
+```yaml
+spec_version: "1"
+
+project:
+  name: Profile Server
+  package_name: profile_server
+  version: "0.1.0"
+  description: Login and profile service workshop
+
+tooling:
+  docker:
+    enabled: true
+  local_environment:
+    enabled: true
+    application_enabled: true
+    host_port_base: 49700
+
+application:
+  framework: fastapi
+  modules:
+    - identity
+    - system
+    - profile
+  services:
+    - name: session
+      kind: redis_session
+      namespace: profile_server_session
+      ttl_seconds: 3600
+  databases:
+    - name: identity
+      global_url_env: IDENTITY_DATABASE_URL
+    - name: profile
+      global_url_env: PROFILE_DATABASE_URL
+```
+
+`49700`은 이 실습의 HTTP 포트다. 이미 다른 실습이 이 포트 블록을 쓴다면 100 단위
+블록 전체를 바꾼다. 생성 뒤 4.4절에서 `.env`를 만든 후 포트 검사를 실행한다.
+포트 규칙의 이유는 [로컬 포트 정책](../architecture/local_port_policy.md)에 있다.
+
+### 4.2 `profile.yaml` 작성
+
+`C:\workspace\profile-server-spec\specifications\profile.yaml`을 새로 만든다.
+
+```yaml
+spec_version: "1"
+
+module:
+  name: profile
+  display_name: Profile
+  route_prefix: /api/profile
+
+models:
+  - name: UserProfile
+    fields:
+      - name: user_id
+        type:
+          kind: uuid
+      - name: display_name
+        type:
+          kind: string
+      - name: updated_at
+        type:
+          kind: datetime
+
+endpoints:
+  - name: get_my_profile
+    method: GET
+    path: /me
+    response:
+      fields:
+        - name: user_id
+          type:
+            kind: uuid
+        - name: display_name
+          type:
+            kind: string
+        - name: updated_at
+          type:
+            kind: datetime
+    handler: get_my_profile
+    dependencies:
+      - current_session
+      - database_session_registry
+  - name: update_my_profile
+    method: PUT
+    path: /me
+    request:
+      fields:
+        - name: display_name
+          type:
+            kind: string
+    response:
+      fields:
+        - name: user_id
+          type:
+            kind: uuid
+        - name: display_name
+          type:
+            kind: string
+        - name: updated_at
+          type:
+            kind: datetime
+    handler: update_my_profile
+    dependencies:
+      - current_session
+      - database_session_registry
+    idempotency: true
+    idempotency_ttl_seconds: 86400
+
+database:
+  provider: agnostic
+  tables:
+    - name: user_profiles
+      columns:
+        - name: user_id
+          type:
+            kind: uuid
+          primary_key: true
+        - name: display_name
+          type:
+            kind: string
+        - name: updated_at
+          type:
+            kind: datetime
+  repositories:
+    - name: UserProfileRepository
+      aggregate: UserProfile
+      table: user_profiles
+      operations:
+        - find_by_id
+        - save
+  placements:
+    - table: user_profiles
+      store: profile
+      mode: global
+      unresolved_policy: error
+```
+
+`current_session`은 generated Router가 `Authorization: Bearer <token>`을 읽어
+`SessionData`로 바꿔 handler에 넣게 한다. `idempotency: true`는 generated Router가
+`Idempotency-Key` header를 검사하고, 같은 요청을 Redis replay store에서 다시
+보내게 한다. Handler에 Redis client를 직접 추가할 필요가 없다.
+
+### 4.3 생성하고 출력 경계 확인
+
+```powershell
+Set-Location C:\src\AutoForge
+python -m autoforge.main generate `
+  --project C:\workspace\profile-server-spec\autoforge.yaml `
+  --specifications C:\workspace\profile-server-spec\specifications `
+  --output C:\workspace\profile-server `
+  --validation-python C:\src\AutoForge\.venv\Scripts\python.exe
+```
+
+성공 문구는 `Generated and validated`다. 생성 뒤 아래 파일들이 있는지 확인한다.
+
+```text
+src/profile_server/modules/profile/generated/models.py
+src/profile_server/modules/profile/generated/router.py
+src/profile_server/modules/profile/generated/sqlalchemy_repositories.py
+src/profile_server/modules/profile/handlers.py
+migrations/profile/
+environment/postgres-init/00-databases.sql
+```
+
+앞의 세 `generated` 파일과 migration/SQL은 수정하지 않는다. 여러분이 구현할 파일은
+`modules/profile/handlers.py`다. 이 구분의 자세한 근거는 [생성 계약](../architecture/generation_contract.md),
+DB 생성물의 역할은 [Database Generation](../architecture/database_generation.md)을 참고한다.
+
+### 4.4 환경을 만들고 기본 로그인 기능을 먼저 완성
+
+```powershell
+Set-Location C:\workspace\profile-server
+Copy-Item environment\.env.example environment\.env
+
+Set-Location C:\src\AutoForge
+python -m autoforge.main validate-ports `
+  --env-file C:\workspace\profile-server\environment\.env
+```
+
+`profile-server`도 login 기능을 포함하므로, [로그인 서버 가이드](login_server_from_zero.md)의
+9~13절을 이번 경로와 `profile_server` package 이름에 맞춰 반복한다. 즉,
+`system/handlers.py`, `identity/passwords.py`, `identity/handlers.py`를 먼저 구현하고
+signup → login → session 검증이 통과해야 한다. 여기서 만든 access token이 다음
+프로필 요청의 Bearer token이다. 첫 가이드의 Python 예시에 있는 모든
+`login_server` import prefix는 `profile_server`로 바꾼다.
+
+### 4.5 프로필 handler 구현
+
+`C:\workspace\profile-server\src\profile_server\modules\profile\handlers.py`의 내용을
+다음으로 바꾼다.
+
+```python
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from uuid import UUID
+
+from fastapi import HTTPException
+
+from profile_server.infrastructure.database.routing import ShardTarget
+from profile_server.infrastructure.database.session import AsyncSessionRegistry
+from profile_server.infrastructure.session_store.protocol import SessionData
+from profile_server.modules.profile.generated.models import UserProfile
+from profile_server.modules.profile.generated.schemas import (
+    GetMyProfileResponse,
+    UpdateMyProfileRequest,
+    UpdateMyProfileResponse,
+)
+from profile_server.modules.profile.generated.sqlalchemy_repositories import (
+    SQLAlchemyUserProfileRepository,
+)
+
+PROFILE_TARGET = ShardTarget(store="profile")
+
+
+async def get_my_profile(
+    current_session: SessionData,
+    session_registry: AsyncSessionRegistry,
+) -> GetMyProfileResponse:
+    user_id = UUID(current_session.user_id)
+    async with session_registry.session(PROFILE_TARGET) as session:
+        profile = await SQLAlchemyUserProfileRepository(session).find_by_id(user_id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    return GetMyProfileResponse(**profile.model_dump())
+
+
+async def update_my_profile(
+    request: UpdateMyProfileRequest,
+    current_session: SessionData,
+    session_registry: AsyncSessionRegistry,
+) -> UpdateMyProfileResponse:
+    display_name = request.display_name.strip()
+    if not display_name:
+        raise HTTPException(status_code=422, detail="display_name must not be empty")
+    user_id = UUID(current_session.user_id)
+    updated_at = datetime.now(UTC)
+    async with session_registry.session(PROFILE_TARGET) as session:
+        repository = SQLAlchemyUserProfileRepository(session)
+        profile = await repository.find_by_id(user_id)
+        if profile is None:
+            profile = UserProfile(
+                user_id=user_id,
+                display_name=display_name,
+                updated_at=updated_at,
+            )
+        else:
+            profile.display_name = display_name
+            profile.updated_at = updated_at
+        await repository.save(profile)
+    return UpdateMyProfileResponse(**profile.model_dump())
+```
+
+`ShardTarget(store="profile")`은 프로필이라는 논리 store를 고르는 코드다. 지금은
+global DB 한 개지만, 나중에 shard가 생겨도 handler가 DSN을 직접 알지 않게 한다.
+
+### 4.6 Docker를 시작하고 HTTP로 검증
+
+이미지와 database migration을 실행한다.
+
+```powershell
+Set-Location C:\workspace\profile-server
+docker compose --env-file environment\.env -f environment\compose.integration.yml up -d --build --wait
+docker compose --env-file environment\.env -f environment\compose.integration.yml ps
+Invoke-RestMethod http://127.0.0.1:49700/health
+```
+
+회원가입과 로그인은 첫 가이드 13절과 같지만 이번 주소는 `49700`이다.
+
+```powershell
+$signupBody = @{ email = "chimp@example.com"; password = "local-only-password" } | ConvertTo-Json
+Invoke-RestMethod -Method Post `
+  -Uri http://127.0.0.1:49700/api/identity/signup `
+  -ContentType "application/json" -Body $signupBody
+
+$login = Invoke-RestMethod -Method Post `
+  -Uri http://127.0.0.1:49700/api/identity/login `
+  -ContentType "application/json" -Body $signupBody
+
+$headers = @{
+  Authorization = "Bearer $($login.access_token)"
+  "Idempotency-Key" = [guid]::NewGuid().ToString()
+}
+$profileBody = @{ display_name = "Chimp" } | ConvertTo-Json
+```
+
+프로필을 처음 만들고, 같은 요청을 같은 key로 한 번 더 보낸다.
+
+```powershell
+$first = Invoke-RestMethod -Method Put `
+  -Uri http://127.0.0.1:49700/api/profile/me `
+  -Headers $headers -ContentType "application/json" -Body $profileBody
+
+$replay = Invoke-RestMethod -Method Put `
+  -Uri http://127.0.0.1:49700/api/profile/me `
+  -Headers $headers -ContentType "application/json" -Body $profileBody
+
+$first
+$replay
+$first.updated_at -eq $replay.updated_at
+```
+
+마지막 줄이 `True`면 두 번째 요청은 별도 수정이 아니라 저장된 첫 응답을 replay한
+것이다. 이어서 같은 Bearer token으로 조회한다.
+
+```powershell
+Invoke-RestMethod -Method Get `
+  -Uri http://127.0.0.1:49700/api/profile/me `
+  -Headers @{ Authorization = "Bearer $($login.access_token)" }
+```
+
+이제 같은 `Idempotency-Key`에 **다른** 본문을 보내면 `409`가 나야 한다. 이는 실수로
+한 key를 다른 의도로 재사용하는 상황을 막는다.
+
+```powershell
+$differentBody = @{ display_name = "Different name" } | ConvertTo-Json
+try {
+  Invoke-RestMethod -Method Put `
+    -Uri http://127.0.0.1:49700/api/profile/me `
+    -Headers $headers -ContentType "application/json" -Body $differentBody
+  throw "409 응답이 필요합니다."
+} catch {
+  if ($_.Exception.Response.StatusCode.value__ -ne 409) { throw }
+  "Expected 409: one Idempotency-Key cannot represent two bodies."
+}
+```
+
+로그가 필요하면 다음만 먼저 본다.
+
+```powershell
+docker compose --env-file environment\.env -f environment\compose.integration.yml logs application --tail 100
+docker compose --env-file environment\.env -f environment\compose.integration.yml logs postgres --tail 100
+docker compose --env-file environment\.env -f environment\compose.integration.yml logs redis --tail 100
+```
+
+## 5. 다음 서비스는 이렇게 하나씩 추가한다
+
+프로필 실습이 통과한 뒤에만 아래 중 실제 도메인이 요구하는 한 가지를 고른다. 각
+YAML 조각은 기존 `autoforge.yaml`의 같은 위치에 **추가 또는 병합**한다. 여러 조각을
+한 번에 복사하지 않는다.
+
+### 5.1 요청 밖의 작업: RabbitMQ, Outbox, Durable Job, Airflow
+
+“프로필 변경 후 환영 메일을 보내기”처럼 DB commit 뒤 별도 작업이 필요할 때 쓴다.
+같은 DB transaction에 profile 변경과 Outbox 기록을 남기고, relay/worker가 RabbitMQ를
+통해 후속 처리를 한다. HTTP handler가 RabbitMQ publish 성공을 직접 기다리지 않는다.
+
+```yaml
+application:
+  services:
+    - name: events
+      kind: rabbitmq
+      outbox_stores:
+        - profile
+      exchange: profile.events
+      queue: profile.events.worker
+      routing_key: profile.#
+      queue_type: quorum
+  durable_jobs:
+    - name: daily_profile_check
+      store: profile
+      event_type: profile.check.requested
+      routing_key: profile.check.requested
+      schedule: "0 9 * * *"
+```
+
+`schedule`이 있는 Durable Job은 local profile에서 Airflow가 API를 호출하는 경로를
+생성한다. 이 서비스들은 단순 프로필 수정에 넣지 않는다. 먼저 “DB 변경은 성공했는데
+메일 서버가 죽으면 어떻게 되는가?”라는 문제에 실제로 부딪혔을 때 선택한다. 정본은
+[Event/Pipeline](../architecture/event_driven_architecture.md)과
+[Database Outbox](../architecture/database_generation.md)다.
+
+확인 순서는 `generate` → `docker compose ... ps`에서 `rabbitmq`, `outbox-relay`,
+`message-worker` 확인 → 사용자 소유 consumer의 작은 fake 테스트 → HTTP에서 event를
+만드는 도메인 요청 순서다.
+
+### 5.2 빠른 읽기와 단일 실행: Cache와 Distributed Lock
+
+읽기 결과를 잠시 저장할 때는 Key-Value Store, 여러 replica 중 한 곳만 같은 작업을
+할 때는 Distributed Lock을 선택한다. 세션 저장소에 임의 cache/lock 기능을 억지로
+넣지 않는다.
+
+```yaml
+tooling:
+  key_value_store:
+    enabled: true
+    backend: redis
+    mode: standalone
+    key_prefix: profile_cache
+    ttl_seconds: 300
+  distributed_lock:
+    enabled: true
+    mode: standalone
+    key_prefix: profile_lock
+    ttl_seconds: 30
+```
+
+`key_value_store.backend`는 `redis` 또는 `memcached`다. Redis는 standalone/Sentinel/
+Cluster를, Memcached는 standalone만 지원한다. `distributed_lock`은 lock 보유 시간을
+명시적으로 짧게 둔다. “빠르게 보이게 할 cache”나 “중복 실행이 실제로 가능한 작업”이
+아니면 둘 다 추가하지 않는다.
+
+확인은 generated fake로 handler 단위 테스트를 먼저 쓰고, 다음에 Compose `redis` 또는
+`memcached`가 healthy인지 확인한다. topology를 바꿔도 도메인 handler가 Redis 주소를
+알아서는 안 된다.
+
+### 5.3 파일: S3 호환 Object Storage와 MinIO
+
+프로필 사진처럼 큰 바이너리는 DB 열이 아니라 object storage에 둔다. DB에는 object
+key·소유자·메타데이터만 저장한다.
+
+```yaml
+tooling:
+  storage:
+    enabled: true
+    runtime_enabled: true
+    host_port_base: 49500
+```
+
+생성 후 local MinIO를 별도로 시작한다.
+
+```powershell
+Set-Location C:\workspace\profile-server
+Copy-Item deploy\storage\.env.example deploy\storage\.env
+docker compose --env-file deploy\storage\.env `
+  -f deploy\storage\compose.storage.yaml --profile storage up -d
+docker compose --env-file deploy\storage\.env `
+  -f deploy\storage\compose.storage.yaml ps
+```
+
+MinIO는 로컬 S3 호환 검증용이다. 운영에서 AWS S3를 선택해도 handler는 generated
+ObjectStorage protocol만 사용하고 URL/credential은 runtime 환경으로 받는다. 버킷
+권한·파일 형식 검사·보존 기간은 도메인 정책이므로 여러분이 정한다.
+
+### 5.4 외부 HTTP API
+
+결제·증권·환율 같은 외부 API는 URL을 handler에 하드코딩하지 않는다.
+
+```yaml
+tooling:
+  external_provider:
+    enabled: true
+    url_environment: PAYMENT_PROVIDER_URL
+    health_path: /health
+    timeout_seconds: 5
+    max_retries: 2
+```
+
+생성된 fake로 정상·timeout·4xx·5xx를 먼저 테스트한다. 실제 provider URL·API key를
+`.env`/Secret에 넣은 뒤에만 health 확인을 한다. 읽기 요청과 달리 결제·주문 같은 쓰기
+요청은 자동 재시도에 기대지 말고, 도메인 idempotency 정책을 명시한다.
+
+### 5.5 검색, Vector Store, RAG
+
+키워드 검색만 필요하면 Search, embedding 유사도만 필요하면 Vector Store를 고른다.
+둘을 실제로 함께 쓰며 local 인프라가 필요할 때만 RAG overlay를 켠다.
+
+```yaml
+tooling:
+  search:
+    enabled: true
+    backend: opensearch
+    url_environment: SEARCH_URL
+    default_index: profile_documents
+  vector_store:
+    enabled: true
+    url_environment: VECTOR_DB_URL
+    default_collection: profile_vectors
+  rag:
+    enabled: true
+    search_backend: opensearch
+    host_port_base: 49400
+```
+
+RAG overlay 시작은 별도 Compose 파일이다. Ollama는 큰 모델과 디스크 공간을 요구하므로
+처음에는 `rag` profile만 실행한다.
+
+```powershell
+Set-Location C:\workspace\profile-server
+Copy-Item deploy\rag\.env.example deploy\rag\.env
+docker compose --env-file deploy\rag\.env `
+  -f deploy\rag\compose.rag.yaml --profile rag up -d
+docker compose --env-file deploy\rag\.env `
+  -f deploy\rag\compose.rag.yaml ps
+```
+
+Search/VectorStore는 transport 경계만 생성한다. 어떤 필드를 index할지, embedding
+모델·차원·hybrid ranking·권한 필터를 어떻게 정할지는 도메인 책임이다. 검색 화면이나
+평가 데이터가 없는 상태에서 RAG를 먼저 켜지 않는다.
+
+### 5.6 실시간·운영 알림·사람에게 보내는 메시지
+
+| 필요 | 명세 | handler가 책임지는 것 | 먼저 할 확인 |
+| --- | --- | --- | --- |
+| WebSocket 알림 | `tooling.realtime.enabled: true` | 어떤 사용자/채널에 어떤 힌트를 보낼지 | HTTP 도메인·재시작이 안정적인가 |
+| 여러 API replica 실시간 전달 | `tooling.realtime.backplane: redis_pubsub` | durable record와 live hint의 구분 | `redis_session`이 정확히 하나인가 |
+| 운영 webhook | `tooling.notification.enabled: true` | 어떤 사건을 보낼지 | 수신 webhook URL이 준비됐는가 |
+| 메일 | `tooling.email.enabled: true` | template·수신 동의·재전송 정책 | SMTP 설정과 fake 테스트 |
+| 문자 | `tooling.sms.enabled: true` | 전화번호 검증·비용·인증 정책 | SOLAPI key/secret/sender 준비 |
+
+Email·SMS·Webhook은 전달 수단일 뿐, “어떤 이벤트를 누구에게 몇 번 보내는가”는
+도메인 정책이다. 신뢰성 있는 전달이 필요하면 먼저 5.1의 Outbox를 결합한다.
+
+필요한 전달 수단 하나의 설정만 추가한다. 아래는 정확한 최소 시작점이며, 모두를
+한꺼번에 켜라는 예시는 아니다.
+
+```yaml
+tooling:
+  realtime:
+    enabled: true
+    backplane: redis_pubsub
+    channel: profile.notifications.v1
+  notification:
+    enabled: true
+    webhook_url_environment: NOTIFICATION_WEBHOOK_URL
+  email:
+    enabled: true
+    host_environment: SMTP_HOST
+    port_environment: SMTP_PORT
+    sender_environment: SMTP_SENDER
+  sms:
+    enabled: true
+    api_key_environment: SOLAPI_API_KEY
+    api_secret_environment: SOLAPI_API_SECRET
+    sender_environment: SOLAPI_SENDER
+```
+
+Realtime backplane은 `redis_session` service가 정확히 하나일 때만 선택할 수 있다.
+Webhook/SMTP/SOLAPI 주소와 비밀값은 `.env` 또는 배포 Secret에만 넣는다. 외부 전달은
+수신 측이 준비되기 전에는 deterministic fake 테스트로 확인한다.
+
+### 5.7 LLM
+
+```yaml
+tooling:
+  llm:
+    enabled: true
+    model: your-selected-model
+    api_key_environment: OPENAI_API_KEY
+    timeout_seconds: 30
+```
+
+생성된 LLM service는 OpenAI Responses API 호출 경계와 deterministic fake를 제공한다.
+prompt, 개인정보 마스킹, 사용 권한, token 비용 한도, 결과를 DB에 저장할지 여부는
+생성기가 대신 결정하지 않는다. 먼저 fake로 handler 테스트를 통과시키고, 실제 key는
+Git에 올리지 않는 환경값으로만 주입한다.
+
+### 5.8 로그: ELK
+
+도메인 기능이 HTTP와 Docker에서 정상 동작한 뒤, JSON 로그를 찾아볼 필요가 생기면
+ELK overlay를 추가한다.
+
+```yaml
+tooling:
+  elk:
+    enabled: true
+    mode: central
+    host_port_base: 49600
+```
+
+생성 뒤 시작 명령은 다음과 같다.
+
+```powershell
+Set-Location C:\workspace\profile-server
+docker compose --env-file environment\.env `
+  -f environment\compose.integration.yml `
+  -f deploy\observability\compose.elk.yaml up -d
+```
+
+애플리케이션은 Elasticsearch를 직접 호출하지 않고 `logs/*.log`를 남긴다. Filebeat가
+수집하고 Elasticsearch/Kibana가 저장·조회한다. 여러 인스턴스가 있다면 중앙 ELK는
+한 번만, 각 인스턴스는 `collector` mode를 선택한다. 정본은
+[관측성 자동생성](../architecture/observability_generation.md)이다.
+
+## 6. DB와 실행 환경의 선택은 도메인 코드와 분리한다
+
+프로필 handler의 `ShardTarget(store="profile")`과 Repository 사용법은 다음 설정이
+바뀌어도 바뀌지 않아야 한다.
+
+```yaml
+tooling:
+  local_environment:
+    enabled: true
+    application_enabled: true
+    database_provider: postgresql  # 또는 mysql
+    postgres_mode: standalone      # 검증 뒤 ha
+    mysql_mode: standalone         # MySQL 선택 시
+  single_host:
+    enabled: false                 # 단일 모드가 통과한 뒤 true
+    application_replicas: 3
+```
+
+개발 첫 단계는 PostgreSQL standalone 한 개와 FastAPI 한 개다. 이후 HA profile에서
+database·Redis·RabbitMQ·application replica를 늘리더라도 handler는 interface만
+사용한다. 한 대 PC의 HA 검증은 container/service 복구 검증이며 host 장애 보장은
+아니다. 경계와 검증 범위는 [환경 검증 계약](../architecture/environment_validation_contract.md)을
+따른다.
+
+## 7. 모든 도메인에 공통인 테스트 순서
+
+서비스가 늘어나도 테스트 순서는 바꾸지 않는다.
+
+```text
+1. YAML generate validation
+2. 새 handler의 fake 또는 순수 함수 테스트
+3. 선택한 service의 healthcheck
+4. HTTP happy path
+5. 인증 실패·입력 오류·중복 요청
+6. 필요한 경우 한 컨테이너 재시작 뒤 동일 확인
+7. 그 뒤에만 HA/외부 provider/실제 credential 검증
+```
+
+실패하면 전체 서비스를 재설치하거나 Docker 전체를 정리하지 않는다. 먼저 생성
+프로젝트의 `environment/service-composition.json`, `docker compose ... ps`, 해당
+서비스 로그를 차례로 확인한다. 이 manifest는 선택된 서비스의 환경 변수, healthcheck,
+의존 관계, restart 정책을 generated 정보로 보여 준다.
+
+## 8. 다음에 무엇을 선택할지
+
+프로필 도메인까지 성공했다면 다음 중 **하나만** 선택한다.
+
+1. 프로필 사진: Object Storage + image type/size 검증.
+2. 비밀번호 재설정: Email + token 원장 + Outbox.
+3. 운영 알림: Notification webhook + Outbox.
+4. 공지 검색: Search + 사용자 소유 document projection.
+5. 예약 데이터 수집: External Provider + Durable Job + Airflow.
+
+어떤 것을 선택하든 명세를 먼저 바꾸고 생성한다. generated 파일을 직접 수정해
+기능을 붙이는 방식은 재생성 때 사라지므로 사용하지 않는다.
+
+## 9. 정본 문서
+
+- [전체 시스템 구조](../architecture/system_design.md)
+- [명세 설계](../architecture/specification_design.md)
+- [생성·소유권 계약](../architecture/generation_contract.md)
+- [DB·Global/Shard·Outbox](../architecture/database_generation.md)
+- [Redis 세션](../architecture/redis_services.md)
+- [EventBus·Pipeline](../architecture/event_driven_architecture.md)
+- [Docker Build](../architecture/docker_build_contract.md)
+- [환경·저장소](../architecture/configuration_and_storage_policy.md)
+- [로그·ELK](../architecture/observability_generation.md)
+- [로컬 포트](../architecture/local_port_policy.md)
+- [환경 검증 한계](../architecture/environment_validation_contract.md)
+
+이 실습의 목적은 모든 서비스를 켜 보는 것이 아니다. 하나의 실제 도메인에 필요한
+서비스를 고르고, 명세·생성·handler·테스트의 연결을 스스로 확인하는 것이다.

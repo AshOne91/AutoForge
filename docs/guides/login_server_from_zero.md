@@ -895,6 +895,9 @@ HA 검증은 기본 서버와 **별도 output 폴더, 별도 Compose project, �
 
 로그인 서버가 끝난 뒤에는 한 번에 기능을 많이 넣지 않는다.
 
+실제 공통 서비스 선택부터 `내 프로필` 도메인을 테스트하는 다음 실습은
+[도메인·공통 서비스 실습](domain_service_workbook.md)을 따른다.
+
 1. 로그아웃: Redis `revoke`로 현재 세션을 지운다.
 2. 내 정보: 로그인된 사용자만 자기 프로필을 읽고 수정한다.
 3. 권한: `user`, `operator` 같은 접근 수준을 명세와 세션에 연결한다.
@@ -931,6 +934,7 @@ Ping/Pong은 연결 유지와 실시간 메시지용 별도 계약이므로, HTT
 - [Redis 세션과 TTL](../architecture/redis_services.md)
 - [로그·헬스체크·관측성](../architecture/observability_generation.md)
 - [포트 정책](../architecture/local_port_policy.md)
+- [도메인과 공통 서비스를 조합하는 실습](domain_service_workbook.md)
 
 이 문서의 첫 목표는 완벽한 서비스가 아니라, 여러분이 명세를 바꾸고 생성하고
 handler를 작성하고 테스트하는 한 바퀴를 스스로 완주하는 것이다.

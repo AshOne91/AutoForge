@@ -61,6 +61,8 @@ AutoForge는 참고 프로젝트의 포팅이 아니라 재설계 프로젝트�
 - [처음부터 만드는 AutoForge 로그인 서버](docs/guides/login_server_from_zero.md):
   도구가 없는 Windows PC에서 시작해 명세, 생성, Docker, 로그인, Redis 세션,
   ping/pong, 테스트까지 진행하는 초보자용 실습 GUIDE
+- [도메인·공통 서비스 실습](docs/guides/domain_service_workbook.md):
+  로그인 뒤 프로필 도메인을 직접 만들며 현재 공통 서비스의 선택 이유, 설정, 검증 순서를 익히는 GUIDE
 - `docs/architecture/system_design.md`
 - `docs/architecture/generation_contract.md`
 - `docs/architecture/specification_design.md`
