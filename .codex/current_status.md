@@ -449,10 +449,12 @@ AutoForge currently has working foundations for:
   Redis Cluster, RabbitMQ HA, and Airflow reached their declared ready or healthy
   states, and both Nginx and Airflow health endpoints returned HTTP 200. Manually
   stopping one application replica left Nginx health at HTTP 200 and the replica
-  returned healthy after it was started again. This proves proxy continuity, not
-  container-crash auto-restart: Docker Desktop did not increment `RestartCount`
-  for the attempted in-container PID 1 fault injection, so that narrower claim
-  remains unverified.
+  returned healthy after it was started again. A later generated profile-server
+  drill terminated application PID 1 from inside the container after Docker's
+  restart-policy activation window: six consecutive Nginx `/health` requests
+  remained 200, and the same application container returned `healthy` with
+  `RestartCount: 1`. This proves one-host process recovery and replica continuity,
+  not physical-host HA.
 - generated KIS durable-job endpoints are runtime-verified for Bearer-token
   authentication, idempotent `(job_type, run_key)` requests, `automation` store
   routing, and status retrieval; generated Airflow uses those endpoints rather
