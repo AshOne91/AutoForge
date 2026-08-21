@@ -1,10 +1,11 @@
 # Next Task
 
-## Next executable unit: verify generated Redis Cluster key-value storage
+## Next executable unit: add a generated local Redis Sentinel profile
 
-Add an opt-in Docker drill for the existing generated `KeyValueStore` Redis
-Cluster adapter. It must set/get/delete a value through generated multi-startup
-node settings, stop one Redis primary, wait for failover, and prove a newly
-written value remains accessible. Reuse the existing Redis Cluster generator;
-do not add Sentinel behavior, cache invalidation policy, or a provider-specific
+Extend the existing local-environment generator so an explicit shared Redis
+`sentinel` mode creates the required primary, replica, and Sentinel topology
+instead of rejecting it. Preserve the existing generated Sentinel environment
+names and application call sites. Add static generation tests and an opt-in
+Docker failover drill through one generated consumer contract. Do not replace
+the existing Redis Cluster mode or add Redlock, cache policy, or provider-specific
 topology.

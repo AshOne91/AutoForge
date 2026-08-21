@@ -990,10 +990,13 @@ verified through its provider client contract and an opt-in generated Memcached
 Compose runtime drill. Memcached is internal-only on the Compose network. When a
 local profile selects Redis Session, DistributedLock, or Redis KeyValueStore,
 their Redis modes must agree and their selected connection environments are
-injected into application and Durable Job worker containers. Redis Cluster and
-Sentinel output is generated and parsed but has not yet had a dedicated runtime
-drill. Value serialization, cache invalidation, key design, FastAPI lifespan
-registration, and KIS adoption remain consumer-owned.
+injected into application and Durable Job worker containers. An isolated
+generated six-node Redis Cluster drill set, read, and deleted a value through
+the multi-startup-node adapter, stopped one primary, waited for cluster recovery,
+and repeated the same operation. Sentinel output is generated and parsed, but
+the local environment deliberately rejects Sentinel until it can generate the
+full primary/replica/Sentinel topology. Value serialization, cache invalidation,
+key design, FastAPI lifespan registration, and KIS adoption remain consumer-owned.
 
 `tooling.realtime` generates an opt-in `infrastructure/realtime` runtime
 contract with an asynchronous in-process `RealtimeHub`, channel
