@@ -1,9 +1,9 @@
 # Next Task
 
-## Next executable unit: verify the generated Redis session store through Sentinel failover
+## Next executable unit: verify generated request replay through Redis Sentinel failover
 
-The generated session-store adapter already accepts Redis Sentinel runtime
-settings, and the local Sentinel profile has a verified primary/replica/quorum
-topology. Add one opt-in Docker drill that reads a session before and after the
-primary changes using the same generated store client. Preserve session data and
-expiry semantics; do not add consumer authentication or user-domain policy.
+The generated request-replay adapter shares the Redis Sentinel client with the
+verified session-store lifespan. Add one opt-in Docker drill that claims a replay
+key before the primary changes, then completes and reads that replay record after
+the same provider reaches the new master. Preserve idempotency semantics; do not
+add HTTP endpoint or consumer-domain policy.

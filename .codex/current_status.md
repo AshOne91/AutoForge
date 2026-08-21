@@ -1006,6 +1006,12 @@ acquired and released that lock again after the new master was stable. A transie
 master-discovery failure during the switch remains observable to callers; AutoForge
 does not silently retry a lock command whose execution result could be uncertain.
 
+The generated FastAPI `session_store_lifespan` also kept its same
+`RedisSessionStore` client through the local Sentinel failover drill: it created
+a session before the primary stopped and read the same session from the new
+primary after the Sentinel view was stable. This verifies local failover recovery,
+not a zero-RPO guarantee for Redis's asynchronous replication.
+
 `tooling.realtime` generates an opt-in `infrastructure/realtime` runtime
 contract with an asynchronous in-process `RealtimeHub`, channel
 subscribe/unsubscribe/publish, explicit close, and a deterministic subscriber
