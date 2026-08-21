@@ -533,8 +533,10 @@ async def test_replicated_ollama_keeps_readiness_after_member_stops(
 
 @pytest.mark.integration
 @pytest.mark.anyio
-async def test_clustered_elasticsearch_reads_and_writes_after_member_stops(
+@pytest.mark.parametrize("search_backend", ("elasticsearch", "opensearch"))
+async def test_clustered_search_backend_reads_and_writes_after_member_stops(
     tmp_path: Path,
+    search_backend: str,
 ) -> None:
     if os.environ.get("AUTOFORGE_DOCKER_RAG_SEARCH_CLUSTER_INTEGRATION") != "1":
         pytest.skip("set AUTOFORGE_DOCKER_RAG_SEARCH_CLUSTER_INTEGRATION=1 to run Docker")
@@ -548,6 +550,7 @@ async def test_clustered_elasticsearch_reads_and_writes_after_member_stops(
     files = RagInfrastructureGenerator().render(
         specification(
             enabled=True,
+            search_backend=search_backend,
             search_mode="cluster",
             host_port_base=host_port_base,
         ).model_copy(
@@ -595,7 +598,7 @@ async def test_clustered_elasticsearch_reads_and_writes_after_member_stops(
                     *compose,
                     "exec",
                     "-T",
-                    "elasticsearch-2",
+                    f"{search_backend}-2",
                     "curl",
                     "--fail",
                     "--silent",
@@ -613,7 +616,7 @@ async def test_clustered_elasticsearch_reads_and_writes_after_member_stops(
                 *compose,
                 "exec",
                 "-T",
-                "elasticsearch-2",
+                f"{search_backend}-2",
                 "curl",
                 "--fail",
                 "--silent",
@@ -634,7 +637,7 @@ async def test_clustered_elasticsearch_reads_and_writes_after_member_stops(
                 *compose,
                 "exec",
                 "-T",
-                "elasticsearch-2",
+                f"{search_backend}-2",
                 "curl",
                 "--fail",
                 "--silent",
@@ -651,7 +654,7 @@ async def test_clustered_elasticsearch_reads_and_writes_after_member_stops(
         )
         assert result.succeeded, result.stderr
         result = await runner.run(
-            (*compose, "stop", "elasticsearch-1"), cwd=tmp_path, timeout_seconds=30
+            (*compose, "stop", f"{search_backend}-1"), cwd=tmp_path, timeout_seconds=30
         )
         assert result.succeeded, result.stderr
         for _ in range(30):
@@ -660,7 +663,7 @@ async def test_clustered_elasticsearch_reads_and_writes_after_member_stops(
                     *compose,
                     "exec",
                     "-T",
-                    "elasticsearch-2",
+                    f"{search_backend}-2",
                     "curl",
                     "--fail",
                     "--silent",
@@ -684,7 +687,7 @@ async def test_clustered_elasticsearch_reads_and_writes_after_member_stops(
                 *compose,
                 "exec",
                 "-T",
-                "elasticsearch-2",
+                f"{search_backend}-2",
                 "curl",
                 "--fail",
                 "--silent",
@@ -701,7 +704,7 @@ async def test_clustered_elasticsearch_reads_and_writes_after_member_stops(
                     *compose,
                     "exec",
                     "-T",
-                    "elasticsearch-2",
+                    f"{search_backend}-2",
                     "curl",
                     "--fail",
                     "--silent",
@@ -716,7 +719,7 @@ async def test_clustered_elasticsearch_reads_and_writes_after_member_stops(
         assert result.succeeded, result.stderr
         assert '"message":"ha-check"' in result.stdout
         result = await runner.run(
-            (*compose, "start", "elasticsearch-1"), cwd=tmp_path, timeout_seconds=30
+            (*compose, "start", f"{search_backend}-1"), cwd=tmp_path, timeout_seconds=30
         )
         assert result.succeeded, result.stderr
         health: dict[str, object] = {}
@@ -726,7 +729,7 @@ async def test_clustered_elasticsearch_reads_and_writes_after_member_stops(
                     *compose,
                     "exec",
                     "-T",
-                    "elasticsearch-2",
+                    f"{search_backend}-2",
                     "curl",
                     "--fail",
                     "--silent",
@@ -753,7 +756,7 @@ async def test_clustered_elasticsearch_reads_and_writes_after_member_stops(
                 *compose,
                 "exec",
                 "-T",
-                "elasticsearch-2",
+                f"{search_backend}-2",
                 "curl",
                 "--fail",
                 "--silent",

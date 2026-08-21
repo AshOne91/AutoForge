@@ -311,11 +311,12 @@ AutoForge currently has working foundations for:
   through an explicit external named network. `RagSpec.search_mode: cluster` now
   generates three search members behind the unchanged `RAG_SEARCH_URL` contract:
   consumers address `search:9200`, while the generated Nginx proxy retries a healthy
-  member. An isolated Docker drill created a one-replica Elasticsearch index, stopped
-  one member, wrote and searched a new document, and reread the baseline document
-  through that stable address. The stopped member then rejoined with three nodes,
-  green index health, and no unassigned shards before the outage-written document
-  was searched again. This is one-host logical-node recovery.
+  member. One provider-parameterized Docker drill now verifies both Elasticsearch
+  and OpenSearch: it creates a one-replica index, stops one member, writes and
+  searches a new document, rereads the baseline document, then restarts the member.
+  Each backend returned to three nodes with green index health and no unassigned
+  shards before the outage-written document was searched again. This is one-host
+  logical-node recovery.
   `RagSpec.qdrant_mode: cluster` now generates three Qdrant peers behind
   the unchanged `QDRANT_URL` HTTP contract plus a stable generated gRPC endpoint.
   An isolated Docker drill created an HA test collection with

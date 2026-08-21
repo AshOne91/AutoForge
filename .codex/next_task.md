@@ -1,10 +1,9 @@
 # Next Task
 
-## Next executable unit: verify clustered OpenSearch writes with one member stopped
+## Next executable unit: verify generated Memcached client recovery after process restart
 
-Reuse the existing opt-in clustered RAG search Docker drill for the generated
-OpenSearch backend rather than duplicating the Elasticsearch scenario. Create a
-one-replica test index, stop one OpenSearch member, then write and search a new
-document through the unchanged `RAG_SEARCH_URL` proxy contract. Preserve the
-provider-neutral search and index ownership boundaries; do not add application
-retries or a physical-host HA claim.
+Extend the existing opt-in generated Memcached runtime drill. Exercise the
+generated key-value adapter, terminate the Memcached process so Compose's current
+restart policy restores it, then prove a fresh key can be set and read through
+the unchanged adapter contract. Treat pre-restart cache loss as valid cache-miss
+semantics; do not claim data replication, durable recovery, or Memcached HA.
