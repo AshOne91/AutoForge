@@ -1204,6 +1204,15 @@ only the existing current-price GET with configured credentials and an optional
 six-digit `KIS_INTEGRATION_STOCK_CODE`, then closes its HTTP and Redis clients.
 No live invocation has been authorized or executed.
 
+KIS also provides the user-owned
+`scripts/verify_kis_read_only_price.py` command for the preferred container
+path. It validates the required KIS and Redis environment names without
+printing their values, rejects the generated `https://example.invalid`
+placeholder before I/O, then performs exactly one current-price GET through
+the same application container environment. Its configuration tests pass; the
+currently running local container still has the generated placeholder, so no
+live invocation has run.
+
 KIS now declares a `market_data` module through the existing AutoForge database
 contract. Its `MarketPriceSnapshot` model, repository protocol/fake/SQLAlchemy
 adapter, raw SQL, and independent Alembic baseline are generated from one
