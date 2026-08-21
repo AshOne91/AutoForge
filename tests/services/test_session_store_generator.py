@@ -21,6 +21,7 @@ from autoforge.core.specification import (
     ProjectInfo,
     ProjectSpec,
     ResponseSpec,
+    SchemaSpec,
     ServiceSpec,
     ToolingSpec,
 )
@@ -329,6 +330,14 @@ async def test_generated_sentinel_session_and_request_replay_recover_after_redis
                 name="submit",
                 method=HttpMethod.POST,
                 path="/submit",
+                request=SchemaSpec(
+                    fields=[
+                        FieldSpec(
+                            name="message",
+                            type=FieldType(kind=FieldTypeKind.STRING),
+                        )
+                    ]
+                ),
                 response=ResponseSpec(
                     fields=[
                         FieldSpec(
@@ -530,8 +539,8 @@ def _write_sentinel_session_probe(workspace_root: Path, package_name: str) -> No
         ")\n"
         f"from {package_name}.modules.replay.generated import router\n"
         "\n"
-        "async def created():\n"
-        "    return {'message': 'created'}\n"
+        "async def created(request):\n"
+        "    return {'message': request.message}\n"
         "\n"
         "async def verify():\n"
         "    router.handlers.submit = created\n"
@@ -562,6 +571,7 @@ def _write_sentinel_session_probe(workspace_root: Path, package_name: str) -> No
         "            response = await client.post(\n"
         "                '/api/replay/submit',\n"
         "                headers={'Idempotency-Key': 'sentinel-route'},\n"
+        "                json={'message': 'created'},\n"
         "            )\n"
         "        assert response.status_code == 200\n"
         "        assert response.json() == {'message': 'created'}\n"
@@ -595,7 +605,7 @@ def _write_sentinel_session_probe(workspace_root: Path, package_name: str) -> No
         ")\n"
         f"from {package_name}.modules.replay.generated import router\n"
         "\n"
-        "async def must_not_run():\n"
+        "async def must_not_run(request):\n"
         "    raise AssertionError('replayed request called its handler')\n"
         "\n"
         "async def verify():\n"
@@ -617,9 +627,22 @@ def _write_sentinel_session_probe(workspace_root: Path, package_name: str) -> No
         "            response = await client.post(\n"
         "                '/api/replay/submit',\n"
         "                headers={'Idempotency-Key': 'sentinel-route'},\n"
+        "                json={'message': 'created'},\n"
         "            )\n"
         "        assert response.status_code == 200\n"
         "        assert response.json() == {'message': 'created'}\n"
+        "        async with AsyncClient(\n"
+        "            transport=ASGITransport(app=app), base_url='http://test'\n"
+        "        ) as client:\n"
+        "            conflict = await client.post(\n"
+        "                '/api/replay/submit',\n"
+        "                headers={'Idempotency-Key': 'sentinel-route'},\n"
+        "                json={'message': 'changed'},\n"
+        "            )\n"
+        "        assert conflict.status_code == 409\n"
+        "        assert conflict.json() == {\n"
+        "            'detail': 'idempotency key was reused with a different request'\n"
+        "        }\n"
         "\n"
         "asyncio.run(verify())\n",
         encoding="utf-8",
