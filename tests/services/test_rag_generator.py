@@ -250,7 +250,7 @@ def test_rag_generator_renders_clustered_opensearch_behind_stable_endpoint() -> 
 
 @pytest.mark.integration
 @pytest.mark.anyio
-async def test_clustered_qdrant_recovers_replicated_point_after_member_stops(
+async def test_clustered_qdrant_reads_and_writes_after_member_stops(
     tmp_path: Path,
 ) -> None:
     if os.environ.get("AUTOFORGE_DOCKER_QDRANT_CLUSTER_INTEGRATION") != "1":
@@ -331,7 +331,7 @@ async def test_clustered_qdrant_recovers_replicated_point_after_member_stops(
             {
                 "vectors": {"size": 4, "distance": "Cosine"},
                 "shard_number": 3,
-                "replication_factor": 2,
+                "replication_factor": 3,
                 "write_consistency_factor": 2,
             },
         )
@@ -345,6 +345,35 @@ async def test_clustered_qdrant_recovers_replicated_point_after_member_stops(
             (*compose, "stop", "qdrant-1"), cwd=tmp_path, timeout_seconds=30
         )
         assert result.succeeded, result.stderr
+        for _ in range(30):
+            try:
+                response = await anyio.to_thread.run_sync(
+                    _request_json,
+                    f"{endpoint}/collections/ha-check/points?wait=true",
+                    "PUT",
+                    {"points": [{"id": 2, "vector": [0.4, 0.3, 0.2, 0.1]}]},
+                )
+            except (HTTPError, URLError, TimeoutError):
+                await anyio.sleep(2)
+                continue
+            if response.get("status") == "ok":
+                break
+            await anyio.sleep(2)
+        else:
+            pytest.fail("Qdrant write was unavailable after member stop")
+        for _ in range(30):
+            try:
+                point = await anyio.to_thread.run_sync(
+                    _request_json, f"{endpoint}/collections/ha-check/points/2"
+                )
+            except (HTTPError, URLError, TimeoutError):
+                await anyio.sleep(2)
+                continue
+            if point.get("result", {}).get("id") == 2:
+                break
+            await anyio.sleep(2)
+        else:
+            pytest.fail("Qdrant point written after member stop was unavailable")
         for _ in range(30):
             try:
                 point = await anyio.to_thread.run_sync(

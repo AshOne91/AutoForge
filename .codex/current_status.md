@@ -311,8 +311,10 @@ AutoForge currently has working foundations for:
   and read the document through that stable address. This is one-host logical-node
   recovery. `RagSpec.qdrant_mode: cluster` now generates three Qdrant peers behind
   the unchanged `QDRANT_URL` HTTP contract plus a stable generated gRPC endpoint.
-  An isolated Docker drill created a test collection with `replication_factor: 2`,
-  wrote one point, stopped a peer, and retrieved the point through the proxy.
+  An isolated Docker drill created an HA test collection with
+  `replication_factor: 3` and `write_consistency_factor: 2`, wrote one point,
+  stopped a peer, then wrote and retrieved a new point and reread the baseline
+  point through the proxy.
   Collection/shard/replica choices remain domain-owned; a Qdrant cluster does not
   automatically replicate a collection. `RagSpec.ollama_mode: replicated` now
   generates three independently volumed Ollama members behind unchanged
