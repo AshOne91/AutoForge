@@ -85,10 +85,14 @@ in `RagSpec.search_mode: cluster`, that same setting resolves the generated stab
 `search:9200` proxy in front of three selected search members. Consumers do not
 address individual search nodes. The cluster bootstrap settings are for a new,
 fresh-volume local cluster; changing member names or topology requires a new
-isolated Compose project rather than reusing its state. `qdrant` and `ollama`
-continue to resolve by DNS without relying on host ports or Docker Desktop-specific
-host aliases. The external network is created once by the operator and is not
-deleted by either Compose overlay.
+isolated Compose project rather than reusing its state. `RagSpec.qdrant_mode:
+cluster` similarly creates three Qdrant peers behind stable `qdrant:6333` and
+`qdrant:6334` endpoints, so consumers continue to use `QDRANT_URL` without
+addressing a peer. Qdrant cluster membership does not replicate a collection by
+itself: the collection owner must choose its `replication_factor` and shard policy.
+`ollama` continues to resolve by DNS without relying on host ports or Docker
+Desktop-specific host aliases. The external network is created once by the operator
+and is not deleted by either Compose overlay.
 
 ## First operating target
 

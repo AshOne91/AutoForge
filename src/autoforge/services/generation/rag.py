@@ -11,7 +11,7 @@ from autoforge.core.generation import (
 from autoforge.core.specification import ProjectSpec
 
 RAG_INFRASTRUCTURE_GENERATOR_ID = "autoforge.generator.rag_infrastructure"
-RAG_INFRASTRUCTURE_GENERATOR_VERSION = "0.2.0"
+RAG_INFRASTRUCTURE_GENERATOR_VERSION = "0.3.0"
 NGINX_IMAGE = "nginx:1.27-alpine"
 
 
@@ -40,6 +40,10 @@ class RagInfrastructureGenerator:
                 specification
             ),
         }
+        if specification.tooling.rag.qdrant_mode == "cluster":
+            rendered[PurePosixPath("deploy", "rag", "nginx", "qdrant.conf")] = (
+                self._render_qdrant_proxy_config()
+            )
         if specification.tooling.rag.search_mode == "cluster":
             rendered[PurePosixPath("deploy", "rag", "nginx", "search.conf")] = (
                 self._render_search_proxy_config(specification)
@@ -73,6 +77,32 @@ class RagInfrastructureGenerator:
     def _render_compose(cls, specification: ProjectSpec) -> str:
         rag = specification.tooling.rag
         base = rag.host_port_base
+        qdrant_service = (
+            cls._render_cluster_qdrant_services(specification)
+            if rag.qdrant_mode == "cluster"
+            else f'''  qdrant:
+    profiles: ["rag"]
+    image: qdrant/qdrant:v{rag.qdrant_version}
+    networks: [rag]
+    restart: unless-stopped
+    ports:
+      - "${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{QDRANT_HTTP_PORT:-{base + 50}}}:6333"
+      - "${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{QDRANT_GRPC_PORT:-{base + 51}}}:6334"
+    volumes:
+      - qdrant-storage:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+'''
+        )
+        qdrant_volumes = (
+            "\n".join(f"  qdrant-{index}-storage:" for index in range(1, 4))
+            if rag.qdrant_mode == "cluster"
+            else "  qdrant-storage:"
+        )
         search_service = (
             cls._render_cluster_search_services(specification)
             if rag.search_mode == "cluster"
@@ -130,23 +160,7 @@ class RagInfrastructureGenerator:
         return f'''name: {specification.project.package_name}-rag
 
 services:
-  qdrant:
-    profiles: ["rag"]
-    image: qdrant/qdrant:v{rag.qdrant_version}
-    networks: [rag]
-    restart: unless-stopped
-    ports:
-      - "${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{QDRANT_HTTP_PORT:-{base + 50}}}:6333"
-      - "${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{QDRANT_GRPC_PORT:-{base + 51}}}:6334"
-    volumes:
-      - qdrant-storage:/qdrant/storage
-    healthcheck:
-      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/6333'"]
-      interval: 10s
-      timeout: 5s
-      retries: 30
-
-{search_service}  ollama:
+{qdrant_service}{search_service}  ollama:
     profiles: ["inference"]
     image: ollama/ollama:{rag.ollama_version}
     networks: [rag]
@@ -167,9 +181,69 @@ networks:
     external: true
 
 volumes:
-  qdrant-storage:
+{qdrant_volumes}
 {search_volumes}
   ollama-data:
+'''
+
+    @staticmethod
+    def _render_cluster_qdrant_services(specification: ProjectSpec) -> str:
+        rag = specification.tooling.rag
+        node_names = [f"qdrant-{index}" for index in range(1, 4)]
+        dependencies = "\n".join(
+            f'''      {node_name}:
+        condition: service_healthy'''
+            for node_name in node_names
+        )
+        node_services: list[str] = []
+        for index, node_name in enumerate(node_names, start=1):
+            bootstrap = "" if index == 1 else " --bootstrap http://qdrant-1:6335"
+            depends_on = (
+                ""
+                if index == 1
+                else '''    depends_on:
+      qdrant-1:
+        condition: service_healthy
+'''
+            )
+            node_services.append(
+                f'''  {node_name}:
+    profiles: ["rag"]
+    image: qdrant/qdrant:v{rag.qdrant_version}
+    networks: [rag]
+    restart: unless-stopped
+    command: ./qdrant --uri http://{node_name}:6335{bootstrap}
+{depends_on}    environment:
+      QDRANT__CLUSTER__ENABLED: "true"
+    volumes:
+      - qdrant-{index}-storage:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+'''
+            )
+        rendered_nodes = "\n".join(node_services)
+        return f'''  qdrant:
+    profiles: ["rag"]
+    image: {NGINX_IMAGE}
+    networks: [rag]
+    restart: unless-stopped
+    ports:
+      - "${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{QDRANT_HTTP_PORT:-{rag.host_port_base + 50}}}:6333"
+      - "${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{QDRANT_GRPC_PORT:-{rag.host_port_base + 51}}}:6334"
+    volumes:
+      - ./nginx/qdrant.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+{dependencies}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:6333/readyz >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+{rendered_nodes}
 '''
 
     @staticmethod
@@ -285,6 +359,50 @@ server {{
 '''
 
     @staticmethod
+    def _render_qdrant_proxy_config() -> str:
+        http_nodes = "\n".join(
+            f"    server qdrant-{index}:6333 max_fails=1 fail_timeout=2s;"
+            for index in range(1, 4)
+        )
+        grpc_nodes = "\n".join(
+            f"    server qdrant-{index}:6334 max_fails=1 fail_timeout=2s;"
+            for index in range(1, 4)
+        )
+        return f'''upstream qdrant_http {{
+    least_conn;
+{http_nodes}}}
+
+upstream qdrant_grpc {{
+    least_conn;
+{grpc_nodes}}}
+
+server {{
+    listen 6333;
+    client_max_body_size 0;
+
+    location / {{
+        proxy_pass http://qdrant_http;
+        proxy_http_version 1.1;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_next_upstream error timeout http_502 http_503 http_504;
+        proxy_next_upstream_tries 3;
+    }}
+}}
+
+server {{
+    listen 6334 http2;
+
+    location / {{
+        grpc_pass grpc://qdrant_grpc;
+        grpc_next_upstream error timeout http_502 http_503 http_504;
+        grpc_next_upstream_tries 3;
+    }}
+}}
+'''
+
+    @staticmethod
     def _render_env(specification: ProjectSpec) -> str:
         rag = specification.tooling.rag
         base = rag.host_port_base
@@ -312,6 +430,17 @@ OLLAMA_PORT={base + 70}
     @staticmethod
     def _render_readme(specification: ProjectSpec) -> str:
         search_name = specification.tooling.rag.search_backend.title()
+        qdrant_topology_note = (
+            "\nThe `cluster` Qdrant mode creates three Qdrant peers behind the "
+            "generated `qdrant:6333` and `qdrant:6334` endpoints. Consumers "
+            "continue to use `QDRANT_URL`; the proxy retries another healthy "
+            "member when one node stops. A Qdrant cluster does not replicate a "
+            "collection automatically: the collection owner must select its "
+            "required `replication_factor`. This is one-host logical-node "
+            "recovery, not host-level HA.\n"
+            if specification.tooling.rag.qdrant_mode == "cluster"
+            else ""
+        )
         topology_note = (
             "\nThe `cluster` search mode creates three search members behind the "
             "generated `search:9200` endpoint. Consumers continue to use "
@@ -354,7 +483,7 @@ docker compose --env-file deploy/rag/.env -f deploy/rag/compose.rag.yaml exec ol
 Qdrant and {search_name} use named Docker volumes because they own persistent
 data. Ports bind to `LOCAL_BIND_ADDRESS` and default to the configured local
 port block. Search-engine security is disabled only for this local overlay.
-{topology_note}
+{qdrant_topology_note}{topology_note}
 Production requires authenticated, backed-up, cluster-aware service deployment;
 do not use this Compose file as a production topology.
 '''

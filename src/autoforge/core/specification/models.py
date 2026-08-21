@@ -521,6 +521,7 @@ class RagSpec(StrictSpecModel):
     """Generate an optional local RAG infrastructure overlay."""
 
     enabled: bool = False
+    qdrant_mode: Literal["standalone", "cluster"] = "standalone"
     search_backend: Literal["elasticsearch", "opensearch"] = "elasticsearch"
     search_mode: Literal["standalone", "cluster"] = "standalone"
     qdrant_version: str = "1.18.3"

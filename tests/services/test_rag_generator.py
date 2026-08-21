@@ -1,7 +1,10 @@
+import json
 import os
 import socket
 import uuid
 from pathlib import Path, PurePosixPath
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 import anyio
 import pytest
@@ -21,6 +24,7 @@ from autoforge.services.generation.rag import RagInfrastructureGenerator
 def specification(
     *,
     enabled: bool = False,
+    qdrant_mode: str = "standalone",
     search_backend: str = "elasticsearch",
     search_mode: str = "standalone",
     host_port_base: int = 49400,
@@ -36,6 +40,7 @@ def specification(
         tooling=ToolingSpec(
             rag=RagSpec(
                 enabled=enabled,
+                qdrant_mode=qdrant_mode,
                 search_backend=search_backend,
                 search_mode=search_mode,
                 host_port_base=host_port_base,
@@ -107,6 +112,46 @@ def test_rag_generator_renders_opensearch_instead_of_elasticsearch() -> None:
     assert "RAG_SEARCH_URL=http://opensearch:9200" in environment
 
 
+def test_rag_generator_renders_clustered_qdrant_behind_stable_endpoint() -> None:
+    files = RagInfrastructureGenerator().render(
+        specification(enabled=True, qdrant_mode="cluster")
+    )
+    compose = files[PurePosixPath("deploy", "rag", "compose.rag.yaml")]
+    proxy = files[PurePosixPath("deploy", "rag", "nginx", "qdrant.conf")]
+    readme = files[PurePosixPath("deploy", "rag", "README.md")]
+    parsed = yaml.safe_load(compose)
+
+    assert set(parsed["services"]) == {
+        "qdrant",
+        "qdrant-1",
+        "qdrant-2",
+        "qdrant-3",
+        "elasticsearch",
+        "ollama",
+    }
+    assert parsed["services"]["qdrant"]["depends_on"]["qdrant-3"] == {
+        "condition": "service_healthy"
+    }
+    assert parsed["services"]["qdrant-1"]["command"] == (
+        "./qdrant --uri http://qdrant-1:6335"
+    )
+    assert "--bootstrap http://qdrant-1:6335" in parsed["services"]["qdrant-2"][
+        "command"
+    ]
+    assert parsed["services"]["qdrant-2"]["environment"] == {
+        "QDRANT__CLUSTER__ENABLED": "true"
+    }
+    assert "qdrant-3:6333" in proxy
+    assert "qdrant-3:6334" in proxy
+    assert proxy.count("server qdrant-1:6334") == 1
+    assert "replication_factor" in readme
+    assert set(parsed["volumes"]) >= {
+        "qdrant-1-storage",
+        "qdrant-2-storage",
+        "qdrant-3-storage",
+    }
+
+
 def test_rag_generator_renders_clustered_elasticsearch_behind_stable_endpoint() -> None:
     files = RagInfrastructureGenerator().render(
         specification(enabled=True, search_mode="cluster")
@@ -162,6 +207,127 @@ def test_rag_generator_renders_clustered_opensearch_behind_stable_endpoint() -> 
     assert "opensearch-3:9200" in files[
         PurePosixPath("deploy", "rag", "nginx", "search.conf")
     ]
+
+
+@pytest.mark.integration
+@pytest.mark.anyio
+async def test_clustered_qdrant_recovers_replicated_point_after_member_stops(
+    tmp_path: Path,
+) -> None:
+    if os.environ.get("AUTOFORGE_DOCKER_QDRANT_CLUSTER_INTEGRATION") != "1":
+        pytest.skip("set AUTOFORGE_DOCKER_QDRANT_CLUSTER_INTEGRATION=1 to run Docker")
+
+    host_port_base = next(
+        base
+        for base in range(49200, 65500, 100)
+        if all(_port_is_available(port) for port in (base + 50, base + 51))
+    )
+    package_name = f"qdrant_ha_{uuid.uuid4().hex}"
+    files = RagInfrastructureGenerator().render(
+        specification(
+            enabled=True,
+            qdrant_mode="cluster",
+            host_port_base=host_port_base,
+        ).model_copy(
+            update={
+                "project": ProjectInfo(
+                    name="Qdrant HA",
+                    package_name=package_name,
+                    version="0.1.0",
+                )
+            }
+        )
+    )
+    for relative_path, content in files.items():
+        target = tmp_path / relative_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+    rag_dir = tmp_path / "deploy" / "rag"
+    (rag_dir / ".env").write_text(
+        files[PurePosixPath("deploy", "rag", ".env.example")], encoding="utf-8"
+    )
+    compose = (
+        "docker",
+        "compose",
+        "--env-file",
+        "deploy/rag/.env",
+        "-f",
+        "deploy/rag/compose.rag.yaml",
+        "--profile",
+        "rag",
+    )
+    network = f"{package_name}-rag"
+    endpoint = f"http://127.0.0.1:{host_port_base + 50}"
+    runner = AsyncioProcessRunner()
+    try:
+        result = await runner.run(
+            ("docker", "network", "create", network), cwd=tmp_path, timeout_seconds=20
+        )
+        assert result.succeeded, result.stderr
+        result = await runner.run(
+            (*compose, "up", "--detach", "qdrant"), cwd=tmp_path, timeout_seconds=180
+        )
+        assert result.succeeded, result.stderr
+        cluster: dict[str, object] = {}
+        for _ in range(45):
+            try:
+                cluster = await anyio.to_thread.run_sync(
+                    _qdrant_request_json, f"{endpoint}/cluster"
+                )
+            except (HTTPError, URLError, TimeoutError):
+                await anyio.sleep(2)
+                continue
+            if (
+                cluster["result"]["status"] == "enabled"
+                and len(cluster["result"]["peers"]) == 3
+            ):
+                break
+            await anyio.sleep(2)
+        else:
+            pytest.fail(f"Qdrant cluster did not form: {cluster}")
+        await anyio.to_thread.run_sync(
+            _qdrant_request_json,
+            f"{endpoint}/collections/ha-check?wait=true",
+            "PUT",
+            {
+                "vectors": {"size": 4, "distance": "Cosine"},
+                "shard_number": 3,
+                "replication_factor": 2,
+                "write_consistency_factor": 2,
+            },
+        )
+        await anyio.to_thread.run_sync(
+            _qdrant_request_json,
+            f"{endpoint}/collections/ha-check/points?wait=true",
+            "PUT",
+            {"points": [{"id": 1, "vector": [0.1, 0.2, 0.3, 0.4]}]},
+        )
+        result = await runner.run(
+            (*compose, "stop", "qdrant-1"), cwd=tmp_path, timeout_seconds=30
+        )
+        assert result.succeeded, result.stderr
+        for _ in range(30):
+            try:
+                point = await anyio.to_thread.run_sync(
+                    _qdrant_request_json, f"{endpoint}/collections/ha-check/points/1"
+                )
+            except (HTTPError, URLError, TimeoutError):
+                await anyio.sleep(2)
+                continue
+            if point.get("result", {}).get("id") == 1:
+                break
+            await anyio.sleep(2)
+        else:
+            pytest.fail("replicated Qdrant point was unavailable after member stop")
+    finally:
+        await runner.run(
+            (*compose, "down", "--volumes", "--remove-orphans"),
+            cwd=tmp_path,
+            timeout_seconds=180,
+        )
+        await runner.run(
+            ("docker", "network", "rm", network), cwd=tmp_path, timeout_seconds=30
+        )
 
 
 @pytest.mark.integration
@@ -326,6 +492,20 @@ def _port_is_available(port: int) -> bool:
         except OSError:
             return False
     return True
+
+
+def _qdrant_request_json(
+    url: str, method: str = "GET", payload: dict[str, object] | None = None
+) -> dict[str, object]:
+    data = json.dumps(payload).encode() if payload is not None else None
+    request = Request(
+        url,
+        data=data,
+        method=method,
+        headers={"Content-Type": "application/json"} if data else {},
+    )
+    with urlopen(request, timeout=5) as response:
+        return json.loads(response.read())
 
 
 def test_rag_generator_plan_marks_all_outputs_generated() -> None:
