@@ -1,8 +1,8 @@
 # Next Task
 
-## Next executable unit: prove the regenerated KIS RabbitMQ HA boundary
+## Next executable unit: prove the regenerated KIS Airflow scheduler boundary
 
-Run the maintained KIS RabbitMQ HA verifier against the fresh HA generation.
-Prove quorum-queue replication, publisher/consumer recovery, node outage handling,
-and application health without calling the live KIS API. Honor generated
-external-network prerequisites and remove disposable resources after the drill.
+Run the maintained Airflow scheduler verifier against the fresh KIS HA generation.
+Prove initialization, DAG visibility, scheduled durable-job delivery, and bounded
+scheduler recovery without calling the live KIS API. Preserve the documented
+single-host availability boundary and remove disposable resources after the drill.

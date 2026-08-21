@@ -1425,6 +1425,12 @@ the outage remained readable and the original application container stayed
 healthy. The stopped node rejoined as a healthy replica. All isolated resources,
 including the temporary prerequisite network, were removed afterward.
 
+The fresh KIS HA generation also passed the RabbitMQ cluster drill. A quorum
+queue published and consumed through HAProxy with all three nodes, continued to
+work after `rabbitmq-0` stopped, and remained healthy when that node rejoined.
+The isolated Compose project, volumes, and temporary prerequisite network were
+removed after verification.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:
