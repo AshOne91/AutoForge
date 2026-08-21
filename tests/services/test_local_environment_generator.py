@@ -971,6 +971,8 @@ def test_render_adds_airflow_for_durable_jobs() -> None:
         "postgres": {"condition": "service_healthy"}
     }
     assert "CREATE DATABASE airflow" in airflow["airflow-db-bootstrap"]["command"][2]
+    assert "for attempt in 1 2 3" in airflow["airflow-db-bootstrap"]["command"][2]
+    assert '"$$attempt" -lt 30' in airflow["airflow-db-bootstrap"]["command"][2]
     assert airflow["airflow-init"]["depends_on"] == {
         "airflow-db-bootstrap": {"condition": "service_completed_successfully"}
     }

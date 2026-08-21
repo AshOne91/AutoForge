@@ -1431,6 +1431,16 @@ work after `rabbitmq-0` stopped, and remained healthy when that node rejoined.
 The isolated Compose project, volumes, and temporary prerequisite network were
 removed after verification.
 
+The maintained KIS Airflow scheduler drill exposed a transient startup race in
+the newly generated standalone `airflow-db-bootstrap`: one failed PostgreSQL
+connection could terminate the one-shot container before Airflow initialization.
+AutoForge now retries the idempotent database check/create operation for up to
+30 seconds. The Local Environment generator suite passes (`32 passed, 1
+skipped`), a fresh KIS generation passes Compose validation, and the actual KIS
+runtime then discovered and registered its DAG, triggered a scheduled Durable
+Job, and cancelled it before any live KIS work ran. The isolated stack and
+prerequisite network were removed afterward.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:

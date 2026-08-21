@@ -1,8 +1,8 @@
 # Next Task
 
-## Next executable unit: prove the regenerated KIS Airflow scheduler boundary
+## Next executable unit: prove the KIS realtime multi-replica boundary
 
-Run the maintained Airflow scheduler verifier against the fresh KIS HA generation.
-Prove initialization, DAG visibility, scheduled durable-job delivery, and bounded
-scheduler recovery without calling the live KIS API. Preserve the documented
-single-host availability boundary and remove disposable resources after the drill.
+Run the maintained realtime-notification verifier using generated KIS runtime
+contracts. Prove cross-replica delivery through the Redis backplane and preserve
+best-effort realtime semantics without treating it as durable authority. Do not
+call the live KIS API, and remove disposable resources after the drill.
