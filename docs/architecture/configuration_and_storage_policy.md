@@ -79,10 +79,16 @@ Generated Compose overlays remain independently managed. When an optional servic
 must communicate with the generated application or worker, the generator emits an
 explicit non-secret network setting and attaches only the required services to the
 same external named network. The current RAG overlay uses `RAG_NETWORK_NAME` for
-this purpose; application and durable-job workers can resolve `qdrant`, `ollama`,
-and the selected `elasticsearch` or `opensearch` service by DNS without relying on
-host ports or Docker Desktop-specific host aliases. The external network is created
-once by the operator and is not deleted by either Compose overlay.
+this purpose. In standalone search mode, application and durable-job workers use
+`RAG_SEARCH_URL` to resolve the selected `elasticsearch` or `opensearch` service;
+in `RagSpec.search_mode: cluster`, that same setting resolves the generated stable
+`search:9200` proxy in front of three selected search members. Consumers do not
+address individual search nodes. The cluster bootstrap settings are for a new,
+fresh-volume local cluster; changing member names or topology requires a new
+isolated Compose project rather than reusing its state. `qdrant` and `ollama`
+continue to resolve by DNS without relying on host ports or Docker Desktop-specific
+host aliases. The external network is created once by the operator and is not
+deleted by either Compose overlay.
 
 ## First operating target
 

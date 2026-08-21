@@ -1240,10 +1240,12 @@ class LocalEnvironmentGenerator:
 
     @staticmethod
     def _render_rag_environment(specification: ProjectSpec) -> str:
-        search_backend = specification.tooling.rag.search_backend
+        rag = specification.tooling.rag
+        search_backend = rag.search_backend
+        search_endpoint = "search" if rag.search_mode == "cluster" else search_backend
         return (
             f"      RAG_SEARCH_BACKEND: ${{RAG_SEARCH_BACKEND:-{search_backend}}}\n"
-            f"      RAG_SEARCH_URL: ${{RAG_SEARCH_URL:-http://{search_backend}:9200}}\n"
+            f"      RAG_SEARCH_URL: ${{RAG_SEARCH_URL:-http://{search_endpoint}:9200}}\n"
             "      RAG_OLLAMA_URL: ${RAG_OLLAMA_URL:-http://ollama:11434}\n"
             "      RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-embeddinggemma}\n"
         )
@@ -1857,12 +1859,14 @@ class LocalEnvironmentGenerator:
                 ]
             )
         if has_rag:
-            search_backend = specification.tooling.rag.search_backend
+            rag = specification.tooling.rag
+            search_backend = rag.search_backend
+            search_endpoint = "search" if rag.search_mode == "cluster" else search_backend
             lines.extend(
                 [
                     f"RAG_NETWORK_NAME={specification.project.package_name}-rag\n",
                     f"RAG_SEARCH_BACKEND={search_backend}\n",
-                    f"RAG_SEARCH_URL=http://{search_backend}:9200\n",
+                    f"RAG_SEARCH_URL=http://{search_endpoint}:9200\n",
                     "RAG_OLLAMA_URL=http://ollama:11434\n",
                     "RAG_EMBEDDING_MODEL=embeddinggemma\n",
                 ]

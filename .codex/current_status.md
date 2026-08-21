@@ -295,7 +295,13 @@ AutoForge currently has working foundations for:
   Elasticsearch and Kibana now use the explicit `49600`/`49601` host block.
 - opt-in RAG infrastructure with Qdrant, Ollama, and one selectable search backend
   (Elasticsearch or OpenSearch), connected to generated application/worker consumers
-  through an explicit external named network; both local search paths are runtime-verified.
+  through an explicit external named network. `RagSpec.search_mode: cluster` now
+  generates three search members behind the unchanged `RAG_SEARCH_URL` contract:
+  consumers address `search:9200`, while the generated Nginx proxy retries a healthy
+  member. An isolated Docker drill created an Elasticsearch index, stopped one member,
+  and read the document through that stable address. This is one-host logical-node
+  recovery; Qdrant and Ollama remain singleton services in the current RAG profile.
+  Both local standalone search paths are runtime-verified.
   The KIS OpenSearch profile responds on `49460`, persists its named-volume data
   across container restart, and exposes the generated hybrid-search client path.
   With the installed `embeddinggemma` model, KIS indexed and retrieved a live

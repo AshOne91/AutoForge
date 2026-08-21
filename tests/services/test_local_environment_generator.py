@@ -35,6 +35,7 @@ def integration_specification(
     application: bool = False,
     rag: bool = False,
     rag_search_backend: str = "elasticsearch",
+    rag_search_mode: str = "standalone",
     postgres_mode: str = "standalone",
     mysql_mode: str = "standalone",
     database_provider: str = "postgresql",
@@ -67,7 +68,11 @@ def integration_specification(
                 for composition in local_application_compositions or []
             ],
         },
-        "rag": {"enabled": rag, "search_backend": rag_search_backend},
+        "rag": {
+            "enabled": rag,
+            "search_backend": rag_search_backend,
+            "search_mode": rag_search_mode,
+        },
         "realtime": {
             "enabled": realtime_backplane != "none",
             "backplane": realtime_backplane,
@@ -746,6 +751,29 @@ def test_render_configures_rag_consumers_for_opensearch() -> None:
     )
     assert "RAG_SEARCH_BACKEND=opensearch" in environment
     assert "RAG_SEARCH_URL=http://opensearch:9200" in environment
+
+
+def test_render_routes_clustered_rag_search_through_stable_proxy() -> None:
+    files = LocalEnvironmentGenerator().render(
+        integration_specification(
+            enabled=True,
+            durable_jobs=True,
+            application=True,
+            rag=True,
+            rag_search_mode="cluster",
+        )
+    )
+
+    compose = yaml.safe_load(
+        files[PurePosixPath("environment", "compose.integration.yml")]
+    )
+    environment = files[PurePosixPath("environment", ".env.example")]
+
+    assert (
+        compose["services"]["application"]["environment"]["RAG_SEARCH_URL"]
+        == "${RAG_SEARCH_URL:-http://search:9200}"
+    )
+    assert "RAG_SEARCH_URL=http://search:9200" in environment
 
 
 def test_render_adds_airflow_for_durable_jobs() -> None:

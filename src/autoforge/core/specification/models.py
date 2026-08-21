@@ -522,6 +522,7 @@ class RagSpec(StrictSpecModel):
 
     enabled: bool = False
     search_backend: Literal["elasticsearch", "opensearch"] = "elasticsearch"
+    search_mode: Literal["standalone", "cluster"] = "standalone"
     qdrant_version: str = "1.18.3"
     elasticsearch_version: str = "8.19.17"
     opensearch_version: str = "2.19.6"
