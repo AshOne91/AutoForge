@@ -132,7 +132,7 @@ def test_object_storage_generator_renders_distributed_minio_behind_stable_endpoi
 
 @pytest.mark.integration
 @pytest.mark.anyio
-async def test_distributed_minio_recovers_object_read_after_member_stops(
+async def test_distributed_minio_reads_and_writes_after_member_stops(
     tmp_path: Path,
 ) -> None:
     if os.environ.get("AUTOFORGE_DOCKER_MINIO_DISTRIBUTED_INTEGRATION") != "1":
@@ -224,6 +224,39 @@ async def test_distributed_minio_recovers_object_read_after_member_stops(
         assert result.stdout.strip().endswith("ha-check")
         result = await runner.run((*compose, "stop", "minio-1"), cwd=tmp_path, timeout_seconds=30)
         assert result.succeeded, result.stderr
+        for _ in range(15):
+            result = await runner.run(
+                (
+                    *compose,
+                    "exec",
+                    "-T",
+                    "minio-2",
+                    "sh",
+                    "-ec",
+                    f"printf ha-write | mc pipe local/{bucket}/ha-write-after-stop.txt",
+                ),
+                cwd=tmp_path,
+                timeout_seconds=20,
+            )
+            if result.succeeded:
+                break
+            await anyio.sleep(2)
+        assert result.succeeded, result.stderr
+        result = await runner.run(
+            (
+                *compose,
+                "exec",
+                "-T",
+                "minio-2",
+                "mc",
+                "cat",
+                f"local/{bucket}/ha-write-after-stop.txt",
+            ),
+            cwd=tmp_path,
+            timeout_seconds=20,
+        )
+        assert result.succeeded, result.stderr
+        assert result.stdout.strip().endswith("ha-write")
         for _ in range(15):
             result = await runner.run(
                 (*compose, "exec", "-T", "minio-2", "mc", "cat", f"local/{bucket}/ha-check.txt"),

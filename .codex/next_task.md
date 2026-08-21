@@ -1,9 +1,9 @@
 # Next Task
 
-## Next executable unit: verify distributed MinIO writes with one member stopped
+## Next executable unit: verify distributed MinIO member rejoin after a degraded write
 
-Locate the existing opt-in distributed MinIO Docker drill and reuse its generated
-four-member topology and stable proxy endpoint. After stopping one member, write
-a new object through the unchanged endpoint and read that same object back before
-restoring the member. Preserve the current object-storage contract; do not add a
-provider abstraction, retry policy, or physical-host HA claim.
+Extend the existing opt-in distributed MinIO Docker drill after the one-member
+outage write. Restart the stopped member, wait for the generated cluster health,
+then read the outage-written object through the stable endpoint and confirm all
+four members are available. Reuse the current topology; do not add repair
+automation, a provider abstraction, or a physical-host HA claim.
