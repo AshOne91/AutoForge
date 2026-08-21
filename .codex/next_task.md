@@ -1,9 +1,9 @@
 # Next Task
 
-## Next executable unit: select the first missing KIS trading Blueprint slice
+## Next executable unit: implement one domestic daily candle vertical slice
 
-Compare the maintained KIS specifications and consumer symbols with the trading
-Blueprint roadmap, then identify exactly one missing read-only domain slice that
-can reuse the verified token, database, Redis, messaging, observability, and HA
-contracts. Do not place orders or implement the slice until its current-code gap
-and ownership boundary are proven.
+Confirm the current official KIS read-only daily-price contract, then extend the
+maintained `market_data` specification and regenerate before adding consumer-owned
+provider mapping and one operator-protected proof path. Reuse existing token,
+Redis, database, repository, logging, and test seams. Keep the slice idempotent,
+make no live call in the default suite, and add no order or portfolio behavior.

@@ -1459,6 +1459,15 @@ Five ignored generation workspaces were reduced to Windows ACL-locked
 `.pytest_cache` directories that cannot be removed from this process; `.tmp-*/`
 remains Git-ignored and neither repository tracks those remnants.
 
+The first missing KIS trading Blueprint slice is now selected without changing
+domain code. KIS already has current-price lookup, shared token coordination,
+Redis caching, operator-only portfolio reads, and generated point-in-time market
+price persistence. It has no daily candle/OHLCV model, provider method, endpoint,
+or test. Daily candles are shared public market data, so their authoritative
+persistence belongs to the existing `market_data` module in the global
+`automation` store; portfolio persistence remains deferred because its user and
+account-shard ownership must be established first.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:
