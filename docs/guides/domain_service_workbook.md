@@ -911,7 +911,7 @@ docker compose --env-file deploy\storage\.env `
 **미션:** 퀘스트 NPC가 외부 날씨·환율·결제 정보를 가져오되, 외부 사이트가 느려도 내
 서버가 멈추지 않는다.
 
-**AutoForge:** async transport 경계와 정상·timeout·4xx·5xx를 재현하는 deterministic
+**AutoForge:** async transport 경계와 선언한 정상·4xx·5xx 응답을 재현하는 deterministic
 fake를 생성한다.
 
 **내 코드:** 외부 응답을 내 도메인 값으로 바꾸는 규칙, 사용자에게 보일 오류, 쓰기 요청의
@@ -932,9 +932,40 @@ tooling:
     max_retries: 2
 ```
 
-생성된 fake로 정상·timeout·4xx·5xx를 먼저 테스트한다. 실제 provider URL·API key를
-`.env`/Secret에 넣은 뒤에만 health 확인을 한다. 읽기 요청과 달리 결제·주문 같은 쓰기
-요청은 자동 재시도에 기대지 말고, 도메인 idempotency 정책을 명시한다.
+생성된 fake로 정상·4xx·5xx를 먼저 테스트한다. 이 fake는 선언한 응답을 순서대로
+돌려주는 경계이므로 실제 network timeout을 흉내 내지는 않는다. timeout·retry의 실제
+transport 동작은 provider URL을 연결한 별도 integration test에서 확인한다. 실제 provider
+URL·API key를 `.env`/Secret에 넣은 뒤에만 health 확인을 한다. 읽기 요청과 달리
+결제·주문 같은 쓰기 요청은 자동 재시도에 기대지 말고, 도메인 idempotency 정책을 명시한다.
+
+`tests/test_external_provider_fake.py`:
+
+```python
+import pytest
+
+from profile_server.infrastructure.external_provider.fake import FakeExternalProviderClient
+from profile_server.infrastructure.external_provider.protocol import ExternalResponse
+
+
+@pytest.mark.anyio
+async def test_external_provider_fake_returns_declared_responses() -> None:
+    provider = FakeExternalProviderClient(
+        [
+            ExternalResponse(status_code=200, headers={}, content=b"ok"),
+            ExternalResponse(status_code=404, headers={}, content=b"missing"),
+            ExternalResponse(status_code=503, headers={}, content=b"unavailable"),
+        ]
+    )
+
+    assert (await provider.request("GET", "/quote")).status_code == 200
+    assert (await provider.request("GET", "/missing")).status_code == 404
+    assert (await provider.request("GET", "/retry-later")).status_code == 503
+```
+
+```powershell
+Set-Location C:\workspace\profile-server
+python -m pytest tests\test_external_provider_fake.py -q
+```
 
 ### Level 6. 퀘스트 도감: Search, Vector Store, RAG
 
