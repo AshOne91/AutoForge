@@ -309,7 +309,9 @@ AutoForge currently has working foundations for:
   consumers address `search:9200`, while the generated Nginx proxy retries a healthy
   member. An isolated Docker drill created a one-replica Elasticsearch index, stopped
   one member, wrote and searched a new document, and reread the baseline document
-  through that stable address. This is one-host logical-node recovery.
+  through that stable address. The stopped member then rejoined with three nodes,
+  green index health, and no unassigned shards before the outage-written document
+  was searched again. This is one-host logical-node recovery.
   `RagSpec.qdrant_mode: cluster` now generates three Qdrant peers behind
   the unchanged `QDRANT_URL` HTTP contract plus a stable generated gRPC endpoint.
   An isolated Docker drill created an HA test collection with

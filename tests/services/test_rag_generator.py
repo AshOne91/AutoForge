@@ -715,6 +715,55 @@ async def test_clustered_elasticsearch_reads_and_writes_after_member_stops(
             await anyio.sleep(2)
         assert result.succeeded, result.stderr
         assert '"message":"ha-check"' in result.stdout
+        result = await runner.run(
+            (*compose, "start", "elasticsearch-1"), cwd=tmp_path, timeout_seconds=30
+        )
+        assert result.succeeded, result.stderr
+        health: dict[str, object] = {}
+        for _ in range(30):
+            result = await runner.run(
+                (
+                    *compose,
+                    "exec",
+                    "-T",
+                    "elasticsearch-2",
+                    "curl",
+                    "--fail",
+                    "--silent",
+                    "http://search:9200/_cluster/health/ha-check?wait_for_status=green&wait_for_nodes=3&timeout=2s",
+                ),
+                cwd=tmp_path,
+                timeout_seconds=10,
+            )
+            if result.succeeded:
+                health = json.loads(result.stdout)
+                if (
+                    health.get("status") == "green"
+                    and health.get("number_of_nodes") == 3
+                    and health.get("unassigned_shards") == 0
+                ):
+                    break
+            await anyio.sleep(2)
+        assert result.succeeded, result.stderr
+        assert health.get("status") == "green"
+        assert health.get("number_of_nodes") == 3
+        assert health.get("unassigned_shards") == 0
+        result = await runner.run(
+            (
+                *compose,
+                "exec",
+                "-T",
+                "elasticsearch-2",
+                "curl",
+                "--fail",
+                "--silent",
+                "http://search:9200/ha-check/_search?q=message:ha-write",
+            ),
+            cwd=tmp_path,
+            timeout_seconds=20,
+        )
+        assert result.succeeded, result.stderr
+        assert '"message":"ha-write"' in result.stdout
     finally:
         await runner.run(
             (*compose, "down", "--volumes", "--remove-orphans"),
