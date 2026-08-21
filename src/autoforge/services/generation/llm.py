@@ -95,7 +95,7 @@ class LlmGenerator:
     def _render_protocol() -> str:
         return (
             "from __future__ import annotations\n\nfrom collections.abc import Sequence\n"
-            "from dataclasses import dataclass\nfrom typing import Protocol\n\n"
+            "from dataclasses import dataclass\nfrom typing import Protocol\n\n\n"
             "@dataclass(frozen=True, slots=True)\nclass LlmMessage:\n"
             "    role: str\n    content: str\n\n"
             "    def __post_init__(self) -> None:\n"
@@ -112,7 +112,7 @@ class LlmGenerator:
     def _render_fake() -> str:
         return (
             "from collections import deque\nfrom collections.abc import Iterable, Sequence\n\n"
-            "from .protocol import LlmMessage, LlmResponse\n\n"
+            "from .protocol import LlmMessage, LlmResponse\n\n\n"
             "class FakeLlmClient:\n"
             "    def __init__(self, responses: Iterable[LlmResponse] = ()) -> None:\n"
             "        self._responses = deque(responses)\n        self.requests: list[tuple[tuple[LlmMessage, ...], str | None]] = []\n\n"
@@ -127,7 +127,7 @@ class LlmGenerator:
         return (
             "from __future__ import annotations\n\nfrom collections.abc import Sequence\n\n"
             "from openai import AsyncOpenAI\n\nfrom .config import LlmConfig\n"
-            "from .protocol import LlmMessage, LlmResponse\n\n"
+            "from .protocol import LlmMessage, LlmResponse\n\n\n"
             "class OpenAIResponsesClient:\n"
             "    def __init__(self, config: LlmConfig, *, client: AsyncOpenAI | None = None) -> None:\n"
             "        self._config = config\n        self._client = client or AsyncOpenAI(api_key=config.api_key, timeout=config.timeout_seconds)\n        self._owns_client = client is None\n\n"
@@ -145,7 +145,7 @@ class LlmGenerator:
     def _render_service() -> str:
         return (
             "from __future__ import annotations\n\nfrom collections.abc import Sequence\n\n"
-            "from .config import LlmConfig\nfrom .protocol import LlmClient, LlmMessage, LlmResponse\n\n"
+            "from .config import LlmConfig\nfrom .protocol import LlmClient, LlmMessage, LlmResponse\n\n\n"
             "class LlmService:\n"
             "    def __init__(self, client: LlmClient) -> None: self._client = client\n\n"
             "    @classmethod\n    def from_environment(cls) -> LlmService:\n"
