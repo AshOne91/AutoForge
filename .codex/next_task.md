@@ -1,9 +1,10 @@
 # Next Task
 
-## Next executable unit: verify replicated Ollama member rejoin
+## Next executable unit: reconcile the local service resilience evidence
 
-Extend the existing opt-in replicated Ollama Docker drill after stopping one
-member and proving stable proxy readiness. Start the stopped member, wait until all
-three Ollama services are healthy, and confirm the unchanged `/api/tags` proxy
-endpoint still responds. Do not download a model, share member volumes, or claim
-inference failover; model preparation remains an explicit operator step.
+Compare the implemented local service modes in `current_status.md` with the
+remaining service-oriented roadmap entries. For each generated infrastructure
+service, distinguish standalone restart recovery, logical-node failover, member
+rejoin, and explicit external/provider-owned HA. Correct only factual status or
+roadmap contradictions, then select one smallest implementation gap. Do not create
+a new matrix document, invent HA for non-durable caches, or download an Ollama model.

@@ -437,7 +437,7 @@ async def test_clustered_qdrant_reads_and_writes_after_member_stops(
 
 @pytest.mark.integration
 @pytest.mark.anyio
-async def test_replicated_ollama_keeps_readiness_after_member_stops(
+async def test_replicated_ollama_recovers_member_and_proxy_readiness(
     tmp_path: Path,
 ) -> None:
     if os.environ.get("AUTOFORGE_DOCKER_OLLAMA_REPLICATED_INTEGRATION") != "1":
@@ -520,6 +520,40 @@ async def test_replicated_ollama_keeps_readiness_after_member_stops(
             await anyio.sleep(2)
         else:
             pytest.fail("Ollama readiness was unavailable after member stop")
+        result = await runner.run(
+            (*compose, "start", "ollama-1"), cwd=tmp_path, timeout_seconds=30
+        )
+        assert result.succeeded, result.stderr
+        for _ in range(30):
+            result = await runner.run(
+                (*compose, "ps", "--quiet", "ollama-1", "ollama-2", "ollama-3"),
+                cwd=tmp_path,
+                timeout_seconds=10,
+            )
+            container_ids = result.stdout.splitlines() if result.succeeded else []
+            if len(container_ids) == 3:
+                result = await runner.run(
+                    (
+                        "docker",
+                        "inspect",
+                        "--format",
+                        "{{.State.Health.Status}}",
+                        *container_ids,
+                    ),
+                    cwd=tmp_path,
+                    timeout_seconds=10,
+                )
+                if result.succeeded and result.stdout.splitlines() == [
+                    "healthy",
+                    "healthy",
+                    "healthy",
+                ]:
+                    break
+            await anyio.sleep(2)
+        else:
+            pytest.fail(f"Ollama members did not recover: {result.stdout} {result.stderr}")
+        tags = await anyio.to_thread.run_sync(_request_json, endpoint)
+        assert "models" in tags
     finally:
         await runner.run(
             (*compose, "down", "--volumes", "--remove-orphans"),
