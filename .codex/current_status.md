@@ -1352,6 +1352,14 @@ and Ollama passed the complete non-opt-in AutoForge regression gate on
 `AutoForge v0.1.0`. Opt-in Docker drills were not repeated by this gate; their
 individual runtime evidence is recorded above.
 
+Fresh disposable generation from the maintained `scheduled_ingestion` and
+`identity_session_profile` Blueprints now proves the standalone and local-HA
+handoff without starting containers. Both projects generated and regenerated
+cleanly; their manifests contain no errors and preserve SCAFFOLDED files while
+leaving GENERATED files unchanged. Generated Python imports and health tests,
+all five Compose configurations, and both port plans passed. The generated
+health tests expose one dependency-owned FastAPI/Starlette `TestClient` warning.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:
