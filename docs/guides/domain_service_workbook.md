@@ -566,8 +566,9 @@ Durable Job과 Airflow 호출 경로를 생성한다.
 **내 코드:** 어떤 event를 기록할지, consumer가 실제로 무엇을 할지, 보상이 이미 지급된
 경우 어떻게 처리할지를 작성한다.
 
-**클리어:** `rabbitmq`, `outbox-relay`, `message-worker`가 healthy이고 fake consumer
-테스트와 한 번의 HTTP event 생성이 모두 통과한다.
+**클리어:** `rabbitmq`, `outbox-relay`, `message-worker`, `durable-job-worker`가
+healthy이고, 아래의 deterministic job handler 테스트와 내부 HTTP job 요청이 모두
+통과한다.
 
 “프로필 변경 후 환영 메일을 보내기”처럼 DB commit 뒤 별도 작업이 필요할 때 쓴다.
 같은 DB transaction에 profile 변경과 Outbox 기록을 남기고, relay/worker가 RabbitMQ를
@@ -595,6 +596,114 @@ application:
 RabbitMQ cluster를 선택하는 HA 실습에서만 사용한다. 여기서 `queue_type`을 쓰지 않는
 것은 설정을 빼먹은 것이 아니라, 한 대 PC에서 먼저 메시지 흐름을 확인하기 위한 기본값
 선택이다.
+
+### Level 2.1 사용자 소유 job handler를 하나 구현한다
+
+`src/profile_server/application/durable_job_handler.py`는 SCAFFOLDED 파일이다. 아래처럼
+작은 결정론적 결과부터 돌려준다. 실제 보상 지급 규칙은 이 함수에 작성하고, RabbitMQ
+connection·Outbox relay·상태 전이는 generated infrastructure에 맡긴다.
+
+```python
+from profile_server.infrastructure.database.session import AsyncSessionRegistry
+from profile_server.infrastructure.durable_jobs.worker import DurableJobExecution
+
+
+class ApplicationDurableJobHandler:
+    async def handle(
+        self, execution: DurableJobExecution
+    ) -> dict[str, object] | None:
+        return {
+            "job_type": execution.job_type,
+            "run_key": execution.run_key,
+        }
+
+
+def validate_durable_job_payload(
+    job_type: str, payload: dict[str, object]
+) -> None:
+    del job_type, payload
+
+
+def create_durable_job_handler(
+    session_registry: AsyncSessionRegistry,
+) -> ApplicationDurableJobHandler:
+    del session_registry
+    return ApplicationDurableJobHandler()
+```
+
+먼저 이 코드만 확인한다.
+
+`tests/test_durable_job_handler.py`:
+
+```python
+import pytest
+
+from profile_server.application.durable_job_handler import ApplicationDurableJobHandler
+from profile_server.infrastructure.durable_jobs.worker import DurableJobExecution
+
+
+@pytest.mark.anyio
+async def test_durable_job_handler_returns_a_deterministic_result() -> None:
+    result = await ApplicationDurableJobHandler().handle(
+        DurableJobExecution(
+            job_id="job-1",
+            job_type="daily_profile_check",
+            run_key="guide-check-1",
+            payload={},
+        )
+    )
+
+    assert result == {"job_type": "daily_profile_check", "run_key": "guide-check-1"}
+```
+
+```powershell
+Set-Location C:\workspace\profile-server
+python -m pytest tests\test_durable_job_handler.py -q
+```
+
+### Level 2.2 내부 HTTP 요청으로 RabbitMQ worker까지 확인한다
+
+공통 네 단계를 끝내면 `airflow-db-bootstrap`은 이미 존재하는 PostgreSQL volume에도
+Airflow용 DB를 한 번만 만들고 종료한다. 따라서 Level 1의 profile 데이터를 지우기 위해
+`down --volumes`를 실행할 필요가 없다.
+
+SCAFFOLDED handler를 이미지에 넣고, local `.env`의 내부 service token으로 job을 요청한다.
+
+```powershell
+Set-Location C:\workspace\profile-server
+docker compose --env-file environment\.env `
+  -f environment\compose.integration.yml up -d --build application durable-job-worker
+
+$jobToken = (Get-Content environment\.env |
+  Where-Object { $_ -match '^DURABLE_JOB_API_TOKEN=' } |
+  Select-Object -First 1) -replace '^DURABLE_JOB_API_TOKEN=', ''
+$jobHeaders = @{ Authorization = "Bearer $jobToken" }
+$jobBody = @{ run_key = "guide-check-$([guid]::NewGuid())"; payload = @{} } |
+  ConvertTo-Json
+
+$job = Invoke-RestMethod -UseBasicParsing -Method Post `
+  -Uri http://127.0.0.1:49200/internal/jobs/daily_profile_check `
+  -Headers $jobHeaders -ContentType "application/json" -Body $jobBody
+
+$deadline = (Get-Date).AddSeconds(30)
+do {
+  $jobState = Invoke-RestMethod -UseBasicParsing -Method Get `
+    -Uri "http://127.0.0.1:49200/internal/jobs/daily_profile_check/$($job.job_id)" `
+    -Headers $jobHeaders
+  if ($jobState.status -in @("succeeded", "failed")) { break }
+  Start-Sleep -Milliseconds 500
+} while ((Get-Date) -lt $deadline)
+
+if ($jobState.status -ne "succeeded") {
+  throw "Job did not succeed: $($jobState | ConvertTo-Json -Compress)"
+}
+
+$jobState
+```
+
+`status: "succeeded"`와 `result.run_key`가 보이면, HTTP 요청은 DB에 job을 기록하고,
+Outbox relay는 RabbitMQ event를 전달했으며, worker가 SCAFFOLDED handler를 실행한 것이다.
+`/internal/jobs/*`는 일반 로그인 토큰이 아니라 내부 service token 전용 endpoint다.
 
 ### Level 2 이상에서 매번 하는 네 단계
 
@@ -628,8 +737,10 @@ docker compose --env-file environment\.env `
 ```
 
 기존 `.env`를 이미 만들었다면 `.env.example`을 덮어쓰지 않는다. 새 Level이 서비스나
-환경값을 추가했을 때는 새 `.env.example`에서 **새로 생긴 줄만** 기존 `.env`에 복사한다.
-예를 들어 이 Level에서는 `RABBITMQ_URL`과 `DURABLE_JOB_API_TOKEN` 줄을 추가한다.
+환경값을 추가했을 때는 새 `.env.example`에서 **새로 생긴 줄을 모두** 기존 `.env`에
+복사한다. 이 Level에서는 `RABBITMQ_USER`, `RABBITMQ_PASSWORD`,
+`RABBITMQ_AMQP_PORT`, `RABBITMQ_MANAGEMENT_PORT`, `RABBITMQ_URL`, `AIRFLOW_PORT`,
+`DURABLE_JOB_API_URL`, `DURABLE_JOB_API_TOKEN`이 추가된다.
 
 별도 overlay를 만드는 Level은 위 네 단계 뒤에 그 Level에 적힌 별도 Compose 명령을
 추가로 실행한다. `.env`, generated Compose, `generated/` 파일을 직접 고쳐 문제를
@@ -642,8 +753,8 @@ docker compose --env-file environment\.env `
 [Database Outbox](../architecture/database_generation.md)다.
 
 확인 순서는 `generate` → `docker compose ... ps`에서 `rabbitmq`, `outbox-relay`,
-`message-worker` 확인 → 사용자 소유 consumer의 작은 fake 테스트 → HTTP에서 event를
-만드는 도메인 요청 순서다.
+`message-worker`, `durable-job-worker` 확인 → 사용자 소유 job handler의 작은 test →
+내부 HTTP job 요청 순서다.
 
 ### Level 3. 인기 퀘스트 순위표: Cache와 Distributed Lock
 
