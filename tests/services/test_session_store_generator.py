@@ -346,6 +346,7 @@ async def test_generated_sentinel_session_store_recovers_after_redis_primary_sto
         "redis-sentinel-1:26379,redis-sentinel-2:26379,redis-sentinel-3:26379"
     )
     probe_name = f"{package_name}-probe"
+    replay_probe_name = f"{package_name}-replay-probe"
     runner = AsyncioProcessRunner()
     try:
         result = await runner.run(
@@ -423,9 +424,41 @@ async def test_generated_sentinel_session_store_recovers_after_redis_primary_sto
         )
         assert result.succeeded, result.stderr
         assert result.stdout.strip() == "0"
+
+        result = await runner.run(
+            (
+                "docker",
+                "run",
+                "--name",
+                replay_probe_name,
+                "--network",
+                f"{package_name}_default",
+                "--volume",
+                f"{workspace.root.resolve()}:/workspace",
+                "--workdir",
+                "/workspace",
+                "--env",
+                f"REDIS_SENTINEL_URLS={sentinel_urls}",
+                "python:3.12-alpine",
+                "sh",
+                "-c",
+                (
+                    "pip install --disable-pip-version-check 'fastapi>=0.110,<1' "
+                    "'redis>=5,<7' && python verify_sentinel_replay.py"
+                ),
+            ),
+            cwd=workspace.root,
+            timeout_seconds=120,
+        )
+        assert result.succeeded, result.stderr
     finally:
         await runner.run(
             ("docker", "rm", "--force", probe_name),
+            cwd=workspace.root,
+            timeout_seconds=30,
+        )
+        await runner.run(
+            ("docker", "rm", "--force", replay_probe_name),
             cwd=workspace.root,
             timeout_seconds=30,
         )
@@ -444,6 +477,7 @@ def _write_sentinel_session_probe(workspace_root: Path, package_name: str) -> No
         "from fastapi import FastAPI\n"
         "sys.path.insert(0, '/workspace/src')\n"
         f"from {package_name}.infrastructure.session_store import (\n"
+        "    ReplayClaim,\n"
         "    SessionData,\n"
         "    create_session_id,\n"
         ")\n"
@@ -460,6 +494,19 @@ def _write_sentinel_session_probe(workspace_root: Path, package_name: str) -> No
         "        )\n"
         "        await store.create(session)\n"
         "        assert await store.get(session.session_id) == session\n"
+        "        replay_store = app.state.request_replay_store\n"
+        "        replay_claim = await replay_store.claim(\n"
+        "            'sentinel-replay', 'fingerprint', 600\n"
+        "        )\n"
+        "        assert isinstance(replay_claim, ReplayClaim)\n"
+        "        assert await replay_store._client.wait(2, 10_000) == 2\n"
+        "        Path('/workspace/replay_claim.txt').write_text(\n"
+        "            '|'.join((\n"
+        "                replay_claim.key, replay_claim.fingerprint,\n"
+        "                replay_claim.token, str(replay_claim.ttl_seconds),\n"
+        "            )),\n"
+        "            encoding='utf-8',\n"
+        "        )\n"
         "        print('BEFORE', flush=True)\n"
         "        for _ in range(900):\n"
         "            if Path('/workspace/continue').exists():\n"
@@ -469,6 +516,35 @@ def _write_sentinel_session_probe(workspace_root: Path, package_name: str) -> No
         "            raise RuntimeError('test did not signal post-failover probe')\n"
         "        assert await store.get(session.session_id) == session\n"
         "        print('AFTER', flush=True)\n"
+        "\n"
+        "asyncio.run(verify())\n",
+        encoding="utf-8",
+    )
+    (workspace_root / "verify_sentinel_replay.py").write_text(
+        "import asyncio\n"
+        "import sys\n"
+        "from pathlib import Path\n"
+        "from fastapi import FastAPI\n"
+        "sys.path.insert(0, '/workspace/src')\n"
+        f"from {package_name}.infrastructure.session_store import (\n"
+        "    ReplayClaim,\n"
+        "    ReplayRecord,\n"
+        ")\n"
+        f"from {package_name}.infrastructure.session_store.provider import (\n"
+        "    session_store_lifespan,\n"
+        ")\n"
+        "\n"
+        "async def verify():\n"
+        "    key, fingerprint, token, ttl_seconds = Path(\n"
+        "        '/workspace/replay_claim.txt'\n"
+        "    ).read_text(encoding='utf-8').split('|')\n"
+        "    claim = ReplayClaim(key, fingerprint, token, int(ttl_seconds))\n"
+        "    app = FastAPI()\n"
+        "    async with session_store_lifespan(app):\n"
+        "        replay_store = app.state.request_replay_store\n"
+        "        await replay_store.complete(claim, 201, '{\"created\":true}')\n"
+        "        replay = await replay_store.claim(key, fingerprint, claim.ttl_seconds)\n"
+        "        assert replay == ReplayRecord(201, '{\"created\":true}')\n"
         "\n"
         "asyncio.run(verify())\n",
         encoding="utf-8",

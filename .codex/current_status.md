@@ -1012,6 +1012,14 @@ a session before the primary stopped and read the same session from the new
 primary after the Sentinel view was stable. This verifies local failover recovery,
 not a zero-RPO guarantee for Redis's asynchronous replication.
 
+The generated `request_replay_store` was separately verified in that Sentinel
+topology. The drill used `WAIT(2, 10_000)` only as a test precondition to confirm
+both replicas had acknowledged a pending replay claim, stopped the primary, then
+used a fresh generated lifespan/provider connection to complete and re-read that
+same record from the elected master. This proves the explicit replicated-record
+and reconnect boundary; it does not make `WAIT` a generated default or promise
+zero RPO or transparent recovery for an in-flight HTTP request.
+
 `tooling.realtime` generates an opt-in `infrastructure/realtime` runtime
 contract with an asynchronous in-process `RealtimeHub`, channel
 subscribe/unsubscribe/publish, explicit close, and a deterministic subscriber
