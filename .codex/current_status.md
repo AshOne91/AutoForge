@@ -1028,7 +1028,10 @@ replacement handler. The two HTTP checks share the existing pre/post-failover
 probe containers so local test load does not distort Sentinel election timing.
 The promoted-master check also reuses that idempotency key with a changed request
 body and receives the generated 409 conflict before the replacement handler can
-run.
+run. A separate post-failover key then forces the fixture handler to return 500;
+the generated exception path aborts that pending claim, and a caller-initiated
+retry with the same key and body succeeds once the fixture handler is replaced.
+This verifies claim cleanup, not automatic request retry.
 
 `tooling.realtime` generates an opt-in `infrastructure/realtime` runtime
 contract with an asynchronous in-process `RealtimeHub`, channel

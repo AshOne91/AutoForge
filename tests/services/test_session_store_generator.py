@@ -456,7 +456,8 @@ async def test_generated_sentinel_session_and_request_replay_recover_after_redis
         assert result.succeeded, result.stderr
 
         master_after = master_before
-        for _ in range(45):
+        failover_deadline = anyio.current_time() + 180
+        while anyio.current_time() < failover_deadline:
             master_after = await _sentinel_master_address(
                 runner, workspace.root, compose, sentinel_master
             )
@@ -608,6 +609,12 @@ def _write_sentinel_session_probe(workspace_root: Path, package_name: str) -> No
         "async def must_not_run(request):\n"
         "    raise AssertionError('replayed request called its handler')\n"
         "\n"
+        "async def fails_once(request):\n"
+        "    raise RuntimeError('fixture handler failed')\n"
+        "\n"
+        "async def created(request):\n"
+        "    return {'message': request.message}\n"
+        "\n"
         "async def verify():\n"
         "    key, fingerprint, token, ttl_seconds = Path(\n"
         "        '/workspace/replay_claim.txt'\n"
@@ -643,6 +650,28 @@ def _write_sentinel_session_probe(workspace_root: Path, package_name: str) -> No
         "        assert conflict.json() == {\n"
         "            'detail': 'idempotency key was reused with a different request'\n"
         "        }\n"
+        "        router.handlers.submit = fails_once\n"
+        "        async with AsyncClient(\n"
+        "            transport=ASGITransport(app=app, raise_app_exceptions=False),\n"
+        "            base_url='http://test',\n"
+        "        ) as client:\n"
+        "            failed = await client.post(\n"
+        "                '/api/replay/submit',\n"
+        "                headers={'Idempotency-Key': 'sentinel-abort'},\n"
+        "                json={'message': 'retried'},\n"
+        "            )\n"
+        "        assert failed.status_code == 500\n"
+        "        router.handlers.submit = created\n"
+        "        async with AsyncClient(\n"
+        "            transport=ASGITransport(app=app), base_url='http://test'\n"
+        "        ) as client:\n"
+        "            retried = await client.post(\n"
+        "                '/api/replay/submit',\n"
+        "                headers={'Idempotency-Key': 'sentinel-abort'},\n"
+        "                json={'message': 'retried'},\n"
+        "            )\n"
+        "        assert retried.status_code == 200\n"
+        "        assert retried.json() == {'message': 'retried'}\n"
         "\n"
         "asyncio.run(verify())\n",
         encoding="utf-8",

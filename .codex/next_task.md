@@ -1,9 +1,10 @@
 # Next Task
 
-## Next executable unit: verify failed idempotent handler releases its claim
+## Next executable unit: verify concurrent idempotent request remains in progress
 
-Extend the post-failover HTTP probe with a new idempotency key whose first handler
-call raises. Verify the generated route aborts that pending claim, then replace
-the handler with a successful fixture and retry the same key and body once.
-Reuse the promoted Sentinel master and current probe container; do not add
-automatic retry, consumer-domain policy, or a new durability guarantee.
+Extend the post-failover HTTP probe with a fixture handler held behind an async
+event. While its first request owns a pending claim, send the same key and body
+again and verify the generated route returns 409 without a second handler call.
+Release the first request and verify it completes once. Reuse the promoted
+Sentinel master and current probe container; do not add queueing, automatic retry,
+consumer-domain policy, or a new durability guarantee.
