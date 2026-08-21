@@ -58,9 +58,9 @@ AutoForge는 참고 프로젝트의 포팅이 아니라 재설계 프로젝트�
 
 ## 문서
 
-- `docs/study/README.md`: Python·웹·FastAPI부터 시작하는 완전 입문 시리즈
-- `docs/AUTOFORGE_STUDY_GUIDE_2026-07-30.md`: 코드, 아키텍처와 FastAPI 학습 가이드
-- `docs/PROJECT_GUIDE_2026-07-29.md`
+- [처음부터 만드는 AutoForge 로그인 서버](docs/guides/login_server_from_zero.md):
+  도구가 없는 Windows PC에서 시작해 명세, 생성, Docker, 로그인, Redis 세션,
+  ping/pong, 테스트까지 진행하는 초보자용 실습 GUIDE
 - `docs/architecture/system_design.md`
 - `docs/architecture/generation_contract.md`
 - `docs/architecture/specification_design.md`
