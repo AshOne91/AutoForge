@@ -28,8 +28,8 @@ from autoforge.core.specification import (
 from autoforge.core.workspace import Workspace
 from autoforge.infrastructure.process import AsyncioProcessRunner
 from autoforge.services.generation import (
-    FastAPIProjectGenerator,
     FastAPIModuleGenerator,
+    FastAPIProjectGenerator,
     GenerationPlanApplier,
     GenerationPlanResolver,
     LocalEnvironmentGenerator,

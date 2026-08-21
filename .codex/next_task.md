@@ -1,8 +1,9 @@
 # Next Task
 
-## Next executable unit: prove the KIS realtime multi-replica boundary
+## Next executable unit: select the first missing KIS trading Blueprint slice
 
-Run the maintained realtime-notification verifier using generated KIS runtime
-contracts. Prove cross-replica delivery through the Redis backplane and preserve
-best-effort realtime semantics without treating it as durable authority. Do not
-call the live KIS API, and remove disposable resources after the drill.
+Compare the maintained KIS specifications and consumer symbols with the trading
+Blueprint roadmap, then identify exactly one missing read-only domain slice that
+can reuse the verified token, database, Redis, messaging, observability, and HA
+contracts. Do not place orders or implement the slice until its current-code gap
+and ownership boundary are proven.

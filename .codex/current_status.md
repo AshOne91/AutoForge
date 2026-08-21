@@ -1441,6 +1441,24 @@ runtime then discovered and registered its DAG, triggered a scheduled Durable
 Job, and cancelled it before any live KIS work ran. The isolated stack and
 prerequisite network were removed afterward.
 
+KIS HA verification no longer requires a manual `docker network create` step.
+Its shared PostgreSQL/Redis/RabbitMQ verifier environment now creates the
+generated external RAG network only when it is absent, remembers ownership, and
+removes only the network it created after Compose cleanup. A clean-machine Redis
+failover rerun proved automatic creation, the full promotion/data/application
+path, and automatic removal. Pre-existing operator-owned networks remain outside
+the verifier's cleanup ownership.
+
+The infrastructure stabilization gate now passes end to end. AutoForge passes
+its complete non-opt-in suite with warnings treated as errors (`674 passed, 30
+skipped`) and full Ruff; KIS passes the same gate (`129 passed, 4 skipped`) and
+full Ruff. One pre-existing test import-order violation found by the final Ruff
+gate was mechanically corrected and its focused suite passes (`10 passed, 1
+skipped`). No disposable verification containers or owned Docker networks remain.
+Five ignored generation workspaces were reduced to Windows ACL-locked
+`.pytest_cache` directories that cannot be removed from this process; `.tmp-*/`
+remains Git-ignored and neither repository tracks those remnants.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:
