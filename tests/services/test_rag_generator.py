@@ -533,7 +533,7 @@ async def test_replicated_ollama_keeps_readiness_after_member_stops(
 
 @pytest.mark.integration
 @pytest.mark.anyio
-async def test_clustered_elasticsearch_recovers_search_after_member_stops(
+async def test_clustered_elasticsearch_reads_and_writes_after_member_stops(
     tmp_path: Path,
 ) -> None:
     if os.environ.get("AUTOFORGE_DOCKER_RAG_SEARCH_CLUSTER_INTEGRATION") != "1":
@@ -654,6 +654,47 @@ async def test_clustered_elasticsearch_recovers_search_after_member_stops(
             (*compose, "stop", "elasticsearch-1"), cwd=tmp_path, timeout_seconds=30
         )
         assert result.succeeded, result.stderr
+        for _ in range(30):
+            result = await runner.run(
+                (
+                    *compose,
+                    "exec",
+                    "-T",
+                    "elasticsearch-2",
+                    "curl",
+                    "--fail",
+                    "--silent",
+                    "-X",
+                    "POST",
+                    "http://search:9200/ha-check/_doc/2?refresh=true",
+                    "-H",
+                    "Content-Type: application/json",
+                    "-d",
+                    '{"message":"ha-write"}',
+                ),
+                cwd=tmp_path,
+                timeout_seconds=20,
+            )
+            if result.succeeded:
+                break
+            await anyio.sleep(2)
+        assert result.succeeded, result.stderr
+        result = await runner.run(
+            (
+                *compose,
+                "exec",
+                "-T",
+                "elasticsearch-2",
+                "curl",
+                "--fail",
+                "--silent",
+                "http://search:9200/ha-check/_search?q=message:ha-write",
+            ),
+            cwd=tmp_path,
+            timeout_seconds=20,
+        )
+        assert result.succeeded, result.stderr
+        assert '"message":"ha-write"' in result.stdout
         for _ in range(30):
             result = await runner.run(
                 (

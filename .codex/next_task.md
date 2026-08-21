@@ -1,10 +1,9 @@
 # Next Task
 
-## Next executable unit: verify clustered Elasticsearch writes with one member stopped
+## Next executable unit: verify clustered Elasticsearch member rejoin after a degraded write
 
-Locate the existing opt-in clustered Elasticsearch Docker drill in the RAG
-generator tests and reuse its generated three-member topology, test index, and
-stable proxy endpoint. After stopping one member, index a new document through
-the unchanged endpoint and retrieve it through search before restoring the
-member. Preserve the current search contract and index ownership boundary; do
-not add application retries or a physical-host HA claim.
+Extend the existing opt-in clustered Elasticsearch Docker drill after the
+one-member outage write. Restart the stopped member, wait for all three nodes and
+green shard health, then search the outage-written document through the stable
+endpoint. Preserve the current search contract and index ownership boundary; do
+not add repair automation or a physical-host HA claim.
