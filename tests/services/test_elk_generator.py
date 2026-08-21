@@ -1,6 +1,7 @@
 import os
 import socket
 import uuid
+from http.client import RemoteDisconnected
 from pathlib import Path, PurePosixPath
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
@@ -174,7 +175,7 @@ def test_elk_collector_mode_generates_filebeat_only() -> None:
 
 @pytest.mark.integration
 @pytest.mark.anyio
-async def test_clustered_elk_preserves_filebeat_log_search_after_member_stops(
+async def test_clustered_elk_ingests_and_searches_logs_after_member_stops(
     tmp_path: Path,
 ) -> None:
     if os.environ.get("AUTOFORGE_DOCKER_ELK_CLUSTER_INTEGRATION") != "1":
@@ -209,6 +210,7 @@ async def test_clustered_elk_preserves_filebeat_log_search_after_member_stops(
     logs = tmp_path / "logs"
     logs.mkdir()
     marker = f"elk-ha-{uuid.uuid4().hex}"
+    outage_marker = f"elk-ha-outage-{uuid.uuid4().hex}"
     compose = (
         "docker",
         "compose",
@@ -323,13 +325,49 @@ async def test_clustered_elk_preserves_filebeat_log_search_after_member_stops(
             await anyio.sleep(2)
         assert marker in result.stdout, result.stderr
 
+        with (logs / "application.log").open("a", encoding="utf-8") as log_file:
+            log_file.write(
+                f'{{"event_type":"{outage_marker}","message":"clustered elk outage write"}}\n'
+            )
+        outage_query = (
+            '{"query":{"term":{"event_type":"'
+            f"{outage_marker}"
+            '"}}}'
+        )
+        for _ in range(45):
+            result = await runner.run(
+                (
+                    *compose,
+                    "exec",
+                    "-T",
+                    "elasticsearch-2",
+                    "curl",
+                    "--fail",
+                    "--silent",
+                    "-X",
+                    "POST",
+                    "http://elasticsearch:9200/_search",
+                    "-H",
+                    "Content-Type: application/json",
+                    "-d",
+                    outage_query,
+                ),
+                cwd=tmp_path,
+                timeout_seconds=20,
+                environment=environment,
+            )
+            if outage_marker in result.stdout:
+                break
+            await anyio.sleep(2)
+        assert outage_marker in result.stdout, result.stderr
+
         kibana_status_url = f"http://127.0.0.1:{host_port_base + 1}/api/status"
         for _ in range(30):
             try:
                 status = await anyio.to_thread.run_sync(
                     _get_status, kibana_status_url
                 )
-            except (HTTPError, URLError, TimeoutError):
+            except (HTTPError, RemoteDisconnected, URLError, TimeoutError):
                 await anyio.sleep(2)
                 continue
             if status == 200:

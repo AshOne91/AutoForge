@@ -296,7 +296,9 @@ AutoForge currently has working foundations for:
   `ElkSpec.elasticsearch_mode: cluster` additionally generates three local
   Elasticsearch members behind the same generated `elasticsearch:9200` proxy
   address. An isolated Docker drill ingested a JSON log through Filebeat,
-  stopped one member, and retrieved the same log through that stable endpoint.
+  stopped one member, retrieved the baseline log, then appended, ingested, and
+  searched a new JSON log through that stable endpoint. The drill also tolerates
+  Kibana's transient connection close while the surviving search cluster settles.
   The same drill confirmed the singleton Kibana `/api/status` endpoint remained
   available. This is one-host logical storage recovery; Kibana remains a singleton.
   Multiple Kibana instances are intentionally deferred because their shared
