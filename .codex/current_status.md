@@ -653,6 +653,21 @@ the unchanged application's health. This is a bounded local operator-recovery
 check; it does not select a production candidate automatically or claim zero
 data loss.
 
+The PostgreSQL/Redis drill now rejects a default single-host workspace and
+accepts only an isolated output generated from KIS `autoforge.ha.yaml`; its
+test-only KIS, Airflow, and host-port values keep that output independent of the
+running default profile. A fresh generated workspace passed the complete
+Patroni leader-stop/promotion/rejoin, intentional leaderless recovery, Redis
+network restart, and Redis primary-promotion checks. Its companion
+`kis-auto-trading/scripts/verify_generated_rabbitmq_ha.py` starts the generated
+three-node broker cluster only, verifies a quorum queue through HAProxy, repeats
+the publish/consume operation with one broker stopped, and verifies that broker
+rejoins. These are reproducible single-host Docker recovery proofs, not
+multi-host failover, replay, or in-flight application-delivery guarantees.
+The independent generated Airflow scheduler drill also completed: the scheduler
+registered its generated DAG, ran an isolated historical execution, and handled
+the cancelled Durable Job path without invoking a business provider.
+
 The KIS scale-out integration profile reserves Redis Cluster's fixed
 `172.29.0.10`–`172.29.0.15` addresses and allocates other containers from
 `172.29.0.128/25`. This keeps partial service restarts from colliding with Redis
