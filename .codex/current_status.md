@@ -297,7 +297,8 @@ AutoForge currently has working foundations for:
   Elasticsearch members behind the same generated `elasticsearch:9200` proxy
   address. An isolated Docker drill ingested a JSON log through Filebeat,
   stopped one member, and retrieved the same log through that stable endpoint.
-  This is one-host logical storage recovery; Kibana remains a singleton.
+  The same drill confirmed the singleton Kibana `/api/status` endpoint remained
+  available. This is one-host logical storage recovery; Kibana remains a singleton.
   Multiple Kibana instances are intentionally deferred because their shared
   encryption-key and Secret lifecycle is not part of the insecure local ELK
   overlay contract.

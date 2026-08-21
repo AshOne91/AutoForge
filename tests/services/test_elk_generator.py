@@ -2,6 +2,8 @@ import os
 import socket
 import uuid
 from pathlib import Path, PurePosixPath
+from urllib.error import HTTPError, URLError
+from urllib.request import urlopen
 
 import anyio
 import pytest
@@ -320,6 +322,21 @@ async def test_clustered_elk_preserves_filebeat_log_search_after_member_stops(
                 break
             await anyio.sleep(2)
         assert marker in result.stdout, result.stderr
+
+        kibana_status_url = f"http://127.0.0.1:{host_port_base + 1}/api/status"
+        for _ in range(30):
+            try:
+                status = await anyio.to_thread.run_sync(
+                    _get_status, kibana_status_url
+                )
+            except (HTTPError, URLError, TimeoutError):
+                await anyio.sleep(2)
+                continue
+            if status == 200:
+                break
+            await anyio.sleep(2)
+        else:
+            pytest.fail("Kibana was unavailable after an Elasticsearch member stopped")
     finally:
         await runner.run(
             (*compose, "down", "--volumes", "--remove-orphans"),
@@ -337,3 +354,8 @@ def _port_is_available(port: int) -> bool:
         except OSError:
             return False
     return True
+
+
+def _get_status(url: str) -> int:
+    with urlopen(url, timeout=5) as response:
+        return response.status
