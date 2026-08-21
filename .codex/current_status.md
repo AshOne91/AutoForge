@@ -1360,6 +1360,15 @@ leaving GENERATED files unchanged. Generated Python imports and health tests,
 all five Compose configurations, and both port plans passed. The generated
 health tests expose one dependency-owned FastAPI/Starlette `TestClient` warning.
 
+The fresh `scheduled_ingestion` output then passed a complete standalone runtime
+smoke. Its application, PostgreSQL, RabbitMQ, Outbox relay, message worker,
+durable-job worker, Airflow scheduler/webserver, Elasticsearch, Qdrant, and
+Ollama health boundaries all passed; migrations and Airflow initialization
+exited successfully. No Ollama model was downloaded. Because `rag.enabled`
+consumers fail closed on their search and inference dependencies, the generated
+integration README and Blueprint now direct users to start the generated RAG and
+inference profiles first. The disposable containers and volumes were removed.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:

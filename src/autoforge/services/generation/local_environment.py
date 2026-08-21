@@ -126,6 +126,7 @@ class LocalEnvironmentGenerator:
                 host_port_base=host_port_base,
             ),
             PurePosixPath("environment", "README.md"): self._render_readme(
+                has_rag=has_rag,
                 database_provider=database_provider,
                 has_database=bool(specification.application.databases),
                 redis_mode=redis_mode,
@@ -2048,6 +2049,7 @@ class LocalEnvironmentGenerator:
     @staticmethod
     def _render_readme(
         *,
+        has_rag: bool,
         database_provider: str,
         has_database: bool,
         redis_mode: str | None,
@@ -2101,13 +2103,23 @@ class LocalEnvironmentGenerator:
             "\n"
             f"This disposable profile starts {', '.join(services)} for integration checks.\n"
             "\n"
-            "```powershell\n"
-            "Copy-Item .env.example .env\n"
-            f"{startup_command}\n"
-            "docker compose --env-file .env -f compose.integration.yml down\n"
-            "```\n"
-            "\n"
-            "Long-running services use `restart: unless-stopped`, so they recover "
+            + (
+                "This application requires the generated RAG services. Follow "
+                "[`deploy/rag/README.md`](../deploy/rag/README.md) to create the shared "
+                "network and start the RAG and inference profiles before this profile.\n"
+                "\n"
+                if has_rag
+                else ""
+            )
+            + (
+                "```powershell\n"
+                "Copy-Item .env.example .env\n"
+                f"{startup_command}\n"
+                "docker compose --env-file .env -f compose.integration.yml down\n"
+                "```\n"
+                "\n"
+            )
+            + "Long-running services use `restart: unless-stopped`, so they recover "
             "after the Docker engine restarts. The host must start Docker automatically; "
             "AWS Launch Template UserData is a separate deployment concern and is not "
             "part of this disposable integration profile.\n"

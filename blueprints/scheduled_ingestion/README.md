@@ -13,6 +13,10 @@
 - Airflow DAG, outbox relay, durable-job worker
 - private durable-job API와 Docker Compose 실행 환경
 
+이 Blueprint는 RAG 소비자 연결도 선택했으므로 기본 통합 환경을 시작하기 전에
+생성된 `deploy/rag/README.md`에 따라 공유 네트워크와 RAG·inference profile을
+먼저 시작한다. 모델 다운로드는 별도이며 기본 시작 조건이 아니다.
+
 생성 명령:
 
 ```powershell

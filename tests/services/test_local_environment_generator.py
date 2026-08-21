@@ -869,6 +869,7 @@ def test_render_connects_rag_consumers_to_the_shared_network() -> None:
         files[PurePosixPath("environment", "compose.integration.yml")]
     )
     environment = files[PurePosixPath("environment", ".env.example")]
+    readme = files[PurePosixPath("environment", "README.md")]
 
     assert compose["networks"]["rag"] == {
         "name": "${RAG_NETWORK_NAME:-kis_auto_trading-rag}",
@@ -890,6 +891,8 @@ def test_render_connects_rag_consumers_to_the_shared_network() -> None:
     assert "RAG_SEARCH_URL=http://elasticsearch:9200" in environment
     assert "RAG_OLLAMA_URL=http://ollama:11434" in environment
     assert "RAG_EMBEDDING_MODEL=embeddinggemma" in environment
+    assert "start the RAG and inference profiles before this profile" in readme
+    assert "../deploy/rag/README.md" in readme
 
 
 def test_render_configures_rag_consumers_for_opensearch() -> None:
