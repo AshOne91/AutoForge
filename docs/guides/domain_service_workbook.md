@@ -1263,7 +1263,35 @@ tooling:
 Set-Location C:\workspace\profile-server
 docker compose --env-file environment\.env `
   -f environment\compose.integration.yml `
-  -f deploy\observability\compose.elk.yaml up -d
+  -f deploy\observability\compose.elk.yaml up -d --wait
+docker compose --env-file environment\.env `
+  -f environment\compose.integration.yml `
+  -f deploy\observability\compose.elk.yaml ps
+```
+
+Filebeat가 실제 application log를 읽는지 확인하려면, health 요청 하나를 만들고 그
+`x-request-id`를 Elasticsearch에서 찾는다.
+
+```powershell
+$request = Invoke-WebRequest -UseBasicParsing `
+  -Uri http://127.0.0.1:49200/health
+$requestId = $request.Headers['x-request-id']
+$query = @{ query = @{ term = @{ request_id = $requestId } } } |
+  ConvertTo-Json -Depth 5 -Compress
+
+$deadline = (Get-Date).AddSeconds(30)
+do {
+  $logs = Invoke-RestMethod -Method Post `
+    -Uri http://127.0.0.1:49600/filebeat-*/_search `
+    -ContentType 'application/json' -Body $query
+  if ($logs.hits.total.value -gt 0) { break }
+  Start-Sleep -Seconds 1
+} while ((Get-Date) -lt $deadline)
+
+if ($logs.hits.total.value -eq 0) {
+  throw "Filebeat did not collect request_id=$requestId within 30 seconds."
+}
+$logs.hits.hits[0]._source
 ```
 
 애플리케이션은 Elasticsearch를 직접 호출하지 않고 `logs/*.log`를 남긴다. Filebeat가
