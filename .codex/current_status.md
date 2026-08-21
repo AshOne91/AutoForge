@@ -1153,8 +1153,9 @@ than storing it in Redis key text. This is a consumer-owned rate-limit and
 latency optimization, not a generated stale-data policy, and it does not
 change either client's read-only boundary. Fake-transport verification covers
 the cache hit paths together with token coordination, API, lifespan, and
-Durable Job handler coverage (`36 passed`); the live opt-in checks remain
-unexecuted.
+Durable Job handler coverage (`38 passed`). Malformed cached values fall
+through to the existing read-only KIS request rather than being trusted; the
+live opt-in checks remain unexecuted.
 
 KIS also has a default-skipped integration check for that balance client. It
 requires an explicit opt-in flag and the KIS application/account environment
