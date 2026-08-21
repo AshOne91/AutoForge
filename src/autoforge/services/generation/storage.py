@@ -11,9 +11,10 @@ from autoforge.core.generation import (
 from autoforge.core.specification import ProjectSpec
 
 OBJECT_STORAGE_GENERATOR_ID = "autoforge.generator.storage"
-OBJECT_STORAGE_GENERATOR_VERSION = "0.1.0"
+OBJECT_STORAGE_GENERATOR_VERSION = "0.2.0"
 MINIO_IMAGE = "minio/minio:RELEASE.2025-07-23T15-54-02Z"
 MINIO_CLIENT_IMAGE = "minio/mc:RELEASE.2025-08-13T08-35-41Z"
+NGINX_IMAGE = "nginx:1.27-alpine"
 
 
 class ObjectStorageGenerator:
@@ -46,6 +47,13 @@ class ObjectStorageGenerator:
                     ),
                 }
             )
+            if storage.mode == "distributed":
+                rendered[PurePosixPath("deploy", "storage", "nginx", "default.conf")] = (
+                    self._render_proxy_config()
+                )
+                rendered[PurePosixPath("deploy", "storage", "nginx", "console.conf")] = (
+                    self._render_console_config()
+                )
         if storage.runtime_enabled:
             root = PurePosixPath(
                 "src",
@@ -88,8 +96,14 @@ class ObjectStorageGenerator:
             ],
         )
 
+    @classmethod
+    def _render_compose(cls, specification: ProjectSpec) -> str:
+        if specification.tooling.storage.mode == "distributed":
+            return cls._render_distributed_compose(specification)
+        return cls._render_standalone_compose(specification)
+
     @staticmethod
-    def _render_compose(specification: ProjectSpec) -> str:
+    def _render_standalone_compose(specification: ProjectSpec) -> str:
         base = specification.tooling.storage.host_port_base
         return f'''name: {specification.project.package_name}-storage
 
@@ -136,6 +150,149 @@ volumes:
 '''
 
     @staticmethod
+    def _render_distributed_compose(specification: ProjectSpec) -> str:
+        base = specification.tooling.storage.host_port_base
+        nodes = " ".join(f"http://minio-{index}/data" for index in range(1, 5))
+        node_services = "\n".join(
+            f'''  minio-{index}:
+    profiles: ["storage"]
+    image: {MINIO_IMAGE}
+    command: server {nodes} --console-address ":9001"
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${{MINIO_ROOT_USER:?set MINIO_ROOT_USER}}
+      MINIO_ROOT_PASSWORD: ${{MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD}}
+    volumes:
+      - minio-{index}-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+'''
+            for index in range(1, 5)
+        )
+        dependencies = "\n".join(
+            f'''      minio-{index}:
+        condition: service_healthy'''
+            for index in range(1, 5)
+        )
+        volumes = "\n".join(f"  minio-{index}-data:" for index in range(1, 5))
+        return f'''name: {specification.project.package_name}-storage
+
+services:
+  minio:
+    profiles: ["storage"]
+    image: {NGINX_IMAGE}
+    restart: unless-stopped
+    ports:
+      - "${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{MINIO_API_PORT:-{base + 80}}}:9000"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+{dependencies}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:9000/minio/health/live >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+
+{node_services}
+  minio-init:
+    profiles: ["storage"]
+    image: {MINIO_CLIENT_IMAGE}
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${{MINIO_ROOT_USER:?set MINIO_ROOT_USER}}
+      MINIO_ROOT_PASSWORD: ${{MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD}}
+      S3_BUCKET: ${{S3_BUCKET:?set S3_BUCKET}}
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - >
+        mc alias set local http://minio:9000 "$${{MINIO_ROOT_USER}}" "$${{MINIO_ROOT_PASSWORD}}";
+        mc mb --ignore-existing "local/$${{S3_BUCKET}}"
+
+  minio-console:
+    profiles: ["storage"]
+    image: {NGINX_IMAGE}
+    restart: unless-stopped
+    ports:
+      - "${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{MINIO_CONSOLE_PORT:-{base + 81}}}:9001"
+    command: ["nginx", "-g", "daemon off;"]
+    volumes:
+      - ./nginx/console.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:9001/ >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+
+volumes:
+{volumes}
+'''
+
+    @staticmethod
+    def _render_proxy_config() -> str:
+        return '''upstream minio_backend {
+    least_conn;
+    server minio-1:9000 max_fails=1 fail_timeout=2s;
+    server minio-2:9000 max_fails=1 fail_timeout=2s;
+    server minio-3:9000 max_fails=1 fail_timeout=2s;
+    server minio-4:9000 max_fails=1 fail_timeout=2s;
+}
+
+server {
+    listen 9000;
+    client_max_body_size 0;
+
+    location / {
+        proxy_pass http://minio_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_next_upstream error timeout http_502 http_503 http_504;
+        proxy_next_upstream_tries 4;
+    }
+}
+'''
+
+    @staticmethod
+    def _render_console_config() -> str:
+        return '''upstream minio_console_backend {
+    least_conn;
+    server minio-1:9001 max_fails=1 fail_timeout=2s;
+    server minio-2:9001 max_fails=1 fail_timeout=2s;
+    server minio-3:9001 max_fails=1 fail_timeout=2s;
+    server minio-4:9001 max_fails=1 fail_timeout=2s;
+}
+
+server {
+    listen 9001;
+
+    location / {
+        proxy_pass http://minio_console_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_next_upstream error timeout http_502 http_503 http_504;
+        proxy_next_upstream_tries 4;
+    }
+}
+'''
+
+    @staticmethod
     def _render_env(specification: ProjectSpec) -> str:
         base = specification.tooling.storage.host_port_base
         return f'''# Copy to .env and replace these local development credentials.
@@ -153,6 +310,14 @@ S3_PREFIX=backups
 
     @staticmethod
     def _render_readme(specification: ProjectSpec) -> str:
+        topology_note = (
+            "\nThe `distributed` profile keeps the application endpoint at "
+            "`http://minio:9000` while four MinIO members retain object data. The "
+            "generated proxies retry another healthy member when one member stops. "
+            "This is local logical-node resilience on one Docker host, not host-level HA.\n"
+            if specification.tooling.storage.mode == "distributed"
+            else ""
+        )
         return f'''# Generated local object storage
 
 This generated overlay provides an S3-compatible MinIO endpoint for
@@ -170,6 +335,7 @@ idempotently creates `S3_BUCKET` after MinIO becomes healthy. MinIO data uses a
 named Docker volume and the API/console bind to `LOCAL_BIND_ADDRESS` only.
 `minio-init` exits successfully after initialization, so start this overlay with
 `up -d` rather than adding it to a Compose `--wait` health gate.
+{topology_note}
 Replace the sample root credentials before starting the profile. Production
 requires separate credentials, encrypted backups, bucket policies, lifecycle
 rules, and a cluster-aware object-storage deployment; do not use this Compose

@@ -725,10 +725,11 @@ class VectorStoreSpec(StrictSpecModel):
 
 
 class StorageSpec(StrictSpecModel):
-    """Generate the local S3-compatible object storage overlay by default."""
+    """Generate a local S3-compatible object storage overlay."""
 
     enabled: bool = True
     runtime_enabled: bool = False
+    mode: Literal["standalone", "distributed"] = "standalone"
     host_port_base: int = Field(default=49500, ge=49152, le=65400, multiple_of=100)
 
 

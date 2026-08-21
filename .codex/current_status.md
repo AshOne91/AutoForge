@@ -335,6 +335,11 @@ AutoForge currently has working foundations for:
 - default-generated, profile-selected MinIO S3-compatible local storage with
   idempotent backup-bucket bootstrap; generated Compose and an actual MinIO
   backup round trip are runtime-verified
+- `StorageSpec.mode: distributed` now generates four MinIO members behind the
+  same `minio:9000` application endpoint, with generated API/console proxies.
+  A disposable Docker drill wrote an object, stopped one MinIO member, and read
+  the same object through that stable endpoint. This is one-host logical-node
+  recovery evidence, not physical-host HA.
 - optional RAG, MinIO, and ELK long-running services now generate
   `restart: unless-stopped` plus service-specific health checks; persistent
   Qdrant/search/Ollama/MinIO/Elasticsearch/Filebeat state remains on named

@@ -1,8 +1,11 @@
 import ast
 import os
+import socket
 import sys
+import uuid
 from pathlib import Path, PurePosixPath
 
+import anyio
 import pytest
 import yaml
 
@@ -20,7 +23,13 @@ from autoforge.services.generation.fastapi_project import FastAPIProjectGenerato
 from autoforge.services.generation.storage import ObjectStorageGenerator
 
 
-def specification(*, enabled: bool = True, runtime_enabled: bool = False) -> ProjectSpec:
+def specification(
+    *,
+    enabled: bool = True,
+    runtime_enabled: bool = False,
+    mode: str = "standalone",
+    host_port_base: int = 49500,
+) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
         project=ProjectInfo(
@@ -30,7 +39,12 @@ def specification(*, enabled: bool = True, runtime_enabled: bool = False) -> Pro
         ),
         application=ApplicationSpec(),
         tooling=ToolingSpec(
-            storage=StorageSpec(enabled=enabled, runtime_enabled=runtime_enabled)
+            storage=StorageSpec(
+                enabled=enabled,
+                runtime_enabled=runtime_enabled,
+                mode=mode,
+                host_port_base=host_port_base,
+            )
         ),
     )
 
@@ -76,6 +90,167 @@ def test_object_storage_generator_plan_marks_all_outputs_generated() -> None:
     assert len(plan.files) == 3
     assert {file.ownership.value for file in plan.files} == {"generated"}
     assert {file.source for file in plan.files} == {"project:object_storage"}
+
+
+def test_object_storage_generator_renders_distributed_minio_behind_stable_endpoint() -> None:
+    files = ObjectStorageGenerator().render(specification(mode="distributed"))
+    compose = files[PurePosixPath("deploy", "storage", "compose.storage.yaml")]
+    proxy = files[PurePosixPath("deploy", "storage", "nginx", "default.conf")]
+    console = files[PurePosixPath("deploy", "storage", "nginx", "console.conf")]
+    parsed = yaml.safe_load(compose)
+
+    assert "S3_ENDPOINT_URL=http://minio:9000" in files[
+        PurePosixPath("deploy", "storage", ".env.example")
+    ]
+    assert set(parsed["services"]) == {
+        "minio",
+        "minio-1",
+        "minio-2",
+        "minio-3",
+        "minio-4",
+        "minio-init",
+        "minio-console",
+    }
+    assert all(
+        parsed["services"][f"minio-{index}"]["command"]
+        == "server http://minio-1/data http://minio-2/data http://minio-3/data http://minio-4/data --console-address \":9001\""
+        for index in range(1, 5)
+    )
+    assert parsed["services"]["minio"]["depends_on"]["minio-4"] == {
+        "condition": "service_healthy"
+    }
+    assert "proxy_next_upstream_tries 4" in proxy
+    assert "proxy_next_upstream_tries 4" in console
+    assert "four MinIO members" in files[PurePosixPath("deploy", "storage", "README.md")]
+    assert set(parsed["volumes"]) == {
+        "minio-1-data",
+        "minio-2-data",
+        "minio-3-data",
+        "minio-4-data",
+    }
+
+
+@pytest.mark.integration
+@pytest.mark.anyio
+async def test_distributed_minio_recovers_object_read_after_member_stops(
+    tmp_path: Path,
+) -> None:
+    if os.environ.get("AUTOFORGE_DOCKER_MINIO_DISTRIBUTED_INTEGRATION") != "1":
+        pytest.skip("set AUTOFORGE_DOCKER_MINIO_DISTRIBUTED_INTEGRATION=1 to run Docker")
+
+    host_port_base = next(
+        base
+        for base in range(49200, 65500, 100)
+        if all(
+            _port_is_available(port)
+            for port in (base + 80, base + 81)
+        )
+    )
+    package_name = f"storage_ha_{uuid.uuid4().hex}"
+    specification_value = ProjectSpec(
+        spec_version="1",
+        project=ProjectInfo(
+            name="Distributed Storage HA",
+            package_name=package_name,
+            version="0.1.0",
+        ),
+        application=ApplicationSpec(),
+        tooling=ToolingSpec(
+            storage=StorageSpec(mode="distributed", host_port_base=host_port_base)
+        ),
+    )
+    files = ObjectStorageGenerator().render(specification_value)
+    for relative_path, content in files.items():
+        target = tmp_path / relative_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+    storage_dir = tmp_path / "deploy" / "storage"
+    (storage_dir / ".env").write_text(
+        files[PurePosixPath("deploy", "storage", ".env.example")], encoding="utf-8"
+    )
+    compose = (
+        "docker",
+        "compose",
+        "--env-file",
+        "deploy/storage/.env",
+        "-f",
+        "deploy/storage/compose.storage.yaml",
+        "--profile",
+        "storage",
+    )
+    runner = AsyncioProcessRunner()
+    bucket = f"{package_name.replace('_', '-')}-artifacts"
+    alias = (
+        "exec",
+        "-T",
+        "minio-2",
+        "mc",
+        "alias",
+        "set",
+        "local",
+        "http://minio:9000",
+        "autoforge",
+        "change-me",
+    )
+    try:
+        result = await runner.run((*compose, "up", "--detach"), cwd=tmp_path, timeout_seconds=180)
+        assert result.succeeded, result.stderr
+        for _ in range(30):
+            result = await runner.run((*compose, *alias), cwd=tmp_path, timeout_seconds=10)
+            if result.succeeded:
+                break
+            await anyio.sleep(2)
+        assert result.succeeded, result.stderr
+        result = await runner.run(
+            (*compose, "exec", "-T", "minio-2", "mc", "mb", "--ignore-existing", f"local/{bucket}"),
+            cwd=tmp_path,
+            timeout_seconds=20,
+        )
+        assert result.succeeded, result.stderr
+        result = await runner.run(
+            (
+                *compose,
+                "exec",
+                "-T",
+                "minio-2",
+                "sh",
+                "-ec",
+                f"printf ha-check | mc pipe local/{bucket}/ha-check.txt && mc cat local/{bucket}/ha-check.txt",
+            ),
+            cwd=tmp_path,
+            timeout_seconds=20,
+        )
+        assert result.succeeded, result.stderr
+        assert result.stdout.strip().endswith("ha-check")
+        result = await runner.run((*compose, "stop", "minio-1"), cwd=tmp_path, timeout_seconds=30)
+        assert result.succeeded, result.stderr
+        for _ in range(15):
+            result = await runner.run(
+                (*compose, "exec", "-T", "minio-2", "mc", "cat", f"local/{bucket}/ha-check.txt"),
+                cwd=tmp_path,
+                timeout_seconds=20,
+            )
+            if result.succeeded:
+                break
+            await anyio.sleep(2)
+        assert result.succeeded, result.stderr
+        assert result.stdout.strip().endswith("ha-check")
+    finally:
+        await runner.run(
+            (*compose, "down", "--volumes", "--remove-orphans"),
+            cwd=tmp_path,
+            timeout_seconds=120,
+        )
+
+
+def _port_is_available(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            listener.bind(("127.0.0.1", port))
+        except OSError:
+            return False
+    return True
 
 
 def test_object_storage_runtime_is_opt_in_and_can_target_managed_storage() -> None:
