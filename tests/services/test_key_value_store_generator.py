@@ -497,6 +497,216 @@ async def test_generated_cluster_key_value_store_recovers_after_redis_primary_st
         )
 
 
+@pytest.mark.integration
+@pytest.mark.anyio
+async def test_generated_sentinel_key_value_store_recovers_after_redis_primary_stops(
+    tmp_path: Path,
+) -> None:
+    if os.environ.get("AUTOFORGE_DOCKER_REDIS_SENTINEL_KV_INTEGRATION") != "1":
+        pytest.skip(
+            "set AUTOFORGE_DOCKER_REDIS_SENTINEL_KV_INTEGRATION=1 to run Docker"
+        )
+
+    package_name = f"cache_sentinel_ha_{uuid.uuid4().hex}"
+    sentinel_master = "cache-primary"
+    specification_value = specification(enabled=True, mode="sentinel").model_copy(
+        update={
+            "project": ProjectInfo(
+                name="Key Value Store Sentinel HA",
+                package_name=package_name,
+                version="0.1.0",
+            ),
+            "application": ApplicationSpec(
+                services=[
+                    ServiceSpec(
+                        name="session",
+                        kind="redis_session",
+                        namespace="cache",
+                        ttl_seconds=60,
+                        mode="sentinel",
+                        sentinel_master=sentinel_master,
+                    )
+                ]
+            ),
+            "tooling": ToolingSpec(
+                key_value_store=KeyValueStoreSpec(
+                    enabled=True,
+                    mode="sentinel",
+                    sentinel_master=sentinel_master,
+                    key_prefix="cache",
+                    ttl_seconds=10,
+                ),
+                local_environment=LocalEnvironmentSpec(enabled=True),
+            ),
+        }
+    )
+    workspace = Workspace(tmp_path)
+    generators = [
+        ("project-job", FastAPIProjectGenerator()),
+        ("key-value-store-job", KeyValueStoreGenerator()),
+        ("environment-job", LocalEnvironmentGenerator()),
+    ]
+    for job_id, generator in generators:
+        rendered = generator.render(specification_value)
+        plan = GenerationPlanResolver().resolve(
+            generator.plan(specification_value), workspace
+        )
+        GenerationPlanApplier().apply(
+            job_id=job_id,
+            plan=plan,
+            rendered_files=rendered,
+            workspace=workspace,
+        )
+
+    environment_dir = workspace.root / "environment"
+    (environment_dir / ".env").write_text(
+        (environment_dir / ".env.example").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    script = workspace.root / "verify_store.py"
+    script.write_text(
+        "import asyncio\n"
+        "import sys\n"
+        "import uuid\n"
+        "sys.path.insert(0, '/workspace/src')\n"
+        f"from {package_name}.infrastructure.key_value_store import KeyValueStore\n"
+        "\n"
+        "async def verify():\n"
+        "    store = KeyValueStore.from_environment()\n"
+        "    try:\n"
+        "        await store.health_check()\n"
+        "        key = f'autoforge-sentinel-cache:{uuid.uuid4().hex}'\n"
+        "        await store.set(key, 'available', ttl_seconds=10)\n"
+        "        assert await store.get(key) == 'available'\n"
+        "        assert await store.delete(key)\n"
+        "        assert await store.get(key) is None\n"
+        "    finally:\n"
+        "        await store.aclose()\n"
+        "\n"
+        "asyncio.run(verify())\n",
+        encoding="utf-8",
+    )
+    compose = (
+        "docker",
+        "compose",
+        "--project-name",
+        package_name,
+        "--env-file",
+        "environment/.env",
+        "-f",
+        "environment/compose.integration.yml",
+    )
+    sentinel_urls = (
+        "redis-sentinel-1:26379,redis-sentinel-2:26379,redis-sentinel-3:26379"
+    )
+    runner = AsyncioProcessRunner()
+    try:
+        result = await runner.run(
+            (
+                *compose,
+                "up",
+                "--detach",
+                "redis-sentinel-1",
+                "redis-sentinel-2",
+                "redis-sentinel-3",
+            ),
+            cwd=workspace.root,
+            timeout_seconds=180,
+        )
+        assert result.succeeded, result.stderr
+        for _ in range(45):
+            result = await runner.run(
+                (
+                    *compose,
+                    "exec",
+                    "-T",
+                    "redis-sentinel-1",
+                    "redis-cli",
+                    "-p",
+                    "26379",
+                    "sentinel",
+                    "ckquorum",
+                    sentinel_master,
+                ),
+                cwd=workspace.root,
+                timeout_seconds=10,
+            )
+            if result.succeeded and result.stdout.startswith("OK"):
+                break
+            await anyio.sleep(2)
+        assert result.succeeded and result.stdout.startswith("OK"), result.stderr
+
+        master_before = await runner.run(
+            (
+                *compose,
+                "exec",
+                "-T",
+                "redis-sentinel-1",
+                "redis-cli",
+                "--raw",
+                "-p",
+                "26379",
+                "sentinel",
+                "get-master-addr-by-name",
+                sentinel_master,
+            ),
+            cwd=workspace.root,
+            timeout_seconds=10,
+        )
+        assert master_before.succeeded, master_before.stderr
+        assert master_before.stdout.strip()
+
+        result = await _run_sentinel_store_probe(
+            runner, workspace.root, package_name, sentinel_urls
+        )
+        assert result.succeeded, result.stderr
+
+        result = await runner.run(
+            (*compose, "stop", "redis-sentinel-primary-1"),
+            cwd=workspace.root,
+            timeout_seconds=30,
+        )
+        assert result.succeeded, result.stderr
+        master_after = master_before
+        for _ in range(45):
+            master_after = await runner.run(
+                (
+                    *compose,
+                    "exec",
+                    "-T",
+                    "redis-sentinel-1",
+                    "redis-cli",
+                    "--raw",
+                    "-p",
+                    "26379",
+                    "sentinel",
+                    "get-master-addr-by-name",
+                    sentinel_master,
+                ),
+                cwd=workspace.root,
+                timeout_seconds=10,
+            )
+            if (
+                master_after.succeeded
+                and master_after.stdout.strip() != master_before.stdout.strip()
+            ):
+                break
+            await anyio.sleep(2)
+        assert master_after.succeeded, master_after.stderr
+        assert master_after.stdout.strip() != master_before.stdout.strip()
+
+        result = await _run_sentinel_store_probe(
+            runner, workspace.root, package_name, sentinel_urls
+        )
+        assert result.succeeded, result.stderr
+    finally:
+        await runner.run(
+            (*compose, "down", "--volumes", "--remove-orphans"),
+            cwd=workspace.root,
+            timeout_seconds=180,
+        )
+
+
 async def _run_cluster_store_probe(
     runner: AsyncioProcessRunner,
     workspace_root: Path,
@@ -518,6 +728,35 @@ async def _run_cluster_store_probe(
             "REDIS_CLUSTER_URL=redis://redis-7000:7000",
             "--env",
             f"REDIS_CLUSTER_STARTUP_NODES={startup_nodes}",
+            "python:3.12-alpine",
+            "sh",
+            "-c",
+            "pip install --disable-pip-version-check 'redis>=5,<7' && python verify_store.py",
+        ),
+        cwd=workspace_root,
+        timeout_seconds=120,
+    )
+
+
+async def _run_sentinel_store_probe(
+    runner: AsyncioProcessRunner,
+    workspace_root: Path,
+    package_name: str,
+    sentinel_urls: str,
+) -> object:
+    return await runner.run(
+        (
+            "docker",
+            "run",
+            "--rm",
+            "--network",
+            f"{package_name}_default",
+            "--volume",
+            f"{workspace_root.resolve()}:/workspace:ro",
+            "--workdir",
+            "/workspace",
+            "--env",
+            f"REDIS_SENTINEL_URLS={sentinel_urls}",
             "python:3.12-alpine",
             "sh",
             "-c",

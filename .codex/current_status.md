@@ -970,9 +970,10 @@ Redis verification for acquire contention, wrong-owner rejection, and correct
 owner release; the temporary container and workspace were removed afterward.
 An isolated generated six-node Redis Cluster drill then acquired and released a
 lock through the multi-startup-node adapter, stopped one primary, waited for
-cluster recovery, and repeated the same lock operation. Sentinel output is
-generated and parsed but has not yet had a dedicated runtime drill. This is not
-a Redlock, fencing-token, or auto-renewal
+cluster recovery, and repeated the same lock operation. The shared local
+environment now generates Sentinel primary/replica/quorum topology, but the
+lock adapter has not yet had a dedicated Sentinel runtime drill. This is not a
+Redlock, fencing-token, or auto-renewal
 implementation. Lock key design, critical-section duration, wait/retry policy,
 token-cache policy, FastAPI lifespan registration, and KIS adoption remain
 consumer-owned.
@@ -993,10 +994,11 @@ their Redis modes must agree and their selected connection environments are
 injected into application and Durable Job worker containers. An isolated
 generated six-node Redis Cluster drill set, read, and deleted a value through
 the multi-startup-node adapter, stopped one primary, waited for cluster recovery,
-and repeated the same operation. Sentinel output is generated and parsed, but
-the local environment deliberately rejects Sentinel until it can generate the
-full primary/replica/Sentinel topology. Value serialization, cache invalidation,
-key design, FastAPI lifespan registration, and KIS adoption remain consumer-owned.
+and repeated the same operation. A generated local Sentinel drill formed a
+three-Sentinel quorum, stopped the primary, observed a new master, then repeated
+the generated key-value set/read/delete contract. Value serialization, cache
+invalidation, key design, FastAPI lifespan registration, and KIS adoption remain
+consumer-owned.
 
 `tooling.realtime` generates an opt-in `infrastructure/realtime` runtime
 contract with an asynchronous in-process `RealtimeHub`, channel

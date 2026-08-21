@@ -1,11 +1,11 @@
 # Next Task
 
-## Next executable unit: add a generated local Redis Sentinel profile
+## Next executable unit: add Redis Sentinel support to the generated realtime backplane
 
-Extend the existing local-environment generator so an explicit shared Redis
-`sentinel` mode creates the required primary, replica, and Sentinel topology
-instead of rejecting it. Preserve the existing generated Sentinel environment
-names and application call sites. Add static generation tests and an opt-in
-Docker failover drill through one generated consumer contract. Do not replace
-the existing Redis Cluster mode or add Redlock, cache policy, or provider-specific
-topology.
+Extend the existing Redis Pub/Sub realtime backplane so the already-supported
+Redis Sentinel connection mode can provide its master connection instead of
+being rejected. Preserve the `RealtimeBackplane` interface and existing
+standalone/Cluster behavior. Add focused generation tests and, if the existing
+local Sentinel profile can carry it without a new deployment contract, one
+opt-in failover delivery drill. Do not add durable queue semantics, user-channel
+policy, or consumer-domain notification behavior.

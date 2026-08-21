@@ -1155,8 +1155,13 @@ def test_plan_marks_environment_files_generated() -> None:
         )
 
 
-def test_sentinel_is_not_silently_rendered_as_standalone() -> None:
-    specification = integration_specification(enabled=True)
+def test_sentinel_renders_primary_replicas_and_quorum() -> None:
+    specification = integration_specification(
+        enabled=True,
+        application=True,
+        key_value_store_backend="redis",
+        key_value_store_mode="sentinel",
+    )
     sentinel = specification.application.services[0].model_copy(
         update={"mode": "sentinel"}
     )
@@ -1164,7 +1169,38 @@ def test_sentinel_is_not_silently_rendered_as_standalone() -> None:
         update={"services": [sentinel, specification.application.services[1]]}
     )
 
-    with pytest.raises(ValueError, match="does not yet support Redis Sentinel"):
-        LocalEnvironmentGenerator().render(
-            specification.model_copy(update={"application": application})
+    files = LocalEnvironmentGenerator().render(
+        specification.model_copy(update={"application": application})
+    )
+    compose = yaml.safe_load(files[PurePosixPath("environment/compose.integration.yml")])
+    environment = files[PurePosixPath("environment/.env.example")]
+    sentinel_config = files[PurePosixPath("environment/redis-sentinel/sentinel.conf")]
+
+    for index in range(1, 3):
+        assert f"redis-sentinel-primary-{index}" in compose["services"]
+        for replica in range(1, 3):
+            assert f"redis-sentinel-replica-{index}-{replica}" in compose["services"]
+    for index in range(1, 4):
+        sentinel_service = compose["services"][f"redis-sentinel-{index}"]
+        assert sentinel_service["depends_on"]["redis-sentinel-primary-1"] == {
+            "condition": "service_healthy"
+        }
+        assert sentinel_service["depends_on"]["redis-sentinel-primary-2"] == {
+            "condition": "service_healthy"
+        }
+        assert sentinel_service["depends_on"]["redis-sentinel-replica-1-1"] == {
+            "condition": "service_healthy"
+        }
+        assert sentinel_service["volumes"][0] == (
+            "./redis-sentinel/sentinel.conf:/bootstrap/sentinel.conf:ro"
         )
+    assert "sentinel monitor session-primary redis-sentinel-primary-1 6379 2" in sentinel_config
+    assert "sentinel monitor cache-primary redis-sentinel-primary-2 6379 2" in sentinel_config
+    assert "sentinel resolve-hostnames yes" in sentinel_config
+    assert "sentinel announce-hostnames yes" not in sentinel_config
+    assert "REDIS_SENTINEL_URLS=redis-sentinel-1:26379,redis-sentinel-2:26379,redis-sentinel-3:26379" in environment
+    application_service = compose["services"]["application"]
+    assert application_service["depends_on"]["redis-sentinel-1"] == {
+        "condition": "service_healthy"
+    }
+    assert "REDIS_SENTINEL_URLS" in application_service["environment"]

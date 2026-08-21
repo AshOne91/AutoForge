@@ -82,8 +82,11 @@ provider는 각각 `url_env`, `sentinel_urls_env`와 `sentinel_master`, 또는
 기본 시드 노드가 장애여도 새 client가 다른 노드에서 cluster map을 다시 얻도록 한다.
 
 Topology 선택은 `SessionStore` Protocol을 바꾸지 않는다. 로컬 환경 Generator는
-standalone과 cluster를 실현하며 sentinel을 standalone으로 묵시적으로 대체하지
-않는다.
+`standalone`, `cluster`, `sentinel`을 각각 명시적으로 실현하며, 하나를 다른
+모드로 묵시적으로 대체하지 않는다. Sentinel 모드에서는 선언된 각
+`sentinel_master`마다 primary 하나와 replica 둘을 만들고, Sentinel 셋이 quorum 2로
+그 master를 감시한다. 생성된 `REDIS_SENTINEL_URLS`는 세 Sentinel의 Compose DNS
+주소를 제공하며, Sentinel의 변경 상태는 서비스별 writable named volume에 보존한다.
 
 로컬 `cluster` 환경의 고정 기준선은 7000–7005의 여섯 Redis 노드다. 초기화기는
 `--cluster-replicas 1`로 세 primary와 세 replica를 만들고, 각 노드의 `/data`를
@@ -92,11 +95,10 @@ standalone과 cluster를 실현하며 sentinel을 standalone으로 묵시적으�
 가용 영역 장애까지 격리하는 운영 HA 설계는 아니다.
 
 `ServiceSpec.mode`는 생성 애플리케이션의 연결 의미를 선택할 뿐, 운영 Redis
-provider나 배포 토폴로지를 선택하지 않는다. 소비 프로젝트가 provider와 가용성
-요구사항을 명시하기 전까지 AutoForge는 runtime Secret의 연결 계약만 생성하며,
-ElastiCache·MemoryDB·Sentinel·Redis StatefulSet 같은 provider별 운영 Redis
-manifest는 생성하지 않는다. `cluster`를 Sentinel로 묵시적으로 대체하지 않는 것과
-같이, 로컬 Compose Cluster를 운영 배포 모델로 묵시적으로 승격하지 않는다.
+provider나 배포 토폴로지를 선택하지 않는다. AutoForge는 disposable local Compose
+Sentinel profile을 생성하지만, ElastiCache·MemoryDB·Redis StatefulSet 같은
+provider별 운영 manifest는 생성하지 않는다. 로컬 Compose Sentinel을 multi-host
+운영 모델로 묵시적으로 승격하지 않는다.
 
 첫 운영 기준선은 단일 물리 Docker host의 self-hosted Redis Cluster다. 이는
 Redis container 장애와 재시작을 복구하는 서비스 HA 검증 대상이며, host 장애까지

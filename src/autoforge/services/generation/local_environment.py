@@ -41,6 +41,7 @@ class LocalEnvironmentGenerator:
         distributed_lock = specification.tooling.distributed_lock
         key_value_store = specification.tooling.key_value_store
         redis_mode = self._redis_mode(specification)
+        redis_sentinel_masters = self._redis_sentinel_masters(specification)
         has_memcached = (
             key_value_store.enabled and key_value_store.backend == "memcached"
         )
@@ -88,6 +89,7 @@ class LocalEnvironmentGenerator:
             postgres_mode=postgres_mode,
             mysql_mode=mysql_mode,
             redis_mode=redis_mode,
+            redis_sentinel_masters=redis_sentinel_masters,
             redis_service=redis_service,
             distributed_lock=distributed_lock,
             key_value_store=key_value_store,
@@ -127,6 +129,7 @@ class LocalEnvironmentGenerator:
                 database_provider=database_provider,
                 has_database=bool(specification.application.databases),
                 redis_mode=redis_mode,
+                redis_sentinel_masters=redis_sentinel_masters,
                 has_memcached=has_memcached,
                 postgres_mode=postgres_mode,
                 mysql_mode=mysql_mode,
@@ -161,6 +164,10 @@ class LocalEnvironmentGenerator:
                 ] = rabbitmq_config
             files[PurePosixPath("environment", "rabbitmq", "haproxy.cfg")] = (
                 self._render_rabbitmq_haproxy_config()
+            )
+        if redis_mode == "sentinel":
+            files[PurePosixPath("environment", "redis-sentinel", "sentinel.conf")] = (
+                self._render_redis_sentinel_configuration(redis_sentinel_masters)
             )
         return files
 
@@ -210,9 +217,26 @@ class LocalEnvironmentGenerator:
             modes.add(key_value_store.mode)
         if len(modes) > 1:
             raise ValueError("local environment requires one shared Redis mode")
-        if modes == {"sentinel"}:
-            raise ValueError("local environment does not yet support Redis Sentinel")
         return next(iter(modes), None)
+
+    @staticmethod
+    def _redis_sentinel_masters(specification: ProjectSpec) -> list[str]:
+        masters = [
+            service.sentinel_master
+            for service in specification.application.services
+            if service.kind == "redis_session" and service.mode == "sentinel"
+        ]
+        distributed_lock = specification.tooling.distributed_lock
+        if distributed_lock.enabled and distributed_lock.mode == "sentinel":
+            masters.append(distributed_lock.sentinel_master)
+        key_value_store = specification.tooling.key_value_store
+        if (
+            key_value_store.enabled
+            and key_value_store.backend == "redis"
+            and key_value_store.mode == "sentinel"
+        ):
+            masters.append(key_value_store.sentinel_master)
+        return list(dict.fromkeys(masters))
 
     @classmethod
     def _render_service_composition(
@@ -325,6 +349,7 @@ class LocalEnvironmentGenerator:
         postgres_mode: str,
         mysql_mode: str,
         redis_mode: str | None,
+        redis_sentinel_masters: list[str],
         redis_service: ServiceSpec | None,
         distributed_lock: DistributedLockSpec,
         key_value_store: KeyValueStoreSpec,
@@ -357,6 +382,8 @@ class LocalEnvironmentGenerator:
             services.append(self._render_redis_standalone())
         elif redis_mode == "cluster":
             services.extend(self._render_redis_cluster())
+        elif redis_mode == "sentinel":
+            services.extend(self._render_redis_sentinel(redis_sentinel_masters))
         if has_memcached:
             services.append(self._render_memcached())
         if has_rabbitmq:
@@ -459,6 +486,7 @@ class LocalEnvironmentGenerator:
                 postgres_mode=postgres_mode,
                 mysql_mode=mysql_mode,
                 redis_mode=redis_mode,
+                redis_sentinel_master_count=len(redis_sentinel_masters),
                 has_rabbitmq=has_rabbitmq,
                 rabbitmq_mode=rabbitmq_mode,
                 has_durable_jobs=has_durable_jobs,
@@ -472,6 +500,7 @@ class LocalEnvironmentGenerator:
         postgres_mode: str,
         mysql_mode: str,
         redis_mode: str | None,
+        redis_sentinel_master_count: int,
         has_rabbitmq: bool,
         rabbitmq_mode: str,
         has_durable_jobs: bool,
@@ -488,6 +517,19 @@ class LocalEnvironmentGenerator:
         ) + (
             [f"redis-{port}-data" for port in range(7000, 7006)]
             if redis_mode == "cluster"
+            else []
+        ) + (
+            [
+                f"redis-sentinel-primary-{index}-data"
+                for index in range(1, redis_sentinel_master_count + 1)
+            ]
+            + [
+                f"redis-sentinel-replica-{index}-{replica}-data"
+                for index in range(1, redis_sentinel_master_count + 1)
+                for replica in range(1, 3)
+            ]
+            + [f"redis-sentinel-{index}-data" for index in range(1, 4)]
+            if redis_mode == "sentinel"
             else []
         )
         if has_rabbitmq:
@@ -977,6 +1019,115 @@ class LocalEnvironmentGenerator:
         )
         return nodes
 
+    @staticmethod
+    def _render_redis_sentinel(masters: list[str]) -> list[str]:
+        nodes: list[str] = []
+        primary_dependencies = "".join(
+            f"      redis-sentinel-primary-{index}:\n"
+            "        condition: service_healthy\n"
+            + "".join(
+                f"      redis-sentinel-replica-{index}-{replica}:\n"
+                "        condition: service_healthy\n"
+                for replica in range(1, 3)
+            )
+            for index in range(1, len(masters) + 1)
+        ).rstrip()
+        for index in range(1, len(masters) + 1):
+            nodes.append(
+                "\n".join(
+                    (
+                        f"  redis-sentinel-primary-{index}:",
+                        "    image: redis:7-alpine",
+                        "    restart: unless-stopped",
+                        '    command: ["redis-server", "--appendonly", "yes"]',
+                        "    volumes:",
+                        f"      - redis-sentinel-primary-{index}-data:/data",
+                        "    healthcheck:",
+                        '      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]',
+                        "      interval: 3s",
+                        "      timeout: 3s",
+                        "      retries: 20",
+                        "",
+                    )
+                )
+            )
+            for replica in range(1, 3):
+                nodes.append(
+                    "\n".join(
+                        (
+                            f"  redis-sentinel-replica-{index}-{replica}:",
+                            "    image: redis:7-alpine",
+                            "    restart: unless-stopped",
+                            "    depends_on:",
+                            f"      redis-sentinel-primary-{index}:",
+                            "        condition: service_healthy",
+                            "    command:",
+                            "      - redis-server",
+                            "      - --replicaof",
+                            f"      - redis-sentinel-primary-{index}",
+                            '      - "6379"',
+                            "      - --appendonly",
+                            "      - yes",
+                            "    volumes:",
+                            f"      - redis-sentinel-replica-{index}-{replica}-data:/data",
+                            "    healthcheck:",
+                            '      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]',
+                            "      interval: 3s",
+                            "      timeout: 3s",
+                            "      retries: 20",
+                            "",
+                        )
+                    )
+                )
+        for index in range(1, 4):
+            nodes.append(
+                "\n".join(
+                    (
+                        f"  redis-sentinel-{index}:",
+                        "    image: redis:7-alpine",
+                        "    restart: unless-stopped",
+                        "    depends_on:",
+                        primary_dependencies,
+                        "    command:",
+                        "      - /bin/sh",
+                        "      - -c",
+                        "      - |-",
+                        "        test -f /data/sentinel.conf || cp /bootstrap/sentinel.conf /data/sentinel.conf",
+                        "        exec redis-server /data/sentinel.conf --sentinel",
+                        "    volumes:",
+                        "      - ./redis-sentinel/sentinel.conf:/bootstrap/sentinel.conf:ro",
+                        f"      - redis-sentinel-{index}-data:/data",
+                        "    healthcheck:",
+                        '      test: ["CMD-SHELL", "redis-cli -p 26379 ping | grep -q PONG"]',
+                        "      interval: 3s",
+                        "      timeout: 3s",
+                        "      retries: 20",
+                        "",
+                    )
+                )
+            )
+        return nodes
+
+    @staticmethod
+    def _render_redis_sentinel_configuration(masters: list[str]) -> str:
+        return "\n".join(
+            (
+                "port 26379",
+                "sentinel resolve-hostnames yes",
+                *(
+                    setting
+                    for index, master in enumerate(masters, start=1)
+                    for setting in (
+                        f"sentinel monitor {master} redis-sentinel-primary-{index} 6379 2",
+                        f"sentinel down-after-milliseconds {master} 5000",
+                        f"sentinel failover-timeout {master} 30000",
+                        f"sentinel parallel-syncs {master} 1",
+                    )
+                ),
+                "",
+            )
+        )
+
     @classmethod
     def _render_rabbitmq(
         cls, rabbitmq_mode: str, host_port_base: int | None
@@ -1114,7 +1265,7 @@ class LocalEnvironmentGenerator:
             distributed_lock,
             key_value_store,
         )
-        if redis_mode in {"standalone", "cluster"}:
+        if redis_mode in {"standalone", "sentinel", "cluster"}:
             return (
                 "".join(
                     f"      {name}: ${{{name}:-{default}}}\n"
@@ -1124,7 +1275,15 @@ class LocalEnvironmentGenerator:
                     "      redis-cluster-init:\n"
                     "        condition: service_completed_successfully\n"
                     if redis_mode == "cluster"
-                    else "      redis:\n        condition: service_healthy\n"
+                    else (
+                        "".join(
+                            f"      redis-sentinel-{index}:\n"
+                            "        condition: service_healthy\n"
+                            for index in range(1, 4)
+                        )
+                        if redis_mode == "sentinel"
+                        else "      redis:\n        condition: service_healthy\n"
+                    )
                 ),
             )
         return "", ""
@@ -1136,13 +1295,14 @@ class LocalEnvironmentGenerator:
         distributed_lock: DistributedLockSpec,
         key_value_store: KeyValueStoreSpec,
     ) -> list[tuple[str, str]]:
-        connection_environments: list[tuple[str, str, str]] = []
+        connection_environments: list[tuple[str, str, str, str]] = []
         if redis_service is not None:
             connection_environments.append(
                 (
                     redis_service.url_env,
                     redis_service.cluster_url_env,
                     redis_service.cluster_startup_nodes_env,
+                    redis_service.sentinel_urls_env,
                 )
             )
         if distributed_lock.enabled:
@@ -1151,6 +1311,7 @@ class LocalEnvironmentGenerator:
                     distributed_lock.url_environment,
                     distributed_lock.cluster_url_environment,
                     distributed_lock.cluster_startup_nodes_environment,
+                    distributed_lock.sentinel_urls_environment,
                 )
             )
         if key_value_store.enabled and key_value_store.backend == "redis":
@@ -1159,19 +1320,20 @@ class LocalEnvironmentGenerator:
                     key_value_store.url_environment,
                     key_value_store.cluster_url_environment,
                     key_value_store.cluster_startup_nodes_environment,
+                    key_value_store.sentinel_urls_environment,
                 )
             )
         if redis_mode == "standalone":
             return list(
                 dict.fromkeys(
                     (name, "redis://redis:6379")
-                    for name, _, _ in connection_environments
+                    for name, _, _, _ in connection_environments
                 )
             )
         if redis_mode == "cluster":
             values = [
                 item
-                for _, url_environment, startup_nodes_environment in connection_environments
+                for _, url_environment, startup_nodes_environment, _ in connection_environments
                 for item in (
                     (url_environment, "redis://redis-7000:7000"),
                     (
@@ -1181,6 +1343,16 @@ class LocalEnvironmentGenerator:
                 )
             ]
             return list(dict.fromkeys(values))
+        if redis_mode == "sentinel":
+            return list(
+                dict.fromkeys(
+                    (
+                        sentinel_urls_environment,
+                        "redis-sentinel-1:26379,redis-sentinel-2:26379,redis-sentinel-3:26379",
+                    )
+                    for _, _, _, sentinel_urls_environment in connection_environments
+                )
+            )
         return []
 
     @staticmethod
@@ -1787,7 +1959,7 @@ class LocalEnvironmentGenerator:
             distributed_lock,
             key_value_store,
         )
-        if redis_mode in {"standalone", "cluster"}:
+        if redis_mode in {"standalone", "sentinel", "cluster"}:
             lines.extend(
                 f"{name}={default}\n"
                 for name, default in redis_environment_values
@@ -1879,6 +2051,7 @@ class LocalEnvironmentGenerator:
         database_provider: str,
         has_database: bool,
         redis_mode: str | None,
+        redis_sentinel_masters: list[str],
         has_memcached: bool,
         postgres_mode: str,
         mysql_mode: str,
@@ -1904,6 +2077,8 @@ class LocalEnvironmentGenerator:
             )
         if redis_mode == "cluster":
             services.append("three-node Redis Cluster")
+        elif redis_mode == "sentinel":
+            services.append("Redis Sentinel HA")
         elif redis_mode == "standalone":
             services.append("Redis")
         if has_memcached:
@@ -1956,6 +2131,14 @@ class LocalEnvironmentGenerator:
                 "Run application containers on the Compose network. The Redis Cluster URL uses\n"
                 "Docker service DNS and is intentionally not a host-process URL.\n"
                 if redis_mode == "cluster"
+                else ""
+            )
+            + (
+                "Redis Sentinel starts one primary and two replicas per declared Sentinel "
+                "master with three Sentinels. Sentinel state is copied into writable named "
+                "volumes because it updates its own configuration during failover. This "
+                "validates container failover only on one Docker host.\n"
+                if redis_mode == "sentinel" and redis_sentinel_masters
                 else ""
             )
             + (
