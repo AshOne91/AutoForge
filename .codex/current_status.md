@@ -1145,6 +1145,17 @@ source of truth. No portfolio table, cache, or Durable Job is generated or
 implemented until a stale-data policy, snapshot purpose, and explicit account
 ownership mapping exist.
 
+The consumer's two read-only KIS clients now reuse the same generated
+`KeyValueStore` instance as their token coordinator for short-lived reads:
+domestic current prices use a two-second cache and domestic holdings use a
+fifteen-second cache. Cache keys hash credential or account identity rather
+than storing it in Redis key text. This is a consumer-owned rate-limit and
+latency optimization, not a generated stale-data policy, and it does not
+change either client's read-only boundary. Fake-transport verification covers
+the cache hit paths together with token coordination, API, lifespan, and
+Durable Job handler coverage (`36 passed`); the live opt-in checks remain
+unexecuted.
+
 KIS also has a default-skipped integration check for that balance client. It
 requires an explicit opt-in flag and the KIS application/account environment
 values, makes one read-only balance request, validates only the typed holding
