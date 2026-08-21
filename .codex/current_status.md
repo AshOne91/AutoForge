@@ -1511,6 +1511,16 @@ succeeded; Redis held expiring token and market keys. No real KIS endpoint or
 credential was used, and the disposable containers, volumes, network, and HTTP
 stand-in were removed afterward.
 
+The generated Airflow schedule has now passed the same end-to-end proof. An
+isolated Compose stack loaded and unpaused
+`durable_job_domestic_daily_candle_collection`; both the latest scheduled run
+and an explicit verification run completed their `trigger` and `wait` tasks.
+The deployment-owned `005930` payload reached the Durable Job API, both runs
+completed through RabbitMQ and the worker, Redis contained expiring token and
+market-cache keys, and the operator GET returned one idempotent PostgreSQL row.
+The proof again used only the deterministic local KIS HTTP stand-in. Its
+containers, volumes, network, and stand-in were removed afterward.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:

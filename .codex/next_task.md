@@ -1,12 +1,11 @@
 # Next Task
 
-## Next executable unit: prove the scheduled daily-candle path
+## Next executable unit: establish brokerage-account ownership
 
-Run the generated `domestic_daily_candle_collection` Airflow DAG in an isolated
-local Compose project with a deterministic local KIS HTTP stand-in and the
-deployment-owned stock-code payload. Prove that Airflow creates the Durable Job
-and that the existing Outbox/RabbitMQ/worker path persists one candle readable
-through the operator GET. Clean up every disposable resource afterward. Do not
-call live KIS, add another scheduler abstraction, or start portfolio/order work;
-explicit brokerage-account ownership must be established before portfolio
-persistence.
+Trace the current deployment-scoped KIS account configuration against generated
+global login identity, account-shard routing, and the reference Base Server
+portfolio placement. Record one explicit consumer ownership and secret-reference
+decision before adding any portfolio table: who owns the configured account,
+which store owns non-secret account metadata, and how runtime credentials are
+resolved without persisting secrets. Do not implement holdings snapshots,
+orders, risk rules, or a speculative multi-broker abstraction in this unit.
