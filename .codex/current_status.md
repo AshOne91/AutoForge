@@ -621,6 +621,11 @@ Compose profile. An isolated KIS Compose drill verifies Nginx `/health`, exactly
 three healthy application replicas, and recovery through the proxy after one
 application container is restarted. Host backup/bootstrap procedures remain
 unverified.
+A generated profile-server drill also terminated the singleton single-host Nginx
+PID 1 from inside its container after Docker's restart-policy activation window.
+The same container returned `healthy` with `RestartCount: 1`, and the unchanged
+public `/health` endpoint returned 200. This verifies bounded one-host proxy
+process recovery; the intentionally singleton local proxy can have a brief gap.
 A fresh empty workspace generated from KIS `autoforge.ha.yaml` now independently
 passed the complete AutoForge generation validation, then started the same Nginx
 and three application replicas with three etcd members, three Patroni PostgreSQL

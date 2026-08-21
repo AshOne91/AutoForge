@@ -1,10 +1,9 @@
 # Next Task
 
-## Next executable unit: verify generated single-host Nginx process recovery
+## Next executable unit: verify replicated Ollama member rejoin
 
-Reuse the same generated profile-server Compose subset without starting its
-RabbitMQ, Airflow, ELK, or RAG services. After Nginx crosses Docker's restart-policy
-activation window, terminate its PID 1 from inside the container, verify
-`RestartCount` increases and the public `/health` endpoint recovers. A brief gap is
-valid for the intentionally singleton local proxy; do not add a second host-port
-owner, process manager, or multi-host HA claim.
+Extend the existing opt-in replicated Ollama Docker drill after stopping one
+member and proving stable proxy readiness. Start the stopped member, wait until all
+three Ollama services are healthy, and confirm the unchanged `/api/tags` proxy
+endpoint still responds. Do not download a model, share member volumes, or claim
+inference failover; model preparation remains an explicit operator step.
