@@ -364,8 +364,9 @@ AutoForge currently has working foundations for:
   same `minio:9000` application endpoint, with generated API/console proxies.
   A disposable Docker drill wrote and read a baseline object, stopped one MinIO
   member, then wrote and read a new object and reread the baseline object through
-  that stable endpoint. This is one-host logical-node recovery evidence, not
-  physical-host HA.
+  that stable endpoint. The stopped member was restarted, all four members
+  reported `online`, and the outage-written object remained readable. This is
+  one-host logical-node recovery evidence, not physical-host HA.
 - optional RAG, MinIO, and ELK long-running services now generate
   `restart: unless-stopped` plus service-specific health checks; persistent
   Qdrant/search/Ollama/MinIO/Elasticsearch/Filebeat state remains on named

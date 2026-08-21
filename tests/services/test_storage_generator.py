@@ -1,4 +1,5 @@
 import ast
+import json
 import os
 import socket
 import sys
@@ -268,6 +269,39 @@ async def test_distributed_minio_reads_and_writes_after_member_stops(
             await anyio.sleep(2)
         assert result.succeeded, result.stderr
         assert result.stdout.strip().endswith("ha-check")
+        result = await runner.run((*compose, "start", "minio-1"), cwd=tmp_path, timeout_seconds=30)
+        assert result.succeeded, result.stderr
+        servers: list[dict[str, object]] = []
+        for _ in range(30):
+            result = await runner.run(
+                (*compose, "exec", "-T", "minio-2", "mc", "admin", "info", "local", "--json"),
+                cwd=tmp_path,
+                timeout_seconds=20,
+            )
+            if result.succeeded:
+                info = json.loads(result.stdout)
+                servers = info.get("info", {}).get("servers", [])
+                if len(servers) == 4 and all(server.get("state") == "online" for server in servers):
+                    break
+            await anyio.sleep(2)
+        assert result.succeeded, result.stderr
+        assert len(servers) == 4
+        assert all(server.get("state") == "online" for server in servers)
+        result = await runner.run(
+            (
+                *compose,
+                "exec",
+                "-T",
+                "minio-2",
+                "mc",
+                "cat",
+                f"local/{bucket}/ha-write-after-stop.txt",
+            ),
+            cwd=tmp_path,
+            timeout_seconds=20,
+        )
+        assert result.succeeded, result.stderr
+        assert result.stdout.strip().endswith("ha-write")
     finally:
         await runner.run(
             (*compose, "down", "--volumes", "--remove-orphans"),
