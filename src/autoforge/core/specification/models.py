@@ -511,6 +511,7 @@ class ElkSpec(StrictSpecModel):
     enabled: bool = False
     version: str = "8.19.17"
     mode: Literal["central", "collector"] = "central"
+    elasticsearch_mode: Literal["standalone", "cluster"] = "standalone"
     kubernetes_collector_enabled: bool = False
     host_port_base: int = Field(default=49600, ge=49152, le=65400, multiple_of=100)
 

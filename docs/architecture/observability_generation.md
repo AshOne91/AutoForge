@@ -41,8 +41,18 @@ FastAPI / worker
 중앙 `central` 오버레이의 Elasticsearch, Kibana, Filebeat와 `collector` 오버레이의
 Filebeat는 `restart: unless-stopped`와 개별 healthcheck를 가진다. 중앙 Elasticsearch와
 Filebeat registry는 named volume을 사용해 프로세스 재시작 뒤에도 상태를 보존한다.
-이 계약은 단일 Docker host의 프로세스/컨테이너 복구만 보장하며, 호스트 장애나
-다중 노드 Elasticsearch 클러스터를 의미하지 않는다.
+
+`tooling.elk.elasticsearch_mode`는 중앙 저장소의 로컬 복구 형태를 선택한다.
+
+- `standalone`(기본값): 한 Elasticsearch 컨테이너와 `elasticsearch-data` volume을 생성한다.
+- `cluster`: 세 Elasticsearch member와 member별 named volume을 생성하고, 생성된 Nginx
+  proxy가 기존 `elasticsearch:9200` 주소를 유지한다. Filebeat와 Kibana는 member 이름을
+  알지 못하며 이 안정 주소만 사용한다. 격리 Docker 검증은 JSON 로그 한 건을 Filebeat로
+  수집한 뒤 member 하나를 중지하고, 같은 주소에서 그 로그를 다시 조회했다.
+
+이것은 새 named volume으로 형성한 하나의 Docker host 안 논리 member 복구 검증이다.
+Kibana 자체는 하나의 인스턴스이고, 호스트 장애나 다중 물리 host Elasticsearch HA를
+의미하지 않는다.
 
 ## 소유권
 

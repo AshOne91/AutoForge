@@ -293,6 +293,11 @@ AutoForge currently has working foundations for:
   application `/health` records into an Elasticsearch data stream; its Filebeat
   mount path is aligned with the generated integration Compose project. Central
   Elasticsearch and Kibana now use the explicit `49600`/`49601` host block.
+  `ElkSpec.elasticsearch_mode: cluster` additionally generates three local
+  Elasticsearch members behind the same generated `elasticsearch:9200` proxy
+  address. An isolated Docker drill ingested a JSON log through Filebeat,
+  stopped one member, and retrieved the same log through that stable endpoint.
+  This is one-host logical storage recovery; Kibana remains a singleton.
 - opt-in RAG infrastructure with Qdrant, Ollama, and one selectable search backend
   (Elasticsearch or OpenSearch), connected to generated application/worker consumers
   through an explicit external named network. `RagSpec.search_mode: cluster` now

@@ -1,10 +1,10 @@
 # Next Task
 
-## Next executable unit: add HA observability search generation
+## Next executable unit: define the Kibana availability boundary
 
-Extend the ELK generator with an explicit clustered Elasticsearch selection while
-preserving Filebeat's and Kibana's stable generated endpoints. Reuse the verified
-search-cluster bootstrap and proxy pattern only where its lifecycle matches
-observability storage. Prove one Elasticsearch member stop does not break the
-generated log-ingestion/readiness path. Do not add application log-query APIs or
+Inspect the current generated ELK Compose contract and decide whether multiple
+Kibana instances can safely share its generated state and configuration without
+changing the local operator endpoint or weakening security. If that contract is
+not yet bounded, record the reason and choose the next already-documented
+service-level HA verification instead. Do not add application log-query APIs or
 change consumer domain code in this unit.

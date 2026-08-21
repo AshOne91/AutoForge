@@ -1,5 +1,10 @@
-from pathlib import PurePosixPath
+import os
+import socket
+import uuid
+from pathlib import Path, PurePosixPath
 
+import anyio
+import pytest
 import yaml
 
 from autoforge.core.specification import (
@@ -9,10 +14,16 @@ from autoforge.core.specification import (
     ProjectSpec,
     ToolingSpec,
 )
+from autoforge.infrastructure.process import AsyncioProcessRunner
 from autoforge.services.generation.elk import ElkStackGenerator
 
 
-def specification(*, enabled: bool = False) -> ProjectSpec:
+def specification(
+    *,
+    enabled: bool = False,
+    elasticsearch_mode: str = "standalone",
+    host_port_base: int = 49600,
+) -> ProjectSpec:
     return ProjectSpec(
         spec_version="1",
         project=ProjectInfo(
@@ -21,7 +32,13 @@ def specification(*, enabled: bool = False) -> ProjectSpec:
             version="0.1.0",
         ),
         application=ApplicationSpec(),
-        tooling=ToolingSpec(elk=ElkSpec(enabled=enabled)),
+        tooling=ToolingSpec(
+            elk=ElkSpec(
+                enabled=enabled,
+                elasticsearch_mode=elasticsearch_mode,
+                host_port_base=host_port_base,
+            )
+        ),
     )
 
 
@@ -77,12 +94,58 @@ def test_elk_generator_renders_development_overlay_and_filebeat_config() -> None
     assert "name" not in parsed
 
 
+def test_elk_generator_renders_clustered_storage_behind_stable_endpoint() -> None:
+    files = ElkStackGenerator().render(
+        specification(enabled=True, elasticsearch_mode="cluster")
+    )
+    compose = files[PurePosixPath("deploy", "observability", "compose.elk.yaml")]
+    proxy = files[
+        PurePosixPath("deploy", "observability", "nginx", "elasticsearch.conf")
+    ]
+    filebeat = files[PurePosixPath("deploy", "observability", "filebeat.yml")]
+    parsed = yaml.safe_load(compose)
+
+    assert set(parsed["services"]) == {
+        "elasticsearch",
+        "elasticsearch-1",
+        "elasticsearch-2",
+        "elasticsearch-3",
+        "kibana",
+        "filebeat",
+    }
+    assert "discovery.type" not in compose
+    assert parsed["services"]["elasticsearch"]["depends_on"]["elasticsearch-3"] == {
+        "condition": "service_healthy"
+    }
+    assert parsed["services"]["kibana"]["environment"]["ELASTICSEARCH_HOSTS"] == (
+        "http://elasticsearch:9200"
+    )
+    assert 'hosts: ["http://elasticsearch:9200"]' in filebeat
+    assert "elasticsearch-3:9200" in proxy
+    assert set(parsed["volumes"]) >= {
+        "elasticsearch-1-data",
+        "elasticsearch-2-data",
+        "elasticsearch-3-data",
+    }
+
+
 def test_elk_generator_plan_marks_all_outputs_generated() -> None:
     plan = ElkStackGenerator().plan(specification(enabled=True))
 
     assert len(plan.files) == 3
     assert {file.ownership.value for file in plan.files} == {"generated"}
     assert {file.source for file in plan.files} == {"project:elk"}
+
+
+def test_clustered_elk_plan_includes_the_stable_proxy_config() -> None:
+    plan = ElkStackGenerator().plan(
+        specification(enabled=True, elasticsearch_mode="cluster")
+    )
+
+    assert {file.relative_path for file in plan.files} >= {
+        PurePosixPath("deploy", "observability", "compose.elk.yaml"),
+        PurePosixPath("deploy", "observability", "nginx", "elasticsearch.conf"),
+    }
 
 
 def test_elk_collector_mode_generates_filebeat_only() -> None:
@@ -105,3 +168,172 @@ def test_elk_collector_mode_generates_filebeat_only() -> None:
     ]
     assert "${ELASTICSEARCH_HOST}" in filebeat
     assert "collector-only" in readme
+
+
+@pytest.mark.integration
+@pytest.mark.anyio
+async def test_clustered_elk_preserves_filebeat_log_search_after_member_stops(
+    tmp_path: Path,
+) -> None:
+    if os.environ.get("AUTOFORGE_DOCKER_ELK_CLUSTER_INTEGRATION") != "1":
+        pytest.skip("set AUTOFORGE_DOCKER_ELK_CLUSTER_INTEGRATION=1 to run Docker")
+
+    host_port_base = next(
+        base
+        for base in range(49600, 65500, 100)
+        if all(_port_is_available(port) for port in (base, base + 1))
+    )
+    package_name = f"elk_ha_{uuid.uuid4().hex}"
+    files = ElkStackGenerator().render(
+        specification(
+            enabled=True,
+            elasticsearch_mode="cluster",
+            host_port_base=host_port_base,
+        ).model_copy(
+            update={
+                "project": ProjectInfo(
+                    name="ELK HA",
+                    package_name=package_name,
+                    version="0.1.0",
+                )
+            }
+        )
+    )
+    for relative_path, content in files.items():
+        target = tmp_path / relative_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    marker = f"elk-ha-{uuid.uuid4().hex}"
+    compose = (
+        "docker",
+        "compose",
+        "--project-name",
+        package_name,
+        "-f",
+        "deploy/observability/compose.elk.yaml",
+    )
+    environment = {
+        "ELASTICSEARCH_PORT": str(host_port_base),
+        "KIBANA_PORT": str(host_port_base + 1),
+        "LOG_ROOT": "../../logs",
+        "FILEBEAT_CONFIG": "./filebeat.yml",
+    }
+    runner = AsyncioProcessRunner()
+    try:
+        result = await runner.run(
+            (*compose, "up", "--detach"),
+            cwd=tmp_path,
+            timeout_seconds=240,
+            environment=environment,
+        )
+        assert result.succeeded, result.stderr
+        for _ in range(45):
+            result = await runner.run(
+                (
+                    *compose,
+                    "exec",
+                    "-T",
+                    "elasticsearch-2",
+                    "curl",
+                    "--fail",
+                    "--silent",
+                    "http://elasticsearch:9200/_cluster/health?wait_for_nodes=3&timeout=1s",
+                ),
+                cwd=tmp_path,
+                timeout_seconds=10,
+                environment=environment,
+            )
+            if result.succeeded:
+                break
+            await anyio.sleep(2)
+        assert result.succeeded, result.stderr
+
+        (logs / "application.log").write_text(
+            f'{{"event_type":"{marker}","message":"clustered elk"}}\n',
+            encoding="utf-8",
+        )
+        query = (
+            '{"query":{"term":{"event_type":"'
+            f"{marker}"
+            '"}}}'
+        )
+        for _ in range(45):
+            result = await runner.run(
+                (
+                    *compose,
+                    "exec",
+                    "-T",
+                    "elasticsearch-2",
+                    "curl",
+                    "--fail",
+                    "--silent",
+                    "-X",
+                    "POST",
+                    "http://elasticsearch:9200/_search",
+                    "-H",
+                    "Content-Type: application/json",
+                    "-d",
+                    query,
+                ),
+                cwd=tmp_path,
+                timeout_seconds=20,
+                environment=environment,
+            )
+            if marker in result.stdout:
+                break
+            await anyio.sleep(2)
+        assert marker in result.stdout, result.stderr
+
+        result = await runner.run(
+            (*compose, "stop", "elasticsearch-1"),
+            cwd=tmp_path,
+            timeout_seconds=30,
+            environment=environment,
+        )
+        assert result.succeeded, result.stderr
+        for _ in range(30):
+            result = await runner.run(
+                (
+                    *compose,
+                    "exec",
+                    "-T",
+                    "elasticsearch-2",
+                    "curl",
+                    "--fail",
+                    "--silent",
+                    "-X",
+                    "POST",
+                    "http://elasticsearch:9200/_search",
+                    "-H",
+                    "Content-Type: application/json",
+                    "-d",
+                    query,
+                ),
+                cwd=tmp_path,
+                timeout_seconds=20,
+                environment=environment,
+            )
+            if marker in result.stdout:
+                break
+            await anyio.sleep(2)
+        assert marker in result.stdout, result.stderr
+    finally:
+        await runner.run(
+            (*compose, "down", "--volumes", "--remove-orphans"),
+            cwd=tmp_path,
+            timeout_seconds=180,
+            environment=environment,
+        )
+
+
+def _port_is_available(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            listener.bind(("127.0.0.1", port))
+        except OSError:
+            return False
+    return True
