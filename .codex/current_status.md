@@ -298,6 +298,9 @@ AutoForge currently has working foundations for:
   address. An isolated Docker drill ingested a JSON log through Filebeat,
   stopped one member, and retrieved the same log through that stable endpoint.
   This is one-host logical storage recovery; Kibana remains a singleton.
+  Multiple Kibana instances are intentionally deferred because their shared
+  encryption-key and Secret lifecycle is not part of the insecure local ELK
+  overlay contract.
 - opt-in RAG infrastructure with Qdrant, Ollama, and one selectable search backend
   (Elasticsearch or OpenSearch), connected to generated application/worker consumers
   through an explicit external named network. `RagSpec.search_mode: cluster` now

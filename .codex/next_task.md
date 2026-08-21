@@ -1,10 +1,9 @@
 # Next Task
 
-## Next executable unit: define the Kibana availability boundary
+## Next executable unit: verify Kibana survives an Elasticsearch member loss
 
-Inspect the current generated ELK Compose contract and decide whether multiple
-Kibana instances can safely share its generated state and configuration without
-changing the local operator endpoint or weakening security. If that contract is
-not yet bounded, record the reason and choose the next already-documented
-service-level HA verification instead. Do not add application log-query APIs or
-change consumer domain code in this unit.
+Extend the existing opt-in ELK cluster Docker drill so the current singleton
+Kibana `/api/status` endpoint is checked after one Elasticsearch member stops.
+Keep Kibana as one instance: replica generation is deferred until a separate
+Secret/TLS contract owns its shared encryption keys. Do not add application
+log-query APIs or change consumer domain code in this unit.

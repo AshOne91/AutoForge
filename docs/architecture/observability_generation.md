@@ -54,6 +54,24 @@ Filebeat registry는 named volume을 사용해 프로세스 재시작 뒤에도 
 Kibana 자체는 하나의 인스턴스이고, 호스트 장애나 다중 물리 host Elasticsearch HA를
 의미하지 않는다.
 
+Kibana replica는 현재 생성하지 않는다. self-managed Kibana 복제는 instance별 고유
+식별자와, 모든 replica에서 동일한 session·reporting·encrypted-saved-object encryption
+key를 요구한다. 현재 중앙 ELK는 보안과 TLS가 꺼진 로컬 개발 overlay이며 이 key의
+Secret 수명주기를 생성 계약으로 아직 소유하지 않는다. 따라서 `elasticsearch_mode:
+cluster`는 로그 저장소의 member 장애 복구만 선택하고 Kibana UI 가용성까지 주장하지
+않는다. Kibana replica 설정은 Secret 주입·회전·운영 TLS 계약을 함께 선택하는 별도
+단위에서만 추가한다. Elastic의 self-managed [Kibana HA 지침](https://www.elastic.co/docs/deploy-manage/production-guidance/kibana-load-balance-traffic)이 요구하는 공유 key와
+고유 instance 설정을 충족해야 한다.
+
+Kibana replica는 현재 생성하지 않는다. self-managed Kibana 복제는 instance별 고유
+식별자와, 모든 replica에서 동일한 session·reporting·encrypted-saved-object encryption
+key를 요구한다. 현재 중앙 ELK는 보안과 TLS가 꺼진 로컬 개발 overlay이며 이 key의
+Secret 수명주기를 생성 계약으로 아직 소유하지 않는다. 따라서 `elasticsearch_mode:
+cluster`는 로그 저장소의 member 장애 복구만 선택하고 Kibana UI 가용성까지 주장하지
+않는다. Kibana replica 설정은 Secret 주입·회전·운영 TLS 계약을 함께 선택하는 별도
+단위에서만 추가한다. Elastic의 self-managed [Kibana HA 지침](https://www.elastic.co/docs/deploy-manage/production-guidance/kibana-load-balance-traffic)이 요구하는 공유 key와
+고유 instance 설정을 충족해야 한다.
+
 ## 소유권
 
 - AutoForge 생성 파일: 생성기와 명세가 관리한다.
