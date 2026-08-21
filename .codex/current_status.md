@@ -1476,7 +1476,22 @@ disposable PostgreSQL run applied every Alembic head including
 `af_995f6cee244f28112f3fb0fb`, then saved and read a candle through the generated
 SQLAlchemy repository. The disposable database resources were removed. The full
 KIS suite passes with warnings treated as errors (`132 passed, 5 skipped`) and
-full Ruff. Automated Durable Job collection is not implemented yet.
+full Ruff.
+
+The same slice now declares `domestic_daily_candle_collection` through the
+generated Durable Job contract. Its API payload validation rejects malformed
+stock codes before database access, and the consumer worker reuses the existing
+KIS client and `market_history` persistence handler. Handler/API fakes and the
+complete KIS suite pass (`134 passed, 5 skipped`, `-W error`) with full Ruff.
+AutoForge also closes the scheduler-input gap shared by the existing news job:
+every scheduled Durable Job now receives its generated
+`DURABLE_JOB_<NAME>_PAYLOAD_JSON` value from `.env` in Airflow webserver and
+scheduler processes, while initialization and unrelated services do not receive
+it. The generated guide and `.env.example` identify the deployment-owned JSON
+input. AutoForge passes its complete suite (`674 passed, 30 skipped`, `-W error`)
+and full Ruff. KIS regeneration emits a weekday `08:00 UTC` daily-candle DAG and
+Docker Compose accepts a non-production stock-code payload; no live KIS request
+was made.
 
 ## Development tooling
 

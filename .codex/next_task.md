@@ -1,10 +1,10 @@
 # Next Task
 
-## Next executable unit: automate domestic daily candle collection
+## Next executable unit: read persisted domestic daily candles
 
-Add one validated Durable Job type that accepts a six-digit domestic stock code,
-calls the existing KIS daily-candle client, and persists through the existing
-`market_history` handler. Reuse the generated Durable Job, worker, token, Redis,
-database, logging, and idempotent candle-ID contracts. Prove the handler with
-fakes and keep all live KIS calls opt-in. Do not add order, portfolio, strategy,
-or arbitrary historical pagination behavior.
+Declare one generated `list_by_stock_code` repository query for
+`DomesticDailyCandle`, ordered by trading date descending with a bounded limit.
+Regenerate KIS before adding an operator-token-protected GET path that reads only
+the global `automation` store and never calls KIS. Verify the generated query,
+safe API failure mapping, and a real disposable PostgreSQL round trip. Do not add
+arbitrary date-range pagination, order, portfolio, or strategy behavior.

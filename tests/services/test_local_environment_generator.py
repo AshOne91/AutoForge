@@ -982,11 +982,22 @@ def test_render_adds_airflow_for_durable_jobs() -> None:
     )
     assert airflow["airflow-scheduler"]["command"] == "scheduler"
     assert airflow["airflow-webserver"]["environment"]["DURABLE_JOB_API_TOKEN"] == "${DURABLE_JOB_API_TOKEN:?set DURABLE_JOB_API_TOKEN}"
+    assert airflow["airflow-webserver"]["environment"][
+        "DURABLE_JOB_NEWS_COLLECTION_PAYLOAD_JSON"
+    ] == "${DURABLE_JOB_NEWS_COLLECTION_PAYLOAD_JSON:-{}}"
+    assert airflow["airflow-scheduler"]["environment"][
+        "DURABLE_JOB_NEWS_COLLECTION_PAYLOAD_JSON"
+    ] == "${DURABLE_JOB_NEWS_COLLECTION_PAYLOAD_JSON:-{}}"
+    assert "DURABLE_JOB_NEWS_COLLECTION_PAYLOAD_JSON" not in airflow[
+        "airflow-init"
+    ]["environment"]
     assert "../airflow/dags:/opt/airflow/dags:ro" in airflow["airflow-scheduler"]["volumes"]
     assert "airflow-home:/opt/airflow" in airflow["airflow-init"]["volumes"]
     assert "DURABLE_JOB_API_TOKEN=change-me" in environment
+    assert "DURABLE_JOB_NEWS_COLLECTION_PAYLOAD_JSON={}" in environment
     assert "('airflow')" in databases
     assert "Airflow" in readme
+    assert "DURABLE_JOB_*_PAYLOAD_JSON" in readme
 
 
 def test_render_creates_opt_in_airflow_scheduler_ha() -> None:

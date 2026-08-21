@@ -17,6 +17,10 @@ DURABLE_JOB_GENERATOR_ID: Final = "autoforge.generator.service.durable_jobs"
 DURABLE_JOB_GENERATOR_VERSION: Final = "0.1.1"
 
 
+def durable_job_payload_environment(job_name: str) -> str:
+    return f"DURABLE_JOB_{job_name.upper()}_PAYLOAD_JSON"
+
+
 class DurableJobGenerator:
     """Generate the persistent job and transactional outbox contract."""
 
@@ -558,7 +562,7 @@ class DurableJobGenerator:
 
     @staticmethod
     def _render_airflow_dag(job: DurableJobSpec, token_env: str) -> str:
-        payload_env = f"DURABLE_JOB_{job.name.upper()}_PAYLOAD_JSON"
+        payload_env = durable_job_payload_environment(job.name)
         return (
             "\"\"\"Generated Airflow orchestration for a durable job.\"\"\"\n"
             "\n"

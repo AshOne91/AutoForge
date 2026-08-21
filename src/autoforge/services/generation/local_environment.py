@@ -19,9 +19,12 @@ from autoforge.core.specification import (
     RuntimeEnvironmentTarget,
     ServiceSpec,
 )
+from autoforge.services.generation.durable_jobs import (
+    durable_job_payload_environment,
+)
 
 LOCAL_ENVIRONMENT_GENERATOR_ID = "autoforge.generator.local-environment"
-LOCAL_ENVIRONMENT_GENERATOR_VERSION = "0.1.0"
+LOCAL_ENVIRONMENT_GENERATOR_VERSION = "0.1.1"
 
 
 class LocalEnvironmentGenerator:
@@ -463,6 +466,11 @@ class LocalEnvironmentGenerator:
                     durable_job_token_env=specification.application.service_token_environments[
                         "durable_jobs"
                     ],
+                    scheduled_payload_environments=tuple(
+                        durable_job_payload_environment(job.name)
+                        for job in specification.application.durable_jobs
+                        if job.schedule is not None
+                    ),
                     has_application=has_application,
                     postgres_mode=postgres_mode,
                     scheduler_replicas=airflow_scheduler_replicas,
@@ -1742,6 +1750,7 @@ class LocalEnvironmentGenerator:
         cls,
         *,
         durable_job_token_env: str,
+        scheduled_payload_environments: tuple[str, ...],
         has_application: bool,
         postgres_mode: str,
         scheduler_replicas: int,
@@ -1779,6 +1788,10 @@ class LocalEnvironmentGenerator:
             + scheduler_ha_environment
             + f"      DURABLE_JOB_API_URL: ${{DURABLE_JOB_API_URL:-{api_url}}}\n"
             + f"      {durable_job_token_env}: ${{{durable_job_token_env}:?set {durable_job_token_env}}}\n"
+        )
+        dag_environment = environment + "".join(
+            f'      {name}: "${{{name}:-{{}}}}"\n'
+            for name in scheduled_payload_environments
         )
         volumes = (
             "      - ../airflow/dags:/opt/airflow/dags:ro\n"
@@ -1834,7 +1847,7 @@ class LocalEnvironmentGenerator:
             "      airflow-init:\n"
             "        condition: service_completed_successfully\n"
             "    environment:\n"
-            + environment
+            + dag_environment
             + "    volumes:\n"
             + volumes
             + "    ports:\n"
@@ -1851,7 +1864,7 @@ class LocalEnvironmentGenerator:
                 cls._render_airflow_scheduler(
                     name=name,
                     scheduler_dependencies=scheduler_dependencies,
-                    environment=environment,
+                    environment=dag_environment,
                     volumes=volumes,
                     healthcheck=scheduler_replicas > 1,
                 )
@@ -2011,6 +2024,11 @@ class LocalEnvironmentGenerator:
                     ),
                     f"DURABLE_JOB_API_URL={durable_job_api_url}\n",
                 ]
+            )
+            lines.extend(
+                f"{durable_job_payload_environment(job.name)}={{}}\n"
+                for job in specification.application.durable_jobs
+                if job.schedule is not None
             )
         lines.extend(
             f"{token_env}=change-me\n"
@@ -2177,7 +2195,9 @@ class LocalEnvironmentGenerator:
             )
             + (
                 "Airflow is generated paused and reads the durable-job API token from .env. "
-                "The durable-job worker runs from the same local image.\n"
+                "Scheduled job payloads are JSON objects supplied by their generated "
+                "`DURABLE_JOB_*_PAYLOAD_JSON` entries in `.env`. The durable-job worker "
+                "runs from the same local image.\n"
                 if has_durable_jobs
                 else ""
             )
