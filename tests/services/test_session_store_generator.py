@@ -10,9 +10,17 @@ import pytest
 from autoforge.core.generation import FileOwnership, Generator
 from autoforge.core.specification import (
     ApplicationSpec,
+    EndpointSpec,
+    FieldSpec,
+    FieldType,
+    FieldTypeKind,
+    HttpMethod,
     LocalEnvironmentSpec,
+    ModuleInfo,
+    ModuleSpec,
     ProjectInfo,
     ProjectSpec,
+    ResponseSpec,
     ServiceSpec,
     ToolingSpec,
 )
@@ -20,6 +28,7 @@ from autoforge.core.workspace import Workspace
 from autoforge.infrastructure.process import AsyncioProcessRunner
 from autoforge.services.generation import (
     FastAPIProjectGenerator,
+    FastAPIModuleGenerator,
     GenerationPlanApplier,
     GenerationPlanResolver,
     LocalEnvironmentGenerator,
@@ -277,7 +286,7 @@ async def test_generated_fake_honors_ttl_and_revocation(tmp_path: Path) -> None:
 
 @pytest.mark.integration
 @pytest.mark.anyio
-async def test_generated_sentinel_session_store_recovers_after_redis_primary_stops(
+async def test_generated_sentinel_session_and_request_replay_recover_after_redis_primary_stops(
     tmp_path: Path,
 ) -> None:
     if os.environ.get("AUTOFORGE_DOCKER_REDIS_SENTINEL_SESSION_INTEGRATION") != "1":
@@ -308,15 +317,46 @@ async def test_generated_sentinel_session_store_recovers_after_redis_primary_sto
         ),
         tooling=ToolingSpec(local_environment=LocalEnvironmentSpec(enabled=True)),
     )
+    route_specification = ModuleSpec(
+        spec_version="1",
+        module=ModuleInfo(
+            name="replay",
+            display_name="Replay",
+            route_prefix="/api/replay",
+        ),
+        endpoints=[
+            EndpointSpec(
+                name="submit",
+                method=HttpMethod.POST,
+                path="/submit",
+                response=ResponseSpec(
+                    fields=[
+                        FieldSpec(
+                            name="message",
+                            type=FieldType(kind=FieldTypeKind.STRING),
+                        )
+                    ]
+                ),
+                handler="submit",
+                idempotency=True,
+                idempotency_ttl_seconds=600,
+            )
+        ],
+    )
     workspace = Workspace(tmp_path)
-    for job_id, generator in [
-        ("project-job", FastAPIProjectGenerator()),
-        ("session-store-job", SessionStoreGenerator()),
-        ("environment-job", LocalEnvironmentGenerator()),
+    for job_id, generator, target_specification in [
+        ("project-job", FastAPIProjectGenerator(), specification_value),
+        ("session-store-job", SessionStoreGenerator(), specification_value),
+        ("environment-job", LocalEnvironmentGenerator(), specification_value),
+        (
+            "module-job",
+            FastAPIModuleGenerator(package_name),
+            route_specification,
+        ),
     ]:
-        rendered = generator.render(specification_value)
+        rendered = generator.render(target_specification)
         plan = GenerationPlanResolver().resolve(
-            generator.plan(specification_value), workspace
+            generator.plan(target_specification), workspace
         )
         GenerationPlanApplier().apply(
             job_id=job_id,
@@ -389,7 +429,8 @@ async def test_generated_sentinel_session_store_recovers_after_redis_primary_sto
                 "-c",
                 (
                     "pip install --disable-pip-version-check 'fastapi>=0.110,<1' "
-                    "'redis>=5,<7' && python verify_sentinel_session.py"
+                    "'httpx>=0.27,<1' 'redis>=5,<7' && "
+                    "python verify_sentinel_session.py"
                 ),
             ),
             cwd=workspace.root,
@@ -404,6 +445,7 @@ async def test_generated_sentinel_session_store_recovers_after_redis_primary_sto
             timeout_seconds=30,
         )
         assert result.succeeded, result.stderr
+
         master_after = master_before
         for _ in range(45):
             master_after = await _sentinel_master_address(
@@ -444,7 +486,8 @@ async def test_generated_sentinel_session_store_recovers_after_redis_primary_sto
                 "-c",
                 (
                     "pip install --disable-pip-version-check 'fastapi>=0.110,<1' "
-                    "'redis>=5,<7' && python verify_sentinel_replay.py"
+                    "'httpx>=0.27,<1' 'redis>=5,<7' && "
+                    "python verify_sentinel_replay.py"
                 ),
             ),
             cwd=workspace.root,
@@ -475,6 +518,7 @@ def _write_sentinel_session_probe(workspace_root: Path, package_name: str) -> No
         "import sys\n"
         "from pathlib import Path\n"
         "from fastapi import FastAPI\n"
+        "from httpx import ASGITransport, AsyncClient\n"
         "sys.path.insert(0, '/workspace/src')\n"
         f"from {package_name}.infrastructure.session_store import (\n"
         "    ReplayClaim,\n"
@@ -484,9 +528,15 @@ def _write_sentinel_session_probe(workspace_root: Path, package_name: str) -> No
         f"from {package_name}.infrastructure.session_store.provider import (\n"
         "    session_store_lifespan,\n"
         ")\n"
+        f"from {package_name}.modules.replay.generated import router\n"
+        "\n"
+        "async def created():\n"
+        "    return {'message': 'created'}\n"
         "\n"
         "async def verify():\n"
+        "    router.handlers.submit = created\n"
         "    app = FastAPI()\n"
+        "    app.include_router(router.router)\n"
         "    async with session_store_lifespan(app):\n"
         "        store = app.state.session_store\n"
         "        session = SessionData(\n"
@@ -499,7 +549,6 @@ def _write_sentinel_session_probe(workspace_root: Path, package_name: str) -> No
         "            'sentinel-replay', 'fingerprint', 600\n"
         "        )\n"
         "        assert isinstance(replay_claim, ReplayClaim)\n"
-        "        assert await replay_store._client.wait(2, 10_000) == 2\n"
         "        Path('/workspace/replay_claim.txt').write_text(\n"
         "            '|'.join((\n"
         "                replay_claim.key, replay_claim.fingerprint,\n"
@@ -507,6 +556,16 @@ def _write_sentinel_session_probe(workspace_root: Path, package_name: str) -> No
         "            )),\n"
         "            encoding='utf-8',\n"
         "        )\n"
+        "        async with AsyncClient(\n"
+        "            transport=ASGITransport(app=app), base_url='http://test'\n"
+        "        ) as client:\n"
+        "            response = await client.post(\n"
+        "                '/api/replay/submit',\n"
+        "                headers={'Idempotency-Key': 'sentinel-route'},\n"
+        "            )\n"
+        "        assert response.status_code == 200\n"
+        "        assert response.json() == {'message': 'created'}\n"
+        "        assert await replay_store._client.wait(2, 10_000) == 2\n"
         "        print('BEFORE', flush=True)\n"
         "        for _ in range(900):\n"
         "            if Path('/workspace/continue').exists():\n"
@@ -525,6 +584,7 @@ def _write_sentinel_session_probe(workspace_root: Path, package_name: str) -> No
         "import sys\n"
         "from pathlib import Path\n"
         "from fastapi import FastAPI\n"
+        "from httpx import ASGITransport, AsyncClient\n"
         "sys.path.insert(0, '/workspace/src')\n"
         f"from {package_name}.infrastructure.session_store import (\n"
         "    ReplayClaim,\n"
@@ -533,18 +593,33 @@ def _write_sentinel_session_probe(workspace_root: Path, package_name: str) -> No
         f"from {package_name}.infrastructure.session_store.provider import (\n"
         "    session_store_lifespan,\n"
         ")\n"
+        f"from {package_name}.modules.replay.generated import router\n"
+        "\n"
+        "async def must_not_run():\n"
+        "    raise AssertionError('replayed request called its handler')\n"
         "\n"
         "async def verify():\n"
         "    key, fingerprint, token, ttl_seconds = Path(\n"
         "        '/workspace/replay_claim.txt'\n"
         "    ).read_text(encoding='utf-8').split('|')\n"
         "    claim = ReplayClaim(key, fingerprint, token, int(ttl_seconds))\n"
+        "    router.handlers.submit = must_not_run\n"
         "    app = FastAPI()\n"
+        "    app.include_router(router.router)\n"
         "    async with session_store_lifespan(app):\n"
         "        replay_store = app.state.request_replay_store\n"
         "        await replay_store.complete(claim, 201, '{\"created\":true}')\n"
         "        replay = await replay_store.claim(key, fingerprint, claim.ttl_seconds)\n"
         "        assert replay == ReplayRecord(201, '{\"created\":true}')\n"
+        "        async with AsyncClient(\n"
+        "            transport=ASGITransport(app=app), base_url='http://test'\n"
+        "        ) as client:\n"
+        "            response = await client.post(\n"
+        "                '/api/replay/submit',\n"
+        "                headers={'Idempotency-Key': 'sentinel-route'},\n"
+        "            )\n"
+        "        assert response.status_code == 200\n"
+        "        assert response.json() == {'message': 'created'}\n"
         "\n"
         "asyncio.run(verify())\n",
         encoding="utf-8",

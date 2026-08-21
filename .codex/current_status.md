@@ -1020,6 +1020,13 @@ same record from the elected master. This proves the explicit replicated-record
 and reconnect boundary; it does not make `WAIT` a generated default or promise
 zero RPO or transparent recovery for an in-flight HTTP request.
 
+The same bounded drill now renders a real `EndpointSpec.idempotency` POST route.
+It completes the first request before failover, confirms the completed record was
+acknowledged by both replicas, then starts a fresh generated application lifespan
+after promotion and receives the original JSON response without invoking the
+replacement handler. The two HTTP checks share the existing pre/post-failover
+probe containers so local test load does not distort Sentinel election timing.
+
 `tooling.realtime` generates an opt-in `infrastructure/realtime` runtime
 contract with an asynchronous in-process `RealtimeHub`, channel
 subscribe/unsubscribe/publish, explicit close, and a deterministic subscriber

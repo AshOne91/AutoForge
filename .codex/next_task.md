@@ -1,10 +1,10 @@
 # Next Task
 
-## Next executable unit: verify generated idempotency route through Redis Sentinel failover
+## Next executable unit: verify idempotency conflict after Redis Sentinel failover
 
-Add one opt-in generated FastAPI integration drill for an endpoint that already
-selects `EndpointSpec.idempotency`. Complete its first request before a Sentinel
-primary change, then use a fresh generated application/provider connection to
-replay that completed response after the elected master is stable. Reuse the
-existing request-replay and Sentinel contracts; do not add consumer-domain
-policy, retries for uncertain in-flight work, or a new durability guarantee.
+Extend the existing opt-in generated HTTP drill with a request body. After the
+same completed response is replayed through the promoted master, reuse the same
+idempotency key with a changed body and verify the generated route returns 409
+without invoking its handler. Reuse the current Sentinel topology and probe
+containers; do not add retry, consumer-domain policy, or a new durability
+guarantee.
