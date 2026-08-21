@@ -299,6 +299,8 @@ AutoForge currently has working foundations for:
   stopped one member, retrieved the baseline log, then appended, ingested, and
   searched a new JSON log through that stable endpoint. The drill also tolerates
   Kibana's transient connection close while the surviving search cluster settles.
+  The stopped member then rejoined with three nodes, green cluster health, and no
+  unassigned shards before the outage-ingested log was searched again.
   The same drill confirmed the singleton Kibana `/api/status` endpoint remained
   available. This is one-host logical storage recovery; Kibana remains a singleton.
   Multiple Kibana instances are intentionally deferred because their shared
@@ -982,9 +984,8 @@ owner release; the temporary container and workspace were removed afterward.
 An isolated generated six-node Redis Cluster drill then acquired and released a
 lock through the multi-startup-node adapter, stopped one primary, waited for
 cluster recovery, and repeated the same lock operation. The shared local
-environment now generates Sentinel primary/replica/quorum topology, but the
-lock adapter has not yet had a dedicated Sentinel runtime drill. This is not a
-Redlock, fencing-token, or auto-renewal
+environment now generates Sentinel primary/replica/quorum topology. This is not
+a Redlock, fencing-token, or auto-renewal
 implementation. Lock key design, critical-section duration, wait/retry policy,
 token-cache policy, FastAPI lifespan registration, and KIS adoption remain
 consumer-owned.

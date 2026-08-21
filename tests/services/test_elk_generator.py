@@ -1,3 +1,4 @@
+import json
 import os
 import socket
 import uuid
@@ -375,6 +376,66 @@ async def test_clustered_elk_ingests_and_searches_logs_after_member_stops(
             await anyio.sleep(2)
         else:
             pytest.fail("Kibana was unavailable after an Elasticsearch member stopped")
+        result = await runner.run(
+            (*compose, "start", "elasticsearch-1"),
+            cwd=tmp_path,
+            timeout_seconds=30,
+            environment=environment,
+        )
+        assert result.succeeded, result.stderr
+        health: dict[str, object] = {}
+        for _ in range(30):
+            result = await runner.run(
+                (
+                    *compose,
+                    "exec",
+                    "-T",
+                    "elasticsearch-2",
+                    "curl",
+                    "--fail",
+                    "--silent",
+                    "http://elasticsearch:9200/_cluster/health?wait_for_status=green&wait_for_nodes=3&timeout=2s",
+                ),
+                cwd=tmp_path,
+                timeout_seconds=10,
+                environment=environment,
+            )
+            if result.succeeded:
+                health = json.loads(result.stdout)
+                if (
+                    health.get("status") == "green"
+                    and health.get("number_of_nodes") == 3
+                    and health.get("unassigned_shards") == 0
+                ):
+                    break
+            await anyio.sleep(2)
+        assert result.succeeded, result.stderr
+        assert health.get("status") == "green"
+        assert health.get("number_of_nodes") == 3
+        assert health.get("unassigned_shards") == 0
+        result = await runner.run(
+            (
+                *compose,
+                "exec",
+                "-T",
+                "elasticsearch-2",
+                "curl",
+                "--fail",
+                "--silent",
+                "-X",
+                "POST",
+                "http://elasticsearch:9200/_search",
+                "-H",
+                "Content-Type: application/json",
+                "-d",
+                outage_query,
+            ),
+            cwd=tmp_path,
+            timeout_seconds=20,
+            environment=environment,
+        )
+        assert result.succeeded, result.stderr
+        assert outage_marker in result.stdout
     finally:
         await runner.run(
             (*compose, "down", "--volumes", "--remove-orphans"),
