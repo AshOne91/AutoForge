@@ -763,7 +763,19 @@ def test_render_adds_airflow_for_durable_jobs() -> None:
     readme = files[PurePosixPath("environment", "README.md")]
 
     airflow = compose["services"]
-    assert {"airflow-init", "airflow-webserver", "airflow-scheduler"} <= set(airflow)
+    assert {
+        "airflow-db-bootstrap",
+        "airflow-init",
+        "airflow-webserver",
+        "airflow-scheduler",
+    } <= set(airflow)
+    assert airflow["airflow-db-bootstrap"]["depends_on"] == {
+        "postgres": {"condition": "service_healthy"}
+    }
+    assert "CREATE DATABASE airflow" in airflow["airflow-db-bootstrap"]["command"][2]
+    assert airflow["airflow-init"]["depends_on"] == {
+        "airflow-db-bootstrap": {"condition": "service_completed_successfully"}
+    }
     assert airflow["airflow-init"]["command"] == ["airflow", "db", "migrate"]
     assert airflow["airflow-webserver"]["command"] == (
         "webserver --pid /tmp/airflow-webserver.pid"

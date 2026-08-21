@@ -1615,14 +1615,32 @@ class LocalEnvironmentGenerator:
             else [f"airflow-scheduler-{index}" for index in range(scheduler_replicas)]
         )
         return (
-            "  airflow-init:\n"
+            (
+                "  airflow-db-bootstrap:\n"
+                "    image: postgres:16-alpine\n"
+                "    restart: \"no\"\n"
+                "    depends_on:\n"
+                "      postgres:\n"
+                "        condition: service_healthy\n"
+                "    environment:\n"
+                "      PGPASSWORD: ${POSTGRES_PASSWORD:-change-me}\n"
+                "    command:\n"
+                "      - sh\n"
+                "      - -ec\n"
+                "      - >-\n"
+                "        psql -h postgres -U ${POSTGRES_USER:-autoforge} -d postgres -tAc \"SELECT 1 FROM pg_database WHERE datname = 'airflow'\" | grep -q 1 || psql -h postgres -U ${POSTGRES_USER:-autoforge} -d postgres -c \"CREATE DATABASE airflow\"\n"
+                "\n"
+                if postgres_mode != "ha"
+                else ""
+            )
+            + "  airflow-init:\n"
             "    image: apache/airflow:2.10.5-python3.12\n"
             "    depends_on:\n"
             + (
                 "      postgres-ha-init:\n"
                 "        condition: service_completed_successfully\n"
                 if postgres_mode == "ha"
-                else "      postgres:\n        condition: service_healthy\n"
+                else "      airflow-db-bootstrap:\n        condition: service_completed_successfully\n"
             )
             + "    environment:\n"
             + environment
