@@ -10,6 +10,34 @@
 > [생성 계약](../architecture/generation_contract.md),
 > [DB 계약](../architecture/database_generation.md)를 따른다.
 
+## 시작 전에: 지금 무엇을 만드는가
+
+`AutoForge`는 로그인 서버 자체가 아니라, **서버의 반복되는 뼈대를 만드는 Python 생성기**다.
+이 문서에서 만드는 `login-server`는 AutoForge를 검증하면서 배우기 위한 첫 번째 결과물이다.
+
+```text
+사람이 요구사항을 YAML로 적음
+        ↓
+AutoForge가 DB·SQL·FastAPI Router·Docker 환경을 생성함
+        ↓
+사람이 handlers.py에 "회원가입하면 무엇을 할지" 같은 업무 규칙을 작성함
+        ↓
+Docker가 PostgreSQL·Redis·FastAPI를 함께 실행함
+```
+
+처음 보는 사람에게 가장 중요한 구분은 세 가지다.
+
+| 질문 | 답 |
+| --- | --- |
+| AutoForge에 작성하는 것은? | 서버의 구조와 계약을 적은 YAML 명세 |
+| 생성된 서버에 작성하는 것은? | `handlers.py`의 실제 업무 규칙과 테스트 |
+| Docker가 하는 일은? | 내 컴퓨터에서 서버와 DB·Redis를 같은 방식으로 함께 실행 |
+
+따라서 이 문서의 명령은 순서가 있다. `git clone`은 생성기를 받는 일, `conda create`는
+이 프로젝트 전용 Python 상자를 만드는 일, `generate`는 서버 뼈대를 만드는 일,
+`docker compose up`은 만들어진 서버를 실제로 켜는 일이다. 각 명령 뒤에는 다음 절의
+확인 결과가 나와야 하며, 결과가 다르면 다음 단계로 넘어가지 않는다.
+
 ## 0. 이 문서로 만드는 것과 만들지 않는 것
 
 완료하면 다음 그림처럼 동작한다.
@@ -54,6 +82,13 @@ PostgreSQL (49310)      Redis (Compose 내부)
 | 명세(YAML) | 서버에 무엇이 필요한지 AutoForge에 설명하는 설계 입력 |
 | 생성 코드 | 명세로부터 반복해서 만들어지는 코드. 직접 고치지 않는다. |
 | SCAFFOLDED 코드 | 한 번 만들어진 뒤 사람이 구현하는 파일. 이 서버의 handler가 여기에 해당한다. |
+| 도메인/모듈 | `identity`, `profile`처럼 한 가지 업무를 묶은 코드 단위. 이 실습의 `identity`는 회원가입·로그인 업무다. |
+| Router | URL과 HTTP 메서드를 handler에 연결하는 입구 코드. AutoForge가 생성한다. |
+| Handler | Router가 넘긴 요청을 받아 실제 업무 규칙을 실행하는 함수. 사람이 작성한다. |
+| Endpoint | `POST /api/identity/login`처럼 외부 프로그램이 호출하는 한 개의 URL 규칙. |
+| `.env` 환경 파일 | 비밀번호, 포트처럼 컴퓨터마다 다른 값을 코드 밖에 두는 파일. Git에 올리지 않는다. |
+| Migration | DB table을 처음 만들거나 바꾸는 순서를 기록한 파일. AutoForge가 명세에서 생성하고 Docker 시작 때 적용한다. |
+| Health check | 서버가 살아 있을 뿐 아니라 요청을 받을 준비가 됐는지 확인하는 `/health` 요청. |
 
 가장 중요한 경계는 다음 한 줄이다.
 
@@ -87,8 +122,9 @@ C:\workspace\login-server        # AutoForge가 생성하는 서버
 다음 순서대로 설치한다.
 
 1. [Git for Windows](https://git-scm.com/download/win)
-2. [Python 3.12](https://www.python.org/downloads/)
-   - 설치 화면에서 **Add Python to PATH**를 체크한다.
+2. [Miniconda for Windows](https://docs.anaconda.com/miniconda/)
+   - 시스템 Python 대신 프로젝트별 Conda 환경으로 Python 3.12와 패키지를
+     분리한다.
 3. [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/)
    - WSL 2 사용을 권장한다.
 4. 선택: [Visual Studio Code](https://code.visualstudio.com/)
@@ -104,13 +140,24 @@ wsl --install
 
 ```powershell
 git --version
-py -3.12 --version
+conda --version
 docker version
 docker run --rm hello-world
 ```
 
 마지막 명령은 Docker가 실제 컨테이너를 실행할 수 있는지 확인한다. 처음에는
 이미지를 내려받느라 시간이 걸릴 수 있다.
+
+`conda`는 보이는데 `conda activate`가 동작하지 않으면 다음을 **한 번만** 실행하고
+PowerShell을 완전히 닫았다가 새로 연다.
+
+```powershell
+conda init powershell
+conda config --set auto_activate_base false
+```
+
+두 번째 명령은 새 PowerShell에서 `(base)`가 자동으로 시작하지 않게 한다. 이후
+프로젝트 환경인 `(autoforge)`만 직접 활성화한다.
 
 ## 3. Docker를 안전하게 정리하는 방법
 
@@ -144,19 +191,22 @@ docker compose --env-file environment\.env -f environment\compose.integration.ym
 
 ## 4. AutoForge 설치와 첫 확인
 
-PowerShell에서 AutoForge를 내려받고 가상환경을 만든다.
+PowerShell에서 AutoForge를 내려받고 독립된 Conda 환경을 만든다.
 
 ```powershell
+New-Item -ItemType Directory -Force C:\src, C:\workspace | Out-Null
 git clone https://github.com/AshOne91/AutoForge.git C:\src\AutoForge
 Set-Location C:\src\AutoForge
-py -3.12 -m venv .venv
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\.venv\Scripts\Activate.ps1
+conda create -n autoforge python=3.12 -y
+conda activate autoforge
+python --version
 python -m pip install --upgrade pip
 python -m pip install -e ".[test,server]"
 ```
 
-`(.venv)`가 PowerShell 프롬프트 앞에 보이면 가상환경이 활성화된 것이다.
+`(autoforge)`가 PowerShell 프롬프트 앞에 보이고 `python --version`이 `Python 3.12`
+로 시작하면 올바른 환경이 활성화된 것이다. `base` 환경에 AutoForge를 설치하지
+않는다.
 
 다음으로 생성기와 핵심 명세 테스트를 확인한다.
 
@@ -169,12 +219,13 @@ python -m pytest tests/core/test_specification_models.py -q
 
 ```powershell
 python --version
-where python
+conda env list
 docker version
 ```
 
-Python 3.12가 아닌 경우에는 가상환경을 지우고 `py -3.12 -m venv .venv`부터 다시
-만든다. AutoForge 저장소 자체를 지우거나 Git reset을 할 필요는 없다.
+Python 3.12가 아니라면 `conda activate autoforge`가 빠졌거나 환경 생성이 실패한
+것이다. 먼저 `conda env list`에서 `autoforge` 환경이 있는지 확인한다. 문제가
+계속되면 AutoForge 저장소는 그대로 두고 `autoforge` Conda 환경만 다시 만든다.
 
 ## 5. 로그인 서버 명세 파일 만들기
 
@@ -423,13 +474,15 @@ Set-Location C:\src\AutoForge
 python -m autoforge.main generate `
   --project C:\workspace\login-server-spec\autoforge.yaml `
   --specifications C:\workspace\login-server-spec\specifications `
-  --output C:\workspace\login-server `
-  --validation-python C:\src\AutoForge\.venv\Scripts\python.exe
+  --output C:\workspace\login-server
 ```
 
 성공하면 `Generated and validated` 문구가 나온다. 오류가 나면 YAML 들여쓰기,
 이름, 포트 범위를 먼저 확인한다. 생성기 코드를 고치거나 생성 결과를 손으로
 만들지 않는다.
+
+이 명령은 아직 서버를 **실행하지 않는다**. `C:\workspace\login-server`에 실행할
+서버의 파일을 만들 뿐이다. 다음 단계에서 `handlers.py`를 작성하고 Docker를 시작한다.
 
 이후 생성 서버의 구조는 대략 다음과 같다.
 
@@ -498,6 +551,27 @@ python -m autoforge.main validate-ports `
 사설 포트 블록(예: `49400`)으로 바꾸고 다시 생성한다. 포트 규칙의 이유는
 [로컬 포트 정책](../architecture/local_port_policy.md)에 있다.
 
+이 검사는 명세와 `.env` 안에서 서로 겹치는 포트를 찾는 **사전 검사**다. Windows/WSL이
+예약한 포트 범위는 Docker 시작 때만 거절될 수 있다. `ports are not available` 오류가
+나면 generated Compose 파일을 직접 고치지 말고, 아래로 예약 범위를 확인한 뒤
+`host_port_base`를 다른 100 단위 블록으로 바꾸고 서버를 다시 생성한다.
+
+```powershell
+netsh interface ipv4 show excludedportrange protocol=tcp
+```
+
+재생성은 비밀값을 지우지 않기 위해 기존 `environment/.env`를 자동으로 바꾸지 않는다.
+처음 실습처럼 `.env`에 보존할 값이 없다면, 재생성 뒤 예제 파일로 다시 만들 수 있다.
+
+```powershell
+Remove-Item environment\.env
+Copy-Item environment\.env.example environment\.env
+```
+
+이미 비밀값을 넣었다면 `.env.example`과 비교하여 `APPLICATION_PORT`, `POSTGRES_PORT`처럼
+바뀐 포트 값만 `.env`에 직접 반영한다. `environment/.env`는 운영자 소유 설정이고,
+`compose.integration.yml`은 생성물이므로 직접 수정하지 않는다.
+
 ## 9. 가장 먼저 Ping/Pong 구현하기
 
 생성 직후 `ping` handler는 일부러 `NotImplementedError`다. 다음 파일을 연다.
@@ -540,6 +614,10 @@ async def test_ping_returns_pong() -> None:
 
 테스트는 생성 서버 가상환경에서 실행한다.
 
+생성 서버는 `pyproject.toml`의 `pythonpath = ["src"]` 설정 때문에 별도 설치 없이
+아래 명령으로 자신의 `src/` 코드를 찾는다. `ModuleNotFoundError`가 나오면 현재 위치가
+`C:\workspace\login-server`인지 먼저 확인한다.
+
 ```powershell
 Set-Location C:\workspace\login-server
 python -m pytest tests\test_system_ping.py -q
@@ -558,8 +636,8 @@ docker compose --env-file environment\.env -f environment\compose.integration.ym
 정상 상태를 확인한다.
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:49300/health
-Invoke-RestMethod http://127.0.0.1:49300/api/system/ping
+Invoke-RestMethod -UseBasicParsing http://127.0.0.1:49300/health
+Invoke-RestMethod -UseBasicParsing http://127.0.0.1:49300/api/system/ping
 ```
 
 예상 응답은 다음과 같다.
@@ -785,7 +863,7 @@ docker compose --env-file environment\.env -f environment\compose.integration.ym
 
 ```powershell
 $signupBody = @{ email = "chimp@example.com"; password = "local-only-password" } | ConvertTo-Json
-Invoke-RestMethod `
+Invoke-RestMethod -UseBasicParsing `
   -Method Post `
   -Uri http://127.0.0.1:49300/api/identity/signup `
   -ContentType "application/json" `
@@ -795,10 +873,28 @@ Invoke-RestMethod `
 같은 이메일로 다시 회원가입하면 `409` 오류가 나야 한다. 이는 DB의 unique 제약과
 handler의 사전 확인이 함께 동작한다는 뜻이다.
 
+PowerShell이 `409`을 오류로 표시하는 것은 정상이다. 아래 명령은 그 오류가 정확히
+`409`인지 확인하고, 다른 오류라면 멈춘다.
+
+```powershell
+try {
+  Invoke-RestMethod -UseBasicParsing `
+    -Method Post `
+    -Uri http://127.0.0.1:49300/api/identity/signup `
+    -ContentType "application/json" `
+    -Body $signupBody `
+    -ErrorAction Stop | Out-Null
+  throw "같은 이메일 가입이 잘못 성공했습니다."
+} catch {
+  if ($_.Exception.Response.StatusCode.value__ -ne 409) { throw }
+  "중복 가입이 409로 차단되었습니다."
+}
+```
+
 로그인하고 반환 토큰을 변수에 저장한다.
 
 ```powershell
-$login = Invoke-RestMethod `
+$login = Invoke-RestMethod -UseBasicParsing `
   -Method Post `
   -Uri http://127.0.0.1:49300/api/identity/login `
   -ContentType "application/json" `
@@ -811,7 +907,7 @@ $login
 
 ```powershell
 $sessionBody = @{ access_token = $login.access_token } | ConvertTo-Json
-Invoke-RestMethod `
+Invoke-RestMethod -UseBasicParsing `
   -Method Post `
   -Uri http://127.0.0.1:49300/api/identity/session/validate `
   -ContentType "application/json" `
@@ -822,7 +918,23 @@ Invoke-RestMethod `
 
 ```powershell
 docker compose --env-file environment\.env -f environment\compose.integration.yml restart application
-Invoke-RestMethod `
+
+# restart는 컨테이너를 다시 시작했을 뿐, FastAPI가 준비됐다는 뜻은 아니다.
+$health = $null
+$deadline = (Get-Date).AddSeconds(30)
+do {
+  try {
+    $health = Invoke-RestMethod -UseBasicParsing -Uri http://127.0.0.1:49300/health -ErrorAction Stop
+    if ($health.status -eq "ok") { break }
+  } catch {}
+  Start-Sleep -Seconds 1
+} while ((Get-Date) -lt $deadline)
+
+if ($null -eq $health -or $health.status -ne "ok") {
+  throw "30초 안에 application이 준비되지 않았습니다."
+}
+
+Invoke-RestMethod -UseBasicParsing `
   -Method Post `
   -Uri http://127.0.0.1:49300/api/identity/session/validate `
   -ContentType "application/json" `
@@ -913,7 +1025,9 @@ Ping/Pong은 연결 유지와 실시간 메시지용 별도 계약이므로, HTT
 
 | 증상 | 먼저 볼 곳 | 흔한 원인 |
 | --- | --- | --- |
-| `py` 명령이 없음 | Python 설치 | PATH 미설정 또는 Python 3.12 미설치 |
+| `conda` 명령이 없음 | Miniconda 설치 | 설치 뒤 PowerShell을 새로 열지 않음 |
+| `conda activate autoforge` 실패 | `conda init powershell`, `conda env list` | shell 초기화 또는 환경 생성 누락 |
+| `python --version`이 3.12가 아님 | `conda activate autoforge` | base/다른 환경이 활성화됨 |
 | Docker 연결 오류 | Docker Desktop | Desktop/WSL이 아직 시작되지 않음 |
 | 생성 명령 실패 | YAML | 들여쓰기, 모듈 이름, 포트 범위 오류 |
 | Compose가 시작되지 않음 | `environment/.env` | 필수 값 누락 또는 포트 충돌 |

@@ -10,6 +10,16 @@
 
 ## 0. 이 문서의 목표
 
+여기서 말하는 **도메인**은 `프로필`, `주문`, `알림`처럼 사용자가 이해하는 업무 단위다.
+**공통 서비스**는 Redis·PostgreSQL·RabbitMQ처럼 여러 도메인이 함께 쓰는 기술 기반이다.
+AutoForge는 둘을 섞어 직접 구현하게 하지 않는다. YAML에서 필요한 서비스를 선택하면
+연결 코드와 운영 파일을 만들고, 여러분은 handler에 도메인 규칙을 작성한다.
+
+처음에는 모든 서비스를 켜지 않는다. `로그인 + 프로필`에는 PostgreSQL, Redis session,
+요청 재실행 방지만 선택한다. 이미지·외부 계정·비용이 필요한 RabbitMQ, 검색, LLM, SMS는
+그 기능이 실제 요구사항이 되는 시점에 각각의 절을 따라 추가한다. 이것은 기능을 빼는 것이
+아니라, 작은 서버가 실제로 동작한다는 확인을 먼저 끝내는 순서다.
+
 첫 가이드에서 만든 회원가입·로그인 서버 다음에, `내 프로필` 도메인을 만든다.
 
 ```text
@@ -50,7 +60,7 @@ C:\workspace\profile-server-spec     # 이번 실습의 복사본 명세
 C:\workspace\profile-server          # 이번 실습의 별도 생성 결과
 ```
 
-별도 `package_name`과 `49700` 포트 블록을 쓰므로, 첫 로그인 서버를 끄거나 기존
+별도 `package_name`과 `49200` 포트 블록을 쓰므로, 첫 로그인 서버를 끄거나 기존
 PostgreSQL volume을 지울 필요가 없다.
 
 ## 2. 서비스 선택 지도
@@ -149,7 +159,7 @@ tooling:
   local_environment:
     enabled: true
     application_enabled: true
-    host_port_base: 49700
+    host_port_base: 49200
 
 application:
   framework: fastapi
@@ -169,9 +179,13 @@ application:
       global_url_env: PROFILE_DATABASE_URL
 ```
 
-`49700`은 이 실습의 HTTP 포트다. 이미 다른 실습이 이 포트 블록을 쓴다면 100 단위
-블록 전체를 바꾼다. 생성 뒤 4.4절에서 `.env`를 만든 후 포트 검사를 실행한다.
+`49200`은 이 실습의 HTTP 포트다. `49700`은 AutoForge Control Plane용 중앙 포트로
+예약되어 있어 일반 서버 실습에 쓰지 않는다. 이미 다른 실습이 `49200` 블록을 쓴다면
+100 단위 블록 전체를 바꾼다. 생성 뒤 4.4절에서 `.env`를 만든 후 포트 검사를 실행한다.
 포트 규칙의 이유는 [로컬 포트 정책](../architecture/local_port_policy.md)에 있다.
+Docker가 `ports are not available`이라고 하면 첫 가이드 8절의 Windows 예약 포트 확인법을
+따르고, `.env`나 generated Compose를 직접 고치지 말고 명세의 `host_port_base`를 바꾼 뒤
+다시 생성한다.
 
 ### 4.2 `profile.yaml` 작성
 
@@ -284,8 +298,7 @@ Set-Location C:\src\AutoForge
 python -m autoforge.main generate `
   --project C:\workspace\profile-server-spec\autoforge.yaml `
   --specifications C:\workspace\profile-server-spec\specifications `
-  --output C:\workspace\profile-server `
-  --validation-python C:\src\AutoForge\.venv\Scripts\python.exe
+  --output C:\workspace\profile-server
 ```
 
 성공 문구는 `Generated and validated`다. 생성 뒤 아래 파일들이 있는지 확인한다.
@@ -399,19 +412,19 @@ global DB 한 개지만, 나중에 shard가 생겨도 handler가 DSN을 직접 �
 Set-Location C:\workspace\profile-server
 docker compose --env-file environment\.env -f environment\compose.integration.yml up -d --build --wait
 docker compose --env-file environment\.env -f environment\compose.integration.yml ps
-Invoke-RestMethod http://127.0.0.1:49700/health
+Invoke-RestMethod -UseBasicParsing http://127.0.0.1:49200/health
 ```
 
-회원가입과 로그인은 첫 가이드 13절과 같지만 이번 주소는 `49700`이다.
+회원가입과 로그인은 첫 가이드 13절과 같지만 이번 주소는 `49200`이다.
 
 ```powershell
 $signupBody = @{ email = "chimp@example.com"; password = "local-only-password" } | ConvertTo-Json
-Invoke-RestMethod -Method Post `
-  -Uri http://127.0.0.1:49700/api/identity/signup `
+Invoke-RestMethod -UseBasicParsing -Method Post `
+  -Uri http://127.0.0.1:49200/api/identity/signup `
   -ContentType "application/json" -Body $signupBody
 
-$login = Invoke-RestMethod -Method Post `
-  -Uri http://127.0.0.1:49700/api/identity/login `
+$login = Invoke-RestMethod -UseBasicParsing -Method Post `
+  -Uri http://127.0.0.1:49200/api/identity/login `
   -ContentType "application/json" -Body $signupBody
 
 $headers = @{
@@ -424,12 +437,12 @@ $profileBody = @{ display_name = "Chimp" } | ConvertTo-Json
 프로필을 처음 만들고, 같은 요청을 같은 key로 한 번 더 보낸다.
 
 ```powershell
-$first = Invoke-RestMethod -Method Put `
-  -Uri http://127.0.0.1:49700/api/profile/me `
+$first = Invoke-RestMethod -UseBasicParsing -Method Put `
+  -Uri http://127.0.0.1:49200/api/profile/me `
   -Headers $headers -ContentType "application/json" -Body $profileBody
 
-$replay = Invoke-RestMethod -Method Put `
-  -Uri http://127.0.0.1:49700/api/profile/me `
+$replay = Invoke-RestMethod -UseBasicParsing -Method Put `
+  -Uri http://127.0.0.1:49200/api/profile/me `
   -Headers $headers -ContentType "application/json" -Body $profileBody
 
 $first
@@ -441,8 +454,8 @@ $first.updated_at -eq $replay.updated_at
 것이다. 이어서 같은 Bearer token으로 조회한다.
 
 ```powershell
-Invoke-RestMethod -Method Get `
-  -Uri http://127.0.0.1:49700/api/profile/me `
+Invoke-RestMethod -UseBasicParsing -Method Get `
+  -Uri http://127.0.0.1:49200/api/profile/me `
   -Headers @{ Authorization = "Bearer $($login.access_token)" }
 ```
 
@@ -452,8 +465,8 @@ Invoke-RestMethod -Method Get `
 ```powershell
 $differentBody = @{ display_name = "Different name" } | ConvertTo-Json
 try {
-  Invoke-RestMethod -Method Put `
-    -Uri http://127.0.0.1:49700/api/profile/me `
+  Invoke-RestMethod -UseBasicParsing -Method Put `
+    -Uri http://127.0.0.1:49200/api/profile/me `
     -Headers $headers -ContentType "application/json" -Body $differentBody
   throw "409 응답이 필요합니다."
 } catch {
