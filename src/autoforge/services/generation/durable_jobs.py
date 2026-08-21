@@ -475,10 +475,12 @@ class DurableJobGenerator:
         }
         event_types = [job.event_type for job in specification.application.durable_jobs]
         package = specification.project.package_name
+        heartbeat_stdlib_import = ""
         heartbeat_import = ""
         heartbeat_start = ""
         heartbeat_stop = ""
         if specification.application.control_plane_heartbeat.enabled:
+            heartbeat_stdlib_import = "from contextlib import suppress\n"
             heartbeat_import = (
                 f"from {package}.application.generated.service_heartbeat import (\n"
                 "    run_service_heartbeat_reporter,\n"
@@ -501,8 +503,9 @@ class DurableJobGenerator:
         return (
             "import asyncio\n"
             "import os\n"
-            "\n"
-            "import aio_pika\n"
+            + heartbeat_stdlib_import
+            + "\n"
+            + "import aio_pika\n"
             "from sqlalchemy.ext.asyncio import create_async_engine\n"
             "\n"
             f"from {package}.application.durable_job_handler import (\n"

@@ -1,9 +1,9 @@
 # Next Task
 
-## Next executable unit: hand the test-client fix to the KIS consumer
+## Next executable unit: prove the regenerated KIS local runtime boundary
 
-Regenerate KIS from its maintained specifications into a disposable workspace
-and compare generator-owned output first. If the ownership manifest is clean,
-apply only the AutoForge-owned test dependency update to the consumer and run
-the KIS non-integration tests with warnings treated as errors. Preserve every
-consumer-owned handler and do not start Docker profiles or trading-domain work.
+Use the regenerated KIS output to run its generated standalone preflight and
+Compose configuration checks, then start only the smallest dependency set needed
+for the application health boundary. Do not call the live KIS API or add trading
+domain behavior. Record any generated defect in AutoForge first and preserve all
+consumer-owned handlers.

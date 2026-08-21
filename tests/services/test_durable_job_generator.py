@@ -187,6 +187,7 @@ def test_durable_job_worker_reuses_control_plane_heartbeat_when_enabled() -> Non
     runner = files[PurePosixPath("scripts/run_durable_job_worker.py")]
 
     ast.parse(runner)
+    assert "from contextlib import suppress" in runner
     assert "run_service_heartbeat_reporter" in runner
     assert "service_name='kis_auto_trading' + '-durable-job-worker'" in runner
     assert "dependencies={'database': 'ok', 'rabbitmq': 'ok'}" in runner

@@ -1383,6 +1383,15 @@ compatibility warning. A fresh generated identity project passed in an isolated
 venv with warnings treated as errors. The complete AutoForge suite then passed
 without the old warning filter (`674 passed, 30 skipped`, `-W error`).
 
+The maintained KIS consumer was regenerated from its seven specification units
+after installing its declared runtime and test dependencies. The handoff updated
+only AutoForge-owned output and passed the generator's import, pytest, Ruff, and
+wheel gates. The complete KIS suite also passed with warnings treated as errors
+(`129 passed, 4 skipped`). During the handoff, a shared generator defect was
+found and fixed: heartbeat-enabled durable-job workers now import
+`contextlib.suppress` before using it during shutdown. The focused generator
+tests and complete AutoForge suite pass (`674 passed, 30 skipped`, `-W error`).
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:
