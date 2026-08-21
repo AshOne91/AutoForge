@@ -943,7 +943,9 @@ URL·API key를 `.env`/Secret에 넣은 뒤에만 health 확인을 한다. 읽�
 ```python
 import pytest
 
-from profile_server.infrastructure.external_provider.fake import FakeExternalProviderClient
+from profile_server.infrastructure.external_provider.fake import (
+    FakeExternalProviderClient,
+)
 from profile_server.infrastructure.external_provider.protocol import ExternalResponse
 
 
