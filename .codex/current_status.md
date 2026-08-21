@@ -1459,14 +1459,24 @@ Five ignored generation workspaces were reduced to Windows ACL-locked
 `.pytest_cache` directories that cannot be removed from this process; `.tmp-*/`
 remains Git-ignored and neither repository tracks those remnants.
 
-The first missing KIS trading Blueprint slice is now selected without changing
-domain code. KIS already has current-price lookup, shared token coordination,
-Redis caching, operator-only portfolio reads, and generated point-in-time market
-price persistence. It has no daily candle/OHLCV model, provider method, endpoint,
-or test. Daily candles are shared public market data, so their authoritative
-persistence belongs to the existing `market_data` module in the global
-`automation` store; portfolio persistence remains deferred because its user and
-account-shard ownership must be established first.
+The first KIS trading Blueprint slice now implements recent domestic daily OHLCV
+without order behavior. A separate `market_history` specification generates the
+`DomesticDailyCandle` model, global `automation` SQL/Alembic baseline, repository,
+and module registration; this avoids rewriting the preserved, scaffold-owned
+`market_data` baseline. The consumer client uses the official read-only
+`inquire-daily-price` request (`FHKST01010400`), the existing coordinated KIS
+token, and a five-minute shared Redis cache. The operator-token-protected POST
+path maps and saves candles with deterministic stock/date UUIDs, so retries merge
+the same logical record. No live KIS call, order, portfolio mutation, strategy,
+or arbitrary-range pagination was added.
+
+AutoForge regenerated and validated all eight KIS specification units while
+preserving the consumer-owned handler. Fake provider/API tests pass, and a
+disposable PostgreSQL run applied every Alembic head including
+`af_995f6cee244f28112f3fb0fb`, then saved and read a candle through the generated
+SQLAlchemy repository. The disposable database resources were removed. The full
+KIS suite passes with warnings treated as errors (`132 passed, 5 skipped`) and
+full Ruff. Automated Durable Job collection is not implemented yet.
 
 ## Development tooling
 

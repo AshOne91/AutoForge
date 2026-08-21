@@ -44,12 +44,14 @@ process-global singleton pattern.
   dependency isolation. Do not use Git branches as a
   deployment-topology model, create a name-only application-role abstraction,
   or couple module placement to replica count.
-- [ ] first KIS trading Blueprint slice: extend the existing `market_data`
-  module with read-only domestic daily OHLCV collection and generated global
-  `automation` persistence. Reuse the shared KIS token coordinator, Redis cache,
-  generated database/repository, Durable Job/messaging, observability, and HA
-  contracts. This public market data is not user-sharded. Do not add order,
-  execution, portfolio mutation, or risk behavior in this slice.
+- [~] first KIS trading Blueprint slice: complete automated read-only domestic
+  daily OHLCV collection. Provider mapping, shared Redis caching, generated
+  global `automation` persistence, and an operator-protected proof path now use
+  the independent `market_history` module so the preserved `market_data`
+  baseline is not rewritten. The remaining unit is to connect that same path to
+  the existing Durable Job/messaging scheduler contract. This public market data
+  is not user-sharded. Do not add order, execution, portfolio mutation, or risk
+  behavior in this slice.
 - [ ] KIS trading Blueprint validation: 시장 데이터 수집, KIS 인증·공유 token
   조정, portfolio, order/execution, risk limit와 감사 이력을 하나의 소비자 수직
   흐름으로 검증한다. 거래 전략과 투자 판단은 KIS 소비자 소유이며 AutoForge는
