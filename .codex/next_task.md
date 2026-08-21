@@ -1,9 +1,8 @@
 # Next Task
 
-## Next executable unit: prove the regenerated KIS single-host scale boundary
+## Next executable unit: prove the regenerated KIS PostgreSQL HA boundary
 
-Run the generated KIS single-host verifier with non-production KIS settings.
-Prove the Nginx proxy and configurable application replicas become healthy and
-survive the verifier's bounded replica recovery check. Do not call the live KIS
-API or add trading-domain behavior. Fix any generated defect in AutoForge first
-and remove disposable containers after the drill.
+Run the generated KIS PostgreSQL HA verifier in its isolated Docker project.
+Prove writer routing, replica recovery, failover, and application health without
+calling the live KIS API or adding trading-domain behavior. Fix any generated
+defect in AutoForge first and remove disposable containers after the drill.

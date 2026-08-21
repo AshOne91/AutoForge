@@ -1401,6 +1401,14 @@ KIS request was made. The configured but unavailable optional Control Plane
 heartbeat produced a non-fatal warning as designed. Test containers and the
 Compose network were removed while the named data volumes were preserved.
 
+The regenerated KIS single-host verifier then passed its isolated Docker drill
+with Nginx proxying three application replicas. Durable realtime delivery stayed
+healthy while the verifier restarted the Outbox relay, message worker,
+PostgreSQL, Redis, RabbitMQ, and one application container in sequence. Every
+component recovered through the same public proxy contract. The verifier used
+non-production KIS settings, made no live trading request, and removed its
+temporary containers and volumes.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:
