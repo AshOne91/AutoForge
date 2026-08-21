@@ -346,6 +346,14 @@ python -m autoforge.main generate `
 
 성공 문구는 `Generated and validated`다. 생성 뒤 아래 파일들이 있는지 확인한다.
 
+```powershell
+Set-Location C:\workspace\profile-server
+python -m pip install -e ".[test]"
+```
+
+이 설치는 생성된 서버가 선택한 runtime dependency를 현재 Conda 환경의 test Python에서도
+읽게 한다. 명세에 새 선택 서비스를 추가해 재생성했다면 다시 실행한다.
+
 ```text
 src/profile_server/modules/profile/generated/models.py
 src/profile_server/modules/profile/generated/router.py
@@ -720,6 +728,9 @@ python -m autoforge.main generate `
   --project C:\workspace\profile-server-spec\autoforge.yaml `
   --specifications C:\workspace\profile-server-spec\specifications `
   --output C:\workspace\profile-server
+
+Set-Location C:\workspace\profile-server
+python -m pip install -e ".[test]"
 
 if (-not (Test-Path C:\workspace\profile-server\environment\.env)) {
   Copy-Item C:\workspace\profile-server\environment\.env.example `
@@ -1186,6 +1197,41 @@ tooling:
 prompt, 개인정보 마스킹, 사용 권한, token 비용 한도, 결과를 DB에 저장할지 여부는
 생성기가 대신 결정하지 않는다. 먼저 fake로 handler 테스트를 통과시키고, 실제 key는
 Git에 올리지 않는 환경값으로만 주입한다.
+
+`OPENAI_API_KEY`를 아직 만들지 않아도, fake가 요청과 응답 경계를 확인할 수 있다.
+`tests\test_llm_fake.py`:
+
+```python
+import pytest
+
+from profile_server.infrastructure.llm import (
+    FakeLlmClient,
+    LlmMessage,
+    LlmResponse,
+    LlmService,
+)
+
+
+@pytest.mark.anyio
+async def test_llm_fake_records_a_domain_request_without_an_api_key() -> None:
+    client = FakeLlmClient([LlmResponse(content="Try the forest quest.")])
+    service = LlmService(client)
+
+    response = await service.respond(
+        [LlmMessage(role="user", content="Suggest a quest")],
+        instructions="Keep it short.",
+    )
+
+    assert response.content == "Try the forest quest."
+    assert client.requests == [
+        ((LlmMessage(role="user", content="Suggest a quest"),), "Keep it short.")
+    ]
+```
+
+```powershell
+Set-Location C:\workspace\profile-server
+python -m pytest tests\test_llm_fake.py -q
+```
 
 ### Level 9. 관제탑: ELK
 

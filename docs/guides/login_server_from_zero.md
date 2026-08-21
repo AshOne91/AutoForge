@@ -481,6 +481,15 @@ python -m autoforge.main generate `
 이름, 포트 범위를 먼저 확인한다. 생성기 코드를 고치거나 생성 결과를 손으로
 만들지 않는다.
 
+생성된 서버도 같은 Conda 환경에 설치한다. 이 단계는 AutoForge를 다시 설치하는 것이
+아니라, 방금 명세에서 선택된 서버 의존성(예: OpenAI client)을 테스트 Python이 읽게 하는
+단계다. 이후 명세에 새 선택 서비스를 추가해 다시 생성했다면 이 명령도 한 번 더 실행한다.
+
+```powershell
+Set-Location C:\workspace\login-server
+python -m pip install -e ".[test]"
+```
+
 이 명령은 아직 서버를 **실행하지 않는다**. `C:\workspace\login-server`에 실행할
 서버의 파일을 만들 뿐이다. 다음 단계에서 `handlers.py`를 작성하고 Docker를 시작한다.
 
