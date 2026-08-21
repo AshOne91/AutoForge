@@ -1009,11 +1009,65 @@ RAG overlay 시작은 별도 Compose 파일이다. Ollama는 큰 모델과 디�
 ```powershell
 Set-Location C:\workspace\profile-server
 Copy-Item deploy\rag\.env.example deploy\rag\.env
+
+# The core Compose file and this optional overlay share this private network.
+$ragNetwork = (Get-Content deploy\rag\.env |
+  Where-Object { $_ -match '^RAG_NETWORK_NAME=' } |
+  Select-Object -First 1) -replace '^RAG_NETWORK_NAME=', ''
+if ([string]::IsNullOrWhiteSpace($ragNetwork)) {
+  throw 'RAG_NETWORK_NAME is missing from deploy\\rag\\.env.'
+}
+docker network inspect $ragNetwork *> $null
+if ($LASTEXITCODE -ne 0) {
+  docker network create $ragNetwork
+}
+
 docker compose --env-file deploy\rag\.env `
   -f deploy\rag\compose.rag.yaml --profile rag up -d
 docker compose --env-file deploy\rag\.env `
   -f deploy\rag\compose.rag.yaml ps
 ```
+
+먼저 실제 검색 품질이 아니라 생성된 두 transport 경계를 fake로 확인한다. `FakeSearchClient`와
+`FakeVectorStoreClient`는 입력한 모든 항목을 결정적으로 돌려준다. relevance와 embedding은
+아직 도메인 코드가 책임지므로, 이 테스트는 그 정책을 검증하는 테스트가 아니다.
+
+`tests\test_search_vector_fakes.py`:
+
+```python
+import pytest
+
+from profile_server.infrastructure.search import FakeSearchClient, SearchService
+from profile_server.infrastructure.vector_store import (
+    FakeVectorStoreClient,
+    VectorStore,
+)
+
+
+@pytest.mark.anyio
+async def test_search_and_vector_boundaries_use_their_defaults() -> None:
+    search = SearchService(FakeSearchClient(), "profile_documents")
+    vectors = VectorStore(FakeVectorStoreClient(), "profile_vectors")
+
+    await search.index_document("quest-1", {"title": "First quest"})
+    await vectors.upsert_point("quest-1", [0.1, 0.2], {"title": "First quest"})
+
+    assert await search.search({"match_all": {}}) == [{"title": "First quest"}]
+    assert await vectors.get_point("quest-1") == {
+        "id": "quest-1",
+        "vector": [0.1, 0.2],
+        "payload": {"title": "First quest"},
+    }
+```
+
+```powershell
+Set-Location C:\workspace\profile-server
+python -m pytest tests\test_search_vector_fakes.py -q
+```
+
+`rag` profile은 Qdrant와 OpenSearch만 올린다. Ollama model 다운로드나 실제 RAG 답변은
+디스크를 크게 사용하고 domain 문서·평가 기준이 정해진 뒤의 작업이므로 이 Level의 clear
+condition이 아니다.
 
 Search/VectorStore는 transport 경계만 생성한다. 어떤 필드를 index할지, embedding
 모델·차원·hybrid ranking·권한 필터를 어떻게 정할지는 도메인 책임이다. 검색 화면이나
