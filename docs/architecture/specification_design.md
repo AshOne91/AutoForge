@@ -172,10 +172,11 @@ adapts one accepted FastAPI WebSocket without defining an application route.
 `backplane: redis_pubsub` is a separate explicit opt-in. It requires exactly
 one selected `redis_session` service and generates `RedisPubSubRealtimeBackplane`
 plus a deterministic fake. The adapter supports that service's `standalone` or
-`cluster` mode. Cluster mode uses the declared startup-node environment values
-as reconnect seeds with ordinary Redis Pub/Sub connections; it does not use the
-unsupported `RedisCluster.pubsub()` API. Sentinel mode is rejected until it has
-a verified lifecycle implementation.
+`cluster`, or `sentinel` mode. Cluster mode uses the declared startup-node
+environment values as reconnect seeds with ordinary Redis Pub/Sub connections;
+it does not use the unsupported `RedisCluster.pubsub()` API. Sentinel mode uses
+the declared Sentinel URLs and master name to resolve the current primary, then
+reconnects after a Redis connection error.
 
 The backplane owns one environment-scoped topic, a generic string
 `channel`/`message` envelope, an explicit start/close lifecycle, and fixed-delay

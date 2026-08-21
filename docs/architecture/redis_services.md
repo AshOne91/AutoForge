@@ -106,6 +106,11 @@ Redis container 장애와 재시작을 복구하는 서비스 HA 검증 대상�
 애플리케이션의 runtime Secret 연결 계약은 유지하고 provider별 배포 계약만
 추가한다.
 
+`RedisPubSubRealtimeBackplane`은 Sentinel 모드에서 동일한
+`REDIS_SENTINEL_URLS`와 선언된 master 이름으로 현재 primary에 연결한다. Redis
+오류 뒤 listener는 다시 연결하지만, Redis Pub/Sub은 at-most-once이므로 장애
+전환 중인 개별 hint의 무손실을 보장하지 않는다.
+
 ## FastAPI 수명주기와 Dependency
 
 `redis_session`을 선택한 Project에는 다음 연결 코드도 생성한다.

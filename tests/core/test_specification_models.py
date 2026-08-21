@@ -154,13 +154,13 @@ def test_realtime_redis_backplane_requires_one_supported_redis_service() -> None
         ttl_seconds=3600,
         mode="sentinel",
     )
-    with pytest.raises(ValidationError, match="does not support sentinel"):
-        ProjectSpec(
-            spec_version="1",
-            project=project,
-            application=ApplicationSpec(services=[sentinel]),
-            tooling=realtime,
-        )
+    sentinel_specification = ProjectSpec(
+        spec_version="1",
+        project=project,
+        application=ApplicationSpec(services=[sentinel]),
+        tooling=realtime,
+    )
+    assert sentinel_specification.tooling.realtime.backplane == "redis_pubsub"
 
     cluster = ServiceSpec(
         name="session",

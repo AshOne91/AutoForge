@@ -1005,11 +1005,15 @@ contract with an asynchronous in-process `RealtimeHub`, channel
 subscribe/unsubscribe/publish, explicit close, and a deterministic subscriber
 fake. Its explicit `backplane: redis_pubsub` option requires the existing
 single `redis_session` service and adds a best-effort
-`RedisPubSubRealtimeBackplane` plus deterministic fake. Standalone and Cluster
-startup-node modes are generated; Sentinel is explicitly rejected pending a
-runtime drill. A disposable six-node Redis Cluster verification confirmed global
-Pub/Sub delivery through ordinary Redis seed connections before and after primary
-failover. KIS now selects the contract in both standalone and HA specifications;
+`RedisPubSubRealtimeBackplane` plus deterministic fake. Standalone, Cluster
+startup-node, and Sentinel modes are generated. An isolated generated Sentinel
+drill formed a three-Sentinel quorum, stopped the primary, observed the new
+master, then confirmed that the existing listener reconnected and received a
+newly published hint. Redis Pub/Sub remains at-most-once, so a hint published
+during the transition is not a durable delivery guarantee. A disposable six-node
+Redis Cluster verification confirmed global Pub/Sub delivery through ordinary
+Redis seed connections before and after primary failover. KIS now selects the
+contract in both standalone and HA specifications;
 its default generated output and an isolated HA generated workspace both passed
 validation and import checks. KIS now owns the route, authentication,
 user-channel policy, and notification publisher: its application lifespan owns

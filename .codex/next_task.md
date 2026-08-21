@@ -1,11 +1,9 @@
 # Next Task
 
-## Next executable unit: add Redis Sentinel support to the generated realtime backplane
+## Next executable unit: verify the generated distributed lock through Redis Sentinel failover
 
-Extend the existing Redis Pub/Sub realtime backplane so the already-supported
-Redis Sentinel connection mode can provide its master connection instead of
-being rejected. Preserve the `RealtimeBackplane` interface and existing
-standalone/Cluster behavior. Add focused generation tests and, if the existing
-local Sentinel profile can carry it without a new deployment contract, one
-opt-in failover delivery drill. Do not add durable queue semantics, user-channel
-policy, or consumer-domain notification behavior.
+The generated distributed-lock adapter already accepts Redis Sentinel runtime
+settings, and the local Sentinel profile has a verified primary/replica/quorum
+topology. Add one opt-in Docker drill that acquires and releases a lock before
+and after the primary changes. Preserve the existing lock contract and do not
+add fencing, queueing, or consumer-domain policy.

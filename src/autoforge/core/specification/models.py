@@ -963,10 +963,6 @@ class ProjectSpec(StrictSpecModel):
                 raise ValueError(
                     "Redis realtime backplane requires exactly one redis_session service"
                 )
-            if redis_services[0].mode == "sentinel":
-                raise ValueError(
-                    "Redis realtime backplane does not support sentinel mode yet"
-                )
         heartbeat = self.application.control_plane_heartbeat
         if heartbeat.enabled and len(self.project.package_name) > 128:
             raise ValueError(
