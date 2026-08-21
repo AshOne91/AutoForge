@@ -798,6 +798,40 @@ Cluster를, Memcached는 standalone만 지원한다. `distributed_lock`은 lock 
 `memcached`가 healthy인지 확인한다. topology를 바꿔도 도메인 handler가 Redis 주소를
 알아서는 안 된다.
 
+`tests/test_cache_and_lock_fakes.py`를 만들어 cache miss/hit과 lock 경쟁을 먼저
+확인한다. 이 test는 Docker 없이도 실행되므로 cache key와 lock 해제 규칙을 빠르게
+고칠 수 있다.
+
+```python
+import pytest
+
+from profile_server.infrastructure.distributed_lock.fake import FakeDistributedLockClient
+from profile_server.infrastructure.key_value_store.fake import FakeKeyValueStoreClient
+
+
+@pytest.mark.anyio
+async def test_cache_hit_and_lock_competition() -> None:
+    cache = FakeKeyValueStoreClient(default_ttl_seconds=300)
+    lock = FakeDistributedLockClient(default_ttl_seconds=30)
+
+    assert await cache.get("profile:rankings") is None
+    await cache.set("profile:rankings", "chimp")
+    assert await cache.get("profile:rankings") == "chimp"
+
+    owner = await lock.acquire("daily-reward")
+    assert owner is not None
+    assert await lock.acquire("daily-reward") is None
+    assert not await lock.release("daily-reward", "wrong-token")
+    assert await lock.release("daily-reward", owner)
+```
+
+```powershell
+Set-Location C:\workspace\profile-server
+python -m pytest tests\test_cache_and_lock_fakes.py -q
+docker compose --env-file environment\.env `
+  -f environment\compose.integration.yml ps redis
+```
+
 ### Level 4. 뱃지 보관함: S3 호환 Object Storage와 MinIO
 
 **미션:** 플레이어가 얻은 뱃지 이미지를 안전하게 보관하고 카드에는 그 위치만 남긴다.
