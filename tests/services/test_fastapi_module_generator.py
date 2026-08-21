@@ -243,6 +243,57 @@ def test_router_calls_async_handlers_with_schema_types() -> None:
     assert "raise NotImplementedError" in handlers
 
 
+def test_long_model_imports_are_wrapped_for_ruff() -> None:
+    specification = ModuleSpec(
+        spec_version="1",
+        module=ModuleInfo(
+            name="brokerage_account",
+            display_name="Brokerage Account",
+            route_prefix="/api/brokerage-account",
+        ),
+        models=[
+            ModelSpec(
+                name="BrokerageAccountConnection",
+                fields=[
+                    FieldSpec(
+                        name="connection_id",
+                        type=FieldType(kind=FieldTypeKind.UUID),
+                    )
+                ],
+            )
+        ],
+        endpoints=[
+            EndpointSpec(
+                name="get_connection",
+                method=HttpMethod.GET,
+                path="/connection",
+                response=ResponseSpec(model="BrokerageAccountConnection"),
+                handler="get_connection",
+            )
+        ],
+    )
+
+    files = FastAPIModuleGenerator("kis_auto_trading").render(specification)
+    router = files[
+        PurePosixPath(
+            "src/kis_auto_trading/modules/brokerage_account/generated/router.py"
+        )
+    ]
+    handlers = files[
+        PurePosixPath(
+            "src/kis_auto_trading/modules/brokerage_account/handlers.py"
+        )
+    ]
+    wrapped_import = (
+        "from kis_auto_trading.modules.brokerage_account.generated.models import (\n"
+        "    BrokerageAccountConnection,\n"
+        ")"
+    )
+
+    assert wrapped_import in router
+    assert wrapped_import in handlers
+
+
 def test_idempotent_endpoint_generates_redis_replay_boundary() -> None:
     specification = tutorial_specification()
     endpoint = specification.endpoints[1].model_copy(

@@ -22,7 +22,7 @@ from autoforge.core.specification.naming import validate_python_name
 from autoforge.services.generation.pydantic_types import PydanticTypeRenderer
 
 MODULE_GENERATOR_ID: Final = "autoforge.generator.fastapi.module"
-MODULE_GENERATOR_VERSION: Final = "0.1.0"
+MODULE_GENERATOR_VERSION: Final = "0.1.1"
 
 
 class FastAPIModuleGenerator:
@@ -259,7 +259,9 @@ class FastAPIModuleGenerator:
         )
         if model_names:
             imports.append(
-                f"from {module_path}.generated.models import {', '.join(model_names)}"
+                self._render_from_import(
+                    f"{module_path}.generated.models", model_names
+                )
             )
         schema_names = sorted(
             {
@@ -428,7 +430,9 @@ class FastAPIModuleGenerator:
                 )
             )
         if model_names:
-            imports.append(f"from {module_path}.models import {', '.join(model_names)}")
+            imports.append(
+                self._render_from_import(f"{module_path}.models", model_names)
+            )
         if schema_names:
             imports.append(
                 self._render_from_import(f"{module_path}.schemas", schema_names)
