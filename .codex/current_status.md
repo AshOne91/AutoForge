@@ -1409,6 +1409,15 @@ component recovered through the same public proxy contract. The verifier used
 non-production KIS settings, made no live trading request, and removed its
 temporary containers and volumes.
 
+A fresh seven-unit KIS HA generation from `autoforge.ha.yaml` passed the
+PostgreSQL HA drill. The three-node Patroni cluster promoted a replica after the
+leader stopped, accepted the old leader back as a streaming replica, and later
+recovered a leaderless full restart by explicitly promoting the selected
+candidate. The same drill restarted the Redis dependency stack and preserved
+application health. The required external RAG network was created according to
+the generated prerequisite, then removed after the isolated containers and
+volumes were cleaned up.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:
