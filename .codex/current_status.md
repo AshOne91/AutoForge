@@ -1493,6 +1493,24 @@ and full Ruff. KIS regeneration emits a weekday `08:00 UTC` daily-candle DAG and
 Docker Compose accepts a non-production stock-code payload; no live KIS request
 was made.
 
+The generated `DomesticDailyCandle` repository now also owns a bounded
+`list_by_stock_code` query ordered by trading date descending. A separate
+operator-token-protected GET reads that persisted global history without calling
+KIS and maps storage failures to a detail-safe 503. A disposable PostgreSQL
+round trip proved two generated rows are returned newest first, and the complete
+KIS suite passes with warnings treated as errors (`135 passed, 5 skipped`) and
+full Ruff.
+
+An isolated local Compose proof then exercised the complete non-scheduled
+collection path against a deterministic local KIS HTTP stand-in: API request,
+automation Outbox, RabbitMQ, Durable Job worker, coordinated Redis OAuth token
+and five-minute market cache, generated PostgreSQL persistence, and the
+operator GET. Repeating one run key returned the same job, and a second job for
+the same stock/date still left one deterministic candle row. Both jobs
+succeeded; Redis held expiring token and market keys. No real KIS endpoint or
+credential was used, and the disposable containers, volumes, network, and HTTP
+stand-in were removed afterward.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:
