@@ -87,7 +87,7 @@ PostgreSQL (49310)      Redis (Compose 내부)
 | Handler | Router가 넘긴 요청을 받아 실제 업무 규칙을 실행하는 함수. 사람이 작성한다. |
 | Endpoint | `POST /api/identity/login`처럼 외부 프로그램이 호출하는 한 개의 URL 규칙. |
 | `.env` 환경 파일 | 비밀번호, 포트처럼 컴퓨터마다 다른 값을 코드 밖에 두는 파일. Git에 올리지 않는다. |
-| Migration | DB table을 처음 만들거나 바꾸는 순서를 기록한 파일. AutoForge가 명세에서 생성하고 Docker 시작 때 적용한다. |
+| Migration | DB table을 처음 만들거나 바꾸는 순서를 기록한 파일. raw SQL과 Alembic 환경은 AutoForge가 재생성하지만, 최초 Alembic baseline은 한 번 만든 뒤 이력으로 보존한다. Docker 시작 때 적용한다. |
 | Health check | 서버가 살아 있을 뿐 아니라 요청을 받을 준비가 됐는지 확인하는 `/health` 요청. |
 
 가장 중요한 경계는 다음 한 줄이다.
@@ -506,8 +506,8 @@ C:\workspace\login-server
 
 | 범위 | 예시 | 누가 수정하는가 |
 | --- | --- | --- |
-| GENERATED | `modules/*/generated/`, migration, raw SQL, Compose | 명세를 고친 뒤 AutoForge 재생성 |
-| SCAFFOLDED | `modules/*/handlers.py` | 여러분 |
+| GENERATED | `modules/*/generated/`, raw SQL, Alembic 환경, Compose | 명세를 고친 뒤 AutoForge 재생성 |
+| SCAFFOLDED | `modules/*/handlers.py`, 최초 Alembic baseline (`migrations/*/versions/0001_*.py`) | 여러분 |
 | 운영 설정 | `environment/.env` | 서버 운영자, Git에 올리지 않음 |
 | 명세 | `login-server-spec/*.yaml` | 여러분 |
 
