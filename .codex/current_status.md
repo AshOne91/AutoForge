@@ -1357,8 +1357,7 @@ Fresh disposable generation from the maintained `scheduled_ingestion` and
 handoff without starting containers. Both projects generated and regenerated
 cleanly; their manifests contain no errors and preserve SCAFFOLDED files while
 leaving GENERATED files unchanged. Generated Python imports and health tests,
-all five Compose configurations, and both port plans passed. The generated
-health tests expose one dependency-owned FastAPI/Starlette `TestClient` warning.
+all five Compose configurations, and both port plans passed.
 
 The fresh `scheduled_ingestion` output then passed a complete standalone runtime
 smoke. Its application, PostgreSQL, RabbitMQ, Outbox relay, message worker,
@@ -1368,6 +1367,21 @@ exited successfully. No Ollama model was downloaded. Because `rag.enabled`
 consumers fail closed on their search and inference dependencies, the generated
 integration README and Blueprint now direct users to start the generated RAG and
 inference profiles first. The disposable containers and volumes were removed.
+
+The fresh `identity_session_profile` output also passed its local-HA runtime
+smoke. It created the global identity database and two account shards, applied
+all three generated Alembic heads, started the generated FastAPI application,
+and formed a healthy six-node Redis Cluster with three masters, three replicas,
+and all 16,384 slots assigned. After one master stopped, its replica took over
+the affected slots and returned data written before the outage. The old master
+then rejoined as a healthy replica and the application remained healthy. The
+disposable containers and volumes were removed afterward.
+
+Generated projects and AutoForge itself now install Starlette's supported
+`httpx2` test-client backend instead of suppressing the deprecated plain-HTTPX
+compatibility warning. A fresh generated identity project passed in an isolated
+venv with warnings treated as errors. The complete AutoForge suite then passed
+without the old warning filter (`674 passed, 30 skipped`, `-W error`).
 
 ## Development tooling
 

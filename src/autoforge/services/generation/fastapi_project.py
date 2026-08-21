@@ -343,7 +343,7 @@ class FastAPIProjectGenerator:
             ']\n'
             "\n"
             "[project.optional-dependencies]\n"
-            'test = ["httpx", "pytest", "ruff"]\n'
+            'test = ["httpx2", "pytest", "ruff"]\n'
             "\n"
             "[tool.setuptools]\n"
             'package-dir = {"" = "src"}\n'

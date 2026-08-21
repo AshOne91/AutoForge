@@ -1,10 +1,9 @@
 # Next Task
 
-## Next executable unit: run the identity/session local-HA runtime smoke
+## Next executable unit: hand the test-client fix to the KIS consumer
 
-Generate a fresh disposable `identity_session_profile` workspace and start its
-integration Compose profile. Verify database creation and migrations, the Redis
-Cluster topology, generated application health, and declared host ports, then
-tear down only that Compose project and its test volumes. Do not implement
-consumer-owned login policy, edit generated-owned output, or reuse preserved
-consumer containers and volumes.
+Regenerate KIS from its maintained specifications into a disposable workspace
+and compare generator-owned output first. If the ownership manifest is clean,
+apply only the AutoForge-owned test dependency update to the consumer and run
+the KIS non-integration tests with warnings treated as errors. Preserve every
+consumer-owned handler and do not start Docker profiles or trading-domain work.

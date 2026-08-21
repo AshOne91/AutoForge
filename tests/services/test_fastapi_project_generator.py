@@ -135,7 +135,7 @@ def test_render_pyproject_includes_declared_ruff_exclusions() -> None:
     pyproject = tomllib.loads(files[PurePosixPath("pyproject.toml")])
 
     assert pyproject["project"]["optional-dependencies"]["test"] == [
-        "httpx",
+        "httpx2",
         "pytest",
         "ruff",
     ]
@@ -545,7 +545,7 @@ def test_rendered_python_and_toml_are_valid() -> None:
     assert "asyncpg>=0.30,<1" in pyproject["project"]["dependencies"]
     assert "alembic>=1.18,<2" in pyproject["project"]["dependencies"]
     assert pyproject["project"]["optional-dependencies"]["test"] == [
-        "httpx",
+        "httpx2",
         "pytest",
         "ruff",
     ]
