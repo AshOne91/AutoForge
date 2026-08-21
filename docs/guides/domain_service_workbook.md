@@ -1,4 +1,4 @@
-# AutoForge 도메인·공통 서비스 실습
+# AutoForge Quest: 오늘의 퀘스트 보드 서버 만들기
 
 > 문서 역할: GUIDE
 >
@@ -8,19 +8,33 @@
 > API 계약을 새로 정의하지 않는다. 정확한 명세 필드는 [명세 설계](../architecture/specification_design.md),
 > 생성·수정 경계는 [생성 계약](../architecture/generation_contract.md)이 정본이다.
 
-## 0. 이 문서의 목표
+## 0. 이 문서는 작은 게임을 만드는 실습이다
+
+첫 가이드에서 만든 회원가입·로그인 서버 다음에, 플레이어가 오늘의 퀘스트를 확인하고
+완료 보상을 받는 **Quest Board**를 조금씩 만든다. 실제 게임을 완성하는 것이 아니라,
+각 공통 서비스가 어느 순간 필요해지는지를 재미있는 한 문장으로 연결하는 것이 목표다.
+
+각 Level은 항상 같은 네 가지 질문에 답한다.
+
+| 순서 | 확인할 것 |
+| --- | --- |
+| 미션 | 플레이어에게 어떤 일이 일어나는가? |
+| AutoForge | YAML을 통해 어떤 공통 코드·Compose·SQL을 생성하는가? |
+| 내 코드 | `handlers.py`에서 어떤 업무 규칙만 작성하는가? |
+| 클리어 조건 | Docker, HTTP, 로그에서 무엇이 보여야 하는가? |
+
+한 Level을 클리어하기 전 다음 Level의 YAML을 복사하지 않는다. 그렇게 해야 실패했을 때
+어느 서비스가 원인인지 바로 알 수 있다.
 
 여기서 말하는 **도메인**은 `프로필`, `주문`, `알림`처럼 사용자가 이해하는 업무 단위다.
 **공통 서비스**는 Redis·PostgreSQL·RabbitMQ처럼 여러 도메인이 함께 쓰는 기술 기반이다.
 AutoForge는 둘을 섞어 직접 구현하게 하지 않는다. YAML에서 필요한 서비스를 선택하면
 연결 코드와 운영 파일을 만들고, 여러분은 handler에 도메인 규칙을 작성한다.
 
-처음에는 모든 서비스를 켜지 않는다. `로그인 + 프로필`에는 PostgreSQL, Redis session,
-요청 재실행 방지만 선택한다. 이미지·외부 계정·비용이 필요한 RabbitMQ, 검색, LLM, SMS는
-그 기능이 실제 요구사항이 되는 시점에 각각의 절을 따라 추가한다. 이것은 기능을 빼는 것이
-아니라, 작은 서버가 실제로 동작한다는 확인을 먼저 끝내는 순서다.
-
-첫 가이드에서 만든 회원가입·로그인 서버 다음에, `내 프로필` 도메인을 만든다.
+첫 번째 퀘스트는 `내 플레이어 카드`다. PostgreSQL, Redis session, 요청 재실행 방지만
+선택한다. 이미지·외부 계정·비용이 필요한 RabbitMQ, 검색, LLM, SMS는 퀘스트 요구가
+생겼을 때 해금한다. 이것은 기능을 빼는 것이 아니라, 작은 서버가 실제로 동작한다는
+확인을 먼저 끝내는 순서다.
 
 ```text
 브라우저
@@ -29,21 +43,21 @@ AutoForge는 둘을 섞어 직접 구현하게 하지 않는다. YAML에서 필�
             ├─ Redis SessionStore: "누가 요청했는가?"
             ├─ RequestReplayStore: "같은 수정 요청인가?"
             └─ SCAFFOLDED handler
-                 └─ PostgreSQL Repository: "프로필을 저장/조회"
+                 └─ PostgreSQL Repository: "플레이어 카드를 저장/조회"
 ```
 
 완료 후 다음을 직접 확인한다.
 
 - 로그인하지 않은 요청은 `401`이다.
-- 로그인한 사용자는 자기 프로필만 읽고 수정한다.
+- 로그인한 플레이어는 자기 카드만 읽고 수정한다.
 - 같은 `Idempotency-Key`와 같은 본문을 두 번 보내도 첫 결과가 재사용된다.
 - 같은 키에 다른 본문을 보내면 `409`로 거부된다.
 
 여기서 중요한 점은 **서비스를 전부 켜는 것이 목표가 아니라**, 도메인에 필요한
-서비스만 명세에 선언하는 것이다. 프로필 문구 한 줄을 저장하는 데 RabbitMQ, LLM,
+서비스만 명세에 선언하는 것이다. 플레이어 카드의 이름 한 줄을 저장하는 데 RabbitMQ, LLM,
 검색 엔진을 설치하면 오히려 운영할 것이 늘어난다.
 
-## 1. 시작 전 체크
+## Level 0. 모험 시작 전 체크
 
 다음을 먼저 완료한다.
 
@@ -63,7 +77,7 @@ C:\workspace\profile-server          # 이번 실습의 별도 생성 결과
 별도 `package_name`과 `49200` 포트 블록을 쓰므로, 첫 로그인 서버를 끄거나 기존
 PostgreSQL volume을 지울 필요가 없다.
 
-## 2. 서비스 선택 지도
+## Quest Map. AutoForge 능력 해금 지도
 
 아래 표는 현재 생성 가능한 공통 서비스 전체를 사용 시점별로 정리한 것이다. `선택`은
 명세의 위치이고, `첫 도메인 예시`는 그 서비스가 실제로 필요한 순간이다.
@@ -99,7 +113,36 @@ PostgreSQL volume을 지울 필요가 없다.
 외부 주소나 credential이 필요한 서비스는 명세만 켠다고 진짜 provider에 연결되지
 않는다. `.env` 또는 Secret에 실제 주소와 비밀값을 주입한 뒤에만 연결한다.
 
-## 3. 도메인을 만들 때의 고정 순서
+### 레벨 진행표: 모든 AutoForge 능력을 한 서버에 연결하기
+
+아래 순서는 **모두 한꺼번에 설치하라는 목록이 아니다.** 앞 Level의 클리어 조건이
+통과된 뒤 다음 Level 하나만 선택한다. 각 Level의 YAML과 실행 명령은 뒤 절에 있고,
+도메인 코드에는 선택된 서비스의 generated protocol만 들어간다.
+
+| Level | Quest Board에서 생긴 요구 | 함께 배우는 AutoForge 기능 | 클리어 조건 |
+| --- | --- | --- | --- |
+| 0 | 대장간을 안전하게 연다 | YAML 명세, Blueprint, 검증, generation plan, Manifest, 파일 소유권 | `generate`가 성공하고 `generated` 파일을 건드리지 않는다 |
+| 1 | 플레이어 카드를 저장한다 | PostgreSQL, SQL/Alembic, Redis session, idempotency, Docker, 로그 | 로그인·카드 수정·동일 요청 replay·`409`를 확인한다 |
+| 2 | 보상 지급을 기다리지 않고 전달한다 | RabbitMQ, Transactional Outbox, Inbox, worker | DB 변경과 보상 event가 분리되어 전달된다 |
+| 3 | 매일 새 퀘스트를 연다 | Durable Job, Airflow scheduler | HTTP 요청 없이도 정해진 시간에 job이 실행된다 |
+| 4 | 인기 퀘스트를 빠르게 보여 준다 | Redis/Memcached cache, Distributed Lock | replica 수와 무관하게 cache/lock 계약을 쓴다 |
+| 5 | 뱃지 이미지를 보관한다 | S3 protocol, MinIO local overlay | DB에는 object key만, 파일은 object storage에 남는다 |
+| 6 | NPC에게 외부 정보를 묻는다 | External Provider, deterministic fake | fake 테스트 후 실제 URL/Secret을 주입한다 |
+| 7 | 퀘스트 도감을 찾고 질문한다 | OpenSearch/Elasticsearch, Qdrant, RAG, Ollama | 키워드·vector·RAG를 필요한 범위에서만 켠다 |
+| 8 | 파티와 운영자에게 소식을 보낸다 | WebSocket, webhook, Email, SMS | live hint와 durable event를 구분한다 |
+| 9 | 퀘스트 문구를 보조한다 | OpenAI Responses API boundary, fake | 비용·권한 정책을 handler에 명시한다 |
+| 10 | 서버를 관제하고 확장한다 | ELK, service token, Control Plane heartbeat, Compose HA, Kubernetes | 로그·health·instance 상태를 각각 확인한다 |
+| 11 | 대장간 자체를 확장한다 | Plugin discovery, validator, CI, isolated Git generation | 확장은 Plugin 계약과 검증 gate를 통과한다 |
+
+Level 0과 11은 **AutoForge 자체를 다루는 퀘스트**이고, Level 1~10은 AutoForge가
+생성한 서버에 기능을 조합하는 퀘스트다. Plugin은 현재 서버 handler를 대신 작성하는
+기능이 아니라 생성기·검증기를 확장하는 경계다. Git 자동화도 여러분의 작업 폴더를
+직접 바꾸지 않고 격리 workspace에서 검증한 뒤에만 다음 단계로 간다. 정확한 계약은
+[Plugin System](../architecture/plugin_system.md),
+[Git Automation](../architecture/git_automation.md),
+[Control Plane](../architecture/control_plane_persistence.md)을 따른다.
+
+## Quest Rule. 새 도메인을 만들 때의 고정 순서
 
 새 도메인은 항상 이 순서로 만든다.
 
@@ -129,7 +172,7 @@ PostgreSQL volume을 지울 필요가 없다.
 Repository 같은 작은 계약만 받고, Redis host·PostgreSQL DSN·replica 수를 직접
 알지 않는다.
 
-## 4. 따라 하며 만드는 `profile` 도메인
+## Level 1. 플레이어 카드 만들기: DB·SQL·Redis·로그
 
 ### 4.1 안전한 별도 명세 만들기
 
@@ -308,13 +351,31 @@ src/profile_server/modules/profile/generated/models.py
 src/profile_server/modules/profile/generated/router.py
 src/profile_server/modules/profile/generated/sqlalchemy_repositories.py
 src/profile_server/modules/profile/handlers.py
-migrations/profile/
+migrations/profile/env.py
+migrations/profile/versions/0001_profile.py
+database/global/0001_profile.sql
 environment/postgres-init/00-databases.sql
 ```
 
-앞의 세 `generated` 파일과 migration/SQL은 수정하지 않는다. 여러분이 구현할 파일은
-`modules/profile/handlers.py`다. 이 구분의 자세한 근거는 [생성 계약](../architecture/generation_contract.md),
-DB 생성물의 역할은 [Database Generation](../architecture/database_generation.md)을 참고한다.
+`generated/` 파일, raw SQL, Alembic 환경(`migrations/profile/env.py`)은 명세에서
+다시 만들 수 있는 AutoForge 소유 파일이다. 수정하지 않는다. 반면
+`migrations/profile/versions/0001_profile.py`는 첫 생성 때만 만드는 **SCAFFOLDED
+baseline**이다. 이것은 이미 배포한 DB의 이력이므로, 실행 중인 서버에서 다시 쓰거나
+교체하지 않는다. 여러분이 구현할 파일은 `modules/profile/handlers.py`다.
+
+이제 “YAML 한 장이 SQL을 만들었다”는 사실을 눈으로 확인한다.
+
+```powershell
+Set-Location C:\workspace\profile-server
+Get-Content database\global\0001_profile.sql
+Get-Content migrations\profile\versions\0001_profile.py
+```
+
+두 파일에 `user_profiles`를 만드는 구문이 보이면 Level 1의 DB·SQL 생성은 클리어다.
+나중에 테이블을 바꿔야 하면 실행 중인 baseline을 고치는 대신, 명세의
+`database.migrations`에 새 additive revision을 선언한다. 이 구분의 자세한 근거는
+[생성 계약](../architecture/generation_contract.md), DB 생성물의 역할은
+[Database Generation](../architecture/database_generation.md)을 참고한다.
 
 ### 4.4 환경을 만들고 기본 로그인 기능을 먼저 완성
 
@@ -475,7 +536,9 @@ try {
 }
 ```
 
-로그가 필요하면 다음만 먼저 본다.
+이제 같은 행동이 세 군데에 남는다. HTTP 응답은 플레이어가 본 결과, PostgreSQL은
+영속된 결과, Compose 로그는 서버가 처리한 흔적이다. 문제를 만났을 때는 Docker 전체를
+재설치하지 말고 다음 세 로그부터 확인한다.
 
 ```powershell
 docker compose --env-file environment\.env -f environment\compose.integration.yml logs application --tail 100
@@ -483,13 +546,28 @@ docker compose --env-file environment\.env -f environment\compose.integration.ym
 docker compose --env-file environment\.env -f environment\compose.integration.yml logs redis --tail 100
 ```
 
-## 5. 다음 서비스는 이렇게 하나씩 추가한다
+`logs` 폴더에 `.log` 파일을 연결한 실행 환경이라면 Filebeat/ELK도 같은 파일을 읽는다.
+애플리케이션은 Elasticsearch에 직접 쓰지 않는다.
+
+## Level 2 이후. 퀘스트를 하나씩 확장한다
 
 프로필 실습이 통과한 뒤에만 아래 중 실제 도메인이 요구하는 한 가지를 고른다. 각
 YAML 조각은 기존 `autoforge.yaml`의 같은 위치에 **추가 또는 병합**한다. 여러 조각을
 한 번에 복사하지 않는다.
 
-### 5.1 요청 밖의 작업: RabbitMQ, Outbox, Durable Job, Airflow
+### Level 2. 보상 상자 배달: RabbitMQ, Outbox, Durable Job, Airflow
+
+**미션:** 플레이어가 퀘스트를 완료하면 보상을 지급하고, 내일 아침에는 새 일일 퀘스트를
+연다. 보상 전송이 잠시 실패해도 플레이어 카드 저장은 잃지 않는다.
+
+**AutoForge:** PostgreSQL transaction 안의 Outbox, RabbitMQ relay/worker, 선택한
+Durable Job과 Airflow 호출 경로를 생성한다.
+
+**내 코드:** 어떤 event를 기록할지, consumer가 실제로 무엇을 할지, 보상이 이미 지급된
+경우 어떻게 처리할지를 작성한다.
+
+**클리어:** `rabbitmq`, `outbox-relay`, `message-worker`가 healthy이고 fake consumer
+테스트와 한 번의 HTTP event 생성이 모두 통과한다.
 
 “프로필 변경 후 환영 메일을 보내기”처럼 DB commit 뒤 별도 작업이 필요할 때 쓴다.
 같은 DB transaction에 profile 변경과 Outbox 기록을 남기고, relay/worker가 RabbitMQ를
@@ -524,7 +602,19 @@ application:
 `message-worker` 확인 → 사용자 소유 consumer의 작은 fake 테스트 → HTTP에서 event를
 만드는 도메인 요청 순서다.
 
-### 5.2 빠른 읽기와 단일 실행: Cache와 Distributed Lock
+### Level 3. 인기 퀘스트 순위표: Cache와 Distributed Lock
+
+**미션:** 같은 순위표를 자주 읽어도 DB를 매번 읽지 않고, 여러 replica가 있어도 일일
+보상 계산은 한 번만 한다.
+
+**AutoForge:** Redis 또는 Memcached 기반 cache protocol/fake와 Redis 기반 lock protocol을
+생성한다.
+
+**내 코드:** cache key, TTL, invalidation 시점과 lock으로 감쌀 작은 critical section을
+결정한다.
+
+**클리어:** fake에서 cache miss/hit과 lock 경쟁을 확인하고, 선택한 Compose 서비스가
+healthy임을 확인한다.
 
 읽기 결과를 잠시 저장할 때는 Key-Value Store, 여러 replica 중 한 곳만 같은 작업을
 할 때는 Distributed Lock을 선택한다. 세션 저장소에 임의 cache/lock 기능을 억지로
@@ -554,7 +644,18 @@ Cluster를, Memcached는 standalone만 지원한다. `distributed_lock`은 lock 
 `memcached`가 healthy인지 확인한다. topology를 바꿔도 도메인 handler가 Redis 주소를
 알아서는 안 된다.
 
-### 5.3 파일: S3 호환 Object Storage와 MinIO
+### Level 4. 뱃지 보관함: S3 호환 Object Storage와 MinIO
+
+**미션:** 플레이어가 얻은 뱃지 이미지를 안전하게 보관하고 카드에는 그 위치만 남긴다.
+
+**AutoForge:** S3 호환 Object Storage protocol/fake와 선택 가능한 local MinIO overlay를
+생성한다.
+
+**내 코드:** object key 규칙, 업로드 파일 형식·크기 검사, 읽기 권한과 삭제 시점을
+결정한다.
+
+**클리어:** MinIO Compose profile이 healthy이고, DB가 이미지 바이트가 아닌 object key만
+보관함을 확인한다.
 
 프로필 사진처럼 큰 바이너리는 DB 열이 아니라 object storage에 둔다. DB에는 object
 key·소유자·메타데이터만 저장한다.
@@ -582,7 +683,19 @@ MinIO는 로컬 S3 호환 검증용이다. 운영에서 AWS S3를 선택해도 h
 ObjectStorage protocol만 사용하고 URL/credential은 runtime 환경으로 받는다. 버킷
 권한·파일 형식 검사·보존 기간은 도메인 정책이므로 여러분이 정한다.
 
-### 5.4 외부 HTTP API
+### Level 5. NPC에게 외부 정보를 묻기: External Provider
+
+**미션:** 퀘스트 NPC가 외부 날씨·환율·결제 정보를 가져오되, 외부 사이트가 느려도 내
+서버가 멈추지 않는다.
+
+**AutoForge:** async transport 경계와 정상·timeout·4xx·5xx를 재현하는 deterministic
+fake를 생성한다.
+
+**내 코드:** 외부 응답을 내 도메인 값으로 바꾸는 규칙, 사용자에게 보일 오류, 쓰기 요청의
+idempotency를 결정한다.
+
+**클리어:** 실제 API key 없이 fake 테스트를 통과한 뒤에만 `.env`/Secret으로 provider를
+연결한다.
 
 결제·증권·환율 같은 외부 API는 URL을 handler에 하드코딩하지 않는다.
 
@@ -600,7 +713,19 @@ tooling:
 `.env`/Secret에 넣은 뒤에만 health 확인을 한다. 읽기 요청과 달리 결제·주문 같은 쓰기
 요청은 자동 재시도에 기대지 말고, 도메인 idempotency 정책을 명시한다.
 
-### 5.5 검색, Vector Store, RAG
+### Level 6. 퀘스트 도감: Search, Vector Store, RAG
+
+**미션:** 제목으로 퀘스트를 찾고, 비슷한 모험 기록을 추천하며, 충분한 근거가 있을 때만
+도감 질문에 답한다.
+
+**AutoForge:** OpenSearch/Elasticsearch transport, Qdrant transport/fake와 local
+Search+Qdrant+Ollama RAG overlay를 각각 생성한다.
+
+**내 코드:** index/collection에 넣을 문서, 권한 필터, embedding·hybrid ranking·답변
+근거 정책을 결정한다.
+
+**클리어:** keyword 검색·vector 검색·RAG를 각각 필요한 경우에만 켜고, 모델 다운로드 전
+디스크 공간을 확인한다.
 
 키워드 검색만 필요하면 Search, embedding 유사도만 필요하면 Vector Store를 고른다.
 둘을 실제로 함께 쓰며 local 인프라가 필요할 때만 RAG overlay를 켠다.
@@ -638,7 +763,19 @@ Search/VectorStore는 transport 경계만 생성한다. 어떤 필드를 index�
 모델·차원·hybrid ranking·권한 필터를 어떻게 정할지는 도메인 책임이다. 검색 화면이나
 평가 데이터가 없는 상태에서 RAG를 먼저 켜지 않는다.
 
-### 5.6 실시간·운영 알림·사람에게 보내는 메시지
+### Level 7. 파티 알림: Realtime·Webhook·Email·SMS
+
+**미션:** 새 보상은 접속 중인 파티원에게 바로 보이고, 중요한 사건은 운영자나 사용자에게
+적절한 전달 수단으로 남긴다.
+
+**AutoForge:** WebSocket hub, 선택적 Redis Pub/Sub backplane, webhook/SMTP/SOLAPI
+transport와 fake를 생성한다.
+
+**내 코드:** 누가 어떤 채널을 구독하는지, durable event와 휘발성 live hint를 어떻게
+구분하는지, 동의·재전송·비용 정책을 결정한다.
+
+**클리어:** HTTP 도메인과 재시작이 먼저 안정적이고, 실제 수신 주소 없이 fake 전달
+테스트를 통과한다.
 
 | 필요 | 명세 | handler가 책임지는 것 | 먼저 할 확인 |
 | --- | --- | --- | --- |
@@ -649,7 +786,7 @@ Search/VectorStore는 transport 경계만 생성한다. 어떤 필드를 index�
 | 문자 | `tooling.sms.enabled: true` | 전화번호 검증·비용·인증 정책 | SOLAPI key/secret/sender 준비 |
 
 Email·SMS·Webhook은 전달 수단일 뿐, “어떤 이벤트를 누구에게 몇 번 보내는가”는
-도메인 정책이다. 신뢰성 있는 전달이 필요하면 먼저 5.1의 Outbox를 결합한다.
+도메인 정책이다. 신뢰성 있는 전달이 필요하면 먼저 Level 2의 Outbox를 결합한다.
 
 필요한 전달 수단 하나의 설정만 추가한다. 아래는 정확한 최소 시작점이며, 모두를
 한꺼번에 켜라는 예시는 아니다.
@@ -679,7 +816,17 @@ Realtime backplane은 `redis_session` service가 정확히 하나일 때만 선�
 Webhook/SMTP/SOLAPI 주소와 비밀값은 `.env` 또는 배포 Secret에만 넣는다. 외부 전달은
 수신 측이 준비되기 전에는 deterministic fake 테스트로 확인한다.
 
-### 5.7 LLM
+### Level 8. 퀘스트 작가: LLM
+
+**미션:** AI가 퀘스트 요약 문구를 제안하지만, 플레이어 데이터와 비용은 도메인 정책 안에서
+통제한다.
+
+**AutoForge:** OpenAI Responses API 경계와 deterministic fake를 생성한다.
+
+**내 코드:** prompt, 개인정보 마스킹, 사용 권한, token 예산, 결과 저장 여부를 정한다.
+
+**클리어:** 실제 API key 없이 fake 테스트가 통과하고, key는 `.env` 또는 Secret에만
+존재한다.
 
 ```yaml
 tooling:
@@ -695,7 +842,18 @@ prompt, 개인정보 마스킹, 사용 권한, token 비용 한도, 결과를 DB
 생성기가 대신 결정하지 않는다. 먼저 fake로 handler 테스트를 통과시키고, 실제 key는
 Git에 올리지 않는 환경값으로만 주입한다.
 
-### 5.8 로그: ELK
+### Level 9. 관제탑: ELK
+
+**미션:** 플레이어가 “보상이 안 왔어요”라고 말하면 한 request의 로그를 찾아 원인을
+추적한다.
+
+**AutoForge:** Filebeat, Elasticsearch, Kibana를 포함한 central ELK overlay 또는
+외부 중앙 수집기로 보내는 collector overlay를 생성한다.
+
+**내 코드:** 로그에 넣을 업무 식별자와 민감정보를 절대 남기지 않는 정책을 결정한다.
+
+**클리어:** 애플리케이션이 `logs/*.log`를 남기고 Filebeat가 그 파일을 수집하며,
+Kibana에서 request 단위로 검색할 수 있다.
 
 도메인 기능이 HTTP와 Docker에서 정상 동작한 뒤, JSON 로그를 찾아볼 필요가 생기면
 ELK overlay를 추가한다.
@@ -722,7 +880,20 @@ docker compose --env-file environment\.env `
 한 번만, 각 인스턴스는 `collector` mode를 선택한다. 정본은
 [관측성 자동생성](../architecture/observability_generation.md)이다.
 
-## 6. DB와 실행 환경의 선택은 도메인 코드와 분리한다
+## Level 10. 난이도 조절: DB와 실행 환경을 도메인 코드에서 분리한다
+
+**미션:** 같은 Quest Board를 노트북 한 대에서는 가볍게, 검증 환경에서는 여러 container와
+replica로, 운영에서는 Kubernetes로 실행한다.
+
+**AutoForge:** local environment, Docker Compose healthcheck, single-host HA,
+Kubernetes base-server profile, Control Plane heartbeat와 service-token guard를
+각각 선택적으로 생성한다.
+
+**내 코드:** handler는 Repository와 service protocol만 사용한다. replica 수, DB provider,
+DSN, Secret 이름, 내부 호출 권한은 handler 밖의 명세·환경값에서 결정한다.
+
+**클리어:** single mode의 HTTP/restart 검증을 끝낸 뒤 HA profile을 올리고, 운영자가
+필요할 때만 heartbeat·service token·Kubernetes를 추가한다.
 
 프로필 handler의 `ShardTarget(store="profile")`과 Repository 사용법은 다음 설정이
 바뀌어도 바뀌지 않아야 한다.
@@ -746,7 +917,52 @@ database·Redis·RabbitMQ·application replica를 늘리더라도 handler는 int
 아니다. 경계와 검증 범위는 [환경 검증 계약](../architecture/environment_validation_contract.md)을
 따른다.
 
-## 7. 모든 도메인에 공통인 테스트 순서
+서버 운영자가 필요한 순간에는 다음처럼 **선택적으로** 운영 경계를 더한다. 실제 image,
+Secret, namespace가 준비되기 전에는 이 조각을 복사하지 않는다.
+
+```yaml
+application:
+  control_plane_heartbeat:
+    enabled: true
+    interval_seconds: 30
+  service_tokens:
+    - name: quest_worker
+      token_env: QUEST_WORKER_API_TOKEN
+
+tooling:
+  kubernetes:
+    enabled: true
+    namespace: quest-board
+    image: registry.example.com/quest-board:0.1.0
+    secret_name: quest-board-runtime
+    application_replicas: 3
+    proxy_replicas: 2
+```
+
+Heartbeat은 “이 instance가 살아 있다고 보고하는” push 관측 정보다. `/health`와
+`/readiness` probe를 대체하지 않는다. `service_token`은 internal endpoint가 해당
+scope를 명시할 때만 적용한다. Secret 값은 YAML에 넣지 않고 deployment 환경에서
+주입한다.
+
+## Level 11. 대장간 확장: Plugin, CI, Git 자동화
+
+**미션:** Quest Board의 업무 코드는 그대로 두고, 여러 프로젝트에 반복되는 생성·검증
+규칙만 AutoForge 자체에 추가한다.
+
+**Plugin:** plugin manifest 발견은 Python 코드를 실행하지 않고 metadata·의존성·권한을
+검사한다. 실제 loading은 신뢰한 plugin에 한해 명시적으로 수행한다. 이미 있는 generator나
+validator로 해결되면 Plugin을 만들지 않는다.
+
+**CI와 Git 자동화:** Generator는 Git을 모르며, Git 자동화는 사용자 working tree가 아닌
+격리 workspace에서 checkout → generate/validate → 허용된 변경만 commit/push/PR 순으로
+처리한다. 따라서 “빠르게 고치기”를 위해 generated 파일을 직접 수정하는 도구가 아니다.
+
+**클리어:** 새 Plugin은 metadata와 작은 generator/validator 테스트를 먼저 통과하고,
+Git 작업은 validation gate가 성공한 경우에만 다음 단계로 진행한다. 구체 계약은
+[Plugin System](../architecture/plugin_system.md)과
+[Git Automation](../architecture/git_automation.md)이 소유한다.
+
+## Every Level. 공통 클리어 테스트 순서
 
 서비스가 늘어나도 테스트 순서는 바꾸지 않는다.
 
@@ -765,7 +981,7 @@ database·Redis·RabbitMQ·application replica를 늘리더라도 handler는 int
 서비스 로그를 차례로 확인한다. 이 manifest는 선택된 서비스의 환경 변수, healthcheck,
 의존 관계, restart 정책을 generated 정보로 보여 준다.
 
-## 8. 다음에 무엇을 선택할지
+## 다음 퀘스트 하나를 고르기
 
 프로필 도메인까지 성공했다면 다음 중 **하나만** 선택한다.
 
@@ -778,7 +994,7 @@ database·Redis·RabbitMQ·application replica를 늘리더라도 handler는 int
 어떤 것을 선택하든 명세를 먼저 바꾸고 생성한다. generated 파일을 직접 수정해
 기능을 붙이는 방식은 재생성 때 사라지므로 사용하지 않는다.
 
-## 9. 정본 문서
+## 이 퀘스트가 참조하는 정본 문서
 
 - [전체 시스템 구조](../architecture/system_design.md)
 - [명세 설계](../architecture/specification_design.md)
