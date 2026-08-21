@@ -25,6 +25,7 @@ def specification(
     *,
     enabled: bool = False,
     qdrant_mode: str = "standalone",
+    ollama_mode: str = "standalone",
     search_backend: str = "elasticsearch",
     search_mode: str = "standalone",
     host_port_base: int = 49400,
@@ -41,6 +42,7 @@ def specification(
             rag=RagSpec(
                 enabled=enabled,
                 qdrant_mode=qdrant_mode,
+                ollama_mode=ollama_mode,
                 search_backend=search_backend,
                 search_mode=search_mode,
                 host_port_base=host_port_base,
@@ -149,6 +151,43 @@ def test_rag_generator_renders_clustered_qdrant_behind_stable_endpoint() -> None
         "qdrant-1-storage",
         "qdrant-2-storage",
         "qdrant-3-storage",
+    }
+
+
+def test_rag_generator_renders_replicated_ollama_behind_stable_endpoint() -> None:
+    files = RagInfrastructureGenerator().render(
+        specification(enabled=True, ollama_mode="replicated")
+    )
+    compose = files[PurePosixPath("deploy", "rag", "compose.rag.yaml")]
+    proxy = files[PurePosixPath("deploy", "rag", "nginx", "ollama.conf")]
+    readme = files[PurePosixPath("deploy", "rag", "README.md")]
+    parsed = yaml.safe_load(compose)
+
+    assert set(parsed["services"]) == {
+        "qdrant",
+        "elasticsearch",
+        "ollama",
+        "ollama-1",
+        "ollama-2",
+        "ollama-3",
+    }
+    assert parsed["services"]["ollama"]["depends_on"]["ollama-3"] == {
+        "condition": "service_healthy"
+    }
+    assert parsed["services"]["ollama-1"]["volumes"] == [
+        "ollama-1-data:/root/.ollama"
+    ]
+    assert parsed["services"]["ollama-2"]["volumes"] == [
+        "ollama-2-data:/root/.ollama"
+    ]
+    assert "proxy_request_buffering off" in proxy
+    assert "proxy_read_timeout 3600s" in proxy
+    assert "must pull each selected model" in readme
+    assert "exec ollama-$_ ollama pull" in readme
+    assert set(parsed["volumes"]) >= {
+        "ollama-1-data",
+        "ollama-2-data",
+        "ollama-3-data",
     }
 
 
@@ -272,7 +311,7 @@ async def test_clustered_qdrant_recovers_replicated_point_after_member_stops(
         for _ in range(45):
             try:
                 cluster = await anyio.to_thread.run_sync(
-                    _qdrant_request_json, f"{endpoint}/cluster"
+                    _request_json, f"{endpoint}/cluster"
                 )
             except (HTTPError, URLError, TimeoutError):
                 await anyio.sleep(2)
@@ -286,7 +325,7 @@ async def test_clustered_qdrant_recovers_replicated_point_after_member_stops(
         else:
             pytest.fail(f"Qdrant cluster did not form: {cluster}")
         await anyio.to_thread.run_sync(
-            _qdrant_request_json,
+            _request_json,
             f"{endpoint}/collections/ha-check?wait=true",
             "PUT",
             {
@@ -297,7 +336,7 @@ async def test_clustered_qdrant_recovers_replicated_point_after_member_stops(
             },
         )
         await anyio.to_thread.run_sync(
-            _qdrant_request_json,
+            _request_json,
             f"{endpoint}/collections/ha-check/points?wait=true",
             "PUT",
             {"points": [{"id": 1, "vector": [0.1, 0.2, 0.3, 0.4]}]},
@@ -309,7 +348,7 @@ async def test_clustered_qdrant_recovers_replicated_point_after_member_stops(
         for _ in range(30):
             try:
                 point = await anyio.to_thread.run_sync(
-                    _qdrant_request_json, f"{endpoint}/collections/ha-check/points/1"
+                    _request_json, f"{endpoint}/collections/ha-check/points/1"
                 )
             except (HTTPError, URLError, TimeoutError):
                 await anyio.sleep(2)
@@ -319,6 +358,102 @@ async def test_clustered_qdrant_recovers_replicated_point_after_member_stops(
             await anyio.sleep(2)
         else:
             pytest.fail("replicated Qdrant point was unavailable after member stop")
+    finally:
+        await runner.run(
+            (*compose, "down", "--volumes", "--remove-orphans"),
+            cwd=tmp_path,
+            timeout_seconds=180,
+        )
+        await runner.run(
+            ("docker", "network", "rm", network), cwd=tmp_path, timeout_seconds=30
+        )
+
+
+@pytest.mark.integration
+@pytest.mark.anyio
+async def test_replicated_ollama_keeps_readiness_after_member_stops(
+    tmp_path: Path,
+) -> None:
+    if os.environ.get("AUTOFORGE_DOCKER_OLLAMA_REPLICATED_INTEGRATION") != "1":
+        pytest.skip("set AUTOFORGE_DOCKER_OLLAMA_REPLICATED_INTEGRATION=1 to run Docker")
+
+    host_port_base = next(
+        base
+        for base in range(49200, 65500, 100)
+        if _port_is_available(base + 70)
+    )
+    package_name = f"ollama_ha_{uuid.uuid4().hex}"
+    files = RagInfrastructureGenerator().render(
+        specification(
+            enabled=True,
+            ollama_mode="replicated",
+            host_port_base=host_port_base,
+        ).model_copy(
+            update={
+                "project": ProjectInfo(
+                    name="Ollama HA",
+                    package_name=package_name,
+                    version="0.1.0",
+                )
+            }
+        )
+    )
+    for relative_path, content in files.items():
+        target = tmp_path / relative_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+    rag_dir = tmp_path / "deploy" / "rag"
+    (rag_dir / ".env").write_text(
+        files[PurePosixPath("deploy", "rag", ".env.example")], encoding="utf-8"
+    )
+    compose = (
+        "docker",
+        "compose",
+        "--env-file",
+        "deploy/rag/.env",
+        "-f",
+        "deploy/rag/compose.rag.yaml",
+        "--profile",
+        "inference",
+    )
+    network = f"{package_name}-rag"
+    endpoint = f"http://127.0.0.1:{host_port_base + 70}/api/tags"
+    runner = AsyncioProcessRunner()
+    try:
+        result = await runner.run(
+            ("docker", "network", "create", network), cwd=tmp_path, timeout_seconds=20
+        )
+        assert result.succeeded, result.stderr
+        result = await runner.run(
+            (*compose, "up", "--detach", "ollama"), cwd=tmp_path, timeout_seconds=180
+        )
+        assert result.succeeded, result.stderr
+        for _ in range(30):
+            try:
+                tags = await anyio.to_thread.run_sync(_request_json, endpoint)
+            except (HTTPError, URLError, TimeoutError):
+                await anyio.sleep(2)
+                continue
+            if "models" in tags:
+                break
+            await anyio.sleep(2)
+        else:
+            pytest.fail("replicated Ollama readiness did not become available")
+        result = await runner.run(
+            (*compose, "stop", "ollama-1"), cwd=tmp_path, timeout_seconds=30
+        )
+        assert result.succeeded, result.stderr
+        for _ in range(30):
+            try:
+                tags = await anyio.to_thread.run_sync(_request_json, endpoint)
+            except (HTTPError, URLError, TimeoutError):
+                await anyio.sleep(2)
+                continue
+            if "models" in tags:
+                break
+            await anyio.sleep(2)
+        else:
+            pytest.fail("Ollama readiness was unavailable after member stop")
     finally:
         await runner.run(
             (*compose, "down", "--volumes", "--remove-orphans"),
@@ -494,7 +629,7 @@ def _port_is_available(port: int) -> bool:
     return True
 
 
-def _qdrant_request_json(
+def _request_json(
     url: str, method: str = "GET", payload: dict[str, object] | None = None
 ) -> dict[str, object]:
     data = json.dumps(payload).encode() if payload is not None else None

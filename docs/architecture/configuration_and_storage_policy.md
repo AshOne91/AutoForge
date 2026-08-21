@@ -90,9 +90,12 @@ cluster` similarly creates three Qdrant peers behind stable `qdrant:6333` and
 `qdrant:6334` endpoints, so consumers continue to use `QDRANT_URL` without
 addressing a peer. Qdrant cluster membership does not replicate a collection by
 itself: the collection owner must choose its `replication_factor` and shard policy.
-`ollama` continues to resolve by DNS without relying on host ports or Docker
-Desktop-specific host aliases. The external network is created once by the operator
-and is not deleted by either Compose overlay.
+`RagSpec.ollama_mode: replicated` creates three Ollama members behind stable
+`ollama:11434`, preserving `OLLAMA_BASE_URL`. Each member owns a separate model
+volume: no writable volume is shared and no model is downloaded implicitly. An
+operator must prepare the selected model in every member before treating inference
+as failover-capable. The external network is created once by the operator and is
+not deleted by either Compose overlay.
 
 ## First operating target
 

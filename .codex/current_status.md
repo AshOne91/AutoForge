@@ -305,8 +305,13 @@ AutoForge currently has working foundations for:
   An isolated Docker drill created a test collection with `replication_factor: 2`,
   wrote one point, stopped a peer, and retrieved the point through the proxy.
   Collection/shard/replica choices remain domain-owned; a Qdrant cluster does not
-  automatically replicate a collection. Ollama remains singleton in the current RAG
-  profile. Both local standalone search paths are runtime-verified.
+  automatically replicate a collection. `RagSpec.ollama_mode: replicated` now
+  generates three independently volumed Ollama members behind unchanged
+  `OLLAMA_BASE_URL`. An isolated Docker drill stopped one member and confirmed the
+  stable `/api/tags` readiness response continued. No model is downloaded or shared
+  automatically; actual inference failover requires an operator to prepare the
+  selected model in every member volume. Both local standalone search paths are
+  runtime-verified.
   The KIS OpenSearch profile responds on `49460`, persists its named-volume data
   across container restart, and exposes the generated hybrid-search client path.
   With the installed `embeddinggemma` model, KIS indexed and retrieved a live

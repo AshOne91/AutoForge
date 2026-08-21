@@ -11,7 +11,7 @@ from autoforge.core.generation import (
 from autoforge.core.specification import ProjectSpec
 
 RAG_INFRASTRUCTURE_GENERATOR_ID = "autoforge.generator.rag_infrastructure"
-RAG_INFRASTRUCTURE_GENERATOR_VERSION = "0.3.0"
+RAG_INFRASTRUCTURE_GENERATOR_VERSION = "0.4.0"
 NGINX_IMAGE = "nginx:1.27-alpine"
 
 
@@ -43,6 +43,10 @@ class RagInfrastructureGenerator:
         if specification.tooling.rag.qdrant_mode == "cluster":
             rendered[PurePosixPath("deploy", "rag", "nginx", "qdrant.conf")] = (
                 self._render_qdrant_proxy_config()
+            )
+        if specification.tooling.rag.ollama_mode == "replicated":
+            rendered[PurePosixPath("deploy", "rag", "nginx", "ollama.conf")] = (
+                self._render_ollama_proxy_config()
             )
         if specification.tooling.rag.search_mode == "cluster":
             rendered[PurePosixPath("deploy", "rag", "nginx", "search.conf")] = (
@@ -103,6 +107,31 @@ class RagInfrastructureGenerator:
             if rag.qdrant_mode == "cluster"
             else "  qdrant-storage:"
         )
+        ollama_service = (
+            cls._render_replicated_ollama_services(specification)
+            if rag.ollama_mode == "replicated"
+            else f'''  ollama:
+    profiles: ["inference"]
+    image: ollama/ollama:{rag.ollama_version}
+    networks: [rag]
+    restart: unless-stopped
+    ports:
+      - "${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{OLLAMA_PORT:-{base + 70}}}:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+'''
+        )
+        ollama_volumes = (
+            "\n".join(f"  ollama-{index}-data:" for index in range(1, 4))
+            if rag.ollama_mode == "replicated"
+            else "  ollama-data:"
+        )
         search_service = (
             cls._render_cluster_search_services(specification)
             if rag.search_mode == "cluster"
@@ -160,20 +189,7 @@ class RagInfrastructureGenerator:
         return f'''name: {specification.project.package_name}-rag
 
 services:
-{qdrant_service}{search_service}  ollama:
-    profiles: ["inference"]
-    image: ollama/ollama:{rag.ollama_version}
-    networks: [rag]
-    restart: unless-stopped
-    ports:
-      - "${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{OLLAMA_PORT:-{base + 70}}}:11434"
-    volumes:
-      - ollama-data:/root/.ollama
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 10s
-      timeout: 5s
-      retries: 30
+{qdrant_service}{search_service}{ollama_service}
 
 networks:
   rag:
@@ -183,7 +199,52 @@ networks:
 volumes:
 {qdrant_volumes}
 {search_volumes}
-  ollama-data:
+{ollama_volumes}
+'''
+
+    @staticmethod
+    def _render_replicated_ollama_services(specification: ProjectSpec) -> str:
+        rag = specification.tooling.rag
+        node_names = [f"ollama-{index}" for index in range(1, 4)]
+        dependencies = "\n".join(
+            f'''      {node_name}:
+        condition: service_healthy'''
+            for node_name in node_names
+        )
+        node_services = "\n".join(
+            f'''  {node_name}:
+    profiles: ["inference"]
+    image: ollama/ollama:{rag.ollama_version}
+    networks: [rag]
+    restart: unless-stopped
+    volumes:
+      - ollama-{index}-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+'''
+            for index, node_name in enumerate(node_names, start=1)
+        )
+        return f'''  ollama:
+    profiles: ["inference"]
+    image: {NGINX_IMAGE}
+    networks: [rag]
+    restart: unless-stopped
+    ports:
+      - "${{LOCAL_BIND_ADDRESS:-127.0.0.1}}:${{OLLAMA_PORT:-{rag.host_port_base + 70}}}:11434"
+    volumes:
+      - ./nginx/ollama.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+{dependencies}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:11434/api/tags >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+{node_services}
 '''
 
     @staticmethod
@@ -403,6 +464,36 @@ server {{
 '''
 
     @staticmethod
+    def _render_ollama_proxy_config() -> str:
+        nodes = "\n".join(
+            f"    server ollama-{index}:11434 max_fails=1 fail_timeout=2s;"
+            for index in range(1, 4)
+        )
+        return f'''upstream ollama_backend {{
+    least_conn;
+{nodes}
+}}
+
+server {{
+    listen 11434;
+    client_max_body_size 0;
+
+    location / {{
+        proxy_pass http://ollama_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_read_timeout 3600s;
+        proxy_next_upstream error timeout http_502 http_503 http_504;
+        proxy_next_upstream_tries 3;
+    }}
+}}
+'''
+
+    @staticmethod
     def _render_env(specification: ProjectSpec) -> str:
         rag = specification.tooling.rag
         base = rag.host_port_base
@@ -430,6 +521,24 @@ OLLAMA_PORT={base + 70}
     @staticmethod
     def _render_readme(specification: ProjectSpec) -> str:
         search_name = specification.tooling.rag.search_backend.title()
+        ollama_pull_command = (
+            "1..3 | ForEach-Object { docker compose --env-file deploy/rag/.env "
+            "-f deploy/rag/compose.rag.yaml exec ollama-$_ ollama pull <selected-model> }"
+            if specification.tooling.rag.ollama_mode == "replicated"
+            else "docker compose --env-file deploy/rag/.env -f deploy/rag/compose.rag.yaml "
+            "exec ollama ollama pull <selected-model>"
+        )
+        ollama_topology_note = (
+            "\nThe `replicated` Ollama mode creates three inference members behind "
+            "the generated `ollama:11434` endpoint. Consumers continue to use "
+            "`OLLAMA_BASE_URL`; the proxy retries another healthy member when one "
+            "node stops. Each member owns a separate model volume, so an operator "
+            "must pull each selected model into every member before relying on "
+            "inference failover. This generator never downloads a model implicitly. "
+            "This is one-host logical-node recovery, not host-level HA.\n"
+            if specification.tooling.rag.ollama_mode == "replicated"
+            else ""
+        )
         qdrant_topology_note = (
             "\nThe `cluster` Qdrant mode creates three Qdrant peers behind the "
             "generated `qdrant:6333` and `qdrant:6334` endpoints. Consumers "
@@ -477,13 +586,13 @@ substantial disk space, so no model is downloaded automatically.
 
 ```powershell
 docker compose --env-file deploy/rag/.env -f deploy/rag/compose.rag.yaml --profile inference up -d
-docker compose --env-file deploy/rag/.env -f deploy/rag/compose.rag.yaml exec ollama ollama pull <selected-model>
+{ollama_pull_command}
 ```
 
 Qdrant and {search_name} use named Docker volumes because they own persistent
 data. Ports bind to `LOCAL_BIND_ADDRESS` and default to the configured local
 port block. Search-engine security is disabled only for this local overlay.
-{qdrant_topology_note}{topology_note}
+{qdrant_topology_note}{ollama_topology_note}{topology_note}
 Production requires authenticated, backed-up, cluster-aware service deployment;
 do not use this Compose file as a production topology.
 '''
