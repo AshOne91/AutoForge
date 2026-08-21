@@ -805,7 +805,9 @@ Cluster를, Memcached는 standalone만 지원한다. `distributed_lock`은 lock 
 ```python
 import pytest
 
-from profile_server.infrastructure.distributed_lock.fake import FakeDistributedLockClient
+from profile_server.infrastructure.distributed_lock.fake import (
+    FakeDistributedLockClient,
+)
 from profile_server.infrastructure.key_value_store.fake import FakeKeyValueStoreClient
 
 
@@ -842,11 +844,13 @@ docker compose --env-file environment\.env `
 **내 코드:** object key 규칙, 업로드 파일 형식·크기 검사, 읽기 권한과 삭제 시점을
 결정한다.
 
-**클리어:** MinIO Compose profile이 healthy이고, DB가 이미지 바이트가 아닌 object key만
-보관함을 확인한다.
+**클리어:** MinIO Compose profile이 healthy이고, generated fake의 object put/get/delete
+round trip이 통과한다.
 
 프로필 사진처럼 큰 바이너리는 DB 열이 아니라 object storage에 둔다. DB에는 object
-key·소유자·메타데이터만 저장한다.
+key·소유자·메타데이터만 저장한다. 이 Level은 storage 경계만 추가하며 현재 Profile
+table에 이미지 열을 자동으로 더하지 않는다. 실제 뱃지 도메인을 만들 때 `object_key`
+열을 명세에 추가하고 바이트 배열 column은 만들지 않는다.
 
 ```yaml
 tooling:
@@ -870,6 +874,37 @@ docker compose --env-file deploy\storage\.env `
 MinIO는 로컬 S3 호환 검증용이다. 운영에서 AWS S3를 선택해도 handler는 generated
 ObjectStorage protocol만 사용하고 URL/credential은 runtime 환경으로 받는다. 버킷
 권한·파일 형식 검사·보존 기간은 도메인 정책이므로 여러분이 정한다.
+
+실제 MinIO credential 없이도 storage 사용 규칙을 먼저 테스트한다.
+
+`tests/test_object_storage_fake.py`:
+
+```python
+import pytest
+
+from profile_server.infrastructure.object_storage.fake import FakeObjectStorageClient
+
+
+@pytest.mark.anyio
+async def test_object_storage_fake_round_trip() -> None:
+    storage = FakeObjectStorageClient()
+
+    await storage.put_bytes("badges/chimp.png", b"image", content_type="image/png")
+
+    assert await storage.get_bytes("badges/chimp.png") == b"image"
+    assert await storage.list_keys("badges/") == ["badges/chimp.png"]
+
+    await storage.delete("badges/chimp.png")
+
+    assert await storage.get_bytes("badges/chimp.png") is None
+```
+
+```powershell
+Set-Location C:\workspace\profile-server
+python -m pytest tests\test_object_storage_fake.py -q
+docker compose --env-file deploy\storage\.env `
+  -f deploy\storage\compose.storage.yaml ps --all
+```
 
 ### Level 5. NPC에게 외부 정보를 묻기: External Provider
 
