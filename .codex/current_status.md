@@ -1521,6 +1521,15 @@ market-cache keys, and the operator GET returned one idempotent PostgreSQL row.
 The proof again used only the deterministic local KIS HTTP stand-in. Its
 containers, volumes, network, and stand-in were removed afterward.
 
+[ADR-0005](../docs/adr/0005-kis-brokerage-account-ownership.md) now fixes the
+ownership boundary required before portfolio persistence. A brokerage connection
+belongs to one authenticated user and is stored in that user's Account Shard;
+Global identity keeps only login and shard placement. The database stores only
+non-secret connection metadata and an opaque `credential_ref`, while full KIS
+credentials remain deployment Secret material. The first resolver will support
+only the existing `kis:default` environment bundle. No connection table,
+portfolio snapshot, order, or risk behavior has been implemented yet.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:

@@ -1,11 +1,12 @@
 # Next Task
 
-## Next executable unit: establish brokerage-account ownership
+## Next executable unit: persist the first KIS account connection
 
-Trace the current deployment-scoped KIS account configuration against generated
-global login identity, account-shard routing, and the reference Base Server
-portfolio placement. Record one explicit consumer ownership and secret-reference
-decision before adding any portfolio table: who owns the configured account,
-which store owns non-secret account metadata, and how runtime credentials are
-resolved without persisting secrets. Do not implement holdings snapshots,
-orders, risk rules, or a speculative multi-broker abstraction in this unit.
+Add one KIS-owned `BrokerageAccountConnection` specification placed in the
+Account Shard by `user_id`. Store only non-secret metadata and the fixed
+`kis:default` credential reference from ADR-0005. Regenerate before adding one
+authenticated, idempotent link path and one authenticated read path that use the
+existing session/shard dependencies. Verify generated persistence, isolation
+from other users, secret-value exclusion, and a disposable PostgreSQL round
+trip. Do not persist holdings, accept credentials in an API request, or add a
+generic multi-broker abstraction.
