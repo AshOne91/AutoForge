@@ -1392,6 +1392,15 @@ found and fixed: heartbeat-enabled durable-job workers now import
 `contextlib.suppress` before using it during shutdown. The focused generator
 tests and complete AutoForge suite pass (`674 passed, 30 skipped`, `-W error`).
 
+The regenerated KIS standalone and single-host Compose configurations pass
+Docker preflight when the specification's non-production health-test values are
+injected for required KIS settings. A minimal standalone runtime then built the
+current KIS image, applied all generated migrations, and started PostgreSQL,
+Redis, and the application. Both `/health` and `/readiness` passed and no live
+KIS request was made. The configured but unavailable optional Control Plane
+heartbeat produced a non-fatal warning as designed. Test containers and the
+Compose network were removed while the named data volumes were preserved.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:
