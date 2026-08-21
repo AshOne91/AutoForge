@@ -1345,6 +1345,13 @@ default KIS suite is `77 passed, 2 skipped`; both integration tests require
 explicit external configuration, and the same unrelated TestClient warning
 remains.
 
+The accumulated local resilience hardening for MinIO, Qdrant,
+Elasticsearch/OpenSearch, ELK, Memcached, the generated application and Nginx,
+and Ollama passed the complete non-opt-in AutoForge regression gate on
+2026-08-22 (`674 passed, 30 skipped`). The CLI smoke check also reports
+`AutoForge v0.1.0`. Opt-in Docker drills were not repeated by this gate; their
+individual runtime evidence is recorded above.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:

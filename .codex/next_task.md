@@ -1,9 +1,10 @@
 # Next Task
 
-## Next executable unit: run the resilience-hardening regression gate
+## Next executable unit: verify a fresh standalone/HA generation handoff
 
-Run the complete non-opt-in pytest suite after the accumulated MinIO, Qdrant,
-Elasticsearch/OpenSearch, ELK, Memcached, application, Nginx, and Ollama recovery
-work, followed by the CLI version smoke check. Fix only failures caused by these
-bounded changes. Do not enable Docker integration flags, start the preserved
-consumer stacks, or expand provider-owned and domain-owned roadmap items.
+Use disposable workspaces to generate one standalone and one local-HA project
+from maintained example specifications. Validate each generated manifest,
+ownership boundary, Python import surface, Compose configuration, and port plan
+without starting containers. Fix only reproducible generator or guide defects;
+do not edit generated-owned consumer output or select an external deployment,
+AI, or trading-domain provider.
