@@ -1,10 +1,9 @@
 # Next Task
 
-## Next executable unit: verify concurrent idempotent request remains in progress
+## Next executable unit: verify distributed MinIO writes with one member stopped
 
-Extend the post-failover HTTP probe with a fixture handler held behind an async
-event. While its first request owns a pending claim, send the same key and body
-again and verify the generated route returns 409 without a second handler call.
-Release the first request and verify it completes once. Reuse the promoted
-Sentinel master and current probe container; do not add queueing, automatic retry,
-consumer-domain policy, or a new durability guarantee.
+Locate the existing opt-in distributed MinIO Docker drill and reuse its generated
+four-member topology and stable proxy endpoint. After stopping one member, write
+a new object through the unchanged endpoint and read that same object back before
+restoring the member. Preserve the current object-storage contract; do not add a
+provider abstraction, retry policy, or physical-host HA claim.

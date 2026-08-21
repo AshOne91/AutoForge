@@ -1031,7 +1031,10 @@ body and receives the generated 409 conflict before the replacement handler can
 run. A separate post-failover key then forces the fixture handler to return 500;
 the generated exception path aborts that pending claim, and a caller-initiated
 retry with the same key and body succeeds once the fixture handler is replaced.
-This verifies claim cleanup, not automatic request retry.
+This verifies claim cleanup, not automatic request retry. A concurrent
+post-failover pair with the same key and body also leaves the first handler held
+behind an async event, returns the generated 409 in-progress response to the
+second request, and completes the first request with exactly one handler call.
 
 `tooling.realtime` generates an opt-in `infrastructure/realtime` runtime
 contract with an asynchronous in-process `RealtimeHub`, channel
