@@ -592,6 +592,41 @@ application:
       schedule: "0 9 * * *"
 ```
 
+### Level 2 이상에서 매번 하는 네 단계
+
+아래 Level의 YAML 조각은 모두 `C:\workspace\profile-server-spec\autoforge.yaml`의 같은
+최상위 항목에 **추가하거나 병합**한다. 예를 들어 `tooling:` 조각은 기존 `tooling:` 아래에
+합친다. 같은 이름의 최상위 항목을 파일 끝에 두 번 만들지 않는다.
+
+YAML 조각 하나를 합칠 때마다 다음 네 단계를 먼저 끝낸다. 다음 Level의 조각을 합치기
+전에 이 Level의 `generate`와 healthcheck가 성공해야 한다.
+
+```powershell
+Set-Location C:\src\AutoForge
+python -m autoforge.main generate `
+  --project C:\workspace\profile-server-spec\autoforge.yaml `
+  --specifications C:\workspace\profile-server-spec\specifications `
+  --output C:\workspace\profile-server
+
+if (-not (Test-Path C:\workspace\profile-server\environment\.env)) {
+  Copy-Item C:\workspace\profile-server\environment\.env.example `
+    C:\workspace\profile-server\environment\.env
+}
+
+python -m autoforge.main validate-ports `
+  --env-file C:\workspace\profile-server\environment\.env
+
+Set-Location C:\workspace\profile-server
+docker compose --env-file environment\.env `
+  -f environment\compose.integration.yml up -d --build --wait
+docker compose --env-file environment\.env `
+  -f environment\compose.integration.yml ps
+```
+
+별도 overlay를 만드는 Level은 위 네 단계 뒤에 그 Level에 적힌 별도 Compose 명령을
+추가로 실행한다. `.env`, generated Compose, `generated/` 파일을 직접 고쳐 문제를
+해결하지 않는다. 명세를 고친 뒤 다시 생성한다.
+
 `schedule`이 있는 Durable Job은 local profile에서 Airflow가 API를 호출하는 경로를
 생성한다. 이 서비스들은 단순 프로필 수정에 넣지 않는다. 먼저 “DB 변경은 성공했는데
 메일 서버가 죽으면 어떻게 되는가?”라는 문제에 실제로 부딪혔을 때 선택한다. 정본은
