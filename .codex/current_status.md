@@ -968,8 +968,11 @@ EX` and an owner-token Lua release, with a deterministic fake covering expiry
 and stale-owner rejection. The generated standalone adapter passed a disposable
 Redis verification for acquire contention, wrong-owner rejection, and correct
 owner release; the temporary container and workspace were removed afterward.
-Cluster and Sentinel output is generated and parsed but has not yet had a
-dedicated runtime drill. This is not a Redlock, fencing-token, or auto-renewal
+An isolated generated six-node Redis Cluster drill then acquired and released a
+lock through the multi-startup-node adapter, stopped one primary, waited for
+cluster recovery, and repeated the same lock operation. Sentinel output is
+generated and parsed but has not yet had a dedicated runtime drill. This is not
+a Redlock, fencing-token, or auto-renewal
 implementation. Lock key design, critical-section duration, wait/retry policy,
 token-cache policy, FastAPI lifespan registration, and KIS adoption remain
 consumer-owned.
