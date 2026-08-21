@@ -1336,6 +1336,93 @@ database·Redis·RabbitMQ·application replica를 늘리더라도 handler는 int
 아니다. 경계와 검증 범위는 [환경 검증 계약](../architecture/environment_validation_contract.md)을
 따른다.
 
+### Level 10.1 한 물리 PC에서 single-host HA를 실제로 확인한다
+
+Level 1의 HTTP/restart 검증이 끝난 뒤에만 `single_host.enabled`를 `true`로 바꾸고
+공통 네 단계를 다시 실행한다. `application_replicas: 3`은 application container를
+세 개로 늘리고, Nginx 하나가 같은 public port로 전달하게 한다. handler 코드는 이 숫자를
+알 필요가 없다.
+
+```powershell
+Set-Location C:\workspace\profile-server
+if (-not (Test-Path deploy\single-host\runtime.env)) {
+  Copy-Item deploy\single-host\runtime.env.example `
+    deploy\single-host\runtime.env
+}
+
+Set-Location C:\src\AutoForge
+python -m autoforge.main validate-ports `
+  --env-file C:\workspace\profile-server\environment\.env `
+  --env-file C:\workspace\profile-server\deploy\single-host\runtime.env
+```
+
+이 walkthrough처럼 `tooling.rag.enabled: true`를 이미 선택했다면 RAG network와
+inference container도 먼저 준비한다. 이 명령은 Ollama **runtime image**를 받지만 model을
+다운로드하지 않는다. RAG를 선택하지 않았다면 이 블록은 건너뛴다.
+
+```powershell
+Set-Location C:\workspace\profile-server
+docker compose --env-file deploy\rag\.env `
+  -f deploy\rag\compose.rag.yaml `
+  --profile rag --profile inference up -d --wait
+```
+
+그 다음 generated core runtime 위에 single-host overlay를 합친다.
+
+앞 Level에서 ELK overlay를 켜 두었다면 Compose가 `filebeat`, `kibana`,
+`elasticsearch`를 orphan이라고 경고할 수 있다. 이는 별도 observability overlay를 이 명령에
+포함하지 않았다는 뜻일 뿐이며, 여기서 `--remove-orphans`를 추가하면 안 된다. ELK는 그대로
+두고 application/Nginx 조합만 갱신한다.
+
+```powershell
+docker compose `
+  --env-file environment\.env `
+  --env-file deploy\single-host\runtime.env `
+  -f environment\compose.integration.yml `
+  -f deploy\single-host\compose.override.yml up -d --build --wait
+
+docker compose `
+  --env-file environment\.env `
+  --env-file deploy\single-host\runtime.env `
+  -f environment\compose.integration.yml `
+  -f deploy\single-host\compose.override.yml ps
+
+Invoke-WebRequest -UseBasicParsing `
+  -Uri http://127.0.0.1:49200/health
+```
+
+`application`이 세 개이고 `nginx`가 healthy이면 public endpoint가 하나여도 application
+replica가 분리되어 있다는 뜻이다. 마지막으로 application 하나만 재시작하고 public health가
+계속 응답하는지 확인한다.
+
+```powershell
+$composeArgs = @(
+  '--env-file', 'environment\.env',
+  '--env-file', 'deploy\single-host\runtime.env',
+  '-f', 'environment\compose.integration.yml',
+  '-f', 'deploy\single-host\compose.override.yml'
+)
+$oneApplication = docker compose @composeArgs ps -q application |
+  Select-Object -First 1
+docker restart $oneApplication
+
+$deadline = (Get-Date).AddSeconds(30)
+do {
+  try {
+    $health = Invoke-RestMethod -UseBasicParsing `
+      -Uri http://127.0.0.1:49200/health
+    if ($health.status -eq 'ok') { break }
+  } catch {
+    Start-Sleep -Milliseconds 500
+  }
+} while ((Get-Date) -lt $deadline)
+
+if ($health.status -ne 'ok') {
+  throw 'Public health did not recover after one application replica restart.'
+}
+$health
+```
+
 서버 운영자가 필요한 순간에는 다음처럼 **선택적으로** 운영 경계를 더한다. 실제 image,
 Secret, namespace가 준비되기 전에는 이 조각을 복사하지 않는다.
 
