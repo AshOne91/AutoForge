@@ -1,9 +1,10 @@
 # Next Task
 
-## Next executable unit: verify generated Memcached client recovery after process restart
+## Next executable unit: verify generated application recovery after process termination
 
-Extend the existing opt-in generated Memcached runtime drill. Exercise the
-generated key-value adapter, terminate the Memcached process so Compose's current
-restart policy restores it, then prove a fresh key can be set and read through
-the unchanged adapter contract. Treat pre-restart cache loss as valid cache-miss
-semantics; do not claim data replication, durable recovery, or Memcached HA.
+Locate the smallest existing opt-in generated application Compose drill with a
+stable Nginx endpoint. After the application container has crossed Docker's
+restart-policy activation window, terminate its PID 1 from inside the container,
+verify `RestartCount` increases and health returns, then call `/health` through
+the unchanged Nginx endpoint. Reuse the current generated contracts; do not add a
+process manager, application retry policy, or multi-host HA claim.

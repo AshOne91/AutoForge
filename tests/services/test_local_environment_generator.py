@@ -3,6 +3,7 @@ import os
 import uuid
 from pathlib import Path, PurePosixPath
 
+import anyio
 import pytest
 import yaml
 
@@ -25,6 +26,8 @@ from autoforge.core.specification import (
     ServiceTokenSpec,
 )
 from autoforge.infrastructure.process import AsyncioProcessRunner
+from autoforge.services.generation.fastapi_project import FastAPIProjectGenerator
+from autoforge.services.generation.key_value_store import KeyValueStoreGenerator
 from autoforge.services.generation.local_environment import LocalEnvironmentGenerator
 
 
@@ -591,15 +594,18 @@ def test_render_rejects_conflicting_redis_runtime_modes() -> None:
 
 @pytest.mark.integration
 @pytest.mark.anyio
-async def test_generated_memcached_profile_starts_when_enabled(tmp_path: Path) -> None:
+async def test_generated_memcached_adapter_recovers_after_process_restart(
+    tmp_path: Path,
+) -> None:
     if os.environ.get("AUTOFORGE_DOCKER_MEMCACHED_INTEGRATION") != "1":
         pytest.skip("set AUTOFORGE_DOCKER_MEMCACHED_INTEGRATION=1 to run Docker")
 
+    package_name = f"memcached_profile_{uuid.uuid4().hex}"
     specification = ProjectSpec(
         spec_version="1",
         project=ProjectInfo(
             name="Memcached Profile",
-            package_name=f"memcached_profile_{uuid.uuid4().hex}",
+            package_name=package_name,
             version="0.1.0",
         ),
         application=ApplicationSpec(),
@@ -613,9 +619,23 @@ async def test_generated_memcached_profile_starts_when_enabled(tmp_path: Path) -
         target = tmp_path / relative_path
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
+    for generator in (FastAPIProjectGenerator(), KeyValueStoreGenerator()):
+        for relative_path, content in generator.render(specification).items():
+            target = tmp_path / relative_path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8")
     environment = tmp_path / "environment"
     (environment / ".env").write_text(
         files[PurePosixPath("environment", ".env.example")], encoding="utf-8"
+    )
+    (environment / "compose.memcached-test.yml").write_text(
+        "services:\n"
+        "  memcached-probe:\n"
+        "    image: python:3.12-alpine\n"
+        "    working_dir: /workspace\n"
+        "    volumes:\n"
+        '      - "../:/workspace"\n',
+        encoding="utf-8",
     )
 
     compose = (
@@ -625,14 +645,161 @@ async def test_generated_memcached_profile_starts_when_enabled(tmp_path: Path) -
         "environment/.env",
         "-f",
         "environment/compose.integration.yml",
+        "-f",
+        "environment/compose.memcached-test.yml",
+    )
+    probe_code = (
+        "import asyncio\n"
+        "import socket\n"
+        "import sys\n"
+        "import types\n"
+        "\n"
+        "class Client:\n"
+        "    def __init__(self, host, port):\n"
+        "        self.host = host\n"
+        "        self.port = port\n"
+        "    def connection(self):\n"
+        "        return socket.create_connection((self.host, self.port), timeout=3)\n"
+        "    async def version(self):\n"
+        "        with self.connection() as connection:\n"
+        "            stream = connection.makefile('rwb')\n"
+        "            stream.write(b'version\\r\\n')\n"
+        "            stream.flush()\n"
+        "            return stream.readline().strip()\n"
+        "    async def get(self, key):\n"
+        "        with self.connection() as connection:\n"
+        "            stream = connection.makefile('rwb')\n"
+        "            stream.write(b'get ' + key + b'\\r\\n')\n"
+        "            stream.flush()\n"
+        "            header = stream.readline()\n"
+        "            if header == b'END\\r\\n':\n"
+        "                return None\n"
+        "            size = int(header.split()[3])\n"
+        "            value = stream.read(size)\n"
+        "            assert stream.read(2) == b'\\r\\n'\n"
+        "            assert stream.readline() == b'END\\r\\n'\n"
+        "            return value\n"
+        "    async def set(self, key, value, *, exptime):\n"
+        "        command = (b'set ' + key + b' 0 ' + str(exptime).encode() + b' ' "
+        "+ str(len(value)).encode() + b'\\r\\n' + value + b'\\r\\n')\n"
+        "        with self.connection() as connection:\n"
+        "            stream = connection.makefile('rwb')\n"
+        "            stream.write(command)\n"
+        "            stream.flush()\n"
+        "            return stream.readline() == b'STORED\\r\\n'\n"
+        "    async def close(self):\n"
+        "        return None\n"
+        "\n"
+        "sys.modules['aiomcache'] = types.SimpleNamespace(Client=Client)\n"
+        "sys.path.insert(0, 'src')\n"
+        f"from {package_name}.infrastructure.key_value_store import (\n"
+        "    KeyValueStore, KeyValueStoreConfig, MemcachedKeyValueStoreClient,\n"
+        ")\n"
+        "\n"
+        "async def verify():\n"
+        "    client = Client(sys.argv[1], int(sys.argv[2]))\n"
+        "    config = KeyValueStoreConfig(\n"
+        "        memcached_host=sys.argv[1], memcached_port=int(sys.argv[2])\n"
+        "    )\n"
+        "    store = KeyValueStore(\n"
+        "        MemcachedKeyValueStoreClient(config, client=client), 10\n"
+        "    )\n"
+        "    await store.health_check()\n"
+        "    await store.set(sys.argv[3], sys.argv[4])\n"
+        "    assert await store.get(sys.argv[3]) == sys.argv[4]\n"
+        "\n"
+        "asyncio.run(verify())\n"
     )
     runner = AsyncioProcessRunner()
     try:
         result = await runner.run(
-            (*compose, "up", "--detach", "--wait"),
+            (*compose, "up", "--detach", "--wait", "memcached"),
             cwd=tmp_path,
             timeout_seconds=120,
         )
+        assert result.succeeded, result.stderr
+        result = await runner.run(
+            (
+                *compose,
+                "run",
+                "--rm",
+                "--no-deps",
+                "memcached-probe",
+                "python",
+                "-c",
+                probe_code,
+                "memcached",
+                "11211",
+                "before",
+                "restart",
+            ),
+            cwd=tmp_path,
+            timeout_seconds=30,
+        )
+        assert result.succeeded, result.stderr
+        await anyio.sleep(11)
+        result = await runner.run(
+            (*compose, "ps", "--quiet", "memcached"),
+            cwd=tmp_path,
+            timeout_seconds=10,
+        )
+        assert result.succeeded, result.stderr
+        container_id = result.stdout.strip()
+        assert container_id
+        result = await runner.run(
+            ("docker", "inspect", "--format", "{{.RestartCount}}", container_id),
+            cwd=tmp_path,
+            timeout_seconds=10,
+        )
+        assert result.succeeded, result.stderr
+        initial_restart_count = int(result.stdout.strip())
+        result = await runner.run(
+            ("docker", "exec", container_id, "kill", "-TERM", "1"),
+            cwd=tmp_path,
+            timeout_seconds=20,
+        )
+        assert result.succeeded, result.stderr
+        for _ in range(30):
+            result = await runner.run(
+                (
+                    "docker",
+                    "inspect",
+                    "--format",
+                    "{{.State.Health.Status}} {{.RestartCount}}",
+                    container_id,
+                ),
+                cwd=tmp_path,
+                timeout_seconds=10,
+            )
+            if result.succeeded:
+                health, restart_count = result.stdout.strip().split()
+                if health == "healthy" and int(restart_count) > initial_restart_count:
+                    break
+            await anyio.sleep(2)
+        else:
+            pytest.fail(f"Memcached did not restart: {result.stdout} {result.stderr}")
+        for _ in range(15):
+            result = await runner.run(
+                (
+                    *compose,
+                    "run",
+                    "--rm",
+                    "--no-deps",
+                    "memcached-probe",
+                    "python",
+                    "-c",
+                    probe_code,
+                    "memcached",
+                    "11211",
+                    "after",
+                    "restart",
+                ),
+                cwd=tmp_path,
+                timeout_seconds=30,
+            )
+            if result.succeeded:
+                break
+            await anyio.sleep(2)
         assert result.succeeded, result.stderr
     finally:
         await runner.run(

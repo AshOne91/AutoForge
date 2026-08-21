@@ -1013,6 +1013,13 @@ the generated key-value set/read/delete contract. Value serialization, cache
 invalidation, key design, FastAPI lifespan registration, and KIS adoption remain
 consumer-owned.
 
+The opt-in Memcached Docker drill now exercises the generated adapter against the
+real internal `memcached:11211` endpoint before and after terminating container
+PID 1. It waits for Docker's ten-second restart-policy activation window, verifies
+`RestartCount` increases and health returns, then sets and reads a fresh key.
+Pre-restart cache loss remains valid cache-miss behavior; this is process recovery,
+not Memcached replication, durability, or HA.
+
 The same generated `DistributedLock` Sentinel client acquired and released a
 lock before the primary stopped, remained alive through quorum failover, then
 acquired and released that lock again after the new master was stable. A transient
