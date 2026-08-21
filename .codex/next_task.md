@@ -1,9 +1,10 @@
 # Next Task
 
-## Next executable unit: reconcile the remaining service-level HA gap
+## Next executable unit: verify generated Redis Cluster distributed locks
 
-Compare the verified service-level recovery evidence in `current_status.md`
-against the deferred infrastructure items in `roadmap.md`. Select one gap that
-has a generated AutoForge ownership path and a smallest real runtime proof.
-Do not start a provider-only or consumer-domain feature, and do not treat the
-intentionally singleton Kibana UI as a storage-cluster defect.
+Add an opt-in Docker drill for the existing generated `DistributedLock` Cluster
+adapter. It must acquire/release a lock through generated multi-startup-node
+settings, stop the lock-owning Redis primary, wait for failover, and prove a new
+lock can be acquired and released. Reuse the existing Redis Cluster generator;
+do not add Sentinel behavior, Redlock, fencing tokens, auto-renewal, or a
+provider-specific topology.
