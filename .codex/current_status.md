@@ -314,7 +314,9 @@ AutoForge currently has working foundations for:
   An isolated Docker drill created an HA test collection with
   `replication_factor: 3` and `write_consistency_factor: 2`, wrote one point,
   stopped a peer, then wrote and retrieved a new point and reread the baseline
-  point through the proxy.
+  point through the proxy. The stopped peer then rejoined; all three peers and
+  all nine collection replicas reported active before the outage-written point
+  was read again.
   Collection/shard/replica choices remain domain-owned; a Qdrant cluster does not
   automatically replicate a collection. `RagSpec.ollama_mode: replicated` now
   generates three independently volumed Ollama members behind unchanged

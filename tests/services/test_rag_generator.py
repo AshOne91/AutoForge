@@ -387,6 +387,43 @@ async def test_clustered_qdrant_reads_and_writes_after_member_stops(
             await anyio.sleep(2)
         else:
             pytest.fail("replicated Qdrant point was unavailable after member stop")
+        result = await runner.run(
+            (*compose, "start", "qdrant-1"), cwd=tmp_path, timeout_seconds=30
+        )
+        assert result.succeeded, result.stderr
+        collection_cluster: dict[str, object] = {}
+        for _ in range(45):
+            try:
+                cluster = await anyio.to_thread.run_sync(
+                    _request_json, f"{endpoint}/cluster"
+                )
+                collection_cluster = await anyio.to_thread.run_sync(
+                    _request_json, f"{endpoint}/collections/ha-check/cluster"
+                )
+            except (HTTPError, URLError, TimeoutError):
+                await anyio.sleep(2)
+                continue
+            distribution = collection_cluster.get("result", {})
+            replicas = distribution.get("local_shards", []) + distribution.get(
+                "remote_shards", []
+            )
+            if (
+                len(cluster.get("result", {}).get("peers", {})) == 3
+                and len(replicas) == 9
+                and all(replica.get("state") == "Active" for replica in replicas)
+                and not distribution.get("shard_transfers")
+            ):
+                break
+            await anyio.sleep(2)
+        else:
+            pytest.fail(
+                "Qdrant peer or collection replicas did not recover: "
+                f"cluster={cluster}, collection={collection_cluster}"
+            )
+        point = await anyio.to_thread.run_sync(
+            _request_json, f"{endpoint}/collections/ha-check/points/2"
+        )
+        assert point.get("result", {}).get("id") == 2
     finally:
         await runner.run(
             (*compose, "down", "--volumes", "--remove-orphans"),
