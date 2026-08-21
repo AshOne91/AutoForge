@@ -138,7 +138,6 @@ class VectorStoreGenerator:
             "from collections.abc import Mapping, Sequence\n"
             "from typing import Protocol\n"
             "\n"
-            "\n"
             "type PointId = int | str\n"
             "\n"
             "\n"

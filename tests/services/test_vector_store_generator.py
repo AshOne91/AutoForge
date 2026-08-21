@@ -59,6 +59,9 @@ def test_vector_store_generator_renders_qdrant_runtime_contract() -> None:
     assert "class VectorStore:" in files[root / "service.py"]
     assert "class FakeVectorStoreClient:" in files[root / "fake.py"]
     assert "async def upsert_point" in files[root / "protocol.py"]
+    assert "from typing import Protocol\n\ntype PointId = int | str" in files[
+        root / "protocol.py"
+    ]
     assert "'/readyz'" in files[root / "qdrant.py"]
     assert "points/query" in files[root / "qdrant.py"]
     for path, source in files.items():
