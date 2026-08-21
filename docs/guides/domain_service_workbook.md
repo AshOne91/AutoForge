@@ -583,7 +583,6 @@ application:
       exchange: profile.events
       queue: profile.events.worker
       routing_key: profile.#
-      queue_type: quorum
   durable_jobs:
     - name: daily_profile_check
       store: profile
@@ -591,6 +590,11 @@ application:
       routing_key: profile.check.requested
       schedule: "0 9 * * *"
 ```
+
+이 첫 local 실습은 RabbitMQ 기본 `classic` queue를 쓴다. `quorum` queue는 나중에
+RabbitMQ cluster를 선택하는 HA 실습에서만 사용한다. 여기서 `queue_type`을 쓰지 않는
+것은 설정을 빼먹은 것이 아니라, 한 대 PC에서 먼저 메시지 흐름을 확인하기 위한 기본값
+선택이다.
 
 ### Level 2 이상에서 매번 하는 네 단계
 
@@ -622,6 +626,10 @@ docker compose --env-file environment\.env `
 docker compose --env-file environment\.env `
   -f environment\compose.integration.yml ps
 ```
+
+기존 `.env`를 이미 만들었다면 `.env.example`을 덮어쓰지 않는다. 새 Level이 서비스나
+환경값을 추가했을 때는 새 `.env.example`에서 **새로 생긴 줄만** 기존 `.env`에 복사한다.
+예를 들어 이 Level에서는 `RABBITMQ_URL`과 `DURABLE_JOB_API_TOKEN` 줄을 추가한다.
 
 별도 overlay를 만드는 Level은 위 네 단계 뒤에 그 Level에 적힌 별도 Compose 명령을
 추가로 실행한다. `.env`, generated Compose, `generated/` 파일을 직접 고쳐 문제를

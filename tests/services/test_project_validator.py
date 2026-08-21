@@ -76,7 +76,7 @@ async def test_validator_runs_import_then_pytest(tmp_path: Path) -> None:
         ValidationStep.PACKAGE_BUILD,
     ]
     assert runner.commands[1] == ("python", "-m", "pytest")
-    assert runner.commands[2] == ("python", "-m", "ruff", "check", ".")
+    assert runner.commands[2] == ("python", "-m", "ruff", "check", "--no-cache", ".")
     assert runner.commands[3] == (
         "python",
         "-m",

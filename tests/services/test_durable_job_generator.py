@@ -82,6 +82,8 @@ def test_durable_job_generator_emits_atomic_request_contract() -> None:
         PurePosixPath("src/kis_auto_trading/application/durable_job_handler.py")
     ]
     runner = files[PurePosixPath("scripts/run_durable_job_worker.py")]
+
+    assert "from contextlib import suppress" not in runner
     dag = files[PurePosixPath("airflow/dags/news_collection.py")]
     revision = files[PurePosixPath("migrations/account/versions/0003_durable_jobs.py")]
 

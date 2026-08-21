@@ -54,7 +54,7 @@ class ProjectValidator:
             ),
             (
                 ValidationStep.RUFF,
-                (self._python_executable, "-m", "ruff", "check", "."),
+                (self._python_executable, "-m", "ruff", "check", "--no-cache", "."),
             ),
             (
                 ValidationStep.PACKAGE_BUILD,

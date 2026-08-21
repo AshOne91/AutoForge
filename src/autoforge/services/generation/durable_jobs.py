@@ -501,7 +501,6 @@ class DurableJobGenerator:
         return (
             "import asyncio\n"
             "import os\n"
-            "from contextlib import suppress\n"
             "\n"
             "import aio_pika\n"
             "from sqlalchemy.ext.asyncio import create_async_engine\n"
