@@ -1000,6 +1000,12 @@ the generated key-value set/read/delete contract. Value serialization, cache
 invalidation, key design, FastAPI lifespan registration, and KIS adoption remain
 consumer-owned.
 
+The same generated `DistributedLock` Sentinel client acquired and released a
+lock before the primary stopped, remained alive through quorum failover, then
+acquired and released that lock again after the new master was stable. A transient
+master-discovery failure during the switch remains observable to callers; AutoForge
+does not silently retry a lock command whose execution result could be uncertain.
+
 `tooling.realtime` generates an opt-in `infrastructure/realtime` runtime
 contract with an asynchronous in-process `RealtimeHub`, channel
 subscribe/unsubscribe/publish, explicit close, and a deterministic subscriber

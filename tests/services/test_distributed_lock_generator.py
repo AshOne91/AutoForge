@@ -96,6 +96,23 @@ def test_distributed_lock_generator_preserves_redis_cluster_selection() -> None:
     assert "RedisCluster.from_url" in adapter
 
 
+def test_distributed_lock_generator_preserves_redis_sentinel_selection() -> None:
+    files = DistributedLockGenerator().render(
+        specification(enabled=True, mode="sentinel")
+    )
+    root = PurePosixPath(
+        "src", "kis_auto_trading", "infrastructure", "distributed_lock"
+    )
+    config = files[root / "config.py"]
+    adapter = files[root / "redis.py"]
+
+    assert 'DEFAULT_MODE: Final = "sentinel"' in config
+    assert "mode: RedisMode = RedisMode.SENTINEL" in config
+    assert "REDIS_SENTINEL_URLS_ENV" in config
+    assert "Sentinel(" in adapter
+    assert "self._sentinel.master_for(" in adapter
+
+
 def test_distributed_lock_plan_marks_runtime_contract_generated() -> None:
     plan = DistributedLockGenerator().plan(specification(enabled=True))
 
@@ -407,6 +424,293 @@ async def test_generated_cluster_lock_recovers_after_redis_primary_stops(
             cwd=workspace.root,
             timeout_seconds=180,
         )
+
+
+@pytest.mark.integration
+@pytest.mark.anyio
+async def test_generated_sentinel_lock_recovers_after_redis_primary_stops(
+    tmp_path: Path,
+) -> None:
+    if os.environ.get("AUTOFORGE_DOCKER_REDIS_SENTINEL_LOCK_INTEGRATION") != "1":
+        pytest.skip(
+            "set AUTOFORGE_DOCKER_REDIS_SENTINEL_LOCK_INTEGRATION=1 to run Docker"
+        )
+
+    package_name = f"lock_sentinel_ha_{uuid.uuid4().hex}"
+    sentinel_master = "lock-primary"
+    specification_value = specification(enabled=True, mode="sentinel").model_copy(
+        update={
+            "project": ProjectInfo(
+                name="Distributed Lock Sentinel HA",
+                package_name=package_name,
+                version="0.1.0",
+            ),
+            "application": ApplicationSpec(
+                services=[
+                    ServiceSpec(
+                        name="session",
+                        kind="redis_session",
+                        namespace="lock",
+                        ttl_seconds=60,
+                        mode="sentinel",
+                        sentinel_master=sentinel_master,
+                    )
+                ]
+            ),
+            "tooling": ToolingSpec(
+                distributed_lock=DistributedLockSpec(
+                    enabled=True,
+                    mode="sentinel",
+                    sentinel_master=sentinel_master,
+                    key_prefix="lock",
+                    ttl_seconds=10,
+                ),
+                local_environment=LocalEnvironmentSpec(enabled=True),
+            ),
+        }
+    )
+    workspace = Workspace(tmp_path)
+    for job_id, generator in [
+        ("project-job", FastAPIProjectGenerator()),
+        ("distributed-lock-job", DistributedLockGenerator()),
+        ("environment-job", LocalEnvironmentGenerator()),
+    ]:
+        rendered = generator.render(specification_value)
+        plan = GenerationPlanResolver().resolve(
+            generator.plan(specification_value), workspace
+        )
+        GenerationPlanApplier().apply(
+            job_id=job_id,
+            plan=plan,
+            rendered_files=rendered,
+            workspace=workspace,
+        )
+
+    environment_dir = workspace.root / "environment"
+    (environment_dir / ".env").write_text(
+        (environment_dir / ".env.example").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    _write_sentinel_lock_probe(workspace.root, package_name)
+
+    compose = (
+        "docker",
+        "compose",
+        "--project-name",
+        package_name,
+        "--env-file",
+        "environment/.env",
+        "-f",
+        "environment/compose.integration.yml",
+    )
+    sentinel_urls = (
+        "redis-sentinel-1:26379,redis-sentinel-2:26379,redis-sentinel-3:26379"
+    )
+    probe_name = f"{package_name}-probe"
+    runner = AsyncioProcessRunner()
+    try:
+        result = await runner.run(
+            (
+                *compose,
+                "up",
+                "--detach",
+                "redis-sentinel-1",
+                "redis-sentinel-2",
+                "redis-sentinel-3",
+            ),
+            cwd=workspace.root,
+            timeout_seconds=180,
+        )
+        assert result.succeeded, result.stderr
+        await _wait_for_sentinel_quorum(
+            runner, workspace.root, compose, sentinel_master
+        )
+        master_before = await _sentinel_master_address(
+            runner, workspace.root, compose, sentinel_master
+        )
+
+        result = await runner.run(
+            (
+                "docker",
+                "run",
+                "--detach",
+                "--name",
+                probe_name,
+                "--network",
+                f"{package_name}_default",
+                "--volume",
+                f"{workspace.root.resolve()}:/workspace",
+                "--workdir",
+                "/workspace",
+                "--env",
+                f"REDIS_SENTINEL_URLS={sentinel_urls}",
+                "python:3.12-alpine",
+                "sh",
+                "-c",
+                (
+                    "pip install --disable-pip-version-check 'redis>=5,<7' "
+                    "&& python verify_sentinel_lock.py"
+                ),
+            ),
+            cwd=workspace.root,
+            timeout_seconds=120,
+        )
+        assert result.succeeded, result.stderr
+        await _wait_for_docker_log(runner, workspace.root, probe_name, "BEFORE")
+
+        result = await runner.run(
+            (*compose, "stop", "redis-sentinel-primary-1"),
+            cwd=workspace.root,
+            timeout_seconds=30,
+        )
+        assert result.succeeded, result.stderr
+        master_after = master_before
+        for _ in range(45):
+            master_after = await _sentinel_master_address(
+                runner, workspace.root, compose, sentinel_master
+            )
+            if master_after != master_before:
+                break
+            await anyio.sleep(2)
+        assert master_after != master_before
+
+        await anyio.sleep(15)
+        (workspace.root / "continue").write_text("continue\n", encoding="utf-8")
+        await _wait_for_docker_log(runner, workspace.root, probe_name, "AFTER")
+        result = await runner.run(
+            ("docker", "wait", probe_name),
+            cwd=workspace.root,
+            timeout_seconds=120,
+        )
+        assert result.succeeded, result.stderr
+        assert result.stdout.strip() == "0"
+    finally:
+        await runner.run(
+            ("docker", "rm", "--force", probe_name),
+            cwd=workspace.root,
+            timeout_seconds=30,
+        )
+        await runner.run(
+            (*compose, "down", "--volumes", "--remove-orphans"),
+            cwd=workspace.root,
+            timeout_seconds=180,
+        )
+
+
+def _write_sentinel_lock_probe(workspace_root: Path, package_name: str) -> None:
+    (workspace_root / "verify_sentinel_lock.py").write_text(
+        "import asyncio\n"
+        "import sys\n"
+        "import uuid\n"
+        "from pathlib import Path\n"
+        "sys.path.insert(0, '/workspace/src')\n"
+        f"from {package_name}.infrastructure.distributed_lock import DistributedLock\n"
+        "\n"
+        "async def acquire_and_release(lock, key):\n"
+        "    token = await lock.acquire(key)\n"
+        "    assert token is not None\n"
+        "    assert await lock.release(key, token)\n"
+        "\n"
+        "async def verify():\n"
+        "    lock = DistributedLock.from_environment()\n"
+        "    key = f'autoforge-sentinel-lock:{uuid.uuid4().hex}'\n"
+        "    try:\n"
+        "        await lock.health_check()\n"
+        "        await acquire_and_release(lock, key)\n"
+        "        print('BEFORE', flush=True)\n"
+        "        for _ in range(900):\n"
+        "            if Path('/workspace/continue').exists():\n"
+        "                break\n"
+        "            await asyncio.sleep(0.2)\n"
+        "        else:\n"
+        "            raise RuntimeError('test did not signal post-failover probe')\n"
+        "        await acquire_and_release(lock, key)\n"
+        "        print('AFTER', flush=True)\n"
+        "    finally:\n"
+        "        await lock.aclose()\n"
+        "\n"
+        "asyncio.run(verify())\n",
+        encoding="utf-8",
+    )
+
+
+async def _wait_for_sentinel_quorum(
+    runner: AsyncioProcessRunner,
+    workspace_root: Path,
+    compose: tuple[str, ...],
+    sentinel_master: str,
+) -> None:
+    result = None
+    for _ in range(45):
+        result = await runner.run(
+            (
+                *compose,
+                "exec",
+                "-T",
+                "redis-sentinel-1",
+                "redis-cli",
+                "-p",
+                "26379",
+                "sentinel",
+                "ckquorum",
+                sentinel_master,
+            ),
+            cwd=workspace_root,
+            timeout_seconds=10,
+        )
+        if result.succeeded and result.stdout.startswith("OK"):
+            return
+        await anyio.sleep(2)
+    assert result is not None
+    pytest.fail(result.stderr or result.stdout)
+
+
+async def _sentinel_master_address(
+    runner: AsyncioProcessRunner,
+    workspace_root: Path,
+    compose: tuple[str, ...],
+    sentinel_master: str,
+) -> str:
+    result = await runner.run(
+        (
+            *compose,
+            "exec",
+            "-T",
+            "redis-sentinel-1",
+            "redis-cli",
+            "--raw",
+            "-p",
+            "26379",
+            "sentinel",
+            "get-master-addr-by-name",
+            sentinel_master,
+        ),
+        cwd=workspace_root,
+        timeout_seconds=10,
+    )
+    assert result.succeeded, result.stderr
+    assert result.stdout.strip()
+    return result.stdout.strip()
+
+
+async def _wait_for_docker_log(
+    runner: AsyncioProcessRunner,
+    workspace_root: Path,
+    container_name: str,
+    expected: str,
+) -> None:
+    result = None
+    for _ in range(60):
+        result = await runner.run(
+            ("docker", "logs", container_name),
+            cwd=workspace_root,
+            timeout_seconds=10,
+        )
+        if result.succeeded and expected in result.stdout + result.stderr:
+            return
+        await anyio.sleep(1)
+    assert result is not None
+    pytest.fail(result.stdout + result.stderr)
 
 
 async def _run_cluster_lock_probe(
