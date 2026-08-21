@@ -101,8 +101,10 @@ process-global singleton pattern.
 - [x] local Memcached KeyValueStore profile: a selected
   `tooling.key_value_store.backend: memcached` generates an internal-only
   Compose service, healthcheck, application/worker environment contract, and
-  opt-in Docker runtime drill. KIS remains on its existing Redis contract until
-  a consumer deliberately changes its specification.
+  opt-in Docker runtime drill. The drill now proves generated-adapter reuse after
+  Docker restarts the terminated Memcached process; cache loss remains a valid
+  miss and is not presented as replication or HA. KIS remains on its existing
+  Redis contract until a consumer deliberately changes its specification.
 - [~] record-to-search boundary established by two KIS projections:
   `source_key`/`news_index` and `job_id`/`durable_job_history_index` carry only
   canonical identities or safe summaries, while the consumer owns document
@@ -111,9 +113,9 @@ process-global singleton pattern.
   project or an explicit ProjectSpec requirement demonstrates that its shape is
   stable.
 - [ ] embedding and reranking provider contracts after the selected consumer establishes an evaluation dataset and relevance target
-- [ ] Realtime/WebSocket hardening: preserve the current ADR-0004 boundary and
-  add consumer-selected rate limiting, delivery/error observability, and a
-  live multi-replica smoke drill only when a real consumer needs each policy.
+- [~] Realtime/WebSocket hardening: preserve the current ADR-0004 boundary. KIS
+  now supplies the real-consumer live multi-replica smoke drill; consumer-selected
+  rate limiting and delivery/error observability remain unselected.
   Do not turn best-effort live hints into durable notification authority or
   generate a universal user-channel policy. `tooling.notification` provides a separate
   one-POST Webhook delivery boundary; `tooling.email` provides SMTP delivery,
@@ -158,9 +160,10 @@ process-global singleton pattern.
   remote executor selection, shared DAG/log storage, proxy/Ingress, and
   cross-host failure drills. The implemented single-host scheduler profile is
   recorded in [ADR-0001](../docs/adr/0001-local-airflow-scheduler-ha.md).
-- [ ] host bootstrap/deployment contract for Docker auto-start, AWS Launch Template
-  UserData, image refresh, and secret injection after registry and host ownership
-  boundaries are explicit
+- [~] host bootstrap/deployment contract: generated Windows Task Scheduler
+  auto-start and a real reboot drill are complete. AWS Launch Template UserData,
+  image refresh, registry ownership, and provider secret injection remain after
+  the deployment provider is selected
 - [ ] Kubernetes-native Control Plane provider/runtime deployment after a deployment
   provider is selected. The opt-in manifest generator, durable version ledger,
   provider-invoked migration executor, and resource contract are now present. Use

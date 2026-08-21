@@ -1,10 +1,9 @@
 # Next Task
 
-## Next executable unit: reconcile the local service resilience evidence
+## Next executable unit: run the resilience-hardening regression gate
 
-Compare the implemented local service modes in `current_status.md` with the
-remaining service-oriented roadmap entries. For each generated infrastructure
-service, distinguish standalone restart recovery, logical-node failover, member
-rejoin, and explicit external/provider-owned HA. Correct only factual status or
-roadmap contradictions, then select one smallest implementation gap. Do not create
-a new matrix document, invent HA for non-durable caches, or download an Ollama model.
+Run the complete non-opt-in pytest suite after the accumulated MinIO, Qdrant,
+Elasticsearch/OpenSearch, ELK, Memcached, application, Nginx, and Ollama recovery
+work, followed by the CLI version smoke check. Fix only failures caused by these
+bounded changes. Do not enable Docker integration flags, start the preserved
+consumer stacks, or expand provider-owned and domain-owned roadmap items.

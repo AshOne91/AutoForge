@@ -620,8 +620,8 @@ generated Nginx public entry point, three application replicas, restart policy,
 and configurable host log mount merge cleanly with the generated integration
 Compose profile. An isolated KIS Compose drill verifies Nginx `/health`, exactly
 three healthy application replicas, and recovery through the proxy after one
-application container is restarted. Host backup/bootstrap procedures remain
-unverified.
+application container is restarted. That isolated drill did not repeat the
+separately verified host backup and Windows bootstrap procedures.
 A generated profile-server drill also terminated the singleton single-host Nginx
 PID 1 from inside its container after Docker's restart-policy activation window.
 The same container returned `healthy` with `RestartCount: 1`, and the unchanged
