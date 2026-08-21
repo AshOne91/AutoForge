@@ -1126,6 +1126,41 @@ Realtime backplane은 `redis_session` service가 정확히 하나일 때만 선�
 Webhook/SMTP/SOLAPI 주소와 비밀값은 `.env` 또는 배포 Secret에만 넣는다. 외부 전달은
 수신 측이 준비되기 전에는 deterministic fake 테스트로 확인한다.
 
+처음에는 외부 주소와 비밀값이 필요 없는 Realtime 하나만 골라 다음 fake 테스트를 실행한다.
+이는 Redis Pub/Sub의 네트워크 재연결이 아니라, 생성된 hub와 backplane의 live hint 전달
+계약을 확인한다.
+
+`tests\test_realtime_fakes.py`:
+
+```python
+import pytest
+
+from profile_server.infrastructure.realtime.fake import (
+    FakeRealtimeBackplane,
+    FakeRealtimeSubscriber,
+)
+from profile_server.infrastructure.realtime.service import RealtimeHub
+
+
+@pytest.mark.anyio
+async def test_realtime_hub_and_backplane_deliver_a_live_hint() -> None:
+    hub = RealtimeHub()
+    subscriber = FakeRealtimeSubscriber()
+    backplane = FakeRealtimeBackplane()
+
+    await hub.subscribe("profile.notifications.v1", subscriber)
+    await backplane.start(hub.publish)
+    await backplane.publish("profile.notifications.v1", "quest-ready")
+
+    assert backplane.published == [("profile.notifications.v1", "quest-ready")]
+    assert subscriber.messages == ["quest-ready"]
+```
+
+```powershell
+Set-Location C:\workspace\profile-server
+python -m pytest tests\test_realtime_fakes.py -q
+```
+
 ### Level 8. 퀘스트 작가: LLM
 
 **미션:** AI가 퀘스트 요약 문구를 제안하지만, 플레이어 데이터와 비용은 도메인 정책 안에서
