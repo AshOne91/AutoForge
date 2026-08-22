@@ -1,17 +1,22 @@
 # AutoForge
 
-AutoForge는 ProjectSpec을 기반으로 모듈형 FastAPI 웹서버 프로젝트를 생성하는 Python 도구다.
+AutoForge는 YAML 명세를 읽어, 반복 가능한 기본 구조를 갖춘 **FastAPI 서버 프로젝트**를
+생성하는 Python 도구다.
+
+로그인 서버를 만들 때마다 폴더, Docker, PostgreSQL, Redis, 테스트의 기본 틀을 손으로
+복사하지 않도록 돕는다. AutoForge가 공통 뼈대를 만들고, 개발자는 `SCAFFOLDED`로 표시된
+handler에 실제 서비스 규칙을 작성한다.
 
 ```text
 프로젝트 명세
   → 웹서버 생성
-  → 테스트 및 빌드
-  → 검증된 변경 Commit
-  → 작업 브랜치 Push
-  → Pull Request 생성
+  → 테스트·빌드 검증
+  → 개발자가 도메인 코드 작성
+  → Docker에서 서비스 조합 실행
 ```
 
-현재 개발 초점은 로컬 프로젝트 생성이다. GitHub Webhook, Git 반영, AI 보조 생성은 후속 단계에서 구현한다.
+이 문서는 프로젝트 입구다. 현재 구현 범위와 다음 작업을 여기서 따로 정의하지 않는다.
+각각 [현재 상태](.codex/current_status.md)와 [다음 작업](.codex/next_task.md)을 확인한다.
 
 ## 참고 프로젝트
 
@@ -21,52 +26,47 @@ AutoForge는 ProjectSpec을 기반으로 모듈형 FastAPI 웹서버 프로젝�
 
 AutoForge는 참고 프로젝트의 포팅이 아니라 재설계 프로젝트다.
 
-## 현재 상태
+## 처음 온 개발자는 이 순서만 따르면 됩니다
 
-- Python 3.12
-- Typer CLI 기본 구조
-- 설정, Registry, EventBus, Task, PluginManager 기반
-- 기존 테스트의 pytest 마이그레이션 완료
-- ProjectSpec과 ModuleSpec 검증 모델
-- 공통 Type System
-- GenerationPlan과 GenerationManifest 계약
-- Workspace 경로 안전 경계
-- 최소 FastAPI Project 메모리 렌더링과 Dry-run
-- Workspace 상태 기반 충돌 판정
-- 안전한 Workspace 적용과 GenerationManifest 생성
-- Manifest의 결정적 JSON 저장과 검증된 로딩
-- 생성 프로젝트 Import와 pytest 검증
-- Pydantic Model 및 Request/Response Schema 생성
-- FastAPI Router와 사용자 보존 Handler Scaffold 생성
-- Manifest 기반 GENERATED 파일 안전 교체
-- Endpoint 추가 재생성 시 Handler 보존
-- Application Module Registry와 Tutorial Endpoint 연결
-- GenerationJob과 복수 Manifest 집계 계약
-- Generator/Validator Plugin Registry와 Built-in Plugin Catalog
-- 전체 테스트 224개 통과 기준선
+이 저장소를 처음 받았다면 아래 세 문서를 **순서대로** 읽고 명령을 실행한다. Windows,
+Conda, Docker를 전혀 설치하지 않은 PC도 두 번째 문서부터 시작할 수 있다.
 
-다음 단계는 DatabaseSpec과 Repository 계약의 최소 경계 설계다.
+1. 이 `README.md` — 프로젝트가 무엇을 만드는지만 짧게 확인한다.
+2. [처음부터 만드는 AutoForge 로그인 서버](docs/guides/login_server_from_zero.md) — Conda와
+   Docker 설치부터 명세 작성, 서버 생성, 로그인·Redis 세션 테스트까지 따라 한다.
+3. [AutoForge Quest: 퀘스트 보드 서버 만들기](docs/guides/domain_service_workbook.md) — 로그인
+   서버 위에 DB/SQL, RabbitMQ, 캐시, MinIO, 검색·RAG, 알림, ELK, 단일 PC HA를 필요한
+   순서로 추가한다.
 
-## 첫 번째 MVP
+두 실습을 끝낼 때까지 `docs/architecture/`를 모두 읽을 필요는 없다. “왜 이렇게
+동작하지?”라는 질문이 생긴 부분만 각 Guide의 정본 문서 링크를 따라간다.
 
-1. 로컬 YAML ProjectSpec을 읽는다.
-2. 프로젝트와 패키지 이름을 검증한다.
-3. 결정적인 생성 계획을 미리 보여준다.
-4. 격리된 Workspace에 최소 FastAPI 프로젝트를 생성한다.
-5. 생성 파일 Manifest를 기록한다.
-6. 생성 프로젝트의 테스트와 패키지 검증을 실행한다.
+## AutoForge가 하는 일과 하지 않는 일
 
-## 문서
+AutoForge는 FastAPI 모듈, Docker Compose 환경, SQL/Alembic 기반 DB 구조, 그리고
+선택 서비스(RabbitMQ, Airflow, MinIO, 검색·벡터 DB, 관측성, 단일 호스트 HA)의 공통
+구성을 명세에서 생성하고 검증한다.
 
-- [처음부터 만드는 AutoForge 로그인 서버](docs/guides/login_server_from_zero.md):
-  도구가 없는 Windows PC에서 시작해 명세, 생성, Docker, 로그인, Redis 세션,
-  ping/pong, 테스트까지 진행하는 초보자용 실습 GUIDE
-- [AutoForge Quest: 퀘스트 보드 서버 만들기](docs/guides/domain_service_workbook.md):
-  로그인 뒤 플레이어 카드를 만들고 공통 서비스·운영 기능을 Level별로 선택·설정·검증하는 GUIDE
-- `docs/architecture/system_design.md`
-- `docs/architecture/generation_contract.md`
-- `docs/architecture/specification_design.md`
-- `docs/architecture/plugin_system.md`
-- `docs/architecture/event_driven_architecture.md`
-- `.codex/project_context.md`
-- `.codex/roadmap.md`
+특정 서비스의 업무 규칙은 자동으로 정하지 않는다. 예를 들어 “누가 주식을 주문할 수
+있는가”, “로그인에 어떤 추가 인증을 요구하는가”는 생성 후 handler와 도메인 테스트에서
+개발자가 결정한다.
+
+```text
+YAML 명세
+  → AutoForge 생성·검증
+  → 생성된 FastAPI 프로젝트
+  → 개발자가 도메인 handler·테스트 작성
+  → Docker에서 서비스 조합 실행
+```
+
+`GENERATED` 파일은 명세를 고쳐 다시 생성할 수 있고, `SCAFFOLDED` 파일은 개발자가
+작성하며 AutoForge가 보존한다. 자세한 소유권은
+[생성·소유권 계약](docs/architecture/generation_contract.md)이 설명한다.
+
+## 더 깊게 볼 문서
+
+- [전체 시스템 구조](docs/architecture/system_design.md)
+- [명세 설계](docs/architecture/specification_design.md)
+- [DB 생성](docs/architecture/database_generation.md)
+- [Plugin System](docs/architecture/plugin_system.md)
+- [EventBus·Pipeline](docs/architecture/event_driven_architecture.md)

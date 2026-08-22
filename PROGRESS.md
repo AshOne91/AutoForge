@@ -6,6 +6,12 @@
 > `docs/guides/login_server_from_zero.md`, and
 > `docs/guides/domain_service_workbook.md`.
 
+## 📌 Current State
+
+- **현재 진행 중인 파일**: 없음
+- **현재 진행 단계/Level**: 세 문서 Fresh-PC walkthrough 완료
+- **전체 진행률**: 100% (문서별 실행 검증, 발견 사항 보완, 최종 Markdown 검증 완료)
+
 ## Rules for this run
 
 - Follow the three documents in their stated order.
@@ -13,7 +19,7 @@
 - When a documented step fails, stop the walkthrough, record the evidence, fix
   the relevant guide, then retry that same step.
 
-## Work log
+## 📝 Execution & Fix Log
 
 | Step | Document | Action | Result | Evidence / next action |
 | --- | --- | --- | --- | --- |
@@ -52,3 +58,8 @@
 | 33 | `domain_service_workbook.md` Level 8 | Add the LLM fake boundary and regenerate. | PASS | After the generator spacing repair, generation and generated-project Ruff passed. The fresh walkthrough exposed one missing setup step: the generated project's optional dependencies were not installed into the Conda environment, so importing its OpenAI boundary failed even for a fake test. Both guides now install the generated server with `.[test]` after generation/re-generation. `test_llm_fake.py`, Ruff, and `import openai` then passed without an API key. Next: follow Level 9 ELK overlay. |
 | 34 | `domain_service_workbook.md` Level 9 | Add the central ELK overlay, regenerate, install the generated project, and start the documented Compose command. | PASS | Generation, generated-project dependency installation, and Ruff passed. Elasticsearch, Kibana, and Filebeat all became healthy. A `/health` request produced an `x-request-id`; Filebeat indexed the matching JSON log in Elasticsearch. The guide now gives this exact request-ID verification instead of only saying to inspect Kibana. Next: follow Level 10's single/HA environment boundary. |
 | 35 | `domain_service_workbook.md` Level 10 | Enable the generated single-host HA overlay and prepare its required RAG inference dependency. | PASS | Generation, generated-project installation, Ruff, and the combined port preflight passed. The Ollama runtime image (not a model) plus Qdrant/OpenSearch became healthy; three application replicas and Nginx became healthy. The public `/health` returned 200 before and after restarting one application replica. The guide now includes exact single-host commands, the RAG-inference condition, one-replica recovery check, and the harmless ELK orphan warning. Next: the three-document fresh-PC walkthrough is complete; Level 11 is a conceptual extension, not a required login-server setup step. |
+| 36 | `README.md` project entry | Re-read the first document as a junior developer and compare its claims with the completed walkthrough. | PASS WITH FIX | The old README presented an obsolete 224-test baseline and an obsolete “next DatabaseSpec” task as current facts. It now gives only the three-document reading order, explains GENERATED/SCAFFOLDED in beginner language, and links implementation status to its proper owner. Next: inspect the Level 11 boundary and validate the documented local links. |
+| 37 | Three-document local-link check | Test every local Markdown link before declaring the walkthrough complete. | RETRY | The first checker treated README's repository-root directory as an empty PowerShell path, emitted path-binding errors, then incorrectly printed success. No guide claim was evaluated by that result. Correct the checker to use `.` for root-level documents and retry the same validation. |
+| 38 | `domain_service_workbook.md` Level 11 | Inspect whether this Level is an executable part of the junior walkthrough. | PASS WITH FIX | Level 11 has no command because it explains a later AutoForge-maintainer concern, but that boundary was implicit. It now explicitly says it is reference-only and must not be started merely to finish the login/Quest walkthrough. Next: rerun the corrected local-link check and validate the edited Markdown diff. |
+| 39 | `README.md` workflow diagram | Compare the visible top-level workflow with the current implementation owner before final validation. | PASS WITH FIX | The diagram still implied automatic commit, push, and Pull Request creation. Current Status says safe Git automation is unimplemented, so the diagram now ends at generation, validation, user-owned domain code, and Docker execution. Next: rerun Markdown-link and diff checks. |
+| 40 | Three-document final validation | Recheck every local Markdown link, duplicate heading, and whitespace error after all document edits. | PASS | All local Markdown links resolve, no duplicate headings exist, and `git diff --check` passed. The fresh-PC walkthrough is complete: Levels 1-10 were executed on a reset project environment, while Level 11 is correctly marked as a non-executing reference step. |
