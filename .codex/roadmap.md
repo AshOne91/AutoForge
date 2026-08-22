@@ -59,8 +59,9 @@ process-global singleton pattern.
   [ADR-0005](../docs/adr/0005-kis-brokerage-account-ownership.md)를 따른다. 공용
   일봉 수집과 사용자 소유 `kis:default` 계좌 연결은 실제 소비자에서 검증됐다.
   연결을 통한 인증 사용자 보유종목 조회도 Account Shard 연결을 먼저 확인한 뒤
-  기존 KIS/Redis 계약을 재사용한다. portfolio snapshot, order/execution, risk
-  limit와 감사 이력은 남아 있다.
+  기존 KIS/Redis 계약을 재사용한다. append-only portfolio snapshot과 안전한
+  Outbox 기록도 Account Shard에서 검증됐다. 저장된 snapshot 조회,
+  order/execution, risk limit와 감사 이력은 남아 있다.
 - [~] domain request-execution policy: `ApplicationSpec.service_tokens`와
   `EndpointSpec.service_token`은 named internal service caller를 fail-closed
   FastAPI dependency로 연결한다. 아직 endpoint마다

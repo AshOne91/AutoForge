@@ -1553,7 +1553,19 @@ foreign, inactive, or unknown connections fail before the KIS client is called;
 successful responses reuse the existing safe holding projection and detail-safe
 provider error mapping. The complete KIS suite passes (`146 passed, 6 skipped`,
 `-W error`) with full Ruff. Holdings are still live provider data and are not yet
-persisted as portfolio state.
+treated as mutable order state.
+
+The first KIS portfolio persistence slice is now generated from a tenth
+specification unit. Append-only `PortfolioSnapshot` headers and their safe
+position rows live together in the authenticated user's Account Shard. The
+capture path validates the active linked account before KIS I/O, derives a
+deterministic snapshot from `Idempotency-Key`, skips a repeated provider call,
+and writes the header, positions, and secret-free `portfolio.snapshot.captured`
+Outbox event in one transaction. Empty portfolios are valid and partial writes
+roll back. AutoForge regeneration passed all ten units; the full KIS suite passes
+(`151 passed, 7 skipped`, `-W error`) with full Ruff. A disposable PostgreSQL
+instance applied every Account migration head and passed the real snapshot
+round trip before it was removed.
 
 ## Development tooling
 
