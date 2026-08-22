@@ -33,8 +33,10 @@ KIS의 현재 `KisDomesticAccountClient`는 `KIS_ACCOUNT_*` 환경변수에서 �
    `credential_ref`를 배포 Secret으로 해석하며, 알 수 없는 참조는 fail closed로
    거부한다.
 5. 첫 구현은 기존 환경변수 묶음을 가리키는 단 하나의 참조
-   `kis:default`만 지원한다. 실제 두 번째 자격 증명 공급자가 생기기 전에는
-   범용 broker factory나 Secret Manager 추상화를 만들지 않는다.
+   `kis:default`만 지원한다. 배포 설정의 `KIS_ACCOUNT_OWNER_USER_ID`가 이 참조를
+   연결할 수 있는 단 한 명의 로그인 사용자를 지정하며, 값이 없거나 세션 사용자와
+   다르면 연결을 fail closed로 거부한다. 실제 두 번째 자격 증명 공급자가 생기기
+   전에는 범용 broker factory나 Secret Manager 추상화를 만들지 않는다.
 6. 사용자 요청은 인증 세션에서 `user_id`와 `shard_id`를 얻고, 그 샤드의 연결
    레코드를 읽은 다음 자격 증명을 해석한다. 비동기 작업과 메시지는 사용자 및
    연결 식별자만 운반하며 실제 자격 증명을 운반하지 않는다.

@@ -1526,9 +1526,24 @@ ownership boundary required before portfolio persistence. A brokerage connection
 belongs to one authenticated user and is stored in that user's Account Shard;
 Global identity keeps only login and shard placement. The database stores only
 non-secret connection metadata and an opaque `credential_ref`, while full KIS
-credentials remain deployment Secret material. The first resolver will support
-only the existing `kis:default` environment bundle. No connection table,
-portfolio snapshot, order, or risk behavior has been implemented yet.
+credentials remain deployment Secret material.
+
+KIS now implements that first account-connection slice. A ninth specification
+unit generates `BrokerageAccountConnection`, Account Shard SQL/Alembic,
+repository, routes, and deployment metadata. The authenticated idempotent link
+path accepts no credential input and stores only a masked account suffix plus
+the fixed `kis:default` reference. `KIS_ACCOUNT_OWNER_USER_ID` binds the one
+deployment credential bundle to one session user and fails closed when absent or
+mismatched. Repeated links do not duplicate the record or its secret-free Outbox
+event; other users cannot read or write it. A disposable PostgreSQL round trip
+applied every generated migration and verified link, replay, and read. The full
+KIS suite passes (`140 passed, 6 skipped`, `-W error`) with full Ruff.
+
+That regeneration exposed a shared AutoForge defect: long generated model import
+lists in routers and handler scaffolds bypassed the existing import renderer.
+Both paths now reuse that renderer, with a regression test. AutoForge passes its
+complete suite (`675 passed, 30 skipped`, `-W error`) and full Ruff. Portfolio
+snapshot, order, execution, and risk behavior remain unimplemented.
 
 ## Development tooling
 

@@ -52,11 +52,14 @@ process-global singleton pattern.
   `market_data` baseline is not rewritten. This public market data is not
   user-sharded and the slice adds no order, execution, portfolio mutation, or
   risk behavior.
-- [ ] KIS trading Blueprint validation: 시장 데이터 수집, KIS 인증·공유 token
+- [~] KIS trading Blueprint validation: 시장 데이터 수집, KIS 인증·공유 token
   조정, portfolio, order/execution, risk limit와 감사 이력을 하나의 소비자 수직
   흐름으로 검증한다. 거래 전략과 투자 판단은 KIS 소비자 소유이며 AutoForge는
   검증된 공통 인프라·생성 계약만 일반화한다. 증권계좌와 배포 Secret의 소유권은
-  [ADR-0005](../docs/adr/0005-kis-brokerage-account-ownership.md)를 따른다.
+  [ADR-0005](../docs/adr/0005-kis-brokerage-account-ownership.md)를 따른다. 공용
+  일봉 수집과 사용자 소유 `kis:default` 계좌 연결은 실제 소비자에서 검증됐다.
+  연결을 통한 보유종목 조회, portfolio snapshot, order/execution, risk limit와
+  감사 이력은 남아 있다.
 - [~] domain request-execution policy: `ApplicationSpec.service_tokens`와
   `EndpointSpec.service_token`은 named internal service caller를 fail-closed
   FastAPI dependency로 연결한다. 아직 endpoint마다

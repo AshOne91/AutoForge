@@ -1,12 +1,12 @@
 # Next Task
 
-## Next executable unit: persist the first KIS account connection
+## Next executable unit: read holdings through the linked KIS account
 
-Add one KIS-owned `BrokerageAccountConnection` specification placed in the
-Account Shard by `user_id`. Store only non-secret metadata and the fixed
-`kis:default` credential reference from ADR-0005. Regenerate before adding one
-authenticated, idempotent link path and one authenticated read path that use the
-existing session/shard dependencies. Verify generated persistence, isolation
-from other users, secret-value exclusion, and a disposable PostgreSQL round
-trip. Do not persist holdings, accept credentials in an API request, or add a
-generic multi-broker abstraction.
+Add one authenticated, read-only KIS consumer path that loads the current
+user's generated `BrokerageAccountConnection` from the Account Shard before any
+provider I/O. Accept only the active fixed `kis:default` reference, then reuse
+the existing lifespan-owned KIS account client and coordinated Redis token.
+Verify safe holding projection and prove that another user, a missing or
+inactive connection, and an unknown reference all fail before KIS is called.
+Use only the deterministic fake provider; do not persist holdings, execute an
+order, or add a generic broker/resolver abstraction.
