@@ -1041,6 +1041,112 @@ def test_render_creates_opt_in_airflow_scheduler_ha() -> None:
     assert "scheduler-process recovery only" in readme
 
 
+@pytest.mark.integration
+@pytest.mark.anyio
+async def test_generated_airflow_scheduler_ha_recovers_after_member_stops(
+    tmp_path: Path,
+) -> None:
+    if os.environ.get("AUTOFORGE_DOCKER_AIRFLOW_SCHEDULER_HA_INTEGRATION") != "1":
+        pytest.skip("set AUTOFORGE_DOCKER_AIRFLOW_SCHEDULER_HA_INTEGRATION=1 to run Docker")
+
+    package_name = f"airflow_ha_{uuid.uuid4().hex}"
+    specification = integration_specification(
+        enabled=True,
+        durable_jobs=True,
+        postgres_mode="ha",
+        airflow_scheduler_replicas=2,
+    ).model_copy(
+        update={
+            "project": ProjectInfo(
+                name="Airflow Scheduler HA",
+                package_name=package_name,
+                version="0.1.0",
+            )
+        }
+    )
+    files = LocalEnvironmentGenerator().render(specification)
+    for relative_path, content in files.items():
+        target = tmp_path / relative_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+
+    environment = tmp_path / "environment"
+    (environment / ".env").write_text(
+        files[PurePosixPath("environment", ".env.example")].replace(
+            "AIRFLOW_FERNET_KEY=replace-with-a-valid-fernet-key",
+            "AIRFLOW_FERNET_KEY=S3cVlRufBu0Vk76mymb47WT_s0R58n7zQqYvbvje_0A=",
+        ),
+        encoding="utf-8",
+    )
+    compose = (
+        "docker",
+        "compose",
+        "--env-file",
+        "environment/.env",
+        "-f",
+        "environment/compose.integration.yml",
+    )
+    runner = AsyncioProcessRunner()
+    scheduler_names = ("airflow-scheduler-0", "airflow-scheduler-1")
+    health_command = (
+        "exec",
+        "-T",
+        "airflow-scheduler-1",
+        "curl",
+        "--fail",
+        "http://127.0.0.1:8974/health",
+    )
+    try:
+        result = await runner.run(
+            (*compose, "up", "--detach", "--wait", *scheduler_names),
+            cwd=tmp_path,
+            timeout_seconds=240,
+        )
+        assert result.succeeded, result.stderr
+        result = await runner.run(
+            (*compose, *health_command), cwd=tmp_path, timeout_seconds=20
+        )
+        assert result.succeeded, result.stderr
+
+        result = await runner.run(
+            (*compose, "stop", "airflow-scheduler-0"),
+            cwd=tmp_path,
+            timeout_seconds=30,
+        )
+        assert result.succeeded, result.stderr
+        result = await runner.run(
+            (*compose, *health_command), cwd=tmp_path, timeout_seconds=20
+        )
+        assert result.succeeded, result.stderr
+
+        result = await runner.run(
+            (*compose, "up", "--detach", "--wait", "airflow-scheduler-0"),
+            cwd=tmp_path,
+            timeout_seconds=120,
+        )
+        assert result.succeeded, result.stderr
+        result = await runner.run(
+            (
+                *compose,
+                "exec",
+                "-T",
+                "airflow-scheduler-0",
+                "curl",
+                "--fail",
+                "http://127.0.0.1:8974/health",
+            ),
+            cwd=tmp_path,
+            timeout_seconds=20,
+        )
+        assert result.succeeded, result.stderr
+    finally:
+        await runner.run(
+            (*compose, "down", "--volumes", "--remove-orphans"),
+            cwd=tmp_path,
+            timeout_seconds=60,
+        )
+
+
 def test_render_creates_postgresql_ha_environment() -> None:
     files = LocalEnvironmentGenerator().render(
         integration_specification(

@@ -1,10 +1,11 @@
 # Next Task
 
-## Next executable unit: verify generated core service HA paths
+## Next executable unit: establish safe single-host worker replica coverage
 
 The active Roadmap delivery gate permits only reusable service and local logical
-HA work. Generate an isolated KIS HA workspace, then run the existing generated
-PostgreSQL/Patroni, Redis Cluster, and RabbitMQ quorum-queue proofs. Classify
-any failure by ownership and correct only the smallest generator, test, or
-environment fault before moving to the next proof. Do not add KIS business
-domain behavior.
+HA work. Trace the generated Outbox relay, message worker, and Durable Job
+worker claim paths before deciding whether an opt-in Single Host replica
+configuration is safe. Reuse existing Inbox, Outbox, and job-claim guarantees;
+do not claim exactly-once execution or scale a component whose contract cannot
+support concurrent replicas. Implement and verify only the smallest safe
+generator extension. Do not add KIS business domain behavior.
