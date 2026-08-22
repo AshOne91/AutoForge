@@ -749,7 +749,9 @@ docker compose --env-file environment\.env `
 
 기존 `.env`를 이미 만들었다면 `.env.example`을 덮어쓰지 않는다. 새 Level이 서비스나
 환경값을 추가했을 때는 새 `.env.example`에서 **새로 생긴 줄을 모두** 기존 `.env`에
-복사한다. 이 Level에서는 `RABBITMQ_USER`, `RABBITMQ_PASSWORD`,
+복사한다. 단, `deploy/storage`나 `deploy/rag`처럼 별도 Compose overlay를 쓰는 Level의
+값은 기본 `environment/.env`가 아니라 그 overlay의 `.env.example`에서 같은 디렉터리의
+`.env`로 복사한다. 이 Level에서는 `RABBITMQ_USER`, `RABBITMQ_PASSWORD`,
 `RABBITMQ_AMQP_PORT`, `RABBITMQ_MANAGEMENT_PORT`, `RABBITMQ_URL`, `AIRFLOW_PORT`,
 `DURABLE_JOB_API_URL`, `DURABLE_JOB_API_TOKEN`이 추가된다.
 

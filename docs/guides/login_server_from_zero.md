@@ -148,6 +148,18 @@ docker run --rm hello-world
 마지막 명령은 Docker가 실제 컨테이너를 실행할 수 있는지 확인한다. 처음에는
 이미지를 내려받느라 시간이 걸릴 수 있다.
 
+`conda`가 "명령을 찾을 수 없습니다"라고 나오면 일반 PowerShell에서 다음 명령을
+억지로 입력하지 않는다. 시작 메뉴에서 **Miniconda Prompt**를 열고 아래 한 줄을 실행한
+뒤, 그 창을 닫고 새 PowerShell을 연다.
+
+```powershell
+conda init powershell
+```
+
+새 PowerShell에서 `conda --version`을 다시 실행한다. 여전히 찾을 수 없거나
+Miniconda Prompt 자체가 없다면 Miniconda 설치가 끝나지 않은 것이므로 2.2의 설치 링크로
+돌아가 설치를 다시 완료한다.
+
 `conda`는 보이는데 `conda activate`가 동작하지 않으면 다음을 **한 번만** 실행하고
 PowerShell을 완전히 닫았다가 새로 연다.
 
@@ -233,10 +245,29 @@ Python 3.12가 아니라면 `conda activate autoforge`가 빠졌거나 환경 �
 
 ```powershell
 New-Item -ItemType Directory -Force C:\workspace\login-server-spec\specifications
+New-Item -ItemType File -Force `
+  C:\workspace\login-server-spec\autoforge.yaml, `
+  C:\workspace\login-server-spec\specifications\identity.yaml, `
+  C:\workspace\login-server-spec\specifications\system.yaml | Out-Null
+```
+
+VS Code를 설치했다면 다음으로 세 파일을 한 번에 연다.
+
+```powershell
 code C:\workspace\login-server-spec
 ```
 
-VS Code에서 아래 세 파일을 만든다. 들여쓰기는 탭이 아니라 공백을 사용한다.
+`code` 명령을 찾을 수 없고 VS Code를 설치하지 않았다면, 아래처럼 Windows 기본
+Notepad로 한 파일씩 연다. 각 파일에 이 절의 YAML 전체를 붙여 넣고 `Ctrl+S`로 저장한다.
+
+```powershell
+notepad C:\workspace\login-server-spec\autoforge.yaml
+notepad C:\workspace\login-server-spec\specifications\identity.yaml
+notepad C:\workspace\login-server-spec\specifications\system.yaml
+```
+
+세 파일 모두 이미 만들어졌으므로, 어떤 편집기를 쓰든 새 이름을 입력하거나 확장자를
+바꿀 필요는 없다. YAML 들여쓰기는 탭이 아니라 공백을 사용한다.
 
 ### 5.1 `autoforge.yaml`
 
