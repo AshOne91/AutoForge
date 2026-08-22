@@ -456,5 +456,9 @@ def _port_is_available(port: int) -> bool:
 
 
 def _get_status(url: str) -> int:
-    with urlopen(url, timeout=5) as response:
-        return response.status
+    try:
+        with urlopen(url, timeout=5) as response:
+            return response.status
+    except HTTPError as error:
+        error.close()
+        raise

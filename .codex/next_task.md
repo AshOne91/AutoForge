@@ -1,12 +1,10 @@
 # Next Task
 
-## Next executable unit: close the first missing local HA proof
+## Next executable unit: verify generated core service HA paths
 
 The active Roadmap delivery gate permits only reusable service and local logical
-HA work. Inspect the existing generated service-composition contract and its
-focused tests to identify the first selected service that lacks a verified
-single/HA profile or an appropriate restart/failover/rejoin proof. Implement
-only that smallest missing proof or generator correction, validate it with the
-focused test and local runtime drill when the contract requires Docker, then
-record the result in the existing status/roadmap owners. Do not add KIS business
+HA work. Generate an isolated KIS HA workspace, then run the existing generated
+PostgreSQL/Patroni, Redis Cluster, and RabbitMQ quorum-queue proofs. Classify
+any failure by ownership and correct only the smallest generator, test, or
+environment fault before moving to the next proof. Do not add KIS business
 domain behavior.
