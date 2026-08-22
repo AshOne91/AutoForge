@@ -921,6 +921,12 @@ messaging/Durable Jobs remain excluded from the MySQL profile. The published
 `mysql/mysql-router:8.0` image remains incompatible with MySQL 8.4 writer
 routing and is not generated.
 
+The opt-in Docker regression test now makes that local proof repeatable: it
+writes through `mysql:6446`, stops the detected primary, waits for a different
+primary and Router writer route, writes again through the unchanged endpoint,
+then requires all three members online and the restarted node to contain both
+records. The test removes its unique Compose project, volumes, and network.
+
 A fresh, isolated KIS HA workspace generated from the current AutoForge source
 was then verified for Redis primary failover without changing any generated
 Compose artifact. The generated `RedisSessionStore` wrote and read a valid

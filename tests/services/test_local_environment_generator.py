@@ -1148,6 +1148,168 @@ async def test_generated_airflow_scheduler_ha_recovers_after_member_stops(
         )
 
 
+@pytest.mark.integration
+@pytest.mark.anyio
+async def test_generated_mysql_ha_router_recovers_after_primary_stops(
+    tmp_path: Path,
+) -> None:
+    if os.environ.get("AUTOFORGE_DOCKER_MYSQL_HA_INTEGRATION") != "1":
+        pytest.skip("set AUTOFORGE_DOCKER_MYSQL_HA_INTEGRATION=1 to run Docker")
+
+    files = LocalEnvironmentGenerator().render(
+        integration_specification(
+            enabled=True,
+            database_provider="mysql",
+            mysql_mode="ha",
+            include_rabbitmq=False,
+        )
+    )
+    for relative_path, content in files.items():
+        target = tmp_path / relative_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+
+    compose = (
+        "docker",
+        "compose",
+        "--project-name",
+        f"autoforge-mysql-ha-{uuid.uuid4().hex[:8]}",
+        "-f",
+        "environment/compose.integration.yml",
+    )
+    runner = AsyncioProcessRunner()
+
+    async def mysql_query(
+        service: str, query: str, *, host: str = "127.0.0.1", port: int = 3306
+    ) -> str:
+        result = await runner.run(
+            (
+                *compose,
+                "exec",
+                "-T",
+                service,
+                "mysql",
+                "-h",
+                host,
+                "-P",
+                str(port),
+                "-uroot",
+                "-pchange-me-root",
+                "-Nse",
+                query,
+            ),
+            cwd=tmp_path,
+            timeout_seconds=20,
+        )
+        assert result.succeeded, result.stderr
+        return result.stdout.strip()
+
+    async def router_query(query: str) -> str:
+        return await mysql_query(
+            router_client,
+            query,
+            host="mysql",
+            port=6446,
+        )
+
+    try:
+        result = await runner.run(
+            (*compose, "up", "--build", "--detach", "--wait", "mysql"),
+            cwd=tmp_path,
+            timeout_seconds=240,
+        )
+        assert result.succeeded, result.stderr
+
+        primary = await mysql_query(
+            "mysql-ha-0",
+            "SELECT MEMBER_HOST FROM performance_schema.replication_group_members "
+            "WHERE MEMBER_ROLE = 'PRIMARY'",
+        )
+        assert primary in {"mysql-ha-0", "mysql-ha-1", "mysql-ha-2"}
+        assert await mysql_query("mysql-ha-0", "SELECT 1") == "1"
+        router_client = next(
+            service
+            for service in ("mysql-ha-0", "mysql-ha-1", "mysql-ha-2")
+            if service != primary
+        )
+        assert (
+            await router_query(
+                "CREATE DATABASE IF NOT EXISTS autoforge_ha_test; "
+                "CREATE TABLE IF NOT EXISTS autoforge_ha_test.failover_records "
+                "(id INT PRIMARY KEY); "
+                "INSERT INTO autoforge_ha_test.failover_records (id) VALUES (1) "
+                "ON DUPLICATE KEY UPDATE id = VALUES(id); "
+                "SELECT COUNT(*) FROM autoforge_ha_test.failover_records"
+            )
+            == "1"
+        )
+
+        result = await runner.run(
+            (*compose, "stop", primary), cwd=tmp_path, timeout_seconds=30
+        )
+        assert result.succeeded, result.stderr
+
+        new_primary = ""
+        for _ in range(60):
+            try:
+                new_primary = await mysql_query(
+                    "mysql-ha-1" if primary != "mysql-ha-1" else "mysql-ha-2",
+                    "SELECT MEMBER_HOST FROM performance_schema.replication_group_members "
+                    "WHERE MEMBER_ROLE = 'PRIMARY'",
+                )
+                if new_primary and new_primary != primary:
+                    break
+            except AssertionError:
+                pass
+            await anyio.sleep(1)
+        assert new_primary in {"mysql-ha-0", "mysql-ha-1", "mysql-ha-2"}
+        assert new_primary != primary
+        assert await router_query("SELECT @@report_host") == new_primary
+        assert (
+            await router_query(
+                "INSERT INTO autoforge_ha_test.failover_records (id) VALUES (2) "
+                "ON DUPLICATE KEY UPDATE id = VALUES(id); "
+                "SELECT COUNT(*) FROM autoforge_ha_test.failover_records"
+            )
+            == "2"
+        )
+
+        result = await runner.run(
+            (*compose, "up", "--detach", "--wait", primary),
+            cwd=tmp_path,
+            timeout_seconds=120,
+        )
+        assert result.succeeded, result.stderr
+
+        online_members = ""
+        for _ in range(60):
+            try:
+                online_members = await mysql_query(
+                    router_client,
+                    "SELECT COUNT(*) FROM performance_schema.replication_group_members "
+                    "WHERE MEMBER_STATE = 'ONLINE'",
+                )
+                if online_members == "3":
+                    break
+            except AssertionError:
+                pass
+            await anyio.sleep(1)
+        assert online_members == "3"
+        assert (
+            await mysql_query(
+                primary,
+                "SELECT COUNT(*) FROM autoforge_ha_test.failover_records",
+            )
+            == "2"
+        )
+    finally:
+        await runner.run(
+            (*compose, "down", "--volumes", "--remove-orphans"),
+            cwd=tmp_path,
+            timeout_seconds=60,
+        )
+
+
 def test_render_creates_postgresql_ha_environment() -> None:
     files = LocalEnvironmentGenerator().render(
         integration_specification(
