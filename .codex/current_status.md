@@ -1567,6 +1567,13 @@ roll back. AutoForge regeneration passed all ten units; the full KIS suite passe
 instance applied every Account migration head and passed the real snapshot
 round trip before it was removed.
 
+Authenticated users can now read one persisted snapshot through
+`GET /api/portfolio/snapshots/{snapshot_id}`. The handler routes directly to the
+session's Account Shard, returns the generated header and stock-code-ordered
+positions, and hides both missing and foreign snapshots as 404 without touching
+the KIS client. The complete KIS suite passes (`152 passed, 7 skipped`,
+`-W error`) with full Ruff.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:

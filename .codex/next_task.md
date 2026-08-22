@@ -1,11 +1,13 @@
 # Next Task
 
-## Next executable unit: read one persisted KIS portfolio snapshot
+## Next executable unit: fix the first KIS order-intent and risk boundary
 
-Add one authenticated `GET /api/portfolio/snapshots/{snapshot_id}` path that
-uses the generated Account Shard repositories. Return the stored header and its
-ordered safe position rows only when `snapshot.user_id` matches the current
-session user. Verify the correct shard target, missing and foreign snapshot
-denial, empty positions, and that the path never accesses the KIS client. Reuse
-the existing portfolio response model; do not add listing/pagination, provider
-I/O, order behavior, risk calculation, or a new abstraction.
+Before generating an order module, compare the current KIS account/portfolio
+contracts with the relevant Base Server and game-server lineage and record one
+ADR for a non-executing `OrderIntent` lifecycle. The decision must assign
+user/account-shard ownership, require request idempotency, place a fail-closed
+`RiskDecision` before every provider call, separate intent from provider
+execution/conciliation, and define secret-free audit events. Reject any design
+that treats an API request or queue delivery as proof of execution. Do not add a
+live KIS order call, investment strategy, recommendation, or speculative generic
+broker abstraction in this unit.
