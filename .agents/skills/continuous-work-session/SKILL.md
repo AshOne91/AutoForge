@@ -70,6 +70,21 @@ checkpoints. Before selecting a new unit after a commit, compare it against the
 last checkpoint and current objective. Do not resume an old exploratory branch,
 repeat a completed fix, or infer a broader goal from stale conversation context.
 
+## Delivery Scope Gate
+
+Before every new unit, identify the active delivery gate in `.codex/roadmap.md`.
+It outranks `.codex/next_task.md`, old commits, and inferred opportunity.
+
+- Start only a unit explicitly allowed by that gate.
+- If `next_task.md` names work outside the gate, replace it with the smallest
+  allowed unit before implementation; do not perform the stale task first.
+- A consumer repository may be changed only for the gate's validation purpose.
+  Do not add its business entities, routes, specifications, migrations, or
+  provider workflows unless the gate explicitly permits consumer-domain work.
+- Leave the gate only after its recorded completion evidence exists and the user
+  explicitly authorizes the phase change. Do not infer that authorization from
+  a request to continue, an unfinished roadmap item, or a convenient next task.
+
 ## Model Routing
 
 When routing is required, use the `model-routing` Skill. Its

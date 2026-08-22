@@ -20,6 +20,14 @@ first instead of patching generated-owned output directly.
 - Keep changes small, bounded, and reviewable.
 - Do not redesign unrelated architecture or add unrelated features.
 
+## Delivery scope gate
+
+The active delivery phase in `.codex/roadmap.md` is a hard scope boundary.
+Until that gate is explicitly changed, do not begin consumer business-domain
+work merely because `kis-auto-trading` is available as a validation project.
+An executable next task must comply with the active gate; a stale or broader
+next-task entry never grants permission to cross it.
+
 ## Context efficiency
 
 Do not read the whole repository or all `.codex` documents by default.

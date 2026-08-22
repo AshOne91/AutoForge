@@ -3,6 +3,21 @@
 Implemented and verified capabilities belong in `current_status.md`. This file
 contains only future direction and unimplemented work.
 
+## Active delivery gate: shared-service local HA stabilization
+
+Until the user explicitly opens the consumer-domain phase, complete and verify
+the reusable service baseline on one physical host with Docker logical nodes.
+Allowed work is AutoForge service contracts and generated single/HA profiles,
+plus KIS changes required solely to validate those contracts: replicas,
+failover, restart/rejoin, durable state, logs, volumes, backup/restore, and
+consumer-transparent interfaces. Do not add KIS business entities, routes,
+specifications, migrations, provider workflows, or trading behavior.
+
+This gate is complete only when each selected service has an appropriate
+single/HA profile and a recorded local proof. Stateful services require their
+own durable-state and recovery proof; stateless services require replica and
+restart proof. Physical multi-host deployment remains a later, separate goal.
+
 ## Later
 
 ### Base Server service capability completion
