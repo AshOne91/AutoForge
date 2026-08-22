@@ -1545,6 +1545,16 @@ Both paths now reuse that renderer, with a regression test. AutoForge passes its
 complete suite (`675 passed, 30 skipped`, `-W error`) and full Ruff. Portfolio
 snapshot, order, execution, and risk behavior remain unimplemented.
 
+KIS now also exposes an authenticated read-only holdings path through that
+connection. It loads the current user's generated Account Shard connection
+before any provider I/O, accepts only an active `kis:default` reference, and then
+reuses the lifespan-owned KIS client and coordinated Redis token. Missing,
+foreign, inactive, or unknown connections fail before the KIS client is called;
+successful responses reuse the existing safe holding projection and detail-safe
+provider error mapping. The complete KIS suite passes (`146 passed, 6 skipped`,
+`-W error`) with full Ruff. Holdings are still live provider data and are not yet
+persisted as portfolio state.
+
 ## Development tooling
 
 Repository navigation and cost-control tooling is maintained through:

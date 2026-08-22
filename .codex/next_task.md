@@ -1,12 +1,14 @@
 # Next Task
 
-## Next executable unit: read holdings through the linked KIS account
+## Next executable unit: persist the first KIS portfolio snapshot
 
-Add one authenticated, read-only KIS consumer path that loads the current
-user's generated `BrokerageAccountConnection` from the Account Shard before any
-provider I/O. Accept only the active fixed `kis:default` reference, then reuse
-the existing lifespan-owned KIS account client and coordinated Redis token.
-Verify safe holding projection and prove that another user, a missing or
-inactive connection, and an unknown reference all fail before KIS is called.
-Use only the deterministic fake provider; do not persist holdings, execute an
-order, or add a generic broker/resolver abstraction.
+Add one KIS-owned append-only portfolio snapshot specification in the Account
+Shard. A snapshot header belongs to the authenticated user and linked brokerage
+connection; its position rows capture the safe fields returned by the existing
+read-only holdings client. Generate the SQL/Alembic and repositories before
+implementing one authenticated capture path that validates the active
+`kis:default` connection before provider I/O and writes the header and positions
+in one shard transaction. Verify deterministic fake-provider capture, user/shard
+isolation, empty holdings, and rollback on persistence failure. Do not execute
+orders, calculate investment advice or risk, store credentials, or add a generic
+broker abstraction.
