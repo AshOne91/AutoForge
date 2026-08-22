@@ -76,6 +76,13 @@ AutoForge currently has working foundations for:
 - Transactional Outbox
 - EventBus and ordered Pipeline execution
 - durable GenerationJob processing
+- opt-in single-host Durable Job Worker replicas. The generated overlay leaves
+  the default at one worker and may select two when Durable Jobs are present;
+  its atomic `requested -> running` claim lets only one worker start a given
+  requested job. The generic Outbox relay and message worker remain one replica
+  because their at-least-once delivery still requires consumer-owned idempotency.
+  A fresh KIS HA workspace proved two healthy Durable Job Workers, one-worker
+  survival after the other stopped, successful rejoin, and automatic cleanup.
 - PostgreSQL JobStore and worker leasing
 - isolated Git checkout
 - safe branch/commit/push/Pull Request automation

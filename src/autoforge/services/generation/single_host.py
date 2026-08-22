@@ -33,6 +33,8 @@ class SingleHostOperatingGenerator:
         files = {
             PurePosixPath("deploy", "single-host", "compose.override.yml"): self._render_compose(
                 application_replicas=profile.application_replicas,
+                durable_job_worker_replicas=profile.durable_job_worker_replicas,
+                has_durable_jobs=bool(specification.application.durable_jobs),
                 public_port=specification.tooling.local_environment.host_port_base or 28000,
             ),
             PurePosixPath("deploy", "single-host", "runtime.env.example"): self._render_environment(
@@ -42,6 +44,7 @@ class SingleHostOperatingGenerator:
             PurePosixPath("deploy", "single-host", "README.md"): self._render_readme(
                 specification,
                 application_replicas=profile.application_replicas,
+                durable_job_worker_replicas=profile.durable_job_worker_replicas,
             ),
         }
         if profile.bootstrap_provider == "windows_task_scheduler":
@@ -72,7 +75,22 @@ class SingleHostOperatingGenerator:
         )
 
     @staticmethod
-    def _render_compose(*, application_replicas: int, public_port: int) -> str:
+    def _render_compose(
+        *,
+        application_replicas: int,
+        durable_job_worker_replicas: int,
+        has_durable_jobs: bool,
+        public_port: int,
+    ) -> str:
+        durable_job_worker = (
+            f"""
+  durable-job-worker:
+    deploy:
+      replicas: {durable_job_worker_replicas}
+"""
+            if has_durable_jobs
+            else ""
+        )
         return f"""services:
   application:
     deploy:
@@ -80,6 +98,7 @@ class SingleHostOperatingGenerator:
     ports: !reset []
     volumes:
       - ${{LOG_ROOT:-../logs}}:/app/logs
+{durable_job_worker}
 
   nginx:
     image: nginx:1.27-alpine
@@ -195,7 +214,10 @@ server {
 
     @staticmethod
     def _render_readme(
-        specification: ProjectSpec, *, application_replicas: int
+        specification: ProjectSpec,
+        *,
+        application_replicas: int,
+        durable_job_worker_replicas: int,
     ) -> str:
         host_port_base = specification.tooling.local_environment.host_port_base
         bootstrap_note = (
@@ -212,6 +234,14 @@ server {
             "Windows bootstrap checks the configured search and Ollama endpoints "
             "before starting the application.\n"
             if specification.tooling.rag.enabled
+            else ""
+        )
+        durable_job_worker_note = (
+            f"The generated Durable Job worker is scaled to {durable_job_worker_replicas} replicas. "
+            "Its atomic job claim prevents two workers from starting the same requested job. "
+            "The Outbox relay and generic message worker remain single-replica because their "
+            "consumer idempotency is application-specific.\n"
+            if specification.application.durable_jobs
             else ""
         )
         port_block = (
@@ -264,7 +294,7 @@ python -m autoforge.main validate-ports --env-file environment/.env --env-file d
 The check is read-only and rejects duplicate published host ports; it does not
 allocate ports or replace specification validation.
 
-{rag_note}{bootstrap_note}The Windows bootstrap performs the same read-only Compose port-collision
+{rag_note}{durable_job_worker_note}{bootstrap_note}The Windows bootstrap performs the same read-only Compose port-collision
 preflight, then builds the local application image before starting containers. The public proxy listens on
 `PUBLIC_BIND_ADDRESS:PUBLIC_HTTP_PORT`; application,
 database, Redis, RabbitMQ, and Airflow host ports remain governed by the integration

@@ -8,10 +8,12 @@ from autoforge.core.generation import FileOwnership, Generator, content_hash
 from autoforge.core.specification import (
     ApplicationSpec,
     DatabaseStoreSpec,
+    DurableJobSpec,
     LocalEnvironmentSpec,
     ProjectInfo,
     ProjectSpec,
     RagSpec,
+    ServiceSpec,
     SingleHostSpec,
     ToolingSpec,
 )
@@ -28,6 +30,8 @@ def single_host_specification(
     *,
     enabled: bool = False,
     application_replicas: int = 3,
+    durable_jobs: bool = False,
+    durable_job_worker_replicas: int = 1,
     host_port_base: int | None = None,
     bootstrap_provider: str = "none",
     rag: bool = False,
@@ -44,7 +48,26 @@ def single_host_specification(
                 DatabaseStoreSpec(
                     name="identity", global_url_env="IDENTITY_DATABASE_URL"
                 )
+            ],
+            services=[
+                ServiceSpec(
+                    name="events",
+                    kind="rabbitmq",
+                    outbox_stores=["identity"],
+                )
             ]
+            if durable_jobs
+            else [],
+            durable_jobs=[
+                DurableJobSpec(
+                    name="maintenance",
+                    store="identity",
+                    event_type="maintenance.requested",
+                    routing_key="maintenance.requested",
+                )
+            ]
+            if durable_jobs
+            else [],
         ),
         tooling=ToolingSpec(
             rag=RagSpec(enabled=rag),
@@ -54,6 +77,7 @@ def single_host_specification(
             single_host=SingleHostSpec(
                 enabled=enabled,
                 application_replicas=application_replicas,
+                durable_job_worker_replicas=durable_job_worker_replicas,
                 bootstrap_provider=bootstrap_provider,
             ),
         ),
@@ -115,6 +139,26 @@ def test_render_adds_public_proxy_and_application_replicas() -> None:
     assert "port-collision" in readme
     assert "service-level HA" in readme
     assert "validate-ports --env-file environment/.env" in readme
+
+
+def test_render_scales_durable_job_worker_only_when_jobs_are_selected() -> None:
+    files = SingleHostOperatingGenerator().render(
+        single_host_specification(
+            enabled=True,
+            durable_jobs=True,
+            durable_job_worker_replicas=2,
+        )
+    )
+
+    compose = yaml.safe_load(
+        files[PurePosixPath("deploy", "single-host", "compose.override.yml")].replace(
+            "!reset ", ""
+        )
+    )
+    readme = files[PurePosixPath("deploy", "single-host", "README.md")]
+
+    assert compose["services"]["durable-job-worker"]["deploy"]["replicas"] == 2
+    assert "Outbox relay and generic message worker remain single-replica" in readme
 
 
 def test_render_uses_local_port_block_for_single_host_proxy() -> None:

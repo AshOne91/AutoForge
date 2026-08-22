@@ -309,6 +309,20 @@ and independent scheduler health checks. It changes scheduler-process
 multiplicity only: webserver replicas, triggerer replicas, remote executors,
 and multi-host deployment are not selected by this field.
 
+### Single-host Durable Job worker replicas
+
+`tooling.single_host.durable_job_worker_replicas` defaults to `1`. When the
+selected application has Durable Jobs, the single-host overlay applies that
+replica count to `durable-job-worker`; the generated worker's atomic
+`requested -> running` transition lets competing queue deliveries leave one
+worker to execute a job. This is worker-process availability, not exactly-once
+business execution.
+
+The field deliberately does not scale the Outbox relay or generic message
+worker. The relay is at-least-once and the generic message handler is a
+consumer-owned scaffold, so their concurrent-consumer idempotency belongs to a
+separate application contract rather than this operating profile.
+
 ### Kubernetes application composition
 
 `tooling.kubernetes.application_composition` optionally names one declared

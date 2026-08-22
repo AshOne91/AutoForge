@@ -916,6 +916,7 @@ class SingleHostSpec(StrictSpecModel):
 
     enabled: bool = False
     application_replicas: int = Field(default=3, ge=1)
+    durable_job_worker_replicas: int = Field(default=1, ge=1)
     bootstrap_provider: Literal["none", "windows_task_scheduler"] = "none"
 
 

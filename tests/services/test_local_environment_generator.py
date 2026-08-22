@@ -884,8 +884,9 @@ def test_render_connects_rag_consumers_to_the_shared_network() -> None:
     durable_worker_probe = compose["services"]["durable-job-worker"]["healthcheck"][
         "test"
     ][3]
-    assert "urlopen(os.environ['RAG_SEARCH_URL'] + '/_cluster/health', timeout=2)" in durable_worker_probe
-    assert "urlopen(os.environ['RAG_OLLAMA_URL'] + '/api/tags', timeout=2)" in durable_worker_probe
+    assert "socket.create_connection" in durable_worker_probe
+    assert "RAG_SEARCH_URL" not in durable_worker_probe
+    assert "RAG_OLLAMA_URL" not in durable_worker_probe
     assert "RAG_NETWORK_NAME=kis_auto_trading-rag" in environment
     assert "RAG_SEARCH_BACKEND=elasticsearch" in environment
     assert "RAG_SEARCH_URL=http://elasticsearch:9200" in environment
@@ -1377,7 +1378,7 @@ def test_render_marks_runtime_services_restartable() -> None:
         "CMD",
         "python",
         "-c",
-        "import asyncio, os, aio_pika; connection = asyncio.run(aio_pika.connect(os.environ['RABBITMQ_URL'], timeout=2)); asyncio.run(connection.close())",
+        "import os, socket; from urllib.parse import urlsplit; url = urlsplit(os.environ['RABBITMQ_URL']); connection = socket.create_connection((url.hostname, url.port or 5672), timeout=2); connection.close()",
     ]
     assert services["outbox-relay"]["healthcheck"]["test"] == services[
         "durable-job-worker"

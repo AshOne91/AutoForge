@@ -1,11 +1,11 @@
 # Next Task
 
-## Next executable unit: establish safe single-host worker replica coverage
+## Next executable unit: verify remaining single-worker recovery boundaries
 
 The active Roadmap delivery gate permits only reusable service and local logical
-HA work. Trace the generated Outbox relay, message worker, and Durable Job
-worker claim paths before deciding whether an opt-in Single Host replica
-configuration is safe. Reuse existing Inbox, Outbox, and job-claim guarantees;
-do not claim exactly-once execution or scale a component whose contract cannot
-support concurrent replicas. Implement and verify only the smallest safe
-generator extension. Do not add KIS business domain behavior.
+HA work. Durable Job Worker replica safety is now implemented and verified.
+Use the same generated HA workspace to prove that the intentionally single
+Outbox relay and generic message worker each become healthy, can be stopped,
+and return healthy after explicit restart. Do not scale either service: their
+at-least-once contracts still require consumer-owned idempotency. Do not add KIS
+business-domain behavior.

@@ -25,6 +25,12 @@ from autoforge.services.generation.durable_jobs import (
 
 LOCAL_ENVIRONMENT_GENERATOR_ID = "autoforge.generator.local-environment"
 LOCAL_ENVIRONMENT_GENERATOR_VERSION = "0.1.1"
+RABBITMQ_TCP_HEALTHCHECK = (
+    "import os, socket; from urllib.parse import urlsplit; "
+    "url = urlsplit(os.environ['RABBITMQ_URL']); "
+    "connection = socket.create_connection((url.hostname, url.port or 5672), timeout=2); "
+    "connection.close()"
+)
 
 
 class LocalEnvironmentGenerator:
@@ -1613,7 +1619,7 @@ class LocalEnvironmentGenerator:
             "    restart: unless-stopped\n"
             "    command: [\"python\", \"scripts/run_outbox_relay.py\"]\n"
             "    healthcheck:\n"
-            '      test: ["CMD", "python", "-c", "import asyncio, os, aio_pika; connection = asyncio.run(aio_pika.connect(os.environ[\'RABBITMQ_URL\'], timeout=2)); asyncio.run(connection.close())"]\n'
+            + f"      test: [\"CMD\", \"python\", \"-c\", {json.dumps(RABBITMQ_TCP_HEALTHCHECK)}]\n"
             "      interval: 10s\n"
             "      timeout: 3s\n"
             "      retries: 3\n"
@@ -1660,7 +1666,7 @@ class LocalEnvironmentGenerator:
             "    restart: unless-stopped\n"
             "    command: [\"python\", \"scripts/run_message_worker.py\"]\n"
             "    healthcheck:\n"
-            '      test: ["CMD", "python", "-c", "import asyncio, os, aio_pika; connection = asyncio.run(aio_pika.connect(os.environ[\'RABBITMQ_URL\'], timeout=2)); asyncio.run(connection.close())"]\n'
+            + f"      test: [\"CMD\", \"python\", \"-c\", {json.dumps(RABBITMQ_TCP_HEALTHCHECK)}]\n"
             "      interval: 10s\n"
             "      timeout: 3s\n"
             "      retries: 3\n"
@@ -1705,13 +1711,6 @@ class LocalEnvironmentGenerator:
         )
         rag_network = "    networks:\n      - default\n      - rag\n" if has_rag else ""
         rag_environment = self._render_rag_environment(specification) if has_rag else ""
-        rag_healthcheck = (
-            "; from urllib.request import urlopen; "
-            "urlopen(os.environ['RAG_SEARCH_URL'] + '/_cluster/health', timeout=2).read(); "
-            "urlopen(os.environ['RAG_OLLAMA_URL'] + '/api/tags', timeout=2).read()"
-            if has_rag
-            else ""
-        )
         return (
             "  durable-job-worker:\n"
             f"    image: ${{APPLICATION_IMAGE:-{image}}}\n"
@@ -1719,9 +1718,7 @@ class LocalEnvironmentGenerator:
             f'    restart: "{restart_policy}"\n'
             "    command: [\"python\", \"scripts/run_durable_job_worker.py\"]\n"
             "    healthcheck:\n"
-            '      test: ["CMD", "python", "-c", "import asyncio, os, aio_pika; connection = asyncio.run(aio_pika.connect(os.environ[\'RABBITMQ_URL\'], timeout=2)); asyncio.run(connection.close())'
-            + rag_healthcheck
-            + '"]\n'
+            + f"      test: [\"CMD\", \"python\", \"-c\", {json.dumps(RABBITMQ_TCP_HEALTHCHECK)}]\n"
             "      interval: 10s\n"
             "      timeout: 3s\n"
             "      retries: 3\n"
