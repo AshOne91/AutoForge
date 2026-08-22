@@ -83,6 +83,8 @@ AutoForge currently has working foundations for:
   because their at-least-once delivery still requires consumer-owned idempotency.
   A fresh KIS HA workspace proved two healthy Durable Job Workers, one-worker
   survival after the other stopped, successful rejoin, and automatic cleanup.
+  The same isolated drill proves the intentionally single Outbox relay and
+  generic message worker return healthy after an explicit stop/restart.
 - PostgreSQL JobStore and worker leasing
 - isolated Git checkout
 - safe branch/commit/push/Pull Request automation

@@ -1,11 +1,12 @@
 # Next Task
 
-## Next executable unit: verify remaining single-worker recovery boundaries
+## Next executable unit: establish MySQL local-HA recovery proof
 
 The active Roadmap delivery gate permits only reusable service and local logical
-HA work. Durable Job Worker replica safety is now implemented and verified.
-Use the same generated HA workspace to prove that the intentionally single
-Outbox relay and generic message worker each become healthy, can be stopped,
-and return healthy after explicit restart. Do not scale either service: their
-at-least-once contracts still require consumer-owned idempotency. Do not add KIS
-business-domain behavior.
+HA work. PostgreSQL, Redis, RabbitMQ, Airflow, application replicas, Durable
+Job Worker replicas, and the intentionally single relay/message-worker recovery
+boundaries have recorded local proofs. `mysql_mode: ha` currently has generated
+InnoDB-cluster and router configuration coverage only. Run an isolated generated
+MySQL HA workspace, identify the first real startup or failover gap, and add the
+smallest reusable generator or verification change needed for a durable-state
+and writer-recovery proof. Do not add KIS business-domain behavior.
